@@ -55,5 +55,5 @@ function New-IdleLifecycleRequest {
     )
 
     # Use core-exported factory to construct the domain object. Keeps domain model inside IdLE.Core.
-    return New-IdleLifecycleRequestCore -LifecycleEvent $LifecycleEvent -CorrelationId $CorrelationId -Actor $Actor -IdentityKeys $IdentityKeys -DesiredState $DesiredState -Changes $Changes
+    New-IdleLifecycleRequestObject @PSBoundParameters
 }

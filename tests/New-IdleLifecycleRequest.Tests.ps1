@@ -60,3 +60,35 @@ Describe 'New-IdleLifecycleRequest' {
         $req.Actor | Should -Be 'alice@contoso.com'
     }
 }
+
+Describe 'New-IdleLifecycleRequest - data-only validation' {
+
+    It 'rejects ScriptBlock in DesiredState' {
+        { New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            Attributes = @{
+                Department = { 'IT' }
+            }
+        } } | Should -Throw
+    }
+
+    It 'rejects ScriptBlock nested in arrays' {
+        { New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            Entitlements = @(
+                @{ Type = 'Group'; Value = 'APP-CRM-Users' }
+                @{ Type = 'Custom'; Value = { 'NOPE' } }
+            )
+        } } | Should -Throw
+    }
+
+    It 'rejects ScriptBlock in Changes when provided' {
+        { New-IdleLifecycleRequest -LifecycleEvent 'Mover' -Changes @{
+            Attributes = @{
+                Department = @{
+                    From = 'Sales'
+                    To   = { 'IT' }
+                }
+            }
+        } } | Should -Throw
+    }
+}
+
