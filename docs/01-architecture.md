@@ -103,10 +103,10 @@ We use the field-based reference convention:
 
 **LifecycleRequest** is the domain input representing business intent:
 
-- Scenario (Joiner/Mover/Leaver/…)
+- LifecycleEvent (Joiner/Mover/Leaver/…)
 - IdentityKeys (UPN, EmployeeId, ObjectId, …)
 - DesiredState (attributes, entitlements, etc.)
-- Changes (for mover scenarios)
+- Changes (for mover lifecycle events)
 - CorrelationId (required; generated if missing)
 
 ### 7.2 LifecyclePlan

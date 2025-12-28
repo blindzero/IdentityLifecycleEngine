@@ -32,7 +32,7 @@ IdLE aims to be:
 
 ## Features
 
-- **Joiner / Mover / Leaver** orchestration (and custom scenarios)
+- **Joiner / Mover / Leaver** orchestration (and custom life cycle events)
 - **Plan → Execute** flow (preview actions before applying them)
 - **Plugin step model** (`Test` / `Invoke`, optional `Rollback` later)
 - **Provider/Adapter pattern** (directory, SaaS, REST, file/mock…)
@@ -74,8 +74,8 @@ Install-Module IdLE
 Typical flow: **Create request → Validate workflow → Build plan → Execute plan**
 
 ```powershell
-# 1) Create a request (scenario + identity keys + desired state)
-$request = New-IdleLifecycleRequest -Scenario Joiner -Actor 'alice@contoso.com' -CorrelationId (New-Guid) -IdentityKeys @{
+# 1) Create a request (LifecycleEvent + identity keys + desired state)
+$request = New-IdleLifecycleRequest -LifecycleEvent Joiner -Actor 'alice@contoso.com' -CorrelationId (New-Guid) -IdentityKeys @{
   EmployeeId = '12345'
   UPN        = 'new.user@contoso.com'
 } -DesiredState @{
@@ -116,8 +116,8 @@ Example (illustrative):
 
 ```powershell
 @{
-  Name     = 'Joiner - Standard'
-  Scenario = 'Joiner'
+  Name           = 'Joiner - Standard'
+  LifecycleEvent = 'Joiner'
   Steps    = @(
     @{ Name = 'ResolveIdentity';    Type = 'IdLE.Step.ResolveIdentity' }
     @{ Name = 'EnsureAttributes';   Type = 'IdLE.Step.EnsureAttributes' }
