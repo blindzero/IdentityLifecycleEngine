@@ -38,7 +38,7 @@ function Assert-IdleNoScriptBlock {
     }
 
     # PSCustomObject (walk note properties)
-    if ($Value -is [psobject]) {
+    if ($Value -is [pscustomobject]) {
         foreach ($p in $Value.PSObject.Properties) {
             if ($p.MemberType -eq 'NoteProperty') {
                 Assert-IdleNoScriptBlock -Value $p.Value -Path "$Path.$($p.Name)"
