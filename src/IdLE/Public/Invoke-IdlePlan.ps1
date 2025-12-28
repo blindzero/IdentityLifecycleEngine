@@ -5,17 +5,16 @@ function Invoke-IdlePlan {
 
     .DESCRIPTION
     Executes a previously created plan in a deterministic way and emits structured events.
-    This is a stub in the core skeleton increment and will be implemented in subsequent commits.
+    Providers are passed through to execution (structure will be defined later).
 
     .PARAMETER Plan
     The plan object created by New-IdlePlan.
 
-    .PARAMETER WhatIf
-    Shows what would happen if the plan is executed.
+    .PARAMETER Providers
+    Provider registry/collection passed through to execution. (Structure to be defined later.)
 
     .EXAMPLE
-    $plan = New-IdlePlan -Request $req -WorkflowPath ./workflows/joiner.psd1
-    Invoke-IdlePlan -Plan $plan
+    Invoke-IdlePlan -Plan $plan -Providers $providers
 
     .OUTPUTS
     System.Object
@@ -24,7 +23,11 @@ function Invoke-IdlePlan {
     param(
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Plan
+        [object] $Plan,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $Providers
     )
 
     if ($PSCmdlet.ShouldProcess('IdLE Plan', 'Invoke')) {

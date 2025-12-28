@@ -13,9 +13,12 @@ function New-IdlePlan {
     .PARAMETER WorkflowPath
     Path to the workflow definition file (PSD1).
 
+    .PARAMETER Providers
+    Provider registry/collection passed through to planning. (Structure to be defined later.)
+
     .EXAMPLE
-    $req = New-IdleLifecycleRequest -LifecycleEvent Joiner -Actor 'alice@contoso.com' -CorrelationId (New-Guid)
-    New-IdlePlan -Request $req -WorkflowPath ./workflows/joiner.psd1
+    $request = New-IdleLifecycleRequest -LifecycleEvent Joiner -Actor 'alice@contoso.com' -CorrelationId (New-Guid)
+    $plan = New-IdlePlan -WorkflowPath ./workflows/joiner.psd1 -Request $request -Providers $providers
 
     .OUTPUTS
     System.Object
@@ -28,7 +31,11 @@ function New-IdlePlan {
 
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string] $WorkflowPath
+        [string] $WorkflowPath,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $Providers
     )
 
     throw 'Not implemented: New-IdlePlan will be implemented in IdLE.Core in a subsequent increment.'
