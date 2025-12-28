@@ -3,6 +3,7 @@
 [![PowerShell](https://img.shields.io/badge/PowerShell-7%2B-blue)](#requirements)
 [![Pester](https://img.shields.io/badge/Tests-Pester%205-blueviolet)](#testing)
 [![License](https://img.shields.io/badge/License-See%20LICENSE-lightgrey)](LICENSE.md)
+[![CI](https://github.com/blindzero/IdentityLifecycleEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/blindzero/IdentityLifecycleEngine/actions/workflows/ci.yml)
 
 **IdLE** is a **generic, headless, configurable Identity or Account Lifecycle / JML (Joiner–Mover–Leaver) orchestration engine** built for **PowerShell**.
 
