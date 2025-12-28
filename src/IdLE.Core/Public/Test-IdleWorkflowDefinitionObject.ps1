@@ -32,7 +32,7 @@ function Test-IdleWorkflowDefinitionObject {
 
     # 2) Enforce "data-only": no ScriptBlocks anywhere in the workflow object.
     #    This matches the project's config safety rules.
-    Assert-IdleNoScriptBlock -Value $workflow -Path 'Workflow'
+    Assert-IdleNoScriptBlock -InputObject $workflow -Path 'Workflow'
 
     # 3) Strict schema validation: unknown keys and missing required keys are errors.
     # using a resizable list to collect all violations and have .Add method available later
@@ -56,6 +56,16 @@ function Test-IdleWorkflowDefinitionObject {
                 $errors.Add("Workflow LifecycleEvent '$wfEvent' does not match request LifecycleEvent '$reqEvent'.")
             }
         }
+    }
+
+    # 4b) Validate step definitions (Name/Type/When/With + data-only).
+    $idx = 0
+    foreach ($s in @($workflow.Steps)) {
+        $stepErrors = Test-IdleStepDefinition -Step $s -Index $idx
+        foreach ($e in @($stepErrors)) {
+            $null = $errors.Add([string]$e)
+        }
+        $idx++
     }
 
     if ($errors.Count -gt 0) {

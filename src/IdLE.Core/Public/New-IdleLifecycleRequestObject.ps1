@@ -22,9 +22,9 @@ function New-IdleLifecycleRequestObject {
     )
 
     # Validate that no ScriptBlocks are present in the input data
-    Assert-IdleNoScriptBlock -Value $IdentityKeys -Path 'IdentityKeys'
-    Assert-IdleNoScriptBlock -Value $DesiredState -Path 'DesiredState'
-    Assert-IdleNoScriptBlock -Value $Changes      -Path 'Changes'
+    Assert-IdleNoScriptBlock -InputObject $IdentityKeys -Path 'IdentityKeys'
+    Assert-IdleNoScriptBlock -InputObject $DesiredState -Path 'DesiredState'
+    Assert-IdleNoScriptBlock -InputObject $Changes      -Path 'Changes'
 
     # Clone hashtables to avoid external mutation after object creation
     # shallow clone is sufficient as we have already validated no ScriptBlocks are present

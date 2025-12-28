@@ -150,4 +150,41 @@ Describe 'Invoke-IdlePlan' {
       $result.Steps[0].Status | Should -Be 'Completed'
       ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
     }
+
+    It 'fails planning when a step is missing Type' {
+      $wfPath = Join-Path -Path $TestDrive -ChildPath 'bad.psd1'
+      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Bad'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'NoType' }
+  )
+}
+'@
+
+      $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+
+      { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
+    }
+
+    It 'fails planning when When schema is invalid' {
+      $wfPath = Join-Path -Path $TestDrive -ChildPath 'bad-when.psd1'
+      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'BadWhen'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{
+      Name = 'Emit'
+      Type = 'IdLE.Step.EmitEvent'
+      When = @{ Path = 'Plan.LifecycleEvent'; Equals = 'Joiner'; Exists = $true }
+    }
+  )
+}
+'@
+
+      $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
+    }
 }
