@@ -9,7 +9,8 @@
 
     FunctionsToExport = @(
         'New-IdleLifecycleRequestObject',
-        'Test-IdleWorkflowDefinitionObject'
+        'Test-IdleWorkflowDefinitionObject',
+        'New-IdlePlanObject'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
