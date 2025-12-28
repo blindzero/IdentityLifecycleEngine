@@ -11,10 +11,10 @@ function Test-IdleWorkflow {
     Path to the workflow definition file (PSD1).
 
     .PARAMETER LifecycleEvent
-    Optional lifecycle evet name to validate compatibility (e.g. Joiner/Mover/Leaver).
+    Optional lifecycle event name to validate compatibility (e.g. Joiner/Mover/Leaver).
 
     .EXAMPLE
-    Test-IdleWorkflow -Path ./workflows/joiner.psd1 -Scenario Joiner
+    Test-IdleWorkflow -Path ./workflows/joiner.psd1 -LifecycleEvent Joiner
 
     .OUTPUTS
     System.Object
@@ -27,7 +27,7 @@ function Test-IdleWorkflow {
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [string] $Scenario
+        [string] $LifecycleEvent
     )
 
     throw 'Not implemented: Test-IdleWorkflow will be implemented in IdLE.Core in a subsequent increment.'
