@@ -14,9 +14,6 @@ if (Test-Path -Path $PublicPath) {
         }
 }
 
-$StepsManifestPath = Join-Path -Path $PSScriptRoot -ChildPath '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
-Import-Module -Name $StepsManifestPath -Force -ErrorAction Stop
-
 # Export exactly the public API cmdlets (contract).
 Export-ModuleMember -Function @(
     'Test-IdleWorkflow',

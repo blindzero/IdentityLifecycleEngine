@@ -39,5 +39,14 @@ function Get-IdleStepRegistry {
         }
     }
 
+    # Add built-in defaults only if the step implementation is actually available.
+    # This keeps IdLE's public surface minimal: steps are optional modules.
+    if (-not $registry.ContainsKey('IdLE.Step.EmitEvent')) {
+        $cmd = Get-Command -Name 'Invoke-IdleStepEmitEvent' -ErrorAction SilentlyContinue
+        if ($null -ne $cmd) {
+            $registry['IdLE.Step.EmitEvent'] = $cmd.Name
+        }
+    }
+
     return $registry
 }

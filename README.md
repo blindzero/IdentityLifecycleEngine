@@ -79,6 +79,17 @@ IdLE separates **planning** from **execution**:
 
 > Note: Workflows are **data-only**. Step implementations are provided by the host via the Step Registry.
 
+### Optional built-in steps
+
+IdLE is an engine-only module. Built-in step implementations are provided via optional step modules.
+
+To use the common built-in steps:
+
+```powershell
+Import-Module IdLE
+Import-Module IdLE.Steps.Common
+```
+
 ### Example
 
 ```powershell

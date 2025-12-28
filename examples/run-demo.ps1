@@ -2,6 +2,7 @@
 Set-StrictMode -Version Latest
 
 Import-Module (Join-Path $PSScriptRoot '..\src\IdLE\IdLE.psd1') -Force
+Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Steps.Common\IdLE.Steps.Common.psd1') -Force
 
 $workflowPath = Join-Path $PSScriptRoot 'workflows\joiner-with-when.psd1'
 
