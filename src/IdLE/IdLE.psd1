@@ -7,6 +7,8 @@
     Description       = 'IdentityLifecycleEngine (IdLE) meta-module. Imports IdLE.Core and optional packs.'
     PowerShellVersion = '7.0'
 
+    NestedModules = @('..\IdLE.Core\IdLE.Core.psd1')
+
     FunctionsToExport = @(
         'Test-IdleWorkflow',
         'New-IdleLifecycleRequest',
