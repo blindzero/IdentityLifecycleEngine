@@ -16,9 +16,9 @@
     CmdletsToExport   = @()
     AliasesToExport   = @()
 
-    RequiredModules = @(
-        @{ ModuleName = 'IdLE.Core' }
-    )
+    # NOTE: IdLE depends on IdLE.Core.
+    # We intentionally do not use 'RequiredModules' to keep repo-clone imports working
+    # when modules are imported via relative paths (IdLE.Core may not be on PSModulePath).
 
     PrivateData = @{
         PSData = @{
