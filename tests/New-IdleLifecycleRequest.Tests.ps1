@@ -63,32 +63,53 @@ Describe 'New-IdleLifecycleRequest' {
 
 Describe 'New-IdleLifecycleRequest - data-only validation' {
 
-    It 'rejects ScriptBlock in DesiredState' {
-        { New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
-            Attributes = @{
-                Department = { 'IT' }
+    It 'rejects ScriptBlock in DesiredState when provided' {
+        try {
+            New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+                Attributes = @{ Department = { 'IT' } }
             }
-        } } | Should -Throw
+            throw 'Expected an exception but none was thrown.'
+        }
+        catch {
+            $_.Exception | Should -BeOfType ([System.ArgumentException])
+            $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
+            $_.Exception.Message | Should -Match 'DesiredState'
+        }
     }
 
     It 'rejects ScriptBlock nested in arrays' {
-        { New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
-            Entitlements = @(
-                @{ Type = 'Group'; Value = 'APP-CRM-Users' }
-                @{ Type = 'Custom'; Value = { 'NOPE' } }
-            )
-        } } | Should -Throw
+        try {
+            New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+                Entitlements = @(
+                    @{ Type = 'Group'; Value = 'APP-CRM-Users' }
+                    @{ Type = 'Custom'; Value = { 'NOPE' } }
+                )
+            }
+        }
+        catch {
+            $_.Exception | Should -BeOfType ([System.ArgumentException])
+            $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
+            $_.Exception.Message | Should -Match 'DesiredState'
+        } 
     }
 
     It 'rejects ScriptBlock in Changes when provided' {
-        { New-IdleLifecycleRequest -LifecycleEvent 'Mover' -Changes @{
-            Attributes = @{
-                Department = @{
-                    From = 'Sales'
-                    To   = { 'IT' }
+        try {
+            New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -Changes @{
+                Attributes = @{
+                    Department = @{
+                        From = 'Sales'
+                        To   = { 'IT' }
+                    }
                 }
             }
-        } } | Should -Throw
+            throw 'Expected an exception but none was thrown.'
+        }
+        catch {
+            $_.Exception | Should -BeOfType ([System.ArgumentException])
+            $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
+            $_.Exception.Message | Should -Match 'Changes'
+        }
     }
 }
 
