@@ -16,27 +16,27 @@ jobs:
   test:
     name: Pester (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+
+    # add job-scoped permissions needed for artifact upload
+    permissions:
+      contents: read
+      actions: write
+
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Show PowerShell version
-        shell: pwsh
-        run: |
-          $PSVersionTable
+      - uses: actions/checkout@v4
 
       - name: Run Pester
         shell: pwsh
-        run: |
-          pwsh -NoProfile -File ./tools/run-tests.ps1 -CI
+        run: pwsh -NoProfile -File ./tools/run-tests.ps1 -CI
 
       - name: Upload test results
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.os }}
