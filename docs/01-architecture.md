@@ -316,3 +316,25 @@ flowchart LR
 - Automatic rollback orchestration (if domain demands it)
 - YAML support (optional; introduces dependency)
 - Verified actor / requestor claims (if host can provide verified identity)
+
+## Step dispatch and plugins
+
+Workflows are **data-only**. Each step specifies a `Type` string (e.g. `IdLE.Step.EmitEvent`).
+At runtime, the host provides a **Step Registry** mapping `Step.Type` → handler.
+
+A handler can be:
+
+- a **function name** (PowerShell function implementing the step contract), or
+- a **scriptblock** (useful for tests/examples and lightweight hosts)
+
+The engine resolves the handler and invokes it with a minimal execution context (`Context`) and the step definition (`Step`).
+
+## Declarative step conditions
+
+Steps can declare a `When` condition using a simple data-only schema:
+
+- `Path` + `Equals`
+- `Path` + `NotEquals`
+- `Path` + `Exists`
+
+If a condition evaluates to false, the engine marks the step as `Skipped` and emits a `StepSkipped` event.

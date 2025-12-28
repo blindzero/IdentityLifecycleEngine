@@ -69,40 +69,70 @@ Install-Module IdLE
 
 ---
 
-## Quickstart
+## Quickstart (Plan → Execute)
 
-Typical flow: **Create request → Validate workflow → Build plan → Execute plan**
+IdLE separates **planning** from **execution**:
+
+1. Create a `LifecycleRequest`
+2. Build a deterministic `Plan` from a workflow definition (PSD1)
+3. Execute the plan with a host-provided step registry (handlers)
+
+> Note: Workflows are **data-only**. Step implementations are provided by the host via the Step Registry.
+
+### Example
 
 ```powershell
-# 1) Create a request (LifecycleEvent + identity keys + desired state)
-$request = New-IdleLifecycleRequest -LifecycleEvent Joiner -Actor 'alice@contoso.com' -CorrelationId (New-Guid) -IdentityKeys @{
-  EmployeeId = '12345'
-  UPN        = 'new.user@contoso.com'
-} -DesiredState @{
-  Attributes = @{
-    Department = 'IT'
-    Title      = 'Engineer'
-  }
-  Entitlements = @(
-    @{ Type = 'Group'; Value = 'APP-CRM-Users' }
-    @{ Type = 'License'; Value = 'M365_E3' }
-  )
+Import-Module .\src\IdLE\IdLE.psd1 -Force
+
+# 1) Request
+$request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -Actor 'demo-user'
+
+# 2) Plan
+$plan = New-IdlePlan -WorkflowPath .\examples\workflows\joiner-minimal.psd1 -Request $request
+
+# 3) Step registry (host configuration)
+$emitHandler = {
+    param($Context, $Step)
+
+    & $Context.WriteEvent 'Custom' 'Hello from handler.' $Step.Name @{ StepType = $Step.Type }
+
+    [pscustomobject]@{
+        PSTypeName = 'IdLE.StepResult'
+        Name       = [string]$Step.Name
+        Type       = [string]$Step.Type
+        Status     = 'Completed'
+        Error      = $null
+    }
 }
 
-# 2) Validate configuration/workflow compatibility
-Test-IdleWorkflow -WorkflowPath ./workflows/joiner.psd1 -Request $request
+$providers = @{
+    StepRegistry = @{
+        'IdLE.Step.EmitEvent' = $emitHandler
+    }
+}
 
-# 3) Build a plan (preview actions and warnings)
-$plan = New-IdlePlan -WorkflowPath ./workflows/joiner.psd1 -Request $request -Providers $providers
-
-# Optional: inspect the plan
-$plan.Actions | Format-Table
-
-# 4) Execute the plan
-Invoke-IdlePlan -Plan $plan -Providers $providers
+# Execute
+$result = Invoke-IdlePlan -Plan $plan -Providers $providers
+$result.Status
+$result.Events | Format-Table TimestampUtc, Type, StepName, Message -AutoSize
 ```
 
----
+### Declarative `When` conditions (data-only)
+
+Steps can be conditionally skipped using a declarative `When` block:
+
+```powershell
+When = @{
+  Path   = 'Plan.LifecycleEvent'
+  Equals = 'Joiner'
+}
+```
+
+If the condition is not met, the step result status becomes `Skipped` and a `StepSkipped` event is emitted.
+
+### More examples
+
+See the runnable demo in `examples/run-demo.ps1` and additional workflow samples in `examples/workflows/`.
 
 ## Workflow Definitions (concept)
 
