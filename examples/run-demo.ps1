@@ -1,6 +1,71 @@
 #requires -Version 7.0
 Set-StrictMode -Version Latest
 
+function Test-IdleAnsiSupport {
+    try {
+        return ($Host.UI.SupportsVirtualTerminal -or $env:TERM -and $env:TERM -ne 'dumb')
+    } catch { return $false }
+}
+
+$UseAnsi = Test-IdleAnsiSupport
+
+function Write-DemoHeader {
+    param([string]$Title)
+
+    if ($UseAnsi) {
+        Write-Host "$($PSStyle.Bold)$($PSStyle.Foreground.Cyan)$Title$($PSStyle.Reset)"
+    } else {
+        Write-Host $Title
+    }
+}
+
+function Format-EventRow {
+    param([object]$Event)
+
+    $icons = @{
+        RunStarted    = '🚀'
+        RunCompleted  = '🏁'
+        StepStarted   = '▶️'
+        StepCompleted = '✅'
+        StepSkipped   = '⏭️'
+        StepFailed    = '❌'
+        Custom        = '📝'
+        Debug         = '🔎'
+    }
+
+    $icon = if ($icons.ContainsKey($Event.Type)) { $icons[$Event.Type] } else { '•' }
+
+    $time = ([DateTime]$Event.TimestampUtc).ToLocalTime().ToString('HH:mm:ss.fff')
+    $step = if ([string]::IsNullOrWhiteSpace($Event.StepName)) { '-' } else { [string]$Event.StepName }
+
+    [pscustomobject]@{
+        Time    = $time
+        Type    = "$icon $($Event.Type)"
+        Step    = $step
+        Message = $Event.Message
+    }
+}
+
+function Write-ResultSummary {
+    param([object]$Result)
+
+    $statusIcon = switch ($Result.Status) {
+        'Completed' { '✅' }
+        'Failed'    { '❌' }
+        default     { 'ℹ️' }
+    }
+
+    if ($UseAnsi) {
+        $color = if ($Result.Status -eq 'Completed') { $PSStyle.Foreground.Green } else { $PSStyle.Foreground.Red }
+        Write-Host "$($PSStyle.Bold)$statusIcon Status: $color$($Result.Status)$($PSStyle.Reset)"
+    } else {
+        Write-Host "$statusIcon Status: $($Result.Status)"
+    }
+
+    $counts = $Result.Events | Group-Object Type | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Count)" }
+    Write-Host ("Events: " + ($counts -join ', '))
+}
+
 Import-Module (Join-Path $PSScriptRoot '..\src\IdLE\IdLE.psd1') -Force
 Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Steps.Common\IdLE.Steps.Common.psd1') -Force
 
@@ -62,5 +127,11 @@ $providers = @{
 
 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
-$result.Status
-$result.Events | Format-Table TimestampUtc, Type, StepName, Message -AutoSize
+Write-DemoHeader "IdLE Demo – Plan Execution"
+Write-ResultSummary -Result $result
+
+Write-Host ""
+Write-DemoHeader "Event Stream"
+$result.Events |
+    ForEach-Object { Format-EventRow $_ } |
+    Format-Table Time, Type, Step, Message -AutoSize
