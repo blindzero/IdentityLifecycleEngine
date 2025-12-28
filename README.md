@@ -7,6 +7,7 @@
 **IdLE** is a **generic, headless, configurable Identity or Account Lifecycle / JML (Joiner–Mover–Leaver) orchestration engine** built for **PowerShell**.
 
 It helps you standardize identity lifecycle processes across environments by separating:
+
 - **what** should happen (workflow definition)
 - from **how** it happens (providers/adapters)
 
@@ -15,11 +16,13 @@ It helps you standardize identity lifecycle processes across environments by sep
 ## Why IdLE?
 
 Identity lifecycle automation tends to become:
+
 - tightly coupled to one system or one environment
 - hard to test
 - hard to change (logic baked into scripts)
 
 IdLE aims to be:
+
 - **portable** (run anywhere PowerShell 7 runs)
 - **modular** (steps + providers are swappable)
 - **testable** (Pester-friendly; mock providers)
@@ -48,6 +51,7 @@ IdLE aims to be:
 ## Installation
 
 ### Option A — Clone & import locally (current)
+
 ```powershell
 git clone <this-repo-url>
 cd <repo-folder>
@@ -57,6 +61,7 @@ Import-Module ./src/IdLE.Core/IdLE.Core.psd1 -Force
 
 ### Option B — PowerShell Gallery (planned)
 Once published:
+
 ```powershell
 Install-Module IdLE.Core
 ```
@@ -101,11 +106,13 @@ Invoke-IdlePlan -Plan $plan -Providers $providers
 ## Workflow Definitions (concept)
 
 Workflows are configuration-first (e.g., `.psd1`) and describe:
+
 - step sequence
 - conditions (declarative, not arbitrary PowerShell expressions)
 - required inputs / produced outputs
 
 Example (illustrative):
+
 ```powershell
 @{
   Name     = 'Joiner - Standard'
@@ -135,6 +142,7 @@ This keeps workflows stable even when the underlying systems change.
 ## Event Stream / Auditing
 
 Every run emits structured events (progress, audit, warnings, errors), typically including:
+
 - `CorrelationId`
 - `Actor`
 - step name / outcome
@@ -147,6 +155,7 @@ This enables integration into logging systems, SIEM, ticketing, or custom dashbo
 ## Testing
 
 Run the full test suite:
+
 ```powershell
 Invoke-Pester -Path ./tests
 ```
@@ -156,6 +165,7 @@ Invoke-Pester -Path ./tests
 ## Contributing
 
 PRs welcome. A few guiding principles:
+
 - Keep the core **host-agnostic**
 - Prefer **configuration** over hardcoding logic
 - Aim for **idempotent** steps
