@@ -1,0 +1,62 @@
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Visual Studio / .NET
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.dbmdl
+.vs/
+bin/
+obj/
+TestResults/
+*.cache
+*.pdb
+*.dll
+*.exe
+*.nuget/
+*.nupkg
+
+# Visual Studio Code
+.vscode/
+history/
+
+# Environment files
+.env
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Coverage
+.coverage
+coverage/
+coverage.*
+
+# Packages
+*.7z
+*.zip
+*.tar.gz
+*.rar
+
+# PowerShell / PowerShell Core
+# PSReadLine history, transcripts and module/cache artifacts
+**/ConsoleHost_history.txt
+**/pwsh_history
+*.transcript
+*.pssc
+ModuleAnalysisCache/
+**/ModuleAnalysisCache/
+
+# Build Directories
+build/
+dist/
+deploy/
+build_output/
+BuildOutput/
+
+# End of file
