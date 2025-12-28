@@ -4,7 +4,6 @@ Set-StrictMode -Version Latest
 
 $CoreManifestPath = Join-Path -Path $PSScriptRoot -ChildPath '..\IdLE.Core\IdLE.Core.psd1'
 Import-Module -Name $CoreManifestPath -Force -ErrorAction Stop
-
 $PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
 
 if (Test-Path -Path $PublicPath) {

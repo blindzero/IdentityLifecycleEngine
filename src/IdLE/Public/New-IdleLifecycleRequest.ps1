@@ -4,17 +4,18 @@ function New-IdleLifecycleRequest {
     Creates a lifecycle request object.
 
     .DESCRIPTION
-    Creates an IdLE lifecycle request representing business intent (e.g. Joiner/Mover/Leaver).
-    This is a stub in the core skeleton increment and will be implemented in subsequent commits.
+    Creates and normalizes an IdLE LifecycleRequest representing business intent
+    (e.g. Joiner/Mover/Leaver). CorrelationId is generated if missing. Actor is optional.
+    Changes is optional and stays $null when omitted.
 
     .PARAMETER LifecycleEvent
     The lifecycle event name (e.g. Joiner, Mover, Leaver).
 
-    .PARAMETER Actor
-    The actor who initiated the request (required).
-
     .PARAMETER CorrelationId
-    A correlation identifier for audit/event correlation (required).
+    Correlation identifier for audit/event correlation. Generated if missing.
+
+    .PARAMETER Actor
+    Optional actor claim who initiated the request. Not required by the core engine in V1.
 
     .PARAMETER IdentityKeys
     A hashtable of system-neutral identity keys (e.g. EmployeeId, UPN, ObjectId).
@@ -26,21 +27,22 @@ function New-IdleLifecycleRequest {
     Optional hashtable describing changes (typically used for Mover lifecycle events).
 
     .EXAMPLE
-    New-IdleLifecycleRequest -LifecycleEvent Joiner -Actor 'alice@contoso.com' -CorrelationId (New-Guid)
+    New-IdleLifecycleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
 
     .OUTPUTS
-    System.Object
+    IdleLifecycleRequest
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
         [string] $LifecycleEvent,
 
-        [Parameter(Mandatory)]
-        [string] $Actor,
-
-        [Parameter(Mandatory)]
+        [Parameter()]
         [string] $CorrelationId,
+
+        [Parameter()]
+        [string] $Actor,
 
         [Parameter()]
         [hashtable] $IdentityKeys = @{},
@@ -52,5 +54,6 @@ function New-IdleLifecycleRequest {
         [hashtable] $Changes
     )
 
-    throw 'Not implemented: New-IdleLifecycleRequest will be implemented in IdLE.Core in a subsequent increment.'
+    # Use core-exported factory to construct the domain object. Keeps domain model inside IdLE.Core.
+    return New-IdleLifecycleRequestCore -LifecycleEvent $LifecycleEvent -CorrelationId $CorrelationId -Actor $Actor -IdentityKeys $IdentityKeys -DesiredState $DesiredState -Changes $Changes
 }

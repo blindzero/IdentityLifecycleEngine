@@ -7,7 +7,9 @@
     Description       = 'IdLE Core engine: domain model, workflow loading/validation, plan builder and execution pipeline.'
     PowerShellVersion = '7.0'
 
-    FunctionsToExport = @()
+    FunctionsToExport = @(
+        'New-IdleLifecycleRequestCore'
+    )
     CmdletsToExport   = @()
     AliasesToExport   = @()
 
