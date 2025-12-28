@@ -118,13 +118,9 @@ PRs welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
 
-## Roadmap (indicative)
+## Roadmap
 
-- [ ] Publish `IdLE.Core` to PowerShell Gallery
-- [ ] First “batteries included” step pack (`IdLE.Steps.Common`)
-- [ ] Reference providers (Mock/File + one real-world provider)
-- [ ] Plan diff formatting improvements
-- [ ] Rollback support (optional per step)
+See Github [Issues](https://github.com/blindzero/IdentityLifecycleEngine/issues) and [Milestones](https://github.com/blindzero/IdentityLifecycleEngine/milestones) for our roadmap.
 
 ---
 
