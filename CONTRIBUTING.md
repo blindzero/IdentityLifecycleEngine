@@ -58,7 +58,7 @@ Enhancement proposals should:
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/<org>/IdentityLifecycleEngine.git
+git clone https://github.com/blindzero/IdentityLifecycleEngine.git
 ```
 
 ---
@@ -124,8 +124,7 @@ A contribution is complete when:
 
 ## Documentation
 
-- Architecture: `docs/idle-architecture.md`
-- Coding & documentation rules: **STYLEGUIDE.md**
+See Index: [`docs/00_index.md`](docs/00_index.md)
 
 ---
 
