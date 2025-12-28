@@ -192,3 +192,16 @@ $summary = foreach ($path in $manifestPaths) {
 $summary |
     Sort-Object ModuleName |
     Format-Table -AutoSize ModuleName, ModuleVersion, ManifestPath
+
+# Sanity checks
+$missingVersion = $summary | Where-Object { -not $_.ModuleVersion }
+if ($missingVersion) {
+    $list = ($missingVersion | Select-Object -ExpandProperty ManifestPath) -join [Environment]::NewLine
+    throw "Sanity check failed. One or more manifests do not contain 'ModuleVersion':`n$list"
+}
+
+$wrongVersion = $summary | Where-Object { $_.ModuleVersion -ne $TargetVersion }
+if ($wrongVersion) {
+    $list = ($wrongVersion | ForEach-Object { "$($_.ManifestPath) -> $($_.ModuleVersion)" }) -join [Environment]::NewLine
+    throw "Sanity check failed. One or more manifests are not set to target version '$TargetVersion':`n$list"
+}
