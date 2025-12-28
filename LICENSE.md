@@ -1,6 +1,7 @@
-Apache License
+# Apache License
+
 Version 2.0, January 2004
-http://www.apache.org/licenses/
+<http://www.apache.org/licenses/>
 
 TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
@@ -57,7 +58,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
    managed by, or on behalf of, the Licensor for the purpose of
    discussing and improving the Work, but excluding communication that
    is conspicuously marked or otherwise designated in writing by the
-   copyright owner as "Not a Contribution." 
+   copyright owner as "Not a Contribution."
 
    "Contributor" shall mean Licensor and any individual or Legal Entity
    on behalf of whom a Contribution has been received by Licensor and
@@ -186,7 +187,7 @@ APPENDIX: How to apply the Apache License to your work.
    same "printed page" as the copyright notice for easier identification
    within third-party archives.
 
-   Copyright 2025 blindzero
+   Copyright 2025 Matthias Fleschütz (blindzero)
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
