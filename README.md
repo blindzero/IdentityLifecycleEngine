@@ -32,7 +32,7 @@ IdLE aims to be:
 
 ## Features
 
-- **Joiner / Mover / Leaver** orchestration (and custom scenarios)
+- **Joiner / Mover / Leaver** orchestration (and custom life cycle events)
 - **Plan → Execute** flow (preview actions before applying them)
 - **Plugin step model** (`Test` / `Invoke`, optional `Rollback` later)
 - **Provider/Adapter pattern** (directory, SaaS, REST, file/mock…)
@@ -53,7 +53,7 @@ IdLE aims to be:
 ### Option A — Clone & import locally (current)
 
 ```powershell
-git clone [https://github.com/blindzero/IdentityLifecycleEngine](https://github.com/blindzero/IdentityLifecycleEngine)
+git clone https://github.com/blindzero/IdentityLifecycleEngine
 cd IdentityLifecycleEngine
 
 Import-Module ./src/IdLE/IdLE.psd1 -Force
@@ -71,101 +71,45 @@ Install-Module IdLE
 
 ## Quickstart
 
-Typical flow: **Create request → Validate workflow → Build plan → Execute plan**
+Run the end-to-end demo (Plan → Execute):
 
 ```powershell
-# 1) Create a request (scenario + identity keys + desired state)
-$request = New-IdleLifecycleRequest -Scenario Joiner -Actor 'alice@contoso.com' -CorrelationId (New-Guid) -IdentityKeys @{
-  EmployeeId = '12345'
-  UPN        = 'new.user@contoso.com'
-} -DesiredState @{
-  Attributes = @{
-    Department = 'IT'
-    Title      = 'Engineer'
-  }
-  Entitlements = @(
-    @{ Type = 'Group'; Value = 'APP-CRM-Users' }
-    @{ Type = 'License'; Value = 'M365_E3' }
-  )
-}
-
-# 2) Validate configuration/workflow compatibility
-Test-IdleWorkflow -WorkflowPath ./workflows/joiner.psd1 -Request $request
-
-# 3) Build a plan (preview actions and warnings)
-$plan = New-IdlePlan -WorkflowPath ./workflows/joiner.psd1 -Request $request -Providers $providers
-
-# Optional: inspect the plan
-$plan.Actions | Format-Table
-
-# 4) Execute the plan
-Invoke-IdlePlan -Plan $plan -Providers $providers
+pwsh -File .\examples\run-demo.ps1
 ```
 
----
+The demo shows:
 
-## Workflow Definitions (concept)
+- creating a lifecycle request
+- building a deterministic plan from a workflow definition (`.psd1`)
+- executing the plan using a host-provided step registry
 
-Workflows are configuration-first (e.g., `.psd1`) and describe:
+Next steps:
 
-- step sequence
-- conditions (declarative, not arbitrary PowerShell expressions)
-- required inputs / produced outputs
-
-Example (illustrative):
-
-```powershell
-@{
-  Name     = 'Joiner - Standard'
-  Scenario = 'Joiner'
-  Steps    = @(
-    @{ Name = 'ResolveIdentity';    Type = 'IdLE.Step.ResolveIdentity' }
-    @{ Name = 'EnsureAttributes';   Type = 'IdLE.Step.EnsureAttributes' }
-    @{ Name = 'EnsureEntitlements'; Type = 'IdLE.Step.EnsureEntitlements' }
-    @{ Name = 'Finalize';           Type = 'IdLE.Step.EmitSummary' }
-  )
-}
-```
+- Usage & examples: `docs/02-examples.md`
+- Architecture: `docs/01-architecture.md`
+- Workflow samples: `examples/workflows/`
+- Pester tests: `tests/`
 
 ---
 
-## Providers & Steps
+## Documentation
 
-IdLE deliberately does not hardcode system access. Instead, it calls provider interfaces/ports.
+Start here:
 
-- **Steps**: reusable building blocks (e.g., ensure attribute, ensure entitlement, disable identity)
-- **Providers**: concrete implementations (e.g., Entra ID, AD DS, REST API, file/mock)
+- `docs/00-index.md` – documentation map
+- `docs/01-architecture.md` – architecture and principles
+- `docs/02-examples.md` – runnable examples + workflow snippets
 
-This keeps workflows stable even when the underlying systems change.
+Project docs:
 
----
-
-## Event Stream / Auditing
-
-Every run emits structured events (progress, audit, warnings, errors), typically including:
-
-- `CorrelationId`
-- `Actor`
-- step name / outcome
-- change summaries (plan diffs, applied actions)
-
-This enables integration into logging systems, SIEM, ticketing, or custom dashboards.
-
----
-
-## Testing
-
-Run the full test suite:
-
-```powershell
-Invoke-Pester -Path ./tests
-```
+- Contributing: `CONTRIBUTING.md`
+- Style guide: `STYLEGUIDE.md`
 
 ---
 
 ## Contributing
 
-PRs welcome. A few guiding principles:
+PRs welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 - Keep the core **host-agnostic**
 - Prefer **configuration** over hardcoding logic
