@@ -4,8 +4,8 @@ Set-StrictMode -Version Latest
 
 $CoreManifestPath = Join-Path -Path $PSScriptRoot -ChildPath '..\IdLE.Core\IdLE.Core.psd1'
 Import-Module -Name $CoreManifestPath -Force -ErrorAction Stop
-$PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
 
+$PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
 if (Test-Path -Path $PublicPath) {
     Get-ChildItem -Path $PublicPath -Filter '*.ps1' -File |
         Sort-Object -Property FullName |
@@ -13,6 +13,9 @@ if (Test-Path -Path $PublicPath) {
             . $_.FullName
         }
 }
+
+$StepsManifestPath = Join-Path -Path $PSScriptRoot -ChildPath '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
+Import-Module -Name $StepsManifestPath -Force -ErrorAction Stop
 
 # Export exactly the public API cmdlets (contract).
 Export-ModuleMember -Function @(

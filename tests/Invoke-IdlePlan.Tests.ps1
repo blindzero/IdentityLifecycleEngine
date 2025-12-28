@@ -4,10 +4,9 @@ BeforeAll {
 }
 
 Describe 'Invoke-IdlePlan' {
-
     It 'returns an execution result with events in deterministic order' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+      $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
+      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
@@ -18,23 +17,39 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-        $result = Invoke-IdlePlan -Plan $plan
+      $noop = {
+          param($Context, $Step)
+          [pscustomobject]@{
+              PSTypeName = 'IdLE.StepResult'
+              Name       = [string]$Step.Name
+              Type       = [string]$Step.Type
+              Status     = 'Completed'
+              Error      = $null
+          }
+      }
 
-        $result.PSTypeNames | Should -Contain 'IdLE.ExecutionResult'
-        $result.Status | Should -Be 'Completed'
-        @($result.Steps).Count | Should -Be 2
+      $providers = @{
+          StepRegistry = @{
+              'IdLE.Step.ResolveIdentity'  = $noop
+              'IdLE.Step.EnsureAttributes' = $noop
+          }
+      }
 
-        # Basic event checks
-        @($result.Events).Count | Should -BeGreaterThan 0
-        $result.Events[0].Type | Should -Be 'RunStarted'
-        $result.Events[-1].Type | Should -Be 'RunCompleted'
+      $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
-        # Step status placeholder
-        $result.Steps[0].Status | Should -Be 'NotImplemented'
-        $result.Steps[1].Status | Should -Be 'NotImplemented'
+      $result.PSTypeNames | Should -Contain 'IdLE.ExecutionResult'
+      $result.Status | Should -Be 'Completed'
+      @($result.Steps).Count | Should -Be 2
+
+      @($result.Events).Count | Should -BeGreaterThan 0
+      $result.Events[0].Type | Should -Be 'RunStarted'
+      $result.Events[-1].Type | Should -Be 'RunCompleted'
+
+      $result.Steps[0].Status | Should -Be 'Completed'
+      $result.Steps[1].Status | Should -Be 'Completed'
     }
 
     It 'supports -WhatIf and does not execute' {
@@ -51,8 +66,8 @@ Describe 'Invoke-IdlePlan' {
     }
 
     It 'can stream events to a ScriptBlock sink' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+      $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
+      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
@@ -62,19 +77,77 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-        $sinkEvents = [System.Collections.Generic.List[object]]::new()
-        $sink = {
-            param($e)
-            [void]$sinkEvents.Add($e)
-        }.GetNewClosure()
-        
-        $result = Invoke-IdlePlan -Plan $plan -EventSink $sink
+      $noop = {
+          param($Context, $Step)
+          [pscustomobject]@{
+              PSTypeName = 'IdLE.StepResult'
+              Name       = [string]$Step.Name
+              Type       = [string]$Step.Type
+              Status     = 'Completed'
+              Error      = $null
+          }
+      }
 
-        @($sinkEvents).Count | Should -BeGreaterThan 0
-        $sinkEvents[0].PSTypeNames | Should -Contain 'IdLE.Event'
-        $result.Events[0].Type | Should -Be 'RunStarted'
+      $providers = @{
+          StepRegistry = @{
+              'IdLE.Step.ResolveIdentity' = $noop
+          }
+      }
+
+      $sinkEvents = [System.Collections.Generic.List[object]]::new()
+      $sink = {
+          param($e)
+          [void]$sinkEvents.Add($e)
+      }.GetNewClosure()
+
+      $result = Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sink
+
+      $sinkEvents.Count | Should -BeGreaterThan 0
+      $sinkEvents[0].PSTypeNames | Should -Contain 'IdLE.Event'
+      $result.Events[0].Type | Should -Be 'RunStarted'
+    }
+
+    It 'executes a registered step and returns Completed status' {
+      $wfPath = Join-Path -Path $TestDrive -ChildPath 'emit.psd1'
+      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Demo'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'Emit'; Type = 'IdLE.Step.EmitEvent'; With = @{ Message = 'Hello' } }
+  )
+}
+'@
+
+      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+
+      $emit = {
+          param($Context, $Step)
+          & $Context.WriteEvent 'Custom' 'Hello from test step' $Step.Name @{ StepType = $Step.Type }
+
+          [pscustomobject]@{
+              PSTypeName = 'IdLE.StepResult'
+              Name       = [string]$Step.Name
+              Type       = [string]$Step.Type
+              Status     = 'Completed'
+              Error      = $null
+          }
+      }
+
+      $providers = @{
+          StepRegistry = @{
+              'IdLE.Step.EmitEvent' = $emit
+          }
+      }
+
+      $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+      $result.Status | Should -Be 'Completed'
+      $result.Steps[0].Status | Should -Be 'Completed'
+      ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
     }
 }
