@@ -13,7 +13,7 @@ param(
 Set-StrictMode -Off
 $ErrorActionPreference = 'Stop'
 
-function Ensure-Pester {
+function Test-Pester {
     [CmdletBinding()]
     param(
         [Parameter()]
@@ -38,7 +38,7 @@ if ($resultsDir -and -not (Test-Path -Path $resultsDir)) {
     New-Item -Path $resultsDir -ItemType Directory -Force | Out-Null
 }
 
-Ensure-Pester -MinimumVersion '5.0.0'
+Test-Pester -MinimumVersion '5.0.0'
 
 $config = New-PesterConfiguration
 $config.Run.Path = $TestPath
