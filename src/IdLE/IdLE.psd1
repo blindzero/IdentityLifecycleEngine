@@ -7,6 +7,8 @@
     Description       = 'IdentityLifecycleEngine (IdLE) meta-module. Imports IdLE.Core and optional packs.'
     PowerShellVersion = '7.0'
 
+    NestedModules = @('..\IdLE.Core\IdLE.Core.psd1')
+
     FunctionsToExport = @(
         'Test-IdleWorkflow',
         'New-IdleLifecycleRequest',
@@ -15,6 +17,10 @@
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
+
+    # NOTE: IdLE depends on IdLE.Core.
+    # We intentionally do not use 'RequiredModules' to keep repo-clone imports working
+    # when modules are imported via relative paths (IdLE.Core may not be on PSModulePath).
 
     PrivateData = @{
         PSData = @{
