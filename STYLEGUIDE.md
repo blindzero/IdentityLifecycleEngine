@@ -101,27 +101,10 @@ Providers:
 
 ---
 
-## Documentation
+## Documentation Responsibilities
 
-Documentation must be updated when:
-
-- public APIs change
-- workflow behavior changes
-- provider auth requirements change
-
----
-
-## Tooling
-
-### Recommended IDE
-
-- Visual Studio Code
-
-### Extensions
-
-- PowerShell
-- EditorConfig
-- Markdown All in One
+Documentation *process* lives in **CONTRIBUTING.md**.
+This style guide focuses on **in-code documentation rules** (comment-based help, inline comments).
 
 ---
 

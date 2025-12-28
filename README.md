@@ -69,138 +69,41 @@ Install-Module IdLE
 
 ---
 
-## Quickstart (Plan → Execute)
+## Quickstart
 
-IdLE separates **planning** from **execution**:
-
-1. Create a `LifecycleRequest`
-2. Build a deterministic `Plan` from a workflow definition (PSD1)
-3. Execute the plan with a host-provided step registry (handlers)
-
-> Note: Workflows are **data-only**. Step implementations are provided by the host via the Step Registry.
-
-### Optional built-in steps
-
-IdLE is an engine-only module. Built-in step implementations are provided via optional step modules.
-
-To use the common built-in steps:
+Run the end-to-end demo (Plan → Execute):
 
 ```powershell
-Import-Module IdLE
-Import-Module IdLE.Steps.Common
+pwsh -File .\examples\run-demo.ps1
 ```
 
-### Example
+The demo shows:
 
-```powershell
-Import-Module .\src\IdLE\IdLE.psd1 -Force
+- creating a lifecycle request
+- building a deterministic plan from a workflow definition (`.psd1`)
+- executing the plan using a host-provided step registry
 
-# 1) Request
-$request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+Next steps:
 
-# 2) Plan
-$plan = New-IdlePlan -WorkflowPath .\examples\workflows\joiner-minimal.psd1 -Request $request
-
-# 3) Step registry (host configuration)
-$emitHandler = {
-    param($Context, $Step)
-
-    & $Context.WriteEvent 'Custom' 'Hello from handler.' $Step.Name @{ StepType = $Step.Type }
-
-    [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = [string]$Step.Name
-        Type       = [string]$Step.Type
-        Status     = 'Completed'
-        Error      = $null
-    }
-}
-
-$providers = @{
-    StepRegistry = @{
-        'IdLE.Step.EmitEvent' = $emitHandler
-    }
-}
-
-# Execute
-$result = Invoke-IdlePlan -Plan $plan -Providers $providers
-$result.Status
-$result.Events | Format-Table TimestampUtc, Type, StepName, Message -AutoSize
-```
-
-### Declarative `When` conditions (data-only)
-
-Steps can be conditionally skipped using a declarative `When` block:
-
-```powershell
-When = @{
-  Path   = 'Plan.LifecycleEvent'
-  Equals = 'Joiner'
-}
-```
-
-If the condition is not met, the step result status becomes `Skipped` and a `StepSkipped` event is emitted.
-
-### More examples
-
-See the runnable demo in `examples/run-demo.ps1` and additional workflow samples in `examples/workflows/`.
-
-## Workflow Definitions (concept)
-
-Workflows are configuration-first (e.g., `.psd1`) and describe:
-
-- step sequence
-- conditions (declarative, not arbitrary PowerShell expressions)
-- required inputs / produced outputs
-
-Example (illustrative):
-
-```powershell
-@{
-  Name           = 'Joiner - Standard'
-  LifecycleEvent = 'Joiner'
-  Steps    = @(
-    @{ Name = 'ResolveIdentity';    Type = 'IdLE.Step.ResolveIdentity' }
-    @{ Name = 'EnsureAttributes';   Type = 'IdLE.Step.EnsureAttributes' }
-    @{ Name = 'EnsureEntitlements'; Type = 'IdLE.Step.EnsureEntitlements' }
-    @{ Name = 'Finalize';           Type = 'IdLE.Step.EmitSummary' }
-  )
-}
-```
+- Usage & examples: `docs/02-examples.md`
+- Architecture: `docs/01-architecture.md`
+- Workflow samples: `examples/workflows/`
+- Pester tests: `tests/`
 
 ---
 
-## Providers & Steps
+## Documentation
 
-IdLE deliberately does not hardcode system access. Instead, it calls provider interfaces/ports.
+Start here:
 
-- **Steps**: reusable building blocks (e.g., ensure attribute, ensure entitlement, disable identity)
-- **Providers**: concrete implementations (e.g., Entra ID, AD DS, REST API, file/mock)
+- `docs/00-index.md` – documentation map
+- `docs/01-architecture.md` – architecture and principles
+- `docs/02-examples.md` – runnable examples + workflow snippets
 
-This keeps workflows stable even when the underlying systems change.
+Project docs:
 
----
-
-## Event Stream / Auditing
-
-Every run emits structured events (progress, audit, warnings, errors), typically including:
-
-- `CorrelationId`
-- `Actor`
-- step name / outcome
-- change summaries (plan diffs, applied actions)
-
-This enables integration into logging systems, SIEM, ticketing, or custom dashboards.
-
----
-
-## Testing
-
-Run the full test suite:
-
-```powershell
-Invoke-Pester -Path ./tests
-```
+- Contributing: `CONTRIBUTING.md`
+- Style guide: `STYLEGUIDE.md`
 
 ---
 

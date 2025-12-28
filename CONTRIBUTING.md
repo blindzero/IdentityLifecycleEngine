@@ -55,6 +55,14 @@ Enhancement proposals should:
 - Git
 - Visual Studio Code (recommended)
 
+### Recommended IDE & extensions (optional)
+
+- Visual Studio Code
+- Extensions:
+  - PowerShell
+  - EditorConfig
+  - Markdown All in One
+
 ### Clone the Repository
 
 ```bash
@@ -115,16 +123,30 @@ Pull Requests must:
 
 A contribution is complete when:
 
-- all tests pass
-- no architecture rules are violated
-- public APIs are documented
-- relevant docs are updated
+- all tests pass (`Invoke-Pester -Path ./tests`)
+- no architecture rules are violated (see `docs/01-architecture.md`)
+- public APIs are documented (comment-based help for exported functions)
+- documentation is updated where required:
+  - README.md (only high-level overview + pointers)
+  - docs/ (usage/concepts/examples)
+  - provider/step module READMEs if behavior/auth changes
 
 ---
 
 ## Documentation
 
-See Index: [`docs/00_index.md`](docs/00_index.md)
+Keep docs short and linkable:
+
+- README.md: landing page (what/why + 30s quickstart + links)
+- docs/: architecture, usage, examples (small focused pages)
+- examples/: runnable scripts and workflow samples
+
+Key links:
+
+- Docs map: `docs/00-index.md`
+- Architecture: `docs/01-architecture.md`
+- Examples: `docs/02-examples.md`
+- Coding & in-code documentation rules: `STYLEGUIDE.md`
 
 ---
 
