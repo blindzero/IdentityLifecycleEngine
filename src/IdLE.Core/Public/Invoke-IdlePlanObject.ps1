@@ -103,11 +103,6 @@ function Invoke-IdlePlanObject {
             $null
         }
 
-        & $context.WriteEvent 'StepStarted' "Step '$stepName' started." $stepName @{
-            StepType = $stepType
-            Index    = $i
-        }
-
         # Evaluate declarative When condition (data-only).
         if ($step.PSObject.Properties.Name -contains 'When' -and $null -ne $step.When) {
             $shouldRun = Test-IdleWhenCondition -When $step.When -Context $context
@@ -128,6 +123,11 @@ function Invoke-IdlePlanObject {
                 $i++
                 continue
             }
+        }
+
+        & $context.WriteEvent 'StepStarted' "Step '$stepName' started." $stepName @{
+            StepType = $stepType
+            Index    = $i
         }
 
         try {
