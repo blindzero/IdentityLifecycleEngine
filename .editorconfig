@@ -1,0 +1,42 @@
+# IdLE .editorconfig
+# Enforces formatting rules from STYLEGUIDE.md (PowerShell 7+, 4 spaces, UTF-8, LF)
+# See: STYLEGUIDE.md / CONTRIBUTING.md
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+tab_width = 4
+trim_trailing_whitespace = true
+
+# PowerShell source and data files
+[*.{ps1,psm1,psd1}]
+indent_style = space
+indent_size = 4
+tab_width = 4
+trim_trailing_whitespace = true
+
+# Markdown: keep trailing whitespace (can be meaningful for line breaks)
+[*.md]
+trim_trailing_whitespace = false
+indent_style = space
+indent_size = 4
+
+# JSON/YAML: keep common 2-space indentation (editor convenience; not in conflict with core rules)
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+tab_width = 2
+trim_trailing_whitespace = true
+
+# Shell scripts (if any)
+[*.{sh,bash}]
+end_of_line = lf
+indent_style = space
+indent_size = 2
+tab_width = 2
+trim_trailing_whitespace = true
