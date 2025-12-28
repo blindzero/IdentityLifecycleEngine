@@ -4,17 +4,17 @@ function Test-IdleWorkflow {
     Validates an IdLE workflow definition file.
 
     .DESCRIPTION
-    Loads and validates a workflow definition (PSD1).
-    This is a stub in the core skeleton increment and will be implemented in subsequent commits.
+    Loads and strictly validates a workflow definition (PSD1).
+    Throws on validation errors.
 
-    .PARAMETER Path
+    .PARAMETER WorkflowPath
     Path to the workflow definition file (PSD1).
 
-    .PARAMETER LifecycleEvent
-    Optional lifecycle event name to validate compatibility (e.g. Joiner/Mover/Leaver).
+    .PARAMETER Request
+    Optional lifecycle request for validating compatibility (LifecycleEvent match).
 
     .EXAMPLE
-    Test-IdleWorkflow -Path ./workflows/joiner.psd1 -LifecycleEvent Joiner
+    Test-IdleWorkflow -WorkflowPath ./workflows/joiner.psd1 -Request $request
 
     .OUTPUTS
     System.Object
@@ -23,12 +23,21 @@ function Test-IdleWorkflow {
     param(
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string] $Path,
+        [string] $WorkflowPath,
 
         [Parameter()]
-        [ValidateNotNullOrEmpty()]
-        [string] $LifecycleEvent
+        [AllowNull()]
+        [object] $Request
     )
 
-    throw 'Not implemented: Test-IdleWorkflow will be implemented in IdLE.Core in a subsequent increment.'
+    # Delegate validation to IdLE.Core to keep the meta module thin and stable.
+    $wf = Test-IdleWorkflowDefinitionObject -WorkflowPath $WorkflowPath -Request $Request
+
+    # Test-* cmdlets typically return a small report object instead of the full definition.
+    return [pscustomobject]@{
+        IsValid        = $true
+        WorkflowName   = $wf.Name
+        LifecycleEvent = $wf.LifecycleEvent
+        StepCount      = @($wf.Steps).Count
+    }
 }

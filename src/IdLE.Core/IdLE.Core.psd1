@@ -8,7 +8,8 @@
     PowerShellVersion = '7.0'
 
     FunctionsToExport = @(
-        'New-IdleLifecycleRequestObject'
+        'New-IdleLifecycleRequestObject',
+        'Test-IdleWorkflowDefinitionObject'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()

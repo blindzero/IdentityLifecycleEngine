@@ -19,5 +19,6 @@ foreach ($path in @($PrivatePath, $PublicPath)) {
 
 # Core exports selected factory functions. The meta module (IdLE) exposes the public API.
 Export-ModuleMember -Function @(
-    'New-IdleLifecycleRequestObject'
+    'New-IdleLifecycleRequestObject',
+    'Test-IdleWorkflowDefinitionObject'
 ) -Alias @()
