@@ -53,7 +53,7 @@ IdLE aims to be:
 ### Option A — Clone & import locally (current)
 
 ```powershell
-git clone [https://github.com/blindzero/IdentityLifecycleEngine](https://github.com/blindzero/IdentityLifecycleEngine)
+git clone https://github.com/blindzero/IdentityLifecycleEngine
 cd IdentityLifecycleEngine
 
 Import-Module ./src/IdLE/IdLE.psd1 -Force
@@ -96,7 +96,7 @@ Import-Module IdLE.Steps.Common
 Import-Module .\src\IdLE\IdLE.psd1 -Force
 
 # 1) Request
-$request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -Actor 'demo-user'
+$request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
 # 2) Plan
 $plan = New-IdlePlan -WorkflowPath .\examples\workflows\joiner-minimal.psd1 -Request $request
