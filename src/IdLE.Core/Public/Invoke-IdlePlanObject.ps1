@@ -108,6 +108,28 @@ function Invoke-IdlePlanObject {
             Index    = $i
         }
 
+        # Evaluate declarative When condition (data-only).
+        if ($step.PSObject.Properties.Name -contains 'When' -and $null -ne $step.When) {
+            $shouldRun = Test-IdleWhenCondition -When $step.When -Context $context
+            if (-not $shouldRun) {
+                $stepResults += [pscustomobject]@{
+                    PSTypeName = 'IdLE.StepResult'
+                    Name       = $stepName
+                    Type       = $stepType
+                    Status     = 'Skipped'
+                    Error      = $null
+                }
+
+                & $context.WriteEvent 'StepSkipped' "Step '$stepName' skipped (condition not met)." $stepName @{
+                    StepType = $stepType
+                    Index    = $i
+                }
+
+                $i++
+                continue
+            }
+        }
+
         try {
             # Resolve implementation handler for this step type.
             # Handler can be:
