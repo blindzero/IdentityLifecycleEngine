@@ -53,10 +53,10 @@ IdLE aims to be:
 ### Option A — Clone & import locally (current)
 
 ```powershell
-git clone <this-repo-url>
-cd <repo-folder>
+git clone [https://github.com/blindzero/IdentityLifecycleEngine](https://github.com/blindzero/IdentityLifecycleEngine)
+cd IdentityLifecycleEngine
 
-Import-Module ./src/IdLE.Core/IdLE.Core.psd1 -Force
+Import-Module ./src/IdLE/IdLE.psd1 -Force
 ```
 
 ### Option B — PowerShell Gallery (planned)
@@ -64,7 +64,7 @@ Import-Module ./src/IdLE.Core/IdLE.Core.psd1 -Force
 Once published:
 
 ```powershell
-Install-Module IdLE.Core
+Install-Module IdLE
 ```
 
 ---
