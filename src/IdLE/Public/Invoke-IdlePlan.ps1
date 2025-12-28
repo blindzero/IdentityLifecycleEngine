@@ -4,14 +4,17 @@ function Invoke-IdlePlan {
     Executes an IdLE plan.
 
     .DESCRIPTION
-    Executes a previously created plan in a deterministic way and emits structured events.
-    Providers are passed through to execution (structure will be defined later).
+    Executes a plan deterministically and emits structured events.
+    Delegates execution to IdLE.Core.
 
     .PARAMETER Plan
     The plan object created by New-IdlePlan.
 
     .PARAMETER Providers
-    Provider registry/collection passed through to execution. (Structure to be defined later.)
+    Provider registry/collection passed through to execution.
+
+    .PARAMETER EventSink
+    Optional event sink. Can be a ScriptBlock or an object with a WriteEvent() method.
 
     .EXAMPLE
     Invoke-IdlePlan -Plan $plan -Providers $providers
@@ -27,10 +30,23 @@ function Invoke-IdlePlan {
 
         [Parameter()]
         [AllowNull()]
-        [object] $Providers
+        [object] $Providers,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $EventSink
     )
 
-    if ($PSCmdlet.ShouldProcess('IdLE Plan', 'Invoke')) {
-        throw 'Not implemented: Invoke-IdlePlan will be implemented in IdLE.Core in a subsequent increment.'
+    if (-not $PSCmdlet.ShouldProcess('IdLE Plan', 'Invoke')) {
+        # For WhatIf: return a minimal preview object.
+        return [pscustomobject]@{
+            PSTypeName    = 'IdLE.ExecutionResult'
+            Status        = 'WhatIf'
+            CorrelationId = if ($Plan.PSObject.Properties.Name -contains 'CorrelationId') { [string]$Plan.CorrelationId } else { $null }
+            Steps         = @($Plan.Steps)
+            Events        = @()
+        }
     }
+
+    return Invoke-IdlePlanObject -Plan $Plan -Providers $Providers -EventSink $EventSink
 }

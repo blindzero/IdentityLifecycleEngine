@@ -21,5 +21,6 @@ foreach ($path in @($PrivatePath, $PublicPath)) {
 Export-ModuleMember -Function @(
     'New-IdleLifecycleRequestObject',
     'Test-IdleWorkflowDefinitionObject',
-    'New-IdlePlanObject'
+    'New-IdlePlanObject',
+    'Invoke-IdlePlanObject'
 ) -Alias @()
