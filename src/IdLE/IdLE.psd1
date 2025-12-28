@@ -16,6 +16,10 @@
     CmdletsToExport   = @()
     AliasesToExport   = @()
 
+    RequiredModules = @(
+        @{ ModuleName = 'IdLE.Core' }
+    )
+
     PrivateData = @{
         PSData = @{
             Tags       = @('Identity Lifecycle Engine', 'IdLE', 'Identity', 'Lifecycle', 'Automation', 'Identity Management', 'JML', 'Onboarding', 'Offboarding', 'Account Management')
