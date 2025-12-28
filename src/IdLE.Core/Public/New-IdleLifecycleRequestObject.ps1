@@ -27,6 +27,7 @@ function New-IdleLifecycleRequestObject {
     Assert-IdleNoScriptBlock -Value $Changes      -Path 'Changes'
 
     # Clone hashtables to avoid external mutation after object creation
+    # shallow clone is sufficient as we have already validated no ScriptBlocks are present
     $IdentityKeys = if ($null -eq $IdentityKeys) { @{} } else { $IdentityKeys.Clone() }
     $DesiredState = if ($null -eq $DesiredState) { @{} } else { $DesiredState.Clone() }
     $Changes      = if ($null -eq $Changes) { $null } else { $Changes.Clone() }
