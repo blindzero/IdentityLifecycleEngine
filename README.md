@@ -165,7 +165,7 @@ Invoke-Pester -Path ./tests
 
 ## Contributing
 
-PRs welcome. A few guiding principles:
+PRs welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 - Keep the core **host-agnostic**
 - Prefer **configuration** over hardcoding logic
