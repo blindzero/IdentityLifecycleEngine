@@ -1,71 +1,49 @@
-# IdentityLifecycleEngine (IdLE) Style Guide
+# IdLE Style Guide
 
-This document defines the **coding, documentation, and testing standards**
+This document defines **coding, documentation, and testing standards**
 for **IdentityLifecycleEngine (IdLE)**.
-
-This is the authoritative source for style and best practices.
+It follows widely accepted **GitHub and PowerShell community conventions**.
 
 ---
 
-## 1. PowerShell Coding Standards
+## General Principles
 
-### 1.1 PowerShell Version
+- Prefer clarity over cleverness
+- Fail early and explicitly
+- Keep behavior deterministic
+- Avoid hidden side effects
+
+---
+
+## PowerShell Standards
+
+### PowerShell Version
 
 - PowerShell Core **7+ only**
 
 ---
 
-### 1.2 Language Rules
+### Naming Conventions
 
-- All code, comments, and documentation **must be in English**
-- Prefer explicit, readable code
-
----
-
-### 1.3 Naming
-
-- Verb-Noun for public cmdlets (`New-`, `Test-`, `Invoke-`)
+- Verb-Noun cmdlet naming
 - Singular nouns
-- No abbreviations unless well known
+- Avoid abbreviations
 
 ---
 
-### 1.4 Formatting
+### Formatting
 
 - 4 spaces indentation
+- UTF-8, LF
 - One statement per line
-- Curly braces on same line
-
-```powershell
-if ($condition) {
-    Do-Something
-}
-```
 
 ---
 
-## 2. Public APIs & Functions
+## Public APIs
 
-### 2.1 Public vs Private
+### Comment-Based Help (Required)
 
-- Public functions must be exported explicitly
-- Private helpers must not be exported
-
----
-
-### 2.2 Error Handling
-
-- Use `throw` for errors
-- Do not use `Write-Error` for control flow
-- Errors must be actionable
-
----
-
-## 3. Comment-Based Help (Mandatory)
-
-All public functions MUST include comment-based help.
-
-Required sections:
+All exported functions must include comment-based help with:
 
 - `.SYNOPSIS`
 - `.DESCRIPTION`
@@ -73,86 +51,73 @@ Required sections:
 - `.EXAMPLE`
 - `.OUTPUTS`
 
+Public APIs are part of the contract and must remain stable.
+
 ---
 
-## 4. Inline Comments
+## Inline Comments
 
 - Explain **why**, not **what**
-- Avoid obvious comments
+- Avoid restating obvious code
 
 ---
 
-## 5. Configuration Rules
+## Configuration Rules
 
-- PSD1 only for workflows and metadata
-- No PowerShell expressions
+- PSD1 only
 - No script blocks
-- No dynamic evaluation
+- No PowerShell expressions
+- Configuration must be data-only
 
 ---
 
-## 6. Steps
+## Steps
 
 Steps must:
 
 - be idempotent
 - produce data-only actions
-- never perform authentication
+- not perform authentication
 - write only declared `State.*` outputs
 
 ---
 
-## 7. Providers
+## Providers
 
 Providers:
 
-- handle all authentication
+- handle authentication
 - use `ExecutionContext.AcquireSession()`
-- never assume global state
 - must be mockable
+- must not assume global state
 
 ---
 
-## 8. State Management
-
-- Replace-at-path semantics (V1)
-- No deep merges
-- No overwriting other steps' outputs
-
----
-
-## 9. Testing Standards
-
-### 9.1 Framework
+## Testing
 
 - Pester only
-
-### 9.2 Test Types
-
-- Unit tests (Core)
-- Contract tests (Providers)
-- Workflow validation tests
+- No live system calls in unit tests
+- Providers require contract tests
 
 ---
 
-## 10. Documentation Structure
+## Documentation
 
-- `/docs/architecture.md`
-- `/docs/domain-model.md`
-- `/docs/steps/<StepId>.md`
-- `/docs/providers/<Provider>.md`
+Documentation must be updated when:
 
-Documentation must be updated together with code changes.
+- public APIs change
+- workflow behavior changes
+- provider auth requirements change
 
 ---
 
-## 11. IDE & Tooling
+## Tooling
 
-### 11.1 Recommended IDE
+### Recommended IDE
 
 - Visual Studio Code
 
-### 11.2 Extensions
+### Extensions
 
 - PowerShell
 - EditorConfig
@@ -160,7 +125,7 @@ Documentation must be updated together with code changes.
 
 ---
 
-## 12. Do's and Don'ts
+## Do's and Don'ts
 
 ### Do
 
@@ -172,5 +137,5 @@ Documentation must be updated together with code changes.
 
 - add UI to the engine
 - add auth to steps
-- hide logic in configuration
+- hide logic in config
 - introduce global state

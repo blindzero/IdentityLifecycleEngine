@@ -1,100 +1,133 @@
 # Contributing to IdentityLifecycleEngine (IdLE)
 
-Thank you for contributing to **IdentityLifecycleEngine (IdLE)** 🎉  
-This document explains **how we work in this repository**.
+Thank you for your interest in contributing to **IdentityLifecycleEngine (IdLE)**! 🎉  
+We welcome contributions that improve quality, stability, and maintainability.
 
-For detailed coding and documentation rules, see **STYLEGUIDE.md**.
-
----
-
-## 1. Project Overview
-
-IdLE is a **headless, data-driven Identity Lifecycle (JML) engine** built with PowerShell Core.
-The project prioritizes:
-
-- deterministic behavior
-- strict validation
-- security by design
-- long-term maintainability
+This document follows common **GitHub open-source conventions** and explains **how to contribute**.
+For detailed coding rules, see **STYLEGUIDE.md**.
 
 ---
 
-## 2. Repository Structure
+## Code of Conduct
+
+This project expects respectful and constructive collaboration.
+(If a CODE_OF_CONDUCT.md is added, it applies to all contributors.)
+
+---
+
+## How Can I Contribute?
+
+You can contribute by:
+
+- Reporting bugs
+- Suggesting enhancements
+- Improving documentation
+- Submitting pull requests
+
+---
+
+## Reporting Bugs
+
+Please open a GitHub Issue and include:
+
+- a clear and descriptive title
+- steps to reproduce
+- expected vs. actual behavior
+- environment details (PowerShell version, OS)
+
+---
+
+## Suggesting Enhancements
+
+Enhancement proposals should:
+
+- explain the problem being solved
+- explain why it fits IdLE’s architecture
+- consider backward compatibility
+
+---
+
+## Development Setup
+
+### Prerequisites
+
+- PowerShell Core 7+
+- Git
+- Visual Studio Code (recommended)
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/<org>/IdentityLifecycleEngine.git
+```
+
+---
+
+## Development Workflow
+
+### Branching Model
+
+- `main` → stable
+- feature branches:
+  - `feature/<short-description>`
+  - `fix/<short-description>`
+
+---
+
+### Commit Messages
+
+- Use clear, concise English
+- One logical change per commit
+
+Recommended format:
 
 ```shell
-/src
-  /IdLE.Core
-  /IdLE.Steps.*
-  /IdLE.Providers.*
-/tests
-  /IdLE.Core.Tests
-  /IdLE.Steps.Tests
-/docs
-  architecture.md
-STYLEGUIDE.md
-CONTRIBUTING.md
-README.md
-```
-
----
-
-## 3. Development Workflow
-
-### 3.1 Branching
-
-- `main` – stable
-- `feature/<name>`
-- `fix/<name>`
-
-### 3.2 Commits
-
-- Small, focused commits
-- English commit messages
-
-Format:
-
-```
 <area>: <short description>
 ```
 
-### 3.3 Pull Requests
+Example:
 
-All changes require a Pull Request.
-
-PRs must include:
-
-- clear description of what and why
-- tests for new/changed behavior
-- documentation updates if public behavior changes
+```shell
+core: add strict workflow validation
+```
 
 ---
 
-## 4. Definition of Done
+### Pull Requests
 
-A contribution is considered done when:
+1. Fork the repository (if external contributor)
+2. Create a feature branch
+3. Make your changes
+4. Add or update tests
+5. Update documentation if needed
+6. Open a Pull Request against `main`
 
-- tests pass (`Invoke-Pester`)
-- strict validation rules are not weakened
+Pull Requests must:
+
+- have a clear description of changes
+- reference related issues (if applicable)
+- pass all tests
+- follow STYLEGUIDE.md
+
+---
+
+## Definition of Done
+
+A contribution is complete when:
+
+- all tests pass
+- no architecture rules are violated
 - public APIs are documented
-- architecture principles are respected
-- STYLEGUIDE.md rules are followed
+- relevant docs are updated
 
 ---
 
-## 5. Tooling
+## Documentation
 
-- PowerShell Core 7+
-- Pester for tests
-- Visual Studio Code recommended
-
----
-
-## 6. Documentation
-
-- Architecture: `docs/architecture.md`
+- Architecture: `docs/idle-architecture.md`
 - Coding & documentation rules: **STYLEGUIDE.md**
 
 ---
 
-Happy contributing 🚀  
+Thank you for contributing 🚀  
 — *IdLE Maintainers*
