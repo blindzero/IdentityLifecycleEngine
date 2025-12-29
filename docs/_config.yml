@@ -6,3 +6,14 @@ kramdown:
   input: GFM
   hard_wrap: false
 plugins: []
+header_pages:
+  - index.md
+  - overview/concept.md
+  - getting-started/installation.md
+  - getting-started/quickstart.md
+  - usage/workflows.md
+  - usage/steps.md
+  - usage/providers.md
+  - advanced/architecture.md
+  - advanced/extensibility.md
+  - advanced/testing.md
