@@ -7,7 +7,6 @@ kramdown:
   hard_wrap: false
 plugins: []
 header_pages:
-  - index.md
   - overview/concept.md
   - getting-started/installation.md
   - getting-started/quickstart.md
