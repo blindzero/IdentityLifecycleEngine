@@ -1,4 +1,4 @@
-# Workflows
+# IdentityLifecycleEngine (IdLE) - Workflows
 
 Workflows are **data-only** configuration files (PSD1) describing which steps should run for a lifecycle event.
 

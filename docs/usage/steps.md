@@ -1,4 +1,4 @@
-# Steps
+# IdentityLifecycleEngine (IdLE) - Steps
 
 Steps are reusable plugins that define how IdLE should converge state.
 

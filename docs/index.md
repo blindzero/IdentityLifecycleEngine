@@ -1,4 +1,4 @@
-# IdLE Documentation
+# IdentityLifecycleEngine (IdLE) Documentation
 
 Welcome to the documentation for **IdentityLifecycleEngine (IdLE)**.
 

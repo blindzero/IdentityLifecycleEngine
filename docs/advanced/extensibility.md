@@ -1,4 +1,4 @@
-# Extensibility
+# IdentityLifecycleEngine (IdLE) - Extensibility
 
 IdLE is designed for change through modules instead of forks.
 
