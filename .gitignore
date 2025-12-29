@@ -60,5 +60,6 @@ deploy/
 build_output/
 BuildOutput/
 artifacts/
+*.bak
 
 # End of file
