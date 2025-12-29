@@ -1,0 +1,8 @@
+title: IdentityLifecycleEngine (IdLE)
+description: Generic, headless, configuration-driven Identity Lifecycle / JML orchestration engine for PowerShell
+theme: minima
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+plugins: []
