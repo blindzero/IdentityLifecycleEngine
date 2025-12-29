@@ -1,5 +1,9 @@
 # IdentityLifecycleEngine (IdLE)
 
+[![CI](https://github.com/blindzero/IdentityLifecycleEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/blindzero/IdentityLifecycleEngine/actions/workflows/ci.yml)
+[![Latest](https://img.shields.io/github/v/release/blindzero/IdentityLifecycleEngine?sort=semver)](https://github.com/blindzero/IdentityLifecycleEngine/releases/latest)
+[![Pre-Release](https://img.shields.io/github/v/release/blindzero/IdentityLifecycleEngine?include_prereleases&sort=semver)](https://github.com/blindzero/IdentityLifecycleEngine/releases)
+
 [![PowerShell](https://img.shields.io/badge/PowerShell-7%2B-blue)](#requirements)
 [![Pester](https://img.shields.io/badge/Tests-Pester%205-blueviolet)](#testing)
 [![License](https://img.shields.io/badge/License-See%20LICENSE-lightgrey)](LICENSE.md)

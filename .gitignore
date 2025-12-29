@@ -32,10 +32,11 @@ history/
 *.log
 logs/
 
-# Coverage
+# Coverage & Tests
 .coverage
 coverage/
 coverage.*
+test-results.*
 
 # Packages
 *.7z
@@ -58,5 +59,7 @@ dist/
 deploy/
 build_output/
 BuildOutput/
+artifacts/
+*.bak
 
 # End of file
