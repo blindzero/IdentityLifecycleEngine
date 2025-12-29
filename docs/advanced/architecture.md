@@ -1,4 +1,4 @@
-# IdentityLifecycleEngine (IdLE) - Architecture
+# Architecture
 
 This page summarizes the core architecture decisions for IdLE.
 

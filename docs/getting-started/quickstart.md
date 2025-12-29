@@ -1,4 +1,4 @@
-# IdentityLifecycleEngine (IdLE) - QuickStart
+# QuickStart
 
 This quickstart walks through the IdLE flow:
 
