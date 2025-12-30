@@ -143,6 +143,24 @@ IdLE maintains a generated cmdlet reference under:
 These files are generated from comment-based help in the PowerShell source. **Do not edit the generated files by hand.**
 Instead, update the comment-based help of the relevant public function/cmdlet and regenerate the reference.
 
+### platyPS version pinning
+
+The cmdlet reference is generated using **platyPS**.
+
+To ensure deterministic output across platforms and CI environments, the CI pipeline
+**pins a specific platyPS version**.
+
+Do not upgrade platyPS casually.
+
+If you intentionally want to upgrade platyPS:
+
+1. Update the pinned version in the CI workflow.
+2. Regenerate the cmdlet reference locally using the same version.
+3. Commit the regenerated files under `docs/reference/cmdlets/`.
+4. Verify that CI passes without diffs.
+
+This avoids documentation drift caused by formatting or template changes between platyPS versions.
+
 ### When to regenerate
 
 Regenerate the cmdlet reference when you change any of the following for exported/public commands:
