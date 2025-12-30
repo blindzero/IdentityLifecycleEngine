@@ -1,6 +1,34 @@
 BeforeAll {
     $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\src\IdLE\IdLE.psd1'
     Import-Module $modulePath -Force
+
+    function global:Invoke-IdleWhenTestEmitStep {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Context,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step
+        )
+
+        $Context.EventSink.WriteEvent('Custom', 'Hello', $Step.Name, @{ StepType = $Step.Type })
+
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.StepResult'
+            Name       = [string]$Step.Name
+            Type       = [string]$Step.Type
+            Status     = 'Completed'
+            Error      = $null
+        }
+    }
+}
+
+AfterAll {
+    # Cleanup global test functions to avoid polluting the session.
+    Remove-Item -Path 'Function:\Invoke-IdleWhenTestEmitStep' -ErrorAction SilentlyContinue
 }
 
 Describe 'Invoke-IdlePlan - When conditions' {
@@ -24,21 +52,9 @@ Describe 'Invoke-IdlePlan - When conditions' {
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-        $emit = {
-            param($Context, $Step)
-            $Context.EventSink.WriteEvent('Custom', 'Hello', $Step.Name, @{ StepType = $Step.Type })
-            [pscustomobject]@{
-                PSTypeName = 'IdLE.StepResult'
-                Name       = [string]$Step.Name
-                Type       = [string]$Step.Type
-                Status     = 'Completed'
-                Error      = $null
-            }
-        }
-
         $providers = @{
             StepRegistry = @{
-                'IdLE.Step.EmitEvent' = $emit
+                'IdLE.Step.EmitEvent' = 'Invoke-IdleWhenTestEmitStep'
             }
         }
 
@@ -69,21 +85,9 @@ Describe 'Invoke-IdlePlan - When conditions' {
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-        $emit = {
-            param($Context, $Step)
-            $Context.EventSink.WriteEvent('Custom', 'Hello', $Step.Name, @{ StepType = $Step.Type })
-            [pscustomobject]@{
-                PSTypeName = 'IdLE.StepResult'
-                Name       = [string]$Step.Name
-                Type       = [string]$Step.Type
-                Status     = 'Completed'
-                Error      = $null
-            }
-        }
-
         $providers = @{
             StepRegistry = @{
-                'IdLE.Step.EmitEvent' = $emit
+                'IdLE.Step.EmitEvent' = 'Invoke-IdleWhenTestEmitStep'
             }
         }
 
