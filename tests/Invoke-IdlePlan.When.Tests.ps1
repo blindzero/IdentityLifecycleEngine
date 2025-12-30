@@ -26,7 +26,7 @@ Describe 'Invoke-IdlePlan - When conditions' {
 
         $emit = {
             param($Context, $Step)
-            & $Context.WriteEvent 'Custom' 'Hello' $Step.Name @{ StepType = $Step.Type }
+            $Context.EventSink.WriteEvent('Custom', 'Hello', $Step.Name, @{ StepType = $Step.Type })
             [pscustomobject]@{
                 PSTypeName = 'IdLE.StepResult'
                 Name       = [string]$Step.Name
@@ -71,7 +71,7 @@ Describe 'Invoke-IdlePlan - When conditions' {
 
         $emit = {
             param($Context, $Step)
-            & $Context.WriteEvent 'Custom' 'Hello' $Step.Name @{ StepType = $Step.Type }
+            $Context.EventSink.WriteEvent('Custom', 'Hello', $Step.Name, @{ StepType = $Step.Type })
             [pscustomobject]@{
                 PSTypeName = 'IdLE.StepResult'
                 Name       = [string]$Step.Name

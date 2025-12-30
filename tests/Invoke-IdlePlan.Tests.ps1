@@ -65,7 +65,7 @@ Describe 'Invoke-IdlePlan' {
         @($result.Events).Count | Should -Be 0
     }
 
-    It 'can stream events to a ScriptBlock sink' {
+    It 'can stream events to an object sink with WriteEvent(event)' {
       $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
       Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
@@ -98,16 +98,54 @@ Describe 'Invoke-IdlePlan' {
       }
 
       $sinkEvents = [System.Collections.Generic.List[object]]::new()
-      $sink = {
+      $sinkObject = [pscustomobject]@{}
+      $writeMethod = {
           param($e)
           [void]$sinkEvents.Add($e)
       }.GetNewClosure()
+      $null = Add-Member -InputObject $sinkObject -MemberType ScriptMethod -Name 'WriteEvent' -Value $writeMethod -Force
 
-      $result = Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sink
+      $result = Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sinkObject
 
       $sinkEvents.Count | Should -BeGreaterThan 0
       $sinkEvents[0].PSTypeNames | Should -Contain 'IdLE.Event'
       $result.Events[0].Type | Should -Be 'RunStarted'
+    }
+
+    It 'rejects a ScriptBlock -EventSink (security)' {
+      $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
+      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Joiner - Standard'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+  )
+}
+'@
+
+      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+
+      $noop = {
+          param($Context, $Step)
+          [pscustomobject]@{
+              PSTypeName = 'IdLE.StepResult'
+              Name       = [string]$Step.Name
+              Type       = [string]$Step.Type
+              Status     = 'Completed'
+              Error      = $null
+          }
+      }
+
+      $providers = @{
+          StepRegistry = @{
+              'IdLE.Step.ResolveIdentity' = $noop
+          }
+      }
+
+      $sink = { param($e) } 
+      { Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sink } | Should -Throw
     }
 
     It 'executes a registered step and returns Completed status' {
@@ -127,7 +165,7 @@ Describe 'Invoke-IdlePlan' {
 
       $emit = {
           param($Context, $Step)
-          & $Context.WriteEvent 'Custom' 'Hello from test step' $Step.Name @{ StepType = $Step.Type }
+          $Context.EventSink.WriteEvent('Custom', 'Hello from test step', $Step.Name, @{ StepType = $Step.Type })
 
           [pscustomobject]@{
               PSTypeName = 'IdLE.StepResult'
