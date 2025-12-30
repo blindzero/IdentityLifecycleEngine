@@ -1,7 +1,7 @@
 # Step Catalog
 
 > Generated file. Do not edit by hand.
-> Source: tools/Generate-IdleStepReference.ps1 — 2025-12-30 20:19:42 UTC
+> Source: tools/Generate-IdleStepReference.ps1
 
 This page documents built-in IdLE steps discovered from `Invoke-IdleStep*` functions in `IdLE.Steps.*` modules.
 

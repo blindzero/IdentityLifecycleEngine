@@ -1,7 +1,7 @@
 # Cmdlet Reference
 
 > Generated file. Do not edit by hand.
-> Source: tools/Generate-IdleCmdletReference.ps1 — 2025-12-30 20:19:35 UTC
+> Source: tools/Generate-IdleCmdletReference.ps1
 
 This page links the generated per-cmdlet reference pages and includes their synopsis.
 
