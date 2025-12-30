@@ -13,11 +13,16 @@ for identity and account processes (Joiner / Mover / Leaver) built for **PowerSh
 - [Getting started: Installation](getting-started/installation.md)
 - [Getting started: Quickstart](getting-started/quickstart.md)
 
-## Topics
+## Usage
 
-- [Usage: Workflows](usage/workflows.md)
-- [Usage: Steps](usage/steps.md)
-- [Usage: Providers](usage/providers.md)
+- [Workflows](usage/workflows.md)
+- [Steps](usage/steps.md)
+- [Providers](usage/providers.md)
+
+## Reference
+
+- [Cmdlet Reference](docs/reference/cmdlets.md)
+- [Step Catalog](docs/reference/steps.md)
 
 ## Advanced
 
