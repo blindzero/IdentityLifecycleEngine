@@ -14,18 +14,20 @@ function Write-IdleEvent {
         [System.Collections.Generic.List[object]] $EventBuffer
     )
 
-    # If an event sink is provided, try to emit events immediately.
-    # Supported shapes:
-    # - ScriptBlock: invoked with the event as the only argument
+    # If an external event sink is provided, emit events immediately.
+    # Security note: we do NOT support ScriptBlock sinks to avoid arbitrary code execution.
+    # Supported shape:
     # - Object with method "WriteEvent": called as $EventSink.WriteEvent($Event)
-    # - If nothing is provided: do nothing (events can still be buffered)
     if ($null -ne $EventSink) {
         if ($EventSink -is [scriptblock]) {
-            & $EventSink $Event
+            throw [System.ArgumentException]::new('EventSink must not be a ScriptBlock. Provide an object with a WriteEvent(event) method.', 'EventSink')
         }
-        elseif ($EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-            $EventSink.WriteEvent($Event)
+
+        if (-not ($EventSink.PSObject.Methods.Name -contains 'WriteEvent')) {
+            throw [System.ArgumentException]::new('EventSink must provide a WriteEvent(event) method.', 'EventSink')
         }
+
+        $EventSink.WriteEvent($Event)
     }
 
     # Buffer events for return value / tests if requested.
