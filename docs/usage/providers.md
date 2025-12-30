@@ -34,3 +34,10 @@ Unit tests must not call live systems.
 
 - [Testing](../advanced/testing.md)
 - [Architecture](../advanced/architecture.md)
+
+## Trust and security
+
+Providers and the step registry are host-controlled extension points and should be treated as trusted code.
+Workflows and lifecycle requests are data-only and must not contain executable objects.
+
+For details, see `docs/advanced/security.md`.

@@ -43,3 +43,12 @@ Do not add:
 - UI or web server dependencies
 
 Those belong in a host application.
+
+## Register step handlers
+
+Steps are executed via a host-provided step registry.
+
+- Workflows reference steps by `Type` (identifier).
+- The host maps this identifier to a **function name** (string) in the step registry.
+
+ScriptBlock handlers are intentionally not supported as a secure default.

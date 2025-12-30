@@ -1,6 +1,58 @@
 BeforeAll {
     $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\src\IdLE\IdLE.psd1'
     Import-Module $modulePath -Force
+
+    # The engine invokes step handlers by function name (string) inside module scope.
+    # Therefore, test handler functions must be visible to the module (global scope).
+    function global:Invoke-IdleTestNoopStep {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Context,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step
+        )
+
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.StepResult'
+            Name       = [string]$Step.Name
+            Type       = [string]$Step.Type
+            Status     = 'Completed'
+            Error      = $null
+        }
+    }
+
+    function global:Invoke-IdleTestEmitStep {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Context,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step
+        )
+
+        $Context.EventSink.WriteEvent('Custom', 'Hello from test step', $Step.Name, @{ StepType = $Step.Type })
+
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.StepResult'
+            Name       = [string]$Step.Name
+            Type       = [string]$Step.Type
+            Status     = 'Completed'
+            Error      = $null
+        }
+    }
+}
+
+AfterAll {
+    # Cleanup global test functions to avoid polluting the session.
+    Remove-Item -Path 'Function:\Invoke-IdleTestNoopStep' -ErrorAction SilentlyContinue
+    Remove-Item -Path 'Function:\Invoke-IdleTestEmitStep' -ErrorAction SilentlyContinue
 }
 
 Describe 'Invoke-IdlePlan' {
@@ -20,21 +72,10 @@ Describe 'Invoke-IdlePlan' {
       $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
       $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-      $noop = {
-          param($Context, $Step)
-          [pscustomobject]@{
-              PSTypeName = 'IdLE.StepResult'
-              Name       = [string]$Step.Name
-              Type       = [string]$Step.Type
-              Status     = 'Completed'
-              Error      = $null
-          }
-      }
-
       $providers = @{
           StepRegistry = @{
-              'IdLE.Step.ResolveIdentity'  = $noop
-              'IdLE.Step.EnsureAttributes' = $noop
+              'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
+              'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
           }
       }
 
@@ -80,20 +121,9 @@ Describe 'Invoke-IdlePlan' {
       $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
       $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-      $noop = {
-          param($Context, $Step)
-          [pscustomobject]@{
-              PSTypeName = 'IdLE.StepResult'
-              Name       = [string]$Step.Name
-              Type       = [string]$Step.Type
-              Status     = 'Completed'
-              Error      = $null
-          }
-      }
-
       $providers = @{
           StepRegistry = @{
-              'IdLE.Step.ResolveIdentity' = $noop
+              'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
           }
       }
 
@@ -127,25 +157,38 @@ Describe 'Invoke-IdlePlan' {
       $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
       $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-      $noop = {
-          param($Context, $Step)
-          [pscustomobject]@{
-              PSTypeName = 'IdLE.StepResult'
-              Name       = [string]$Step.Name
-              Type       = [string]$Step.Type
-              Status     = 'Completed'
-              Error      = $null
+      $providers = @{
+          StepRegistry = @{
+              'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
           }
       }
+
+      $sink = { param($e) }
+      { Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sink } | Should -Throw
+    }
+
+    It 'rejects ScriptBlock step handlers in the StepRegistry (security)' {
+      $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
+      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Joiner - Standard'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+  )
+}
+'@
+
+      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
       $providers = @{
           StepRegistry = @{
-              'IdLE.Step.ResolveIdentity' = $noop
+              'IdLE.Step.ResolveIdentity' = { param($Context, $Step) }
           }
       }
 
-      $sink = { param($e) } 
-      { Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sink } | Should -Throw
+      { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw
     }
 
     It 'executes a registered step and returns Completed status' {
@@ -163,22 +206,9 @@ Describe 'Invoke-IdlePlan' {
       $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
       $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-      $emit = {
-          param($Context, $Step)
-          $Context.EventSink.WriteEvent('Custom', 'Hello from test step', $Step.Name, @{ StepType = $Step.Type })
-
-          [pscustomobject]@{
-              PSTypeName = 'IdLE.StepResult'
-              Name       = [string]$Step.Name
-              Type       = [string]$Step.Type
-              Status     = 'Completed'
-              Error      = $null
-          }
-      }
-
       $providers = @{
           StepRegistry = @{
-              'IdLE.Step.EmitEvent' = $emit
+              'IdLE.Step.EmitEvent' = 'Invoke-IdleTestEmitStep'
           }
       }
 
