@@ -64,7 +64,7 @@ jobs:
             }
           }
 
-          Install-Module -Name platyPS -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+          Install-Module -Name platyPS -RequiredVersion 0.14.2 -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
       
       - name: Debug platyPS version
         shell: pwsh
