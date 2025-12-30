@@ -63,6 +63,9 @@ jobs:
               # Ignore if not supported in this environment
             }
           }
+          
+          # platyPS is pinned for deterministic Markdown output.
+          # See CONTRIBUTING.md for upgrade procedure.
 
           Install-Module -Name platyPS -RequiredVersion 0.14.2 -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
       
