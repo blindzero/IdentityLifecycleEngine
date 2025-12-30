@@ -133,6 +133,131 @@ A contribution is complete when:
 
 ---
 
+## Generated cmdlet reference (platyPS)
+
+IdLE maintains a generated cmdlet reference under:
+
+- `docs/reference/cmdlets.md` (index page)
+- `docs/reference/cmdlets/*.md` (one file per cmdlet)
+
+These files are generated from comment-based help in the PowerShell source. **Do not edit the generated files by hand.**
+Instead, update the comment-based help of the relevant public function/cmdlet and regenerate the reference.
+
+### platyPS version pinning
+
+The cmdlet reference is generated using **platyPS**.
+
+To ensure deterministic output across platforms and CI environments, the CI pipeline
+**pins a specific platyPS version**.
+
+Do not upgrade platyPS casually.
+
+If you intentionally want to upgrade platyPS:
+
+1. Update the pinned version in the CI workflow.
+2. Regenerate the cmdlet reference locally using the same version.
+3. Commit the regenerated files under `docs/reference/cmdlets/`.
+4. Verify that CI passes without diffs.
+
+This avoids documentation drift caused by formatting or template changes between platyPS versions.
+
+### When to regenerate
+
+Regenerate the cmdlet reference when you change any of the following for exported/public commands:
+
+- Add/remove/rename a public cmdlet/function
+- Add/remove/rename parameters (including parameter sets)
+- Change comment-based help: synopsis/description/parameters/examples
+
+### How to regenerate locally
+
+From the repository root:
+
+```powershell
+pwsh ./tools/Generate-IdleCmdletReference.ps1
+```
+
+If `platyPS` is not installed yet, you can install it automatically (requires internet access):
+
+```powershell
+pwsh ./tools/Generate-IdleCmdletReference.ps1 -InstallPlatyPS
+```
+
+Commit the changed files under `docs/reference/` as part of the same PR that introduced the cmdlet/help changes.
+
+### CI enforcement (required status check)
+
+The CI pipeline verifies that the generated cmdlet reference is up to date. If you change public cmdlets or their
+comment-based help and forget to regenerate the docs, the workflow **"Verify cmdlet reference is up to date"** will fail.
+
+To fix a failing PR:
+
+1. Run the generator locally from the repo root:
+
+   ```powershell
+   pwsh ./tools/Generate-IdleCmdletReference.ps1
+   ```
+
+   If needed (first time only):
+
+   ```powershell
+   pwsh ./tools/Generate-IdleCmdletReference.ps1 -InstallPlatyPS
+   ```
+
+2. Commit the updated files under `docs/reference/` and push to your branch.
+
+Repository maintainers should configure branch protection so that required status checks include this workflow. This ensures
+generated docs cannot drift from the exported cmdlets.
+
+## Generated step reference
+
+IdLE maintains a generated step reference under:
+
+- `docs/reference/steps.md`
+
+The file is generated from step implementations in `IdLE.Steps.*` and their comment-based help.
+**Do not edit the generated file by hand.** Update the step help/source and regenerate the reference.
+
+### When to regenerate
+
+Regenerate the step reference when you change any of the following:
+
+- Add/remove/rename a step implementation (`Invoke-IdleStep*`)
+- Change step behavior that affects documented inputs (With.* keys), contracts, idempotency, or emitted events
+- Update comment-based help of step implementations
+
+### How to regenerate locally
+
+From the repository root:
+
+```powershell
+pwsh ./tools/Generate-IdleStepReference.ps1
+```
+
+Commit the updated `docs/reference/steps.md` as part of the same PR that introduced the step changes.
+
+### CI enforcement (required status check)
+
+The CI pipeline verifies that the generated step reference is up to date. If you change steps and forget to regenerate the docs,
+the workflow **"Verify step reference is up to date"** will fail.
+
+To fix a failing PR:
+
+1. Run the generator locally:
+
+   ```powershell
+   pwsh ./tools/Generate-IdleStepReference.ps1
+   ```
+
+2. Commit the updated `docs/reference/steps.md` and push to your branch.
+
+Repository maintainers should configure branch protection so that required status checks include this workflow.
+
+
+
+
+
+
 ## Documentation
 
 Keep docs short and linkable:

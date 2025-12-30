@@ -41,3 +41,77 @@ jobs:
         with:
           name: test-results-${{ matrix.os }}
           path: artifacts/test-results.xml
+
+  docs-cmdlet-reference:
+    name: Verify cmdlet reference is up to date
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install platyPS
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          # Ensure PSGallery does not prompt (non-interactive CI)
+          if (Get-Command -Name Set-PSRepository -ErrorAction SilentlyContinue) {
+            try {
+              Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
+            } catch {
+              # Ignore if not supported in this environment
+            }
+          }
+
+          Install-Module -Name platyPS -RequiredVersion 0.14.2 -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+      
+      - name: Debug platyPS version
+        shell: pwsh
+        run: |
+          Get-Module -ListAvailable platyPS | Sort-Object Version -Descending | Select-Object -First 1 | Format-List Name,Version,Path
+
+      - name: Generate cmdlet reference
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./tools/Generate-IdleCmdletReference.ps1
+
+      - name: Verify working tree clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "== git status =="
+          git status --porcelain || true
+
+          echo "== git diff (first 200 lines) =="
+          git diff | sed -n '1,200p' || true
+
+          git diff --exit-code
+
+  docs-step-reference:
+    name: Verify step reference is up to date
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate step reference
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./tools/Generate-IdleStepReference.ps1
+
+      - name: Verify working tree clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "== git status =="
+          git status --porcelain || true
+
+          echo "== git diff (first 200 lines) =="
+          git diff | sed -n '1,200p' || true
+
+          git diff --exit-code
