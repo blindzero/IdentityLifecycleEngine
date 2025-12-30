@@ -14,7 +14,7 @@ function Invoke-IdlePlan {
     Provider registry/collection passed through to execution.
 
     .PARAMETER EventSink
-    Optional event sink. Can be a ScriptBlock or an object with a WriteEvent() method.
+    Optional external event sink for streaming. Must be an object with a WriteEvent(event) method.
 
     .EXAMPLE
     Invoke-IdlePlan -Plan $plan -Providers $providers
