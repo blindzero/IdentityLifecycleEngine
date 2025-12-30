@@ -52,3 +52,8 @@ if ($CI) {
 }
 
 Invoke-Pester -Configuration $config
+
+# Generate Cmdlet Documentation after tests pass
+
+Write-Host "`nGenerating Cmdlet reference documentation..."
+& .\tools\Generate-IdleCmdletReference.ps1
