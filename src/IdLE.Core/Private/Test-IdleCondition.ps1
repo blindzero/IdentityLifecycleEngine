@@ -1,37 +1,35 @@
-function Test-IdleWhenCondition {
+function Test-IdleCondition {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [hashtable] $When,
+        [hashtable] $Condition,
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
         [object] $Context
     )
 
-    # Evaluates a declarative When condition (data-only) against the current execution context.
+    # Evaluates a declarative Condition (data-only) against the provided context.
     #
-    # Supported schema (validated by Test-IdleWhenConditionSchema):
+    # Supported schema (validated by Test-IdleConditionSchema):
     # - Groups: All | Any | None  (each contains an array/list of condition nodes)
     # - Operators:
-    #   - Equals    = @{ Left = '<path>'; Right = <value> }
-    #   - NotEquals = @{ Left = '<path>'; Right = <value> }
+    #   - Equals    = @{ Path = '<path>'; Value  = <value>  }
+    #   - NotEquals = @{ Path = '<path>'; Value  = <value>  }
     #   - Exists    = '<path>' OR @{ Path = '<path>' }
-    #   - In        = @{ Left = '<path>'; Right = <array|scalar> }
+    #   - In        = @{ Path = '<path>'; Values = <array|scalar> }
     #
     # Paths are resolved via Get-IdleValueByPath against the provided $Context.
-    # For convenience, a leading "context." prefix is ignored (e.g. "context.DesiredState.Department").
-    #
-    # This function is intentionally strict and throws on invalid schema.
+    # For readability in configuration, a leading "context." prefix is ignored.
 
-    $schemaErrors = Test-IdleWhenConditionSchema -When $When -StepName $null
+    $schemaErrors = Test-IdleConditionSchema -Condition $Condition -StepName $null
     if ($schemaErrors.Count -gt 0) {
-        $msg = "When condition schema validation failed: {0}" -f ([string]::Join(' ', @($schemaErrors)))
-        throw [System.ArgumentException]::new($msg, 'When')
+        $msg = "Condition schema validation failed: {0}" -f ([string]::Join(' ', @($schemaErrors)))
+        throw [System.ArgumentException]::new($msg, 'Condition')
     }
 
-    function Resolve-IdleWhenPathValue {
+    function Resolve-IdleConditionPathValue {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
@@ -45,7 +43,7 @@ function Test-IdleWhenCondition {
         return Get-IdleValueByPath -Object $Context -Path $effectivePath
     }
 
-    function Test-IdleWhenNode {
+    function Test-IdleConditionNode {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
@@ -56,7 +54,7 @@ function Test-IdleWhenCondition {
         # GROUPS
         if ($Node.Contains('All')) {
             foreach ($child in @($Node.All)) {
-                if (-not (Test-IdleWhenNode -Node ([System.Collections.IDictionary]$child))) {
+                if (-not (Test-IdleConditionNode -Node ([System.Collections.IDictionary]$child))) {
                     return $false
                 }
             }
@@ -65,7 +63,7 @@ function Test-IdleWhenCondition {
 
         if ($Node.Contains('Any')) {
             foreach ($child in @($Node.Any)) {
-                if (Test-IdleWhenNode -Node ([System.Collections.IDictionary]$child)) {
+                if (Test-IdleConditionNode -Node ([System.Collections.IDictionary]$child)) {
                     return $true
                 }
             }
@@ -74,7 +72,7 @@ function Test-IdleWhenCondition {
 
         if ($Node.Contains('None')) {
             foreach ($child in @($Node.None)) {
-                if (Test-IdleWhenNode -Node ([System.Collections.IDictionary]$child)) {
+                if (Test-IdleConditionNode -Node ([System.Collections.IDictionary]$child)) {
                     return $false
                 }
             }
@@ -84,19 +82,21 @@ function Test-IdleWhenCondition {
         # OPERATORS
         if ($Node.Contains('Equals')) {
             $op = $Node.Equals
-            $leftValue = Resolve-IdleWhenPathValue -Path ([string]$op.Left)
-            $rightValue = $op.Right
 
-            # Keep semantics simple and stable: string comparison.
-            return ([string]$leftValue -eq [string]$rightValue)
+            $actual = Resolve-IdleConditionPathValue -Path ([string]$op.Path)
+            $expected = $op.Value
+
+            # Stable semantics: compare as strings (keeps config predictable across providers/types).
+            return ([string]$actual -eq [string]$expected)
         }
 
         if ($Node.Contains('NotEquals')) {
             $op = $Node.NotEquals
-            $leftValue = Resolve-IdleWhenPathValue -Path ([string]$op.Left)
-            $rightValue = $op.Right
 
-            return ([string]$leftValue -ne [string]$rightValue)
+            $actual = Resolve-IdleConditionPathValue -Path ([string]$op.Path)
+            $expected = $op.Value
+
+            return ([string]$actual -ne [string]$expected)
         }
 
         if ($Node.Contains('Exists')) {
@@ -108,26 +108,29 @@ function Test-IdleWhenCondition {
                 [string]$existsVal.Path
             }
 
-            $value = Resolve-IdleWhenPathValue -Path $path
+            $value = Resolve-IdleConditionPathValue -Path $path
             return ($null -ne $value)
         }
 
         if ($Node.Contains('In')) {
             $op = $Node.In
-            $leftValue = Resolve-IdleWhenPathValue -Path ([string]$op.Left)
 
-            $right = $op.Right
-            if ($null -eq $right) { return $false }
+            $actual = Resolve-IdleConditionPathValue -Path ([string]$op.Path)
+            $values = $op.Values
+
+            if ($null -eq $values) {
+                return $false
+            }
 
             # Treat scalar and array uniformly.
-            $candidates = if ($right -is [System.Collections.IEnumerable] -and -not ($right -is [string])) {
-                @($right)
+            $candidates = if ($values -is [System.Collections.IEnumerable] -and -not ($values -is [string])) {
+                @($values)
             } else {
-                @($right)
+                @($values)
             }
 
             foreach ($candidate in $candidates) {
-                if ([string]$leftValue -eq [string]$candidate) {
+                if ([string]$actual -eq [string]$candidate) {
                     return $true
                 }
             }
@@ -139,5 +142,5 @@ function Test-IdleWhenCondition {
         return $false
     }
 
-    return (Test-IdleWhenNode -Node $When)
+    return (Test-IdleConditionNode -Node $Condition)
 }
