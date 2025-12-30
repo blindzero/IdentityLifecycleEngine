@@ -80,7 +80,7 @@ Install-Module IdLE
 Run the end-to-end demo (Plan → Execute):
 
 ```powershell
-pwsh -File .\examples\run-demo.ps1
+pwsh -File .\examples\Invoke-IdleDemo.ps1
 ```
 
 The demo shows:
@@ -96,7 +96,7 @@ Next steps:
 
 - Documentation entry point: `docs/index.md`
 - Workflow samples: `examples/workflows/`
-- Repository demo: `examples/run-demo.ps1`
+- Repository demo: `examples/Invoke-IdleDemo.ps1`
 - Pester tests: `tests/`
 
 ---

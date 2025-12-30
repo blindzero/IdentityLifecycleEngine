@@ -7,7 +7,7 @@ This folder contains runnable examples for IdLE.
 From the repository root:
 
 ```powershell
-pwsh -File .\examples\run-demo.ps1
+pwsh -File .\examples\Invoke-IdleDemo.ps1
 ```
 
 The demo:

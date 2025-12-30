@@ -8,54 +8,46 @@ This quickstart walks through the IdLE flow:
 
 ## Run the repository demo
 
-From the repository root:
+The repository includes a demo runner that showcases the full IdLE flow using predefined example workflows.
 
 ```powershell
-pwsh -File .\examples\run-demo.ps1
+.\examples\Invoke-IdleDemo.ps1
 ```
 
-## Minimal plan and execute
+You can also list and run specific examples:
 
 ```powershell
-$workflowPath = Join-Path (Get-Location) 'examples\workflows\joiner-with-when.psd1'
+.\examples\Invoke-IdleDemo.ps1 -List
+.\examples\Invoke-IdleDemo.ps1 -Example <example-name-without-suffix>
+```
 
-$request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -Actor 'example-user'
+...or simply run all
+
+```powershell
+.\examples\Invoke-IdleDemo.ps1 -All
+```
+
+## The manual example runs
+
+For understanding how IdLE is used programmatically, you can execute a workflow manually without the demo runner.
+
+```powershell
+$workflowPath = Join-Path (Get-Location) 'examples\workflows\<example-file>'
+$request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 $plan    = New-IdlePlan -WorkflowPath $workflowPath -Request $request
 
-$providers = @{}
+$providers = @{
+    Identity = New-IdleMockIdentityProvider
+}
 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 ```
 
-## Inspect results and events
-
-Execution returns a result object containing step results and buffered events:
+When executing plans programmatically, IdLE returns a result object containing step results and buffered events.
 
 ```powershell
 $result.Status
 $result.Steps
 $result.Events | Select-Object Type, StepName, Message
-```
-
-## Optional: stream events with -EventSink
-
-If a host wants live progress, it can provide an **object** event sink.
-The sink must implement `WriteEvent(event)`.
-
-> Security note: ScriptBlock sinks are not supported.
-
-Example:
-
-```powershell
-$streamed = [System.Collections.Generic.List[object]]::new()
-
-$sink = [pscustomobject]@{}
-$null = Add-Member -InputObject $sink -MemberType ScriptMethod -Name 'WriteEvent' -Value {
-  param($e)
-  [void]$streamed.Add($e)
-  Write-Host ("[{0}] {1}" -f $e.Type, $e.Message)
-}
-
-$result = Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sink
 ```
 
 ## Next steps
