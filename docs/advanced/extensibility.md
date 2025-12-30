@@ -11,6 +11,12 @@ A new step typically involves:
 3. An execution function (invoke) that performs actions via providers
 4. Unit tests (Pester)
 
+Steps can emit structured events using the execution context contract:
+
+- `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`
+
+Keep steps host-agnostic: do not call UI APIs directly.
+
 ## Add a new provider
 
 A new provider typically involves:

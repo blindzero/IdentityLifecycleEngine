@@ -14,7 +14,7 @@ function Invoke-IdlePlanObject {
     Provider registry/collection (used for StepRegistry in this increment; passed through for future steps).
 
     .PARAMETER EventSink
-    Optional sink for event streaming. Can be a ScriptBlock or an object with a WriteEvent() method.
+    Optional external event sink for streaming. Must be an object with a WriteEvent(event) method.
 
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.ExecutionResult)
@@ -47,9 +47,9 @@ function Invoke-IdlePlanObject {
     $corr = [string]$Plan.CorrelationId
     $actor = if ($planProps -contains 'Actor') { [string]$Plan.Actor } else { $null }
 
-    # Capture command references once to avoid scope/name resolution issues inside closures.
-    $newIdleEventCmd   = Get-Command -Name 'New-IdleEvent'   -CommandType Function -ErrorAction Stop
-    $writeIdleEventCmd = Get-Command -Name 'Write-IdleEvent' -CommandType Function -ErrorAction Stop
+    # Create the engine-managed event sink object used by both the engine and steps.
+    # This keeps event shape deterministic and isolates host-provided sinks behind a single contract.
+    $engineEventSink = New-IdleEventSink -CorrelationId $corr -Actor $actor -ExternalEventSink $EventSink -EventBuffer $events
 
     # Resolve step types to PowerShell functions via a registry.
     # This decouples workflow "Type" strings from actual implementation functions.
@@ -64,24 +64,13 @@ function Invoke-IdlePlanObject {
         Plan          = $Plan
         Providers     = $Providers
 
-        # Expose a single event writer for steps.
-        # The engine stays in control of event shape, sinks and buffering.
-        WriteEvent    = {
-            param(
-                [Parameter(Mandatory)][string] $Type,
-                [Parameter(Mandatory)][string] $Message,
-                [Parameter()][AllowNull()][string] $StepName,
-                [Parameter()][AllowNull()][hashtable] $Data
-            )
-
-            # Use captured command references to avoid scope/name resolution issues in step handlers.
-            $evt = & $newIdleEventCmd -Type $Type -Message $Message -CorrelationId $corr -Actor $actor -StepName $StepName -Data $Data
-            & $writeIdleEventCmd -Event $evt -EventSink $EventSink -EventBuffer $events
-        }.GetNewClosure()
+        # Object-based, stable eventing contract.
+        # Steps and the engine call: $Context.EventSink.WriteEvent(...)
+        EventSink     = $engineEventSink
     }
 
     # Emit run start event.
-    & $context.WriteEvent 'RunStarted' 'Plan execution started.' $null @{
+    $context.EventSink.WriteEvent('RunStarted', 'Plan execution started.', $null, @{
         LifecycleEvent = [string]$Plan.LifecycleEvent
         WorkflowName = if ($planProps -contains 'WorkflowName') {
             [string]$Plan.WorkflowName
@@ -89,7 +78,7 @@ function Invoke-IdlePlanObject {
             $null
         }
         StepCount = @($Plan.Steps).Count
-    }
+    })
 
     $stepResults = @()
     $failed = $false
@@ -115,20 +104,20 @@ function Invoke-IdlePlanObject {
                     Error      = $null
                 }
 
-                & $context.WriteEvent 'StepSkipped' "Step '$stepName' skipped (condition not met)." $stepName @{
+                $context.EventSink.WriteEvent('StepSkipped', "Step '$stepName' skipped (condition not met).", $stepName, @{
                     StepType = $stepType
                     Index    = $i
-                }
+                })
 
                 $i++
                 continue
             }
         }
 
-        & $context.WriteEvent 'StepStarted' "Step '$stepName' started." $stepName @{
+        $context.EventSink.WriteEvent('StepStarted', "Step '$stepName' started.", $stepName, @{
             StepType = $stepType
             Index    = $i
-        }
+        })
 
         try {
             # Resolve implementation handler for this step type.
@@ -151,10 +140,10 @@ function Invoke-IdlePlanObject {
 
             $stepResults += $stepResult
 
-            & $context.WriteEvent 'StepCompleted' "Step '$stepName' completed." $stepName @{
+            $context.EventSink.WriteEvent('StepCompleted', "Step '$stepName' completed.", $stepName, @{
                 StepType = $stepType
                 Index    = $i
-            }
+            })
         }
         catch {
             $failed = $true
@@ -168,11 +157,11 @@ function Invoke-IdlePlanObject {
                 Error      = $err.Exception.Message
             }
 
-            & $context.WriteEvent 'StepFailed' "Step '$stepName' failed." $stepName @{
+            $context.EventSink.WriteEvent('StepFailed', "Step '$stepName' failed.", $stepName, @{
                 StepType = $stepType
                 Index    = $i
                 Error    = $err.Exception.Message
-            }
+            })
 
             # Fail-fast in this increment.
             break
@@ -183,10 +172,10 @@ function Invoke-IdlePlanObject {
 
     $runStatus = if ($failed) { 'Failed' } else { 'Completed' }
 
-    & $context.WriteEvent 'RunCompleted' "Plan execution finished (status: $runStatus)." $null @{
+    $context.EventSink.WriteEvent('RunCompleted', "Plan execution finished (status: $runStatus).", $null, @{
         Status    = $runStatus
         StepCount = @($Plan.Steps).Count
-    }
+    })
 
     return [pscustomobject]@{
         PSTypeName    = 'IdLE.ExecutionResult'

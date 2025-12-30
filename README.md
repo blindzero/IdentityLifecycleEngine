@@ -87,11 +87,14 @@ The demo shows:
 - building a deterministic plan from a workflow definition (`.psd1`)
 - executing the plan using a host-provided step registry
 
+The execution result buffers all emitted events in `result.Events`. Hosts can optionally stream events live
+by providing `-EventSink` as an object implementing `WriteEvent(event)`.
+
 Next steps:
 
-- Usage & examples: `docs/02-examples.md`
-- Architecture: `docs/01-architecture.md`
+- Documentation entry point: `docs/index.md`
 - Workflow samples: `examples/workflows/`
+- Repository demo: `examples/run-demo.ps1`
 - Pester tests: `tests/`
 
 ---
@@ -100,9 +103,10 @@ Next steps:
 
 Start here:
 
-- `docs/00-index.md` – documentation map
-- `docs/01-architecture.md` – architecture and principles
-- `docs/02-examples.md` – runnable examples + workflow snippets
+- `docs/index.md` – documentation map
+- `docs/getting-started/quickstart.md` – plan → execute walkthrough
+- `docs/advanced/architecture.md` – architecture and principles
+- `docs/usage/workflows.md` – workflow schema and validation
 
 Project docs:
 

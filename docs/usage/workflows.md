@@ -4,17 +4,22 @@ Workflows are **data-only** configuration files (PSD1) describing which steps sh
 
 ## Format
 
-A workflow is a PowerShell hashtable stored as `.psd1`:
+A workflow is a PowerShell hashtable stored as `.psd1`.
+
+Workflow definitions are **data-only**. Do not embed executable code.
+
+Example:
 
 ```powershell
 @{
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
+
   Steps          = @(
     @{
-      Name   = 'Emit:Start'
-      Step   = 'EmitEvent'
-      Inputs = @{ Message = 'Starting Joiner' }
+      Name = 'Emit start'
+      Type = 'IdLE.Step.EmitEvent'
+      With = @{ Message = 'Starting Joiner' }
     }
   )
 }
@@ -30,6 +35,13 @@ Typical validation rules:
 - required keys must exist
 - condition schemas must be valid
 - `*From` paths must reference allowed roots
+
+## Step identifiers
+
+Step types are treated as **contracts**. Prefer fully-qualified ids (module + step name),
+for example: `IdLE.Step.EmitEvent`.
+
+The host maps step types to step implementations via a step registry.
 
 ## Conditional steps
 
