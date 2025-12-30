@@ -5,10 +5,8 @@ function Invoke-IdleStepEmitEvent {
 
     .DESCRIPTION
     This step does not change external state. It emits a custom event message.
-    If the execution context provides an EventSink, the step will write to it.
-    If no EventSink is available, the step will still succeed (no-op).
-
-    This keeps the step host-agnostic and safe to use in demos/tests.
+    The engine provides an EventSink on the execution context that the step can use
+    to write structured events.
 
     .PARAMETER Context
     Execution context created by IdLE.Core.
@@ -42,42 +40,12 @@ function Invoke-IdleStepEmitEvent {
         "Custom event emitted by step '$([string]$Step.Name)'."
     }
 
-    # EventSink is optional. If it exists, it should accept an event object.
-    # We deliberately do not assume a specific method name on the context itself.
-    $sinkProp = $Context.PSObject.Properties['EventSink']
-    if ($null -ne $sinkProp -and $null -ne $sinkProp.Value) {
-
-        $eventObject = [pscustomobject]@{
-            PSTypeName    = 'IdLE.Event'
-            TimestampUtc  = [DateTime]::UtcNow
-            Type          = 'Custom'
-            StepName      = [string]$Step.Name
-            Message       = $message
-            Data          = @{
-                StepType = [string]$Step.Type
-            }
-        }
-
-        # Support common sink shapes:
-        # - ScriptBlock: & $EventSink $event
-        # - Object with method 'Add' or 'Write' or 'Emit'
-        $sink = $sinkProp.Value
-
-        if ($sink -is [scriptblock]) {
-            & $sink $eventObject
-        }
-        elseif ($sink.PSObject.Methods.Name -contains 'Add') {
-            $sink.Add($eventObject)
-        }
-        elseif ($sink.PSObject.Methods.Name -contains 'Write') {
-            $sink.Write($eventObject)
-        }
-        elseif ($sink.PSObject.Methods.Name -contains 'Emit') {
-            $sink.Emit($eventObject)
-        }
-        else {
-            # Sink is present but has an unknown shape -> do not fail the step.
-            # Host can decide how strictly it wants to enforce sink contract.
+    # The engine provides an EventSink contract with a WriteEvent(...) method.
+    # If the host is not interested in streaming events, the sink will still buffer events
+    # for the execution result. This keeps the step deterministic and host-agnostic.
+    if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink) {
+        if ($Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+            $Context.EventSink.WriteEvent('Custom', $message, [string]$Step.Name, @{ StepType = [string]$Step.Type })
         }
     }
 
