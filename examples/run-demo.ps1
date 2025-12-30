@@ -98,7 +98,6 @@ $providers = @{
 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 Write-DemoHeader "IdLE Demo – Plan Execution"
-Write-ResultSummary -Result $result
 
 Write-Host ""
 Write-DemoHeader "Step Results"
@@ -113,3 +112,5 @@ Write-DemoHeader "Event Stream"
 $result.Events |
     ForEach-Object { Format-EventRow $_ } |
     Format-Table Time, Type, Step, Message -AutoSize
+
+Write-ResultSummary -Result $result
