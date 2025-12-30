@@ -1,5 +1,7 @@
 # IdentityLifecycleEngine (IdLE) - Documentation
 
+![IdLE Logo](/assets/images/logo.png)
+
 Welcome to the documentation for **IdentityLifecycleEngine (IdLE)**.
 
 IdLE is a **generic, headless, configuration-driven** lifecycle orchestration engine
