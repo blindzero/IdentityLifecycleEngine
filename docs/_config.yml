@@ -5,6 +5,7 @@ markdown: kramdown
 kramdown:
   input: GFM
   hard_wrap: false
+logo: "/assets/idle_logo_flat_white.png"
 plugins: []
 header_pages:
   - overview/concept.md
