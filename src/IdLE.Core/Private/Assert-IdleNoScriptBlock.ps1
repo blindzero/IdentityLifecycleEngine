@@ -16,7 +16,10 @@ function Assert-IdleNoScriptBlock {
     if ($null -eq $InputObject) { return }
 
     if ($InputObject -is [scriptblock]) {
-        throw [System.ArgumentException]::new("ScriptBlocks are not allowed in request data. Found at: $Path", $Path)
+        throw [System.ArgumentException]::new(
+            "ScriptBlocks are not allowed in request data. Found at: $Path",
+            $Path
+        )
     }
 
     # Hashtable / Dictionary
@@ -41,7 +44,8 @@ function Assert-IdleNoScriptBlock {
     if ($InputObject -is [pscustomobject]) {
         foreach ($p in $InputObject.PSObject.Properties) {
             if ($p.MemberType -eq 'NoteProperty') {
-                Assert-IdleNoScriptBlock -InputObject $p.InputObject -Path "$Path.$($p.Name)"
+                # PSPropertyInfo does not expose "InputObject" here; the value is in .Value.
+                Assert-IdleNoScriptBlock -InputObject $p.Value -Path "$Path.$($p.Name)"
             }
         }
     }

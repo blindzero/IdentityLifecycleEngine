@@ -6,49 +6,66 @@ function Get-IdleStepRegistry {
         [object] $Providers
     )
 
-    # Registry maps workflow Step.Type -> handler
-    # Handler can be:
-    # - [string]      : PowerShell function name
-    # - [scriptblock] : executable handler (useful for tests / hosts)
+    # Registry maps workflow Step.Type -> handler function name (string).
+    #
+    # Trust boundary:
+    # - The registry is a host-provided extension point. It is not loaded from workflow configuration.
+    # - Workflows are data-only and must not contain executable code.
+    #
+    # Security / secure defaults:
+    # - Only string handlers (function names) are supported.
+    # - ScriptBlock handlers are intentionally rejected to avoid arbitrary code execution.
+
     $registry = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
 
     # 1) Copy host-provided StepRegistry (optional)
     # We support two shapes for compatibility:
-    # - StepRegistry['Type'] = 'FunctionName' | { scriptblock }
-    # - StepRegistry['Type'] = @{ Handler = 'FunctionName' }   (legacy/demo style)
+    # - Providers.StepRegistry (hashtable)
+    # - Providers['StepRegistry'] (hashtable)
+    $hostRegistry = $null
+
     if ($null -ne $Providers) {
-
-        $source = $null
-
-        if ($Providers -is [System.Collections.IDictionary]) {
-            if ($Providers.Contains('StepRegistry')) {
-                $source = $Providers['StepRegistry']
-            }
+        if ($Providers -is [hashtable] -and $Providers.ContainsKey('StepRegistry')) {
+            $hostRegistry = $Providers['StepRegistry']
         }
-        else {
-            $prop = $Providers.PSObject.Properties['StepRegistry']
-            if ($null -ne $prop) {
-                $source = $prop.Value
-            }
-        }
-
-        if ($null -ne $source -and ($source -is [System.Collections.IDictionary])) {
-            foreach ($k in @($source.Keys)) {
-
-                $v = $source[$k]
-
-                # Allow legacy shape: @{ Handler = 'Invoke-...' }
-                if ($v -is [hashtable] -and $v.ContainsKey('Handler')) {
-                    $v = $v['Handler']
-                }
-
-                $registry[[string]$k] = $v
-            }
+        elseif ($Providers.PSObject.Properties.Name -contains 'StepRegistry') {
+            $hostRegistry = $Providers.StepRegistry
         }
     }
 
-    # 2) Built-in defaults (only if commands are available)
-    # Do not overwrite host-provided entries.
+    if ($null -ne $hostRegistry) {
+        if ($hostRegistry -isnot [hashtable]) {
+            throw [System.ArgumentException]::new('Providers.StepRegistry must be a hashtable that maps Step.Type to a function name (string).', 'Providers')
+        }
+
+        foreach ($key in $hostRegistry.Keys) {
+            if ($null -eq $key -or [string]::IsNullOrWhiteSpace([string]$key)) {
+                throw [System.ArgumentException]::new('Providers.StepRegistry contains an empty step type key.', 'Providers')
+            }
+
+            $value = $hostRegistry[$key]
+
+            if ($value -is [scriptblock]) {
+                throw [System.ArgumentException]::new(
+                    "Providers.StepRegistry entry for step type '$key' is a ScriptBlock. ScriptBlock handlers are not allowed. Provide a function name (string) instead.",
+                    'Providers'
+                )
+            }
+
+            if ($value -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$value)) {
+                throw [System.ArgumentException]::new(
+                    "Providers.StepRegistry entry for step type '$key' must be a non-empty string (function name).",
+                    'Providers'
+                )
+            }
+
+            $registry[[string]$key] = ([string]$value).Trim()
+        }
+    }
+
+    # 2) Register built-in steps if available.
+    #
+    # These are optional modules (Steps.Common, etc.). If they are not loaded, the registry entry is not added.
     if (-not $registry.ContainsKey('IdLE.Step.EmitEvent')) {
         $cmd = Get-Command -Name 'Invoke-IdleStepEmitEvent' -ErrorAction SilentlyContinue
         if ($null -ne $cmd) {

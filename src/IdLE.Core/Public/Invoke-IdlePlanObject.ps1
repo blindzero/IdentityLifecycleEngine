@@ -42,6 +42,11 @@ function Invoke-IdlePlanObject {
         }
     }
 
+    # Secure default: treat host-provided extension points as privileged inputs.
+    # The engine rejects ScriptBlocks in the plan and providers to avoid accidental code execution.
+    Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
+    Assert-IdleNoScriptBlock -InputObject $Providers -Path 'Providers'
+
     $events = [System.Collections.Generic.List[object]]::new()
 
     $corr = [string]$Plan.CorrelationId
@@ -121,22 +126,14 @@ function Invoke-IdlePlanObject {
 
         try {
             # Resolve implementation handler for this step type.
-            # Handler can be:
-            # - [scriptblock] : invoked as & $handler $context $step
-            # - [string]      : function name invoked as & $handler -Context $context -Step $step
+            # Handler must be a function name (string).
             $handler = Resolve-IdleStepHandler -StepType $stepType -Registry $registry
             if ($null -eq $handler) {
                 throw [System.InvalidOperationException]::new("Step type '$stepType' is not registered.")
             }
 
-            # Invoke the step plugin depending on handler type.
-            if ($handler -is [scriptblock]) {
-                $stepResult = & $handler $context $step
-            }
-            else {
-                # handler is a function name (string)
-                $stepResult = & $handler -Context $context -Step $step
-            }
+            # Invoke the step plugin.
+            $stepResult = & $handler -Context $context -Step $step
 
             $stepResults += $stepResult
 
