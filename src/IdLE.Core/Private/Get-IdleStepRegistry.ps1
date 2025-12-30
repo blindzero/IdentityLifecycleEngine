@@ -6,45 +6,60 @@ function Get-IdleStepRegistry {
         [object] $Providers
     )
 
-    # Registry maps workflow Step.Type -> handler.
+    # Registry maps workflow Step.Type -> handler
     # Handler can be:
-    # - string      : PowerShell function name
-    # - scriptblock : executable handler (ideal for tests / hosts)
+    # - [string]      : PowerShell function name
+    # - [scriptblock] : executable handler (useful for tests / hosts)
     $registry = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    if ($null -eq $Providers) {
-        return $registry
-    }
+    # 1) Copy host-provided StepRegistry (optional)
+    # We support two shapes for compatibility:
+    # - StepRegistry['Type'] = 'FunctionName' | { scriptblock }
+    # - StepRegistry['Type'] = @{ Handler = 'FunctionName' }   (legacy/demo style)
+    if ($null -ne $Providers) {
 
-    # 1) Providers as hashtable / dictionary (most common in tests)
-    if ($Providers -is [hashtable] -or $Providers -is [System.Collections.IDictionary]) {
-        if ($Providers.Contains('StepRegistry') -and $Providers['StepRegistry'] -is [hashtable]) {
-            # Clone to avoid mutating host-provided hashtable during execution.
-            $source = $Providers['StepRegistry']
-            foreach ($k in $source.Keys) {
-                $registry[[string]$k] = $source[$k]
+        $source = $null
+
+        if ($Providers -is [System.Collections.IDictionary]) {
+            if ($Providers.Contains('StepRegistry')) {
+                $source = $Providers['StepRegistry']
+            }
+        }
+        else {
+            $prop = $Providers.PSObject.Properties['StepRegistry']
+            if ($null -ne $prop) {
+                $source = $prop.Value
             }
         }
 
-        return $registry
-    }
+        if ($null -ne $source -and ($source -is [System.Collections.IDictionary])) {
+            foreach ($k in @($source.Keys)) {
 
-    # 2) Providers as object with property StepRegistry (host objects)
-    # StrictMode-safe: do NOT access $Providers.StepRegistry unless the property exists.
-    $prop = $Providers.PSObject.Properties['StepRegistry']
-    if ($null -ne $prop -and $prop.Value -is [hashtable]) {
-        $source = $prop.Value
-        foreach ($k in $source.Keys) {
-            $registry[[string]$k] = $source[$k]
+                $v = $source[$k]
+
+                # Allow legacy shape: @{ Handler = 'Invoke-...' }
+                if ($v -is [hashtable] -and $v.ContainsKey('Handler')) {
+                    $v = $v['Handler']
+                }
+
+                $registry[[string]$k] = $v
+            }
         }
     }
 
-    # Add built-in defaults only if the step implementation is actually available.
-    # This keeps IdLE's public surface minimal: steps are optional modules.
+    # 2) Built-in defaults (only if commands are available)
+    # Do not overwrite host-provided entries.
     if (-not $registry.ContainsKey('IdLE.Step.EmitEvent')) {
         $cmd = Get-Command -Name 'Invoke-IdleStepEmitEvent' -ErrorAction SilentlyContinue
         if ($null -ne $cmd) {
             $registry['IdLE.Step.EmitEvent'] = $cmd.Name
+        }
+    }
+
+    if (-not $registry.ContainsKey('IdLE.Step.EnsureAttribute')) {
+        $cmd = Get-Command -Name 'Invoke-IdleStepEnsureAttribute' -ErrorAction SilentlyContinue
+        if ($null -ne $cmd) {
+            $registry['IdLE.Step.EnsureAttribute'] = $cmd.Name
         }
     }
 

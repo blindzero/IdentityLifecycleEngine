@@ -4,7 +4,7 @@ Set-StrictMode -Version Latest
 $PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
 if (Test-Path -Path $PublicPath) {
 
-    # Materialize first to avoid enumeration issues during import.
+    # Materialize the list first to avoid enumeration issues if the session/module state changes during import.
     $publicScripts = @(Get-ChildItem -Path $PublicPath -Filter '*.ps1' -File | Sort-Object -Property FullName)
 
     foreach ($script in $publicScripts) {
@@ -13,6 +13,5 @@ if (Test-Path -Path $PublicPath) {
 }
 
 Export-ModuleMember -Function @(
-    'Invoke-IdleStepEmitEvent',
-    'Invoke-IdleStepEnsureAttribute'
+    'New-IdleMockIdentityProvider'
 )
