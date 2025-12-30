@@ -1,6 +1,6 @@
 # IdentityLifecycleEngine (IdLE) - Documentation
 
-![IdLE Logo](/assets/idle_logo_flat_white_text.png)
+![IdLE Logo](/docs/assets/idle_logo_flat_white_text.png)
 
 Welcome to the documentation for **IdentityLifecycleEngine (IdLE)**.
 
