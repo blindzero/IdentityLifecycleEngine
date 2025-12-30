@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: "en-US" }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page.title | default: site.title }}</title>
+    <link rel="stylesheet" href="{{ "/assets/nav.css" | relative_url }}">
+    <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
+  </head>
+  <body>
+    <div class="idle-shell">
+      <aside class="idle-nav">
+        {% capture nav %}{% include nav.md %}{% endcapture %}
+        {{ nav | markdownify }}
+      </aside>
+
+      <main class="idle-content">
+        {{ content }}
+      </main>
+    </div>
+  </body>
+</html>
