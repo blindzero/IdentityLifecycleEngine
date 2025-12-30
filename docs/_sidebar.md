@@ -14,5 +14,6 @@
 
 ### Advanced
 - [Architecture](advanced/architecture.md)
+- [Security](advanced/security.md)
 - [Extensibility](advanced/extensibility.md)
 - [Testing](advanced/testing.md)

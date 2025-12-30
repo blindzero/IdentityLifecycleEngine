@@ -68,3 +68,9 @@ No deep merge: replace-at-path semantics only.
 - Providers integrate target systems
 
 See: [Extensibility](extensibility.md).
+
+## Trust boundaries
+
+IdLE treats workflow configuration and lifecycle requests as **untrusted data** and validates that they contain no ScriptBlocks.
+
+Host-provided extension points (step registry, providers, external event sinks) are **trusted inputs** and are validated for safe shapes (object contracts). For details, see `advanced/security.md`.
