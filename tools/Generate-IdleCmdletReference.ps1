@@ -251,6 +251,7 @@ if ($cmdletMetadata.Count -eq 0) {
 
 # Generate per-cmdlet Markdown using classic platyPS.
 New-MarkdownHelp -Module $moduleNameForDocs -OutputFolder $OutputFolder -Force | Out-Null
+Update-MarkdownHelp -Path $OutputFolder -Force | Out-Null
 
 # Create/overwrite the index page (table with synopsis).
 New-IdleCmdletIndexMarkdown -IndexPath $IndexPath -OutputFolder $OutputFolder -Cmdlets $cmdletMetadata
