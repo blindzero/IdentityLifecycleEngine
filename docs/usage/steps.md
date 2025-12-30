@@ -76,3 +76,9 @@ IdLE uses a fail-fast execution model in V1:
 - [Workflows](workflows.md)
 - [Providers](providers.md)
 - [Architecture](../advanced/architecture.md)
+
+## Security notes
+
+- Steps emit events via `Context.EventSink.WriteEvent(...)`.
+- Step handlers are referenced by function name (string) in the step registry.
+- ScriptBlock handlers are not supported as a secure default.

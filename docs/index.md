@@ -22,6 +22,7 @@ for identity and account processes (Joiner / Mover / Leaver) built for **PowerSh
 ## Advanced
 
 - [Architecture](advanced/architecture.md)
+- [Security](advanced/security.md)
 - [Extensibility](advanced/extensibility.md)
 - [Testing](advanced/testing.md)
 
