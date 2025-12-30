@@ -65,6 +65,11 @@ jobs:
           }
 
           Install-Module -Name platyPS -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+      
+      - name: Debug platyPS version
+        shell: pwsh
+        run: |
+          Get-Module -ListAvailable platyPS | Sort-Object Version -Descending | Select-Object -First 1 | Format-List Name,Version,Path
 
       - name: Generate cmdlet reference
         shell: pwsh
@@ -79,10 +84,10 @@ jobs:
           set -euo pipefail
           echo "== git status =="
           git status --porcelain || true
-          
+
           echo "== git diff (first 200 lines) =="
           git diff | sed -n '1,200p' || true
-          
+
           git diff --exit-code
 
   docs-step-reference:
@@ -105,8 +110,8 @@ jobs:
           set -euo pipefail
           echo "== git status =="
           git status --porcelain || true
-          
+
           echo "== git diff (first 200 lines) =="
           git diff | sed -n '1,200p' || true
-          
+
           git diff --exit-code
