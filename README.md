@@ -121,11 +121,6 @@ Project docs:
 
 PRs welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md)
 
-- Keep the core **host-agnostic**
-- Prefer **configuration** over hardcoding logic
-- Aim for **idempotent** steps
-- Keep **in-code comments/docs in English**
-
 ---
 
 ## Roadmap
