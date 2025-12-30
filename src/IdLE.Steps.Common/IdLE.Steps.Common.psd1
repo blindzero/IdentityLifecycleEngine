@@ -8,7 +8,8 @@
     PowerShellVersion = '7.0'
 
     FunctionsToExport = @(
-        'Invoke-IdleStepEmitEvent'
+        'Invoke-IdleStepEmitEvent',
+        'Invoke-IdleStepEnsureAttribute'
     )
 
     PrivateData       = @{

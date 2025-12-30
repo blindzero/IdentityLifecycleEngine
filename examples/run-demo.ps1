@@ -38,11 +38,20 @@ function Format-EventRow {
     $time = ([DateTime]$Event.TimestampUtc).ToLocalTime().ToString('HH:mm:ss.fff')
     $step = if ([string]::IsNullOrWhiteSpace($Event.StepName)) { '-' } else { [string]$Event.StepName }
 
+    $msg = [string]$Event.Message
+
+    # IMPORTANT: Show error details if the engine attached them.
+    if ($Event.PSObject.Properties.Name -contains 'Data' -and $Event.Data -is [hashtable]) {
+        if ($Event.Data.ContainsKey('Error') -and -not [string]::IsNullOrWhiteSpace([string]$Event.Data.Error)) {
+            $msg = "$msg | ERROR: $([string]$Event.Data.Error)"
+        }
+    }
+
     [pscustomobject]@{
         Time    = $time
         Type    = "$icon $($Event.Type)"
         Step    = $step
-        Message = $Event.Message
+        Message = $msg
     }
 }
 
@@ -66,69 +75,38 @@ function Write-ResultSummary {
     Write-Host ("Events: " + ($counts -join ', '))
 }
 
-Import-Module (Join-Path $PSScriptRoot '..\src\IdLE\IdLE.psd1') -Force
-Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Steps.Common\IdLE.Steps.Common.psd1') -Force
+# Import modules from the repo (path-based import, no global installation required).
+Import-Module (Join-Path $PSScriptRoot '..\src\IdLE\IdLE.psd1') -Force -ErrorAction Stop
+Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Steps.Common\IdLE.Steps.Common.psd1') -Force -ErrorAction Stop
+Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1') -Force -ErrorAction Stop
 
-$workflowPath = Join-Path $PSScriptRoot 'workflows\joiner-with-when.psd1'
+# Select demo workflow.
+$workflowPath = Join-Path -Path $PSScriptRoot -ChildPath 'workflows\joiner-minimal-ensureattribute.psd1'
 
+# Validate workflow early for clear errors.
+Test-IdleWorkflow -WorkflowPath $workflowPath | Out-Null
+
+# Create request and plan.
 $request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -Actor 'example-user'
-
 $plan = New-IdlePlan -WorkflowPath $workflowPath -Request $request
 
-# Host-provided step registry:
-# The handler can be a scriptblock (ideal for tests/examples) or a function name.
-$emitHandler = {
-    param($Context, $Step)
-
-    # Support both hashtable/dictionary and PSCustomObject step shapes.
-    $stepName = $null
-    $stepType = $null
-    $with     = $null
-
-    if ($Step -is [System.Collections.IDictionary]) {
-        $stepName = if ($Step.Contains('Name')) { [string]$Step['Name'] } else { $null }
-        $stepType = if ($Step.Contains('Type')) { [string]$Step['Type'] } else { $null }
-        $with     = if ($Step.Contains('With')) { $Step['With'] } else { $null }
-    }
-    else {
-        $stepName = if ($Step.PSObject.Properties['Name']) { [string]$Step.Name } else { $null }
-        $stepType = if ($Step.PSObject.Properties['Type']) { [string]$Step.Type } else { $null }
-        $with     = if ($Step.PSObject.Properties['With']) { $Step.With } else { $null }
-    }
-
-    $msg = $null
-    if ($with -is [System.Collections.IDictionary] -and $with.Contains('Message')) {
-        $msg = [string]$with['Message']
-    }
-    elseif ($null -ne $with -and $with.PSObject.Properties['Message']) {
-        $msg = [string]$with.Message
-    }
-
-    if ([string]::IsNullOrWhiteSpace($msg)) {
-        $msg = 'EmitEvent executed.'
-    }
-
-    & $Context.WriteEvent 'Custom' $msg $stepName @{ StepType = $stepType }
-
-    [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = $stepName
-        Type       = $stepType
-        Status     = 'Completed'
-        Error      = $null
-    }
-}
-
+# Host-provided providers.
 $providers = @{
-    StepRegistry = @{
-        'IdLE.Step.EmitEvent' = $emitHandler
-    }
+    Identity = New-IdleMockIdentityProvider
 }
 
 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 Write-DemoHeader "IdLE Demo – Plan Execution"
 Write-ResultSummary -Result $result
+
+Write-Host ""
+Write-DemoHeader "Step Results"
+$result.Steps |
+    Select-Object Name, Type, Status,
+        @{ Name = 'Changed'; Expression = { if ($_.PSObject.Properties.Name -contains 'Changed') { $_.Changed } else { $null } } },
+        Error |
+    Format-Table -AutoSize
 
 Write-Host ""
 Write-DemoHeader "Event Stream"
