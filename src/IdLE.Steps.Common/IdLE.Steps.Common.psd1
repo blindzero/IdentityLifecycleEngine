@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Steps.Common.psm1'
-    ModuleVersion = '0.2.0'
+    ModuleVersion = '0.3.0'
     GUID              = '9bdf5e97-0344-4191-82ed-c534bd7cb9b5'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
