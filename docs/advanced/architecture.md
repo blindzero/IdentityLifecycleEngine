@@ -42,6 +42,20 @@ This enables previews, approvals, and repeatable audits.
 Conditions are data-only objects.
 They are validated early and evaluated deterministically.
 
+## Eventing
+
+IdLE emits **structured events** during execution.
+
+- The engine always creates an `EventSink` and exposes it as `Context.EventSink`.
+- Steps and the engine use a single contract: `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`.
+- All events are buffered in the execution result (`result.Events`).
+
+Hosts may optionally provide an external sink to stream events live:
+
+- `Invoke-IdlePlan -EventSink <object>`
+- The sink must implement `WriteEvent(event)`
+- ScriptBlock sinks are rejected (secure default)
+
 ## State ownership
 
 Steps may only write to `State.*` and only to declared output paths.

@@ -31,6 +31,39 @@ Avoid executing code from configuration. Keep inputs data-only.
 Steps may write to `State.*` only, and only to declared output paths.
 This prevents hidden coupling between steps.
 
+## Eventing
+
+Steps may emit **structured events** for progress and audit.
+
+The engine provides a stable, object-based contract on the execution context:
+
+- `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`
+
+Notes:
+
+- `Type` is a short string (for example: `Custom`, `Debug`).
+- `Message` is a human-readable message.
+- `StepName` should be the current step name (if available).
+- `Data` is an optional hashtable for structured details.
+
+Example:
+
+```powershell
+$Context.EventSink.WriteEvent(
+  'Custom',
+  'Ensured Department attribute.',
+  $Step.Name,
+  @{ Provider = 'Identity'; Attribute = 'Department' }
+)
+```
+
+Security and portability:
+
+- Steps must never execute code from configuration.
+- Steps must not assume a specific host UI.
+- Hosts can optionally stream events via `Invoke-IdlePlan -EventSink <object>`,
+  but **ScriptBlock sinks are not supported**.
+
 ## Error behavior
 
 IdLE uses a fail-fast execution model in V1:
