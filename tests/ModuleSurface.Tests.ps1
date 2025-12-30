@@ -3,6 +3,7 @@ BeforeAll {
     $idlePsd1 = Join-Path $repoRoot 'src\IdLE\IdLE.psd1'
     $corePsd1 = Join-Path $repoRoot 'src\IdLE.Core\IdLE.Core.psd1'
     $stepsPsd1 = Join-Path $repoRoot 'src\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
+    $providerMockPsd1 = Join-Path $repoRoot 'src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1'
 }
 
 Describe 'Module manifests and public surface' {
@@ -57,10 +58,23 @@ Describe 'Module manifests and public surface' {
         ($idle.NestedModules | Where-Object Name -eq 'IdLE.Core') | Should -Not -BeNullOrEmpty
     }
 
-    It 'Steps module exports the intended step function' {
+    It 'Steps module exports the intended step functions' {
         Remove-Module IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
         Import-Module $stepsPsd1 -Force -ErrorAction Stop
 
-        (Get-Command -Module IdLE.Steps.Common).Name | Should -Contain 'Invoke-IdleStepEmitEvent'
+        $exported = (Get-Command -Module IdLE.Steps.Common).Name
+        $exported | Should -Contain 'Invoke-IdleStepEmitEvent'
+        $exported | Should -Contain 'Invoke-IdleStepEnsureAttribute'
+    }
+
+    It 'IdLE.Provider.Mock manifest is valid' {
+        { Test-ModuleManifest -Path $providerMockPsd1 -ErrorAction Stop } | Should -Not -Throw
+    }
+
+    It 'Mock provider module exports the intended provider function' {
+        Remove-Module IdLE.Provider.Mock -Force -ErrorAction SilentlyContinue
+        Import-Module $providerMockPsd1 -Force -ErrorAction Stop
+
+        (Get-Command -Module IdLE.Provider.Mock).Name | Should -Contain 'New-IdleMockIdentityProvider'
     }
 }
