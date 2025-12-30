@@ -14,7 +14,7 @@ function Invoke-IdlePlanObject {
     Provider registry/collection (used for StepRegistry in this increment; passed through for future steps).
 
     .PARAMETER EventSink
-    Optional external event sink for streaming. Must be an object with a WriteEvent(event) method.
+    Optional external event sink provided by the host.
 
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.ExecutionResult)
@@ -27,29 +27,22 @@ function Invoke-IdlePlanObject {
 
         [Parameter()]
         [AllowNull()]
-        [object] $Providers,
+        [hashtable] $Providers,
 
         [Parameter()]
         [AllowNull()]
         [object] $EventSink
     )
 
-    # Validate minimal plan shape. Avoid hard typing to keep cross-module compatibility.
-    $planProps = $Plan.PSObject.Properties.Name
-    foreach ($required in @('CorrelationId', 'LifecycleEvent', 'Steps')) {
-        if ($planProps -notcontains $required) {
-            throw [System.ArgumentException]::new("Plan object must contain property '$required'.", 'Plan')
-        }
-    }
+    $planProps = @($Plan.PSObject.Properties.Name)
 
-    # Secure default: treat host-provided extension points as privileged inputs.
     # The engine rejects ScriptBlocks in the plan and providers to avoid accidental code execution.
     Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
     Assert-IdleNoScriptBlock -InputObject $Providers -Path 'Providers'
 
     $events = [System.Collections.Generic.List[object]]::new()
 
-    $corr = [string]$Plan.CorrelationId
+    $corr  = [string]$Plan.CorrelationId
     $actor = if ($planProps -contains 'Actor') { [string]$Plan.Actor } else { $null }
 
     # Create the engine-managed event sink object used by both the engine and steps.
@@ -58,14 +51,13 @@ function Invoke-IdlePlanObject {
 
     # Resolve step types to PowerShell functions via a registry.
     # This decouples workflow "Type" strings from actual implementation functions.
-    $registry = Get-IdleStepRegistry -Providers $Providers
+    $stepRegistry = $null
+    if ($null -ne $Providers -and $Providers.ContainsKey('StepRegistry')) {
+        $stepRegistry = $Providers.StepRegistry
+    }
 
-    # Provide a small execution context for steps.
-    # Steps must not call engine-private functions directly; they only use the context.
     $context = [pscustomobject]@{
         PSTypeName    = 'IdLE.ExecutionContext'
-        CorrelationId = $corr
-        Actor         = $actor
         Plan          = $Plan
         Providers     = $Providers
 
@@ -77,12 +69,12 @@ function Invoke-IdlePlanObject {
     # Emit run start event.
     $context.EventSink.WriteEvent('RunStarted', 'Plan execution started.', $null, @{
         LifecycleEvent = [string]$Plan.LifecycleEvent
-        WorkflowName = if ($planProps -contains 'WorkflowName') {
+        WorkflowName   = if ($planProps -contains 'WorkflowName') {
             [string]$Plan.WorkflowName
         } else {
             $null
         }
-        StepCount = @($Plan.Steps).Count
+        StepCount      = @($Plan.Steps).Count
     })
 
     $stepResults = @()
@@ -97,26 +89,33 @@ function Invoke-IdlePlanObject {
             $null
         }
 
-        # Evaluate declarative When condition (data-only).
-        if ($step.PSObject.Properties.Name -contains 'When' -and $null -ne $step.When) {
-            $shouldRun = Test-IdleWhenCondition -When $step.When -Context $context
-            if (-not $shouldRun) {
-                $stepResults += [pscustomobject]@{
-                    PSTypeName = 'IdLE.StepResult'
-                    Name       = $stepName
-                    Type       = $stepType
-                    Status     = 'Skipped'
-                    Error      = $null
-                }
+        # Step applicability is evaluated during planning (New-IdlePlanObject).
+        # At execution time we only respect the planned status.
+        if ($step.PSObject.Properties.Name -contains 'When') {
+            throw [System.ArgumentException]::new(
+                "Plan step '$stepName' still contains legacy key 'When'. This has been renamed to 'Condition'. Please rebuild the plan with an updated workflow definition.",
+                'Plan'
+            )
+        }
 
-                $context.EventSink.WriteEvent('StepSkipped', "Step '$stepName' skipped (condition not met).", $stepName, @{
-                    StepType = $stepType
-                    Index    = $i
-                })
+        if ($step.PSObject.Properties.Name -contains 'Status' -and [string]$step.Status -eq 'NotApplicable') {
 
-                $i++
-                continue
+            # Synthetic step result: the step was not executed because it was deemed not applicable at plan time.
+            $stepResults += [pscustomobject]@{
+                PSTypeName = 'IdLE.StepResult'
+                Name       = $stepName
+                Type       = $stepType
+                Status     = 'NotApplicable'
+                Error      = $null
             }
+
+            $context.EventSink.WriteEvent('StepNotApplicable', "Step '$stepName' not applicable (condition not met).", $stepName, @{
+                StepType = $stepType
+                Index    = $i
+            })
+
+            $i++
+            continue
         }
 
         $context.EventSink.WriteEvent('StepStarted', "Step '$stepName' started.", $stepName, @{
@@ -127,15 +126,30 @@ function Invoke-IdlePlanObject {
         try {
             # Resolve implementation handler for this step type.
             # Handler must be a function name (string).
-            $handler = Resolve-IdleStepHandler -StepType $stepType -Registry $registry
-            if ($null -eq $handler) {
-                throw [System.InvalidOperationException]::new("Step type '$stepType' is not registered.")
+            if ($null -eq $stepType -or [string]::IsNullOrWhiteSpace($stepType)) {
+                throw [System.ArgumentException]::new("Step '$stepName' is missing a valid Type.", 'Plan')
             }
 
-            # Invoke the step plugin.
-            $stepResult = & $handler -Context $context -Step $step
+            if ($null -eq $stepRegistry -or -not ($stepRegistry.ContainsKey($stepType))) {
+                throw [System.ArgumentException]::new("No step handler registered for type '$stepType'.", 'Providers')
+            }
 
-            $stepResults += $stepResult
+            $handlerName = [string]$stepRegistry[$stepType]
+            if ([string]::IsNullOrWhiteSpace($handlerName)) {
+                throw [System.ArgumentException]::new("Step handler for type '$stepType' is not a valid function name.", 'Providers')
+            }
+
+            # Execute the step via handler.
+            $result = & $handlerName -Context $context -Step $step
+
+            # Normalize result shape (minimal contract).
+            $stepResults += [pscustomobject]@{
+                PSTypeName = 'IdLE.StepResult'
+                Name       = $stepName
+                Type       = $stepType
+                Status     = if ($null -ne $result -and $result.PSObject.Properties.Name -contains 'Status') { [string]$result.Status } else { 'Completed' }
+                Error      = if ($null -ne $result -and $result.PSObject.Properties.Name -contains 'Error')  { $result.Error } else { $null }
+            }
 
             $context.EventSink.WriteEvent('StepCompleted', "Step '$stepName' completed.", $stepName, @{
                 StepType = $stepType
