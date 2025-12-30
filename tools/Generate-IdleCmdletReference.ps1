@@ -174,7 +174,7 @@ function New-IdleCmdletIndexMarkdown {
     $lines.Add('# Cmdlet Reference')
     $lines.Add('')
     $lines.Add('> Generated file. Do not edit by hand.')
-    $lines.Add("> Source: tools/Generate-IdleCmdletReference.ps1 — $timestampUtc")
+    $lines.Add("> Source: tools/Generate-IdleCmdletReference.ps1")
     $lines.Add('')
     $lines.Add('This page links the generated per-cmdlet reference pages and includes their synopsis.')
     $lines.Add('')

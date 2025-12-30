@@ -318,7 +318,7 @@ $header = @(
     '# Step Catalog'
     ''
     '> Generated file. Do not edit by hand.'
-    "> Source: tools/Generate-IdleStepReference.ps1 — $timestampUtc"
+    "> Source: tools/Generate-IdleStepReference.ps1"
     ''
     'This page documents built-in IdLE steps discovered from `Invoke-IdleStep*` functions in `IdLE.Steps.*` modules.'
     ''
@@ -329,7 +329,7 @@ $header = @(
 $body = New-Object System.Text.StringBuilder
 [void]$body.AppendLine($header)
 
-foreach ($cmd in $stepCommands) {
+foreach ($cmd in ($stepCommands | Sort-Object)) {
     $section = ConvertTo-IdleStepMarkdownSection -CommandInfo $cmd
     if (-not [string]::IsNullOrWhiteSpace($section)) {
         [void]$body.AppendLine($section)
