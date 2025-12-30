@@ -77,7 +77,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git status --porcelain
+          echo "== git status =="
+          git status --porcelain || true
+          
+          echo "== git diff (first 200 lines) =="
+          git diff | sed -n '1,200p' || true
+          
           git diff --exit-code
 
   docs-step-reference:
@@ -98,5 +103,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git status --porcelain
+          echo "== git status =="
+          git status --porcelain || true
+          
+          echo "== git diff (first 200 lines) =="
+          git diff | sed -n '1,200p' || true
+          
           git diff --exit-code
