@@ -1,9 +1,9 @@
-function Test-IdleWhenConditionSchema {
+function Test-IdleConditionSchema {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [hashtable] $When,
+        [hashtable] $Condition,
 
         [Parameter()]
         [AllowNull()]
@@ -15,11 +15,17 @@ function Test-IdleWhenConditionSchema {
     # - Unknown keys are errors (keeps configuration deterministic and toolable).
     # - A node must be either a group (All/Any/None) OR an operator (Equals/NotEquals/Exists/In).
     # - ScriptBlocks are validated elsewhere (Assert-IdleNoScriptBlock). We assume data-only input here.
+    #
+    # Supported operator shapes:
+    # - Equals    = @{ Path = '<path>'; Value  = <value>  }
+    # - NotEquals = @{ Path = '<path>'; Value  = <value>  }
+    # - Exists    = '<path>' OR @{ Path = '<path>' }
+    # - In        = @{ Path = '<path>'; Values = <array|scalar> }
 
     $errors = [System.Collections.Generic.List[string]]::new()
     $prefix = if ([string]::IsNullOrWhiteSpace($StepName)) { 'Step' } else { "Step '$StepName'" }
 
-    function Add-IdleWhenError {
+    function Add-IdleConditionError {
         param(
             [Parameter(Mandatory)]
             [System.Collections.Generic.List[string]] $List,
@@ -46,7 +52,7 @@ function Test-IdleWhenConditionSchema {
         $nodeErrors = [System.Collections.Generic.List[string]]::new()
 
         if (-not ($Node -is [System.Collections.IDictionary])) {
-            Add-IdleWhenError -List $nodeErrors -Message ("{0}: Condition node must be a hashtable/dictionary." -f $NodePath)
+            Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must be a hashtable/dictionary." -f $NodePath)
             return $nodeErrors
         }
 
@@ -59,26 +65,26 @@ function Test-IdleWhenConditionSchema {
 
         # Enforce: either group OR operator, never both.
         if ($presentGroupKeys.Count -gt 0 -and $presentOpKeys.Count -gt 0) {
-            Add-IdleWhenError -List $nodeErrors -Message ("{0}: Condition node must be either a group (All/Any/None) or an operator (Equals/NotEquals/Exists/In), not both." -f $NodePath)
+            Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must be either a group (All/Any/None) or an operator (Equals/NotEquals/Exists/In), not both." -f $NodePath)
             return $nodeErrors
         }
 
         # Enforce: at least one recognized key.
         if ($presentGroupKeys.Count -eq 0 -and $presentOpKeys.Count -eq 0) {
-            Add-IdleWhenError -List $nodeErrors -Message ("{0}: Condition node must specify one group (All/Any/None) or one operator (Equals/NotEquals/Exists/In)." -f $NodePath)
+            Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must specify one group (All/Any/None) or one operator (Equals/NotEquals/Exists/In)." -f $NodePath)
             return $nodeErrors
         }
 
         # Enforce: exactly one key at this level (avoids ambiguous evaluation).
         if (($presentGroupKeys.Count + $presentOpKeys.Count) -ne 1) {
-            Add-IdleWhenError -List $nodeErrors -Message ("{0}: Condition node must specify exactly one group/operator key." -f $NodePath)
+            Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must specify exactly one group/operator key." -f $NodePath)
             return $nodeErrors
         }
 
         # Unknown keys are errors.
         foreach ($k in @($Node.Keys)) {
             if ($allowedKeys -notcontains [string]$k) {
-                Add-IdleWhenError -List $nodeErrors -Message ("{0}: Unknown key '{1}' in condition node." -f $NodePath, [string]$k)
+                Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unknown key '{1}' in condition node." -f $NodePath, [string]$k)
             }
         }
 
@@ -93,12 +99,12 @@ function Test-IdleWhenConditionSchema {
             $groupPath = ("{0}.{1}" -f $NodePath, $groupKey)
 
             if ($null -eq $children) {
-                Add-IdleWhenError -List $nodeErrors -Message ("{0}: Group value must not be null and must contain at least one condition." -f $groupPath)
+                Add-IdleConditionError -List $nodeErrors -Message ("{0}: Group value must not be null and must contain at least one condition." -f $groupPath)
                 return $nodeErrors
             }
 
             if (-not ($children -is [System.Collections.IEnumerable]) -or ($children -is [string])) {
-                Add-IdleWhenError -List $nodeErrors -Message ("{0}: Group value must be an array/list of condition nodes." -f $groupPath)
+                Add-IdleConditionError -List $nodeErrors -Message ("{0}: Group value must be an array/list of condition nodes." -f $groupPath)
                 return $nodeErrors
             }
 
@@ -107,13 +113,13 @@ function Test-IdleWhenConditionSchema {
             foreach ($child in @($children)) {
                 $count++
                 foreach ($e in (Test-IdleConditionNodeSchema -Node $child -NodePath ("{0}[{1}]" -f $groupPath, $i))) {
-                    Add-IdleWhenError -List $nodeErrors -Message $e
+                    Add-IdleConditionError -List $nodeErrors -Message $e
                 }
                 $i++
             }
 
             if ($count -lt 1) {
-                Add-IdleWhenError -List $nodeErrors -Message ("{0}: Group must contain at least one condition node." -f $groupPath)
+                Add-IdleConditionError -List $nodeErrors -Message ("{0}: Group must contain at least one condition node." -f $groupPath)
             }
 
             return $nodeErrors
@@ -127,22 +133,22 @@ function Test-IdleWhenConditionSchema {
         switch ($opKey) {
             'Equals' {
                 if (-not ($opVal -is [System.Collections.IDictionary])) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Equals must be a hashtable with keys Left and Right." -f $opPath)
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Equals must be a hashtable with keys Path and Value." -f $opPath)
                     return $nodeErrors
                 }
 
                 foreach ($k in @($opVal.Keys)) {
-                    if (@('Left', 'Right') -notcontains [string]$k) {
-                        Add-IdleWhenError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Left, Right." -f $opPath, [string]$k)
+                    if (@('Path', 'Value') -notcontains [string]$k) {
+                        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Path, Value." -f $opPath, [string]$k)
                     }
                 }
 
-                if (-not $opVal.Contains('Left') -or [string]::IsNullOrWhiteSpace([string]$opVal.Left)) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Missing or empty Left." -f $opPath)
+                if (-not $opVal.Contains('Path') -or [string]::IsNullOrWhiteSpace([string]$opVal.Path)) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
                 }
 
-                if (-not $opVal.Contains('Right')) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Missing Right." -f $opPath)
+                if (-not $opVal.Contains('Value')) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Value." -f $opPath)
                 }
 
                 return $nodeErrors
@@ -150,22 +156,22 @@ function Test-IdleWhenConditionSchema {
 
             'NotEquals' {
                 if (-not ($opVal -is [System.Collections.IDictionary])) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: NotEquals must be a hashtable with keys Left and Right." -f $opPath)
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: NotEquals must be a hashtable with keys Path and Value." -f $opPath)
                     return $nodeErrors
                 }
 
                 foreach ($k in @($opVal.Keys)) {
-                    if (@('Left', 'Right') -notcontains [string]$k) {
-                        Add-IdleWhenError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Left, Right." -f $opPath, [string]$k)
+                    if (@('Path', 'Value') -notcontains [string]$k) {
+                        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Path, Value." -f $opPath, [string]$k)
                     }
                 }
 
-                if (-not $opVal.Contains('Left') -or [string]::IsNullOrWhiteSpace([string]$opVal.Left)) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Missing or empty Left." -f $opPath)
+                if (-not $opVal.Contains('Path') -or [string]::IsNullOrWhiteSpace([string]$opVal.Path)) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
                 }
 
-                if (-not $opVal.Contains('Right')) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Missing Right." -f $opPath)
+                if (-not $opVal.Contains('Value')) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Value." -f $opPath)
                 }
 
                 return $nodeErrors
@@ -177,24 +183,24 @@ function Test-IdleWhenConditionSchema {
                 #   Exists = @{ Path = 'context.Attributes.mail' }
                 if ($opVal -is [string]) {
                     if ([string]::IsNullOrWhiteSpace([string]$opVal)) {
-                        Add-IdleWhenError -List $nodeErrors -Message ("{0}: Exists path must be a non-empty string." -f $opPath)
+                        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Exists path must be a non-empty string." -f $opPath)
                     }
                     return $nodeErrors
                 }
 
                 if (-not ($opVal -is [System.Collections.IDictionary])) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Exists must be a string path or a hashtable with key Path." -f $opPath)
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Exists must be a string path or a hashtable with key Path." -f $opPath)
                     return $nodeErrors
                 }
 
                 foreach ($k in @($opVal.Keys)) {
                     if (@('Path') -notcontains [string]$k) {
-                        Add-IdleWhenError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Path." -f $opPath, [string]$k)
+                        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Path." -f $opPath, [string]$k)
                     }
                 }
 
                 if (-not $opVal.Contains('Path') -or [string]::IsNullOrWhiteSpace([string]$opVal.Path)) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
                 }
 
                 return $nodeErrors
@@ -202,49 +208,48 @@ function Test-IdleWhenConditionSchema {
 
             'In' {
                 # In operator:
-                #   In = @{ Left = 'context.Identity.Type'; Right = @('Joiner','Mover') }
+                #   In = @{ Path = 'context.Identity.Type'; Values = @('Joiner','Mover') }
                 if (-not ($opVal -is [System.Collections.IDictionary])) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: In must be a hashtable with keys Left and Right." -f $opPath)
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: In must be a hashtable with keys Path and Values." -f $opPath)
                     return $nodeErrors
                 }
 
                 foreach ($k in @($opVal.Keys)) {
-                    if (@('Left', 'Right') -notcontains [string]$k) {
-                        Add-IdleWhenError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Left, Right." -f $opPath, [string]$k)
+                    if (@('Path', 'Values') -notcontains [string]$k) {
+                        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Path, Values." -f $opPath, [string]$k)
                     }
                 }
 
-                if (-not $opVal.Contains('Left') -or [string]::IsNullOrWhiteSpace([string]$opVal.Left)) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Missing or empty Left." -f $opPath)
+                if (-not $opVal.Contains('Path') -or [string]::IsNullOrWhiteSpace([string]$opVal.Path)) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
                 }
 
-                if (-not $opVal.Contains('Right')) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Missing Right." -f $opPath)
+                if (-not $opVal.Contains('Values')) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Values." -f $opPath)
                     return $nodeErrors
                 }
 
-                $right = $opVal.Right
-                if ($null -eq $right) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Right must not be null." -f $opPath)
+                $values = $opVal.Values
+                if ($null -eq $values) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Values must not be null." -f $opPath)
                     return $nodeErrors
                 }
 
-                # Right should be a list/array (or scalar) but must not be a dictionary (ambiguous).
-                if ($right -is [System.Collections.IDictionary]) {
-                    Add-IdleWhenError -List $nodeErrors -Message ("{0}: Right must be a list/array (or scalar), not a dictionary." -f $opPath)
+                # Values should be list/array (or scalar) but must not be a dictionary (ambiguous).
+                if ($values -is [System.Collections.IDictionary]) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Values must be a list/array (or scalar), not a dictionary." -f $opPath)
                 }
 
                 return $nodeErrors
             }
         }
 
-        Add-IdleWhenError -List $nodeErrors -Message ("{0}: Unsupported operator '{1}'." -f $NodePath, $opKey)
+        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unsupported operator '{1}'." -f $NodePath, $opKey)
         return $nodeErrors
     }
 
-    # Validate recursively from root.
-    foreach ($e in (Test-IdleConditionNodeSchema -Node $When -NodePath ("{0}: When" -f $prefix))) {
-        Add-IdleWhenError -List $errors -Message $e
+    foreach ($e in (Test-IdleConditionNodeSchema -Node $Condition -NodePath ("{0}: Condition" -f $prefix))) {
+        Add-IdleConditionError -List $errors -Message $e
     }
 
     return $errors
