@@ -2,7 +2,7 @@ BeforeAll {
     $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\src\IdLE\IdLE.psd1'
     Import-Module $modulePath -Force
 
-    function global:Invoke-IdleWhenTestEmitStep {
+    function global:Invoke-IdleConditionTestEmitStep {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
@@ -28,22 +28,27 @@ BeforeAll {
 
 AfterAll {
     # Cleanup global test functions to avoid polluting the session.
-    Remove-Item -Path 'Function:\Invoke-IdleWhenTestEmitStep' -ErrorAction SilentlyContinue
+    Remove-Item -Path 'Function:\Invoke-IdleConditionTestEmitStep' -ErrorAction SilentlyContinue
 }
 
-Describe 'Invoke-IdlePlan - When conditions' {
+Describe 'Invoke-IdlePlan - Condition applicability' {
 
     It 'skips a step when condition is not met' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'when.psd1'
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'condition.psd1'
         Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
-  Name           = 'When Demo'
+  Name           = 'Condition Demo'
   LifecycleEvent = 'Joiner'
   Steps          = @(
     @{
-      Name = 'Emit'
-      Type = 'IdLE.Step.EmitEvent'
-      When = @{ Path = 'Plan.LifecycleEvent'; Equals = 'Leaver' }
+      Name      = 'Emit'
+      Type      = 'IdLE.Step.EmitEvent'
+      Condition = @{
+        Equals = @{
+          Path  = 'Plan.LifecycleEvent'
+          Value = 'Leaver'
+        }
+      }
     }
   )
 }
@@ -54,7 +59,7 @@ Describe 'Invoke-IdlePlan - When conditions' {
 
         $providers = @{
             StepRegistry = @{
-                'IdLE.Step.EmitEvent' = 'Invoke-IdleWhenTestEmitStep'
+                'IdLE.Step.EmitEvent' = 'Invoke-IdleConditionTestEmitStep'
             }
         }
 
@@ -67,16 +72,21 @@ Describe 'Invoke-IdlePlan - When conditions' {
     }
 
     It 'runs a step when condition is met' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'when2.psd1'
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'condition2.psd1'
         Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
-  Name           = 'When Demo'
+  Name           = 'Condition Demo'
   LifecycleEvent = 'Joiner'
   Steps          = @(
     @{
-      Name = 'Emit'
-      Type = 'IdLE.Step.EmitEvent'
-      When = @{ Path = 'Plan.LifecycleEvent'; Equals = 'Joiner' }
+      Name      = 'Emit'
+      Type      = 'IdLE.Step.EmitEvent'
+      Condition = @{
+        Equals = @{
+          Path  = 'Plan.LifecycleEvent'
+          Value = 'Joiner'
+        }
+      }
     }
   )
 }
@@ -87,7 +97,7 @@ Describe 'Invoke-IdlePlan - When conditions' {
 
         $providers = @{
             StepRegistry = @{
-                'IdLE.Step.EmitEvent' = 'Invoke-IdleWhenTestEmitStep'
+                'IdLE.Step.EmitEvent' = 'Invoke-IdleConditionTestEmitStep'
             }
         }
 
