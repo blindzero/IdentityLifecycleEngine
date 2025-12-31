@@ -28,6 +28,7 @@ Describe 'Module manifests and public surface' {
             'New-IdleLifecycleRequest'
             'New-IdlePlan'
             'Test-IdleWorkflow'
+            'Export-IdlePlan'
         ) | Sort-Object
 
         $actual = (Get-Command -Module IdLE).Name | Sort-Object
