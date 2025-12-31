@@ -23,7 +23,6 @@ function Test-IdleConditionSchema {
     # - In        = @{ Path = '<path>'; Values = <array|scalar> }
 
     $errors = [System.Collections.Generic.List[string]]::new()
-
     $prefix = if ([string]::IsNullOrWhiteSpace($StepName)) { 'Step' } else { "Step '$StepName'" }
 
     function Add-IdleConditionError {
