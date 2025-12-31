@@ -31,9 +31,7 @@ AfterAll {
     Remove-Item -Path 'Function:\Invoke-IdleConditionTestEmitStep' -ErrorAction SilentlyContinue
 }
 
-InModuleScope IdLE.Core {
-#  Get-Command Test-IdleConditionSchema -All | Select-Object CommandType, Name, Source, Definition
-  
+InModuleScope IdLE.Core {  
   Describe 'Invoke-IdlePlan - Condition applicability' {
       It 'does not execute a step when plan marks it as NotApplicable' {
           $wfPath = Join-Path -Path $TestDrive -ChildPath 'condition.psd1'
@@ -69,8 +67,8 @@ InModuleScope IdLE.Core {
 
         $result.Status | Should -Be 'Completed'
         $result.Steps[0].Status | Should -Be 'NotApplicable'
-        ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
-        ($result.Events | Where-Object Type -eq 'StepNotApplicable').Count | Should -Be 1
+        @($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
+        @($result.Events | Where-Object Type -eq 'StepNotApplicable').Count | Should -Be 1
     }
 
     It 'runs a step when condition is met' {

@@ -7,6 +7,12 @@ Describe 'Condition DSL (schema + evaluator)' {
 
     InModuleScope 'IdLE.Core' {
 
+        BeforeAll {
+            # Guarding to ensure the functions are available.
+            Get-Command Test-IdleConditionSchema -ErrorAction Stop | Out-Null
+            Get-Command Test-IdleCondition -ErrorAction Stop | Out-Null
+        }
+
         Describe 'Test-IdleConditionSchema' {
 
             It 'accepts an Equals operator with Path + Value' {
@@ -18,7 +24,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 }
 
                 $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
-                $errors | Should -BeEmpty
+                $errors.Count | Should -Be 0
             }
 
             It 'accepts a nested All group with multiple conditions' {
@@ -30,7 +36,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 }
 
                 $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
-                $errors | Should -BeEmpty
+                $errors.Count | Should -Be 0
             }
 
             It 'accepts Exists as short form string path' {
@@ -39,7 +45,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 }
 
                 $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
-                $errors | Should -BeEmpty
+                $errors.Count | Should -Be 0
             }
 
             It 'accepts In operator with Values as array' {
@@ -51,7 +57,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 }
 
                 $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
-                $errors | Should -BeEmpty
+                $errors.Count | Should -Be 0
             }
 
             It 'rejects unknown keys' {
