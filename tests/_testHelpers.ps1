@@ -8,6 +8,22 @@ function Get-RepoRootPath {
     return (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath '..')).Path
 }
 
+function Get-IdleModuleManifestPath {
+    [CmdletBinding()]
+    param()
+
+    $repoRoot = Get-RepoRootPath
+    return (Resolve-Path -Path (Join-Path $repoRoot 'src/IdLE/IdLE.psd1')).Path
+}
+
+function Import-IdleTestModule {
+    [CmdletBinding()]
+    param()
+
+    $manifestPath = Get-IdleModuleManifestPath
+    Import-Module -Name $manifestPath -Force -ErrorAction Stop
+}
+
 function Get-ModuleManifestPaths {
     [CmdletBinding()]
     param()
@@ -21,3 +37,4 @@ function Get-ModuleManifestPaths {
         Where-Object { $_.Directory.Parent -and $_.Directory.Parent.Name -eq 'src' } |
         Select-Object -ExpandProperty FullName
 }
+

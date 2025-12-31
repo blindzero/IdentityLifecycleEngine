@@ -13,7 +13,7 @@ Executes an IdLE plan.
 ## SYNTAX
 
 ```
-Invoke-IdlePlan [-Plan] <Object> [[-Providers] <Object>] [[-EventSink] <Object>]
+Invoke-IdlePlan [-Plan] <Object> [[-Providers] <Hashtable>] [[-EventSink] <Object>]
  [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
@@ -41,7 +41,7 @@ Aliases:
 Required: True
 Position: 1
 Default value: None
-Accept pipeline input: False
+Accept pipeline input: True (ByValue)
 Accept wildcard characters: False
 ```
 
@@ -49,7 +49,7 @@ Accept wildcard characters: False
 Provider registry/collection passed through to execution.
 
 ```yaml
-Type: Object
+Type: Hashtable
 Parameter Sets: (All)
 Aliases:
 
@@ -129,7 +129,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## OUTPUTS
 
-### System.Object
+### PSCustomObject (PSTypeName: IdLE.ExecutionResult)
 ## NOTES
 
 ## RELATED LINKS

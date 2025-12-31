@@ -1,13 +1,8 @@
 Set-StrictMode -Version Latest
 
 BeforeAll {
-    . (Join-Path -Path $PSScriptRoot -ChildPath '_testHelpers.ps1')
-
-    $repoRoot = Get-RepoRootPath
-    $idleManifest = Join-Path -Path $repoRoot -ChildPath 'src/IdLE/IdLE.psd1'
-
-    Remove-Module -Name IdLE, IdLE.Core -Force -ErrorAction SilentlyContinue
-    Import-Module -Name $idleManifest -Force -ErrorAction Stop
+    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    Import-IdleTestModule
 }
 
 Describe 'IdLE public API surface' {

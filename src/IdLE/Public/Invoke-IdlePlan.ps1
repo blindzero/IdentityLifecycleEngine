@@ -20,33 +20,40 @@ function Invoke-IdlePlan {
     Invoke-IdlePlan -Plan $plan -Providers $providers
 
     .OUTPUTS
-    System.Object
+    PSCustomObject (PSTypeName: IdLE.ExecutionResult)
     #>
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory, ValueFromPipeline)]
         [ValidateNotNull()]
         [object] $Plan,
 
         [Parameter()]
         [AllowNull()]
-        [object] $Providers,
+        [hashtable] $Providers,
 
         [Parameter()]
         [AllowNull()]
         [object] $EventSink
     )
 
-    if (-not $PSCmdlet.ShouldProcess('IdLE Plan', 'Invoke')) {
-        # For WhatIf: return a minimal preview object.
-        return [pscustomobject]@{
-            PSTypeName    = 'IdLE.ExecutionResult'
-            Status        = 'WhatIf'
-            CorrelationId = if ($Plan.PSObject.Properties.Name -contains 'CorrelationId') { [string]$Plan.CorrelationId } else { $null }
-            Steps         = @($Plan.Steps)
-            Events        = @()
-        }
-    }
+    process {
+        if (-not $PSCmdlet.ShouldProcess('IdLE Plan', 'Invoke')) {
+            # For -WhatIf: return a minimal preview object.
+            $correlationId = $null
+            if ($Plan.PSObject.Properties.Name -contains 'CorrelationId') {
+                $correlationId = [string]$Plan.CorrelationId
+            }
 
-    return Invoke-IdlePlanObject -Plan $Plan -Providers $Providers -EventSink $EventSink
+            return [pscustomobject]@{
+                PSTypeName    = 'IdLE.ExecutionResult'
+                Status        = 'WhatIf'
+                CorrelationId = $correlationId
+                Steps         = @($Plan.Steps)
+                Events        = @()
+            }
+        }
+
+        return Invoke-IdlePlanObject -Plan $Plan -Providers $Providers -EventSink $EventSink
+    }
 }

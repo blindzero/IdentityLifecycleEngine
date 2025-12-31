@@ -45,12 +45,12 @@ The host maps step types to step implementations via a step registry.
 
 ## Conditional steps
 
-Steps can be skipped using declarative `When` conditions.
+Steps can be skipped using declarative `Condition` key.
 
 Example:
 
 ```powershell
-When = @{
+Condition = @{
   Path   = 'Plan.LifecycleEvent'
   Equals = 'Joiner'
 }

@@ -40,13 +40,13 @@ function Test-IdleStepDefinition {
         }
     }
 
-    # Validate When schema (if present)
-    if ($Step.Contains('When') -and $null -ne $Step['When']) {
-        if (-not ($Step['When'] -is [hashtable])) {
-            $errors.Add("Step[$Index] ($name): 'When' must be a hashtable when provided.")
+    # Validate Condition schema (if present)
+    if ($Step.Contains('Condition') -and $null -ne $Step['Condition']) {
+        if (-not ($Step['Condition'] -is [hashtable])) {
+            $errors.Add("Step[$Index] ($name): 'Condition' must be a hashtable when provided.")
         }
         else {
-            foreach ($e in (Test-IdleWhenConditionSchema -When $Step['When'] -StepName $name)) {
+            foreach ($e in (Test-IdleConditionSchema -Condition $Step['Condition'] -StepName $name)) {
                 $errors.Add($e)
             }
         }
