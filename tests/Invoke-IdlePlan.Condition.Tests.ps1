@@ -1,7 +1,9 @@
-BeforeAll {
-    $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\src\IdLE\IdLE.psd1'
-    Import-Module $modulePath -Force
+BeforeDiscovery {
+    $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+    Import-Module (Join-Path $repoRoot 'src/IdLE/IdLE.psd1') -Force -ErrorAction Stop
+}
 
+BeforeAll {
     function global:Invoke-IdleConditionTestEmitStep {
         [CmdletBinding()]
         param(
