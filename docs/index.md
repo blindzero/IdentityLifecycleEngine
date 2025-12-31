@@ -28,6 +28,13 @@ for identity and account processes (Joiner / Mover / Leaver) built for **PowerSh
 - [Steps and Metadata](reference/steps-and-metadata.md)
 - [Step Catalog](reference/steps.md)
 
+## Specifications
+
+Specifications are **normative contracts** (machine-readable formats / stable interfaces)
+used between IdLE and its hosts.
+
+- [Plan export (JSON)](specs/plan-export.md)
+
 ## Advanced
 
 - [Architecture](advanced/architecture.md)

@@ -37,6 +37,13 @@ Execution runs the plan exactly as built:
 
 This enables previews, approvals, and repeatable audits.
 
+## Plan export
+
+Hosts may persist or exchange a plan as a **machine-readable JSON artifact**.
+The canonical contract format is defined here:
+
+- [Plan export specification (JSON)](../specs/plan-export.md)
+
 ## Declarative conditions
 
 Conditions are data-only objects.

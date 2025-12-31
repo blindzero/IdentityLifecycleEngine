@@ -20,6 +20,9 @@
 - [Steps and Metadata](reference/steps-and-metadata.md)
 - [Step Catalog](reference/steps.md)
 
+### Specifications
+- [Plan export (JSON)](specs/plan-export.md)
+
 ### Advanced
 - [Architecture](advanced/architecture.md)
 - [Security](advanced/security.md)

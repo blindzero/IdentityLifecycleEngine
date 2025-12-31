@@ -1,4 +1,5 @@
 - [Home](index.md)
 - [Getting started](getting-started/quickstart.md)
 - [Usage](usage/workflows.md)
+- [Specifications](specs/plan-export.md)
 - [Advanced](advanced/architecture.md)
