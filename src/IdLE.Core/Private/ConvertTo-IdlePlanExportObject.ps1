@@ -4,15 +4,16 @@ Maps an internal LifecyclePlan object to the canonical Plan Export contract DTO.
 
 .DESCRIPTION
 This is the single source of truth for the Plan Export JSON contract mapping.
-It produces a pure data object (ordered hashtables / PSCustomObject compatible) that can be
-serialized to JSON deterministically.
+It produces a pure data object (ordered hashtables) that can be serialized to JSON
+deterministically.
 
-The mapping is intentionally defensive:
-- It supports multiple plausible internal property names (to reduce coupling to internal refactors).
-- It does not depend on host/runtime-specific objects.
-- It never emits executable PowerShell objects (script blocks, delegates, etc.).
+Notes:
+- Engine version is intentionally omitted to avoid noise on module version bumps.
+- Plan timestamps are intentionally omitted to keep Golden/Snapshot tests stable.
+  Contract versioning is done via schemaVersion.
 
-The JSON serializer (ConvertTo-Json) is called by the public cmdlet.
+The mapping is defensive and accepts multiple internal property names to reduce coupling
+to internal refactors.
 #>
 function ConvertTo-IdlePlanExportObject {
     [CmdletBinding()]
@@ -50,35 +51,13 @@ function ConvertTo-IdlePlanExportObject {
         return [ordered] @{}
     }
 
-    function ConvertTo-Iso8601UtcString {
-        [CmdletBinding()]
-        param(
-            [Parameter()]
-            [object] $Value
-        )
-
-        if ($null -eq $Value) {
-            return $null
-        }
-
-        # Accept DateTime / DateTimeOffset; otherwise keep as-is (string) to avoid lossy coercion.
-        if ($Value -is [datetime]) {
-            return ([datetime]::SpecifyKind($Value, [DateTimeKind]::Utc)).ToString('o')
-        }
-
-        if ($Value -is [DateTimeOffset]) {
-            return $Value.ToUniversalTime().ToString('o')
-        }
-
-        return [string] $Value
-    }
-
     # ---- Engine block --------------------------------------------------------
-    # Export engine name only. Engine version is intentionally omitted to keep the artifact stable
-    # across module version bumps. Contract versioning is done via schemaVersion.
-    $engineName = 'IdLE'
+    # Export engine name only. Contract versioning is done via schemaVersion.
+    $engineMap = New-OrderedMap
+    $engineMap.name = 'IdLE'
 
     # ---- Request block -------------------------------------------------------
+    # Prefer an explicit request object if present. Otherwise, fall back to plan fields.
     $request = Get-FirstPropertyValue -Object $Plan -Names @('Request', 'LifecycleRequest', 'InputRequest')
 
     $requestType = $null
@@ -87,12 +66,19 @@ function ConvertTo-IdlePlanExportObject {
     $requestInput = $null
 
     if ($null -ne $request) {
-        $requestType   = Get-FirstPropertyValue -Object $request -Names @('Type', 'RequestType', 'LifecycleType', 'Kind')
+        $requestType   = Get-FirstPropertyValue -Object $request -Names @('Type', 'RequestType', 'LifecycleType', 'Kind', 'LifecycleEvent')
         $correlationId = Get-FirstPropertyValue -Object $request -Names @('CorrelationId', 'CorrelationID', 'Correlation', 'Id')
         $actor         = Get-FirstPropertyValue -Object $request -Names @('Actor', 'RequestedBy', 'Source', 'Origin')
 
         # Keep input opaque. We do not transform or validate here.
         $requestInput  = Get-FirstPropertyValue -Object $request -Names @('Input', 'Data', 'Payload', 'Attributes')
+    }
+    else {
+        # Plan-shaped fallback (current IdLE plan object shape).
+        $requestType   = Get-FirstPropertyValue -Object $Plan -Names @('LifecycleEvent', 'Type', 'RequestType')
+        $correlationId = Get-FirstPropertyValue -Object $Plan -Names @('CorrelationId', 'CorrelationID', 'Id', 'PlanId', 'PlanID')
+        $actor         = Get-FirstPropertyValue -Object $Plan -Names @('Actor', 'RequestedBy')
+        $requestInput  = $null
     }
 
     $requestMap = New-OrderedMap
@@ -102,10 +88,11 @@ function ConvertTo-IdlePlanExportObject {
     $requestMap.input         = $requestInput
 
     # ---- Plan block ----------------------------------------------------------
-    $planId = Get-FirstPropertyValue -Object $Plan -Names @('Id', 'PlanId', 'PlanID', 'CorrelationId')
-    $createdAt = Get-FirstPropertyValue -Object $Plan -Names @('CreatedAt', 'CreatedOn', 'Timestamp', 'PlannedAt')
-    $mode = Get-FirstPropertyValue -Object $Plan -Names @('Mode', 'State', 'Status')
+    # Keep plan id stable and aligned with the internal plan identity.
+    $planId = Get-FirstPropertyValue -Object $Plan -Names @('Id', 'PlanId', 'PlanID', 'CorrelationId', 'CorrelationID')
+    $mode   = Get-FirstPropertyValue -Object $Plan -Names @('Mode', 'State', 'Status')
 
+    # Plan timestamps are intentionally omitted for contract stability (Golden tests).
     $steps = Get-FirstPropertyValue -Object $Plan -Names @('Steps', 'Items', 'PlanSteps', 'Entries')
     if ($null -eq $steps) {
         $steps = @()
@@ -113,6 +100,7 @@ function ConvertTo-IdlePlanExportObject {
 
     $stepList = @()
     $index = 0
+
     foreach ($step in $steps) {
         $index++
 
@@ -122,7 +110,7 @@ function ConvertTo-IdlePlanExportObject {
 
         $stepId = Get-FirstPropertyValue -Object $step -Names @('Id', 'StepId', 'StepID')
         if ([string]::IsNullOrWhiteSpace([string] $stepId)) {
-            # Use a deterministic fallback id when none exists.
+            # Deterministic fallback id when none exists.
             $stepId = ('step-{0:00}' -f $index)
         }
 
@@ -130,7 +118,8 @@ function ConvertTo-IdlePlanExportObject {
         $stepType = Get-FirstPropertyValue -Object $step -Names @('StepType', 'Type', 'Kind')
         $provider = Get-FirstPropertyValue -Object $step -Names @('Provider', 'ProviderName', 'Adapter', 'Target')
 
-        # Conditions: export as declarative object, without evaluation.
+        # Conditions: export declaratively, without evaluation.
+        # Current plan object shows Condition = $null, so we default to "always".
         $condition = Get-FirstPropertyValue -Object $step -Names @('Condition', 'When', 'Applicability', 'Guard')
 
         $conditionMap = $null
@@ -143,13 +132,13 @@ function ConvertTo-IdlePlanExportObject {
             $conditionMap.expression = $expression
         }
         else {
-            # If no condition exists, represent unconditional applicability explicitly.
             $conditionMap = New-OrderedMap
             $conditionMap.type = 'always'
             $conditionMap.expression = $null
         }
 
         # Inputs and expected state are treated as opaque, pure data.
+        # Current plan uses 'With' for inputs.
         $inputs = Get-FirstPropertyValue -Object $step -Names @('Inputs', 'Input', 'Parameters', 'Arguments', 'With')
         $expectedState = Get-FirstPropertyValue -Object $step -Names @('ExpectedState', 'DesiredState', 'TargetState', 'State')
 
@@ -167,27 +156,22 @@ function ConvertTo-IdlePlanExportObject {
 
     $planMap = New-OrderedMap
     $planMap.id = $planId
-    $planMap.createdAt = ConvertTo-Iso8601UtcString -Value $createdAt
     $planMap.mode = $mode
     $planMap.steps = $stepList
 
     # ---- Metadata block ------------------------------------------------------
-    # Metadata is optional and must not carry engine semantics.
-    $metadata = New-OrderedMap
-    $metadata.generatedBy = 'Export-IdlePlanObject'
-    $metadata.environment = $null
-    $metadata.labels = @()
+    $metadataMap = New-OrderedMap
+    $metadataMap.generatedBy = 'Export-IdlePlanObject'
+    $metadataMap.environment = $null
+    $metadataMap.labels = @()
 
     # ---- Root ---------------------------------------------------------------
-    $engineMap = New-OrderedMap
-    $engineMap.name = $engineName
-
     $root = New-OrderedMap
     $root.schemaVersion = '1.0'
     $root.engine = $engineMap
     $root.request = $requestMap
     $root.plan = $planMap
-    $root.metadata = $metadata
+    $root.metadata = $metadataMap
 
     return $root
 }
