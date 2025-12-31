@@ -24,7 +24,7 @@ function Test-IdleCondition {
     # For readability in configuration, a leading "context." prefix is ignored.
 
     $schemaErrors = Test-IdleConditionSchema -Condition $Condition -StepName $null
-    if ($schemaErrors.Count -gt 0) {
+    if (@($schemaErrors).Count -gt 0) {
         $msg = "Condition schema validation failed: {0}" -f ([string]::Join(' ', @($schemaErrors)))
         throw [System.ArgumentException]::new($msg, 'Condition')
     }

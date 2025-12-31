@@ -42,7 +42,7 @@ function Test-IdleWorkflowSchema {
                 continue
             }
 
-            $allowedStepKeys = @('Name', 'Type', 'When', 'With', 'Description')
+            $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description')
             foreach ($k in $step.Keys) {
                 if ($allowedStepKeys -notcontains $k) {
                     $errors.Add("Unknown key '$k' in $stepPath. Allowed keys: $($allowedStepKeys -join ', ').")
@@ -64,8 +64,8 @@ function Test-IdleWorkflowSchema {
 
             # Conditions must be declarative data, never a ScriptBlock/expression.
             # We only enforce the shape here; semantic validation comes later.
-            if ($step.ContainsKey('When') -and $null -ne $step.When -and $step.When -isnot [hashtable]) {
-                $errors.Add("'$stepPath.When' must be a hashtable (declarative condition object).")
+            if ($step.ContainsKey('Condition') -and $null -ne $step.Condition -and $step.Condition -isnot [hashtable]) {
+                $errors.Add("'$stepPath.Condition' must be a hashtable (declarative condition object).")
             }
 
             # 'With' is step parameter bag (data-only). Detailed validation comes with step metadata later.

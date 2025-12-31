@@ -58,7 +58,7 @@ function Test-IdleWorkflowDefinitionObject {
         }
     }
 
-    # 4b) Validate step definitions (Name/Type/When/With + data-only).
+    # 4b) Validate step definitions (Name/Type/Condition/With + data-only).
     $idx = 0
     foreach ($s in @($workflow.Steps)) {
         $stepErrors = Test-IdleStepDefinition -Step $s -Index $idx

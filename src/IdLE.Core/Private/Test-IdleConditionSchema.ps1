@@ -23,18 +23,33 @@ function Test-IdleConditionSchema {
     # - In        = @{ Path = '<path>'; Values = <array|scalar> }
 
     $errors = [System.Collections.Generic.List[string]]::new()
+
     $prefix = if ([string]::IsNullOrWhiteSpace($StepName)) { 'Step' } else { "Step '$StepName'" }
 
     function Add-IdleConditionError {
         param(
             [Parameter(Mandatory)]
-            [System.Collections.Generic.List[string]] $List,
+            [ValidateNotNull()]
+            [object] $List,
 
             [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
             [string] $Message
         )
 
-        $null = $List.Add($Message)
+        if ($List -is [System.Collections.Generic.List[string]]) {
+            $null = $List.Add($Message)
+            return
+        }
+
+        if ($List -is [System.Collections.ArrayList]) {
+            $null = $List.Add($Message)
+            return
+        }
+
+        throw [System.InvalidOperationException]::new(
+            ("Add-IdleConditionError expected a mutable list type but got '{0}'." -f $List.GetType().FullName)
+        )
     }
 
     function Test-IdleConditionNodeSchema {
@@ -53,7 +68,7 @@ function Test-IdleConditionSchema {
 
         if (-not ($Node -is [System.Collections.IDictionary])) {
             Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must be a hashtable/dictionary." -f $NodePath)
-            return $nodeErrors
+            return ,$nodeErrors
         }
 
         $allowedGroupKeys = @('All', 'Any', 'None')
@@ -66,19 +81,19 @@ function Test-IdleConditionSchema {
         # Enforce: either group OR operator, never both.
         if ($presentGroupKeys.Count -gt 0 -and $presentOpKeys.Count -gt 0) {
             Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must be either a group (All/Any/None) or an operator (Equals/NotEquals/Exists/In), not both." -f $NodePath)
-            return $nodeErrors
+            return ,$nodeErrors
         }
 
         # Enforce: at least one recognized key.
         if ($presentGroupKeys.Count -eq 0 -and $presentOpKeys.Count -eq 0) {
             Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must specify one group (All/Any/None) or one operator (Equals/NotEquals/Exists/In)." -f $NodePath)
-            return $nodeErrors
+            return ,$nodeErrors
         }
 
         # Enforce: exactly one key at this level (avoids ambiguous evaluation).
         if (($presentGroupKeys.Count + $presentOpKeys.Count) -ne 1) {
             Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must specify exactly one group/operator key." -f $NodePath)
-            return $nodeErrors
+            return ,$nodeErrors
         }
 
         # Unknown keys are errors.
@@ -89,7 +104,7 @@ function Test-IdleConditionSchema {
         }
 
         if ($nodeErrors.Count -gt 0) {
-            return $nodeErrors
+            return ,$nodeErrors
         }
 
         # GROUP: All/Any/None must be a non-empty array/list of condition nodes.
@@ -100,12 +115,12 @@ function Test-IdleConditionSchema {
 
             if ($null -eq $children) {
                 Add-IdleConditionError -List $nodeErrors -Message ("{0}: Group value must not be null and must contain at least one condition." -f $groupPath)
-                return $nodeErrors
+                return ,$nodeErrors
             }
 
             if (-not ($children -is [System.Collections.IEnumerable]) -or ($children -is [string])) {
                 Add-IdleConditionError -List $nodeErrors -Message ("{0}: Group value must be an array/list of condition nodes." -f $groupPath)
-                return $nodeErrors
+                return ,$nodeErrors
             }
 
             $i = 0
@@ -122,7 +137,7 @@ function Test-IdleConditionSchema {
                 Add-IdleConditionError -List $nodeErrors -Message ("{0}: Group must contain at least one condition node." -f $groupPath)
             }
 
-            return $nodeErrors
+            return ,$nodeErrors
         }
 
         # OPERATOR: Exactly one of Equals/NotEquals/Exists/In.
@@ -134,7 +149,7 @@ function Test-IdleConditionSchema {
             'Equals' {
                 if (-not ($opVal -is [System.Collections.IDictionary])) {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: Equals must be a hashtable with keys Path and Value." -f $opPath)
-                    return $nodeErrors
+                    return ,$nodeErrors
                 }
 
                 foreach ($k in @($opVal.Keys)) {
@@ -151,13 +166,13 @@ function Test-IdleConditionSchema {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Value." -f $opPath)
                 }
 
-                return $nodeErrors
+                return ,$nodeErrors
             }
 
             'NotEquals' {
                 if (-not ($opVal -is [System.Collections.IDictionary])) {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: NotEquals must be a hashtable with keys Path and Value." -f $opPath)
-                    return $nodeErrors
+                    return ,$nodeErrors
                 }
 
                 foreach ($k in @($opVal.Keys)) {
@@ -174,7 +189,7 @@ function Test-IdleConditionSchema {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Value." -f $opPath)
                 }
 
-                return $nodeErrors
+                return ,$nodeErrors
             }
 
             'Exists' {
@@ -185,12 +200,12 @@ function Test-IdleConditionSchema {
                     if ([string]::IsNullOrWhiteSpace([string]$opVal)) {
                         Add-IdleConditionError -List $nodeErrors -Message ("{0}: Exists path must be a non-empty string." -f $opPath)
                     }
-                    return $nodeErrors
+                    return ,$nodeErrors
                 }
 
                 if (-not ($opVal -is [System.Collections.IDictionary])) {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: Exists must be a string path or a hashtable with key Path." -f $opPath)
-                    return $nodeErrors
+                    return ,$nodeErrors
                 }
 
                 foreach ($k in @($opVal.Keys)) {
@@ -203,7 +218,7 @@ function Test-IdleConditionSchema {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
                 }
 
-                return $nodeErrors
+                return ,$nodeErrors
             }
 
             'In' {
@@ -211,7 +226,7 @@ function Test-IdleConditionSchema {
                 #   In = @{ Path = 'context.Identity.Type'; Values = @('Joiner','Mover') }
                 if (-not ($opVal -is [System.Collections.IDictionary])) {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: In must be a hashtable with keys Path and Values." -f $opPath)
-                    return $nodeErrors
+                    return ,$nodeErrors
                 }
 
                 foreach ($k in @($opVal.Keys)) {
@@ -226,13 +241,13 @@ function Test-IdleConditionSchema {
 
                 if (-not $opVal.Contains('Values')) {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Values." -f $opPath)
-                    return $nodeErrors
+                    return ,$nodeErrors
                 }
 
                 $values = $opVal.Values
                 if ($null -eq $values) {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: Values must not be null." -f $opPath)
-                    return $nodeErrors
+                    return ,$nodeErrors
                 }
 
                 # Values should be list/array (or scalar) but must not be a dictionary (ambiguous).
@@ -240,17 +255,17 @@ function Test-IdleConditionSchema {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: Values must be a list/array (or scalar), not a dictionary." -f $opPath)
                 }
 
-                return $nodeErrors
+                return ,$nodeErrors
             }
         }
 
         Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unsupported operator '{1}'." -f $NodePath, $opKey)
-        return $nodeErrors
+        return ,$nodeErrors
     }
 
     foreach ($e in (Test-IdleConditionNodeSchema -Node $Condition -NodePath ("{0}: Condition" -f $prefix))) {
         Add-IdleConditionError -List $errors -Message $e
     }
 
-    return $errors
+    return ,$errors
 }

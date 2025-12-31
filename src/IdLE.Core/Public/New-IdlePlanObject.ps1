@@ -88,7 +88,7 @@ function New-IdlePlanObject {
         $status = 'Planned'
         if ($null -ne $condition) {
             $schemaErrors = Test-IdleConditionSchema -Condition $condition -StepName ([string]$s.Name)
-            if ($schemaErrors.Count -gt 0) {
+            if (@($schemaErrors).Count -gt 0) {
                 throw [System.ArgumentException]::new(
                     ("Invalid Condition on step '{0}': {1}" -f [string]$s.Name, ([string]::Join(' ', @($schemaErrors)))),
                     'Workflow'
