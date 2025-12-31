@@ -43,8 +43,7 @@ The plan export MUST NOT contain:
 {
   "schemaVersion": "1.0",
   "engine": {
-    "name": "IdLE",
-    "version": "0.4.0"
+    "name": "IdLE"
   },
   "request": { },
   "plan": { },
@@ -56,6 +55,19 @@ The plan export MUST NOT contain:
 
 Version of this JSON schema (this contract).  
 Independent from the IdLE engine version.
+
+### engine
+
+Identifies the engine that produced the exported plan.
+The engine object is informational only and MUST NOT be used for contract compatibility decisions.
+
+- engine.name is required and identifies the producing engine (e.g. IdLE).
+- engine.version is intentionally omitted in this specification.
+
+The engine version is not part of the contract to ensure stable, deterministic exports across engine version bumps.
+Contract compatibility and evolution are tracked exclusively via schemaVersion.
+
+Hosts that require engine build or release information SHOULD attach it as external metadata outside of the exported plan artifact.
 
 ---
 
@@ -87,7 +99,6 @@ Rules:
 ```json
 "plan": {
   "id": "plan-001",
-  "createdAt": "2025-01-01T10:15:00Z",
   "mode": "PlanOnly",
   "steps": []
 }
@@ -98,7 +109,7 @@ Rules:
 | Field | Description |
 | ------ | ------------ |
 | id | Unique identifier of the plan |
-| createdAt | ISO-8601 UTC timestamp |
+| createdAt | (Optional) ISO-8601 UTC timestamp |
 | mode | Plan lifecycle state |
 | steps | Ordered list of step objects |
 
@@ -207,6 +218,7 @@ The engine MUST NOT rely on metadata semantics.
 - LF line endings
 - Pretty-printed JSON
 - Stable property ordering
+- createdAt MAY be omitted for deterministic exports.
 
 ---
 
