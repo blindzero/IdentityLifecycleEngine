@@ -11,7 +11,8 @@
         'New-IdleLifecycleRequestObject',
         'Test-IdleWorkflowDefinitionObject',
         'New-IdlePlanObject',
-        'Invoke-IdlePlanObject'
+        'Invoke-IdlePlanObject',
+        'Export-IdlePlanObject'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
