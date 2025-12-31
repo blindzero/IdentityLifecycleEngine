@@ -1,6 +1,6 @@
 BeforeAll {
-    $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\src\IdLE\IdLE.psd1'
-    Import-Module $modulePath -Force
+    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    Import-IdleTestModule
 
     # The engine invokes step handlers by function name (string) inside module scope.
     # Therefore, test handler functions must be visible to the module (global scope).

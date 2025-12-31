@@ -1,6 +1,6 @@
 BeforeDiscovery {
-    $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-    Import-Module (Join-Path $repoRoot 'src/IdLE/IdLE.psd1') -Force -ErrorAction Stop
+    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    Import-IdleTestModule
 }
 
 BeforeAll {

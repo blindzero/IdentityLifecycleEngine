@@ -4,6 +4,9 @@ BeforeAll {
     $corePsd1 = Join-Path $repoRoot 'src\IdLE.Core\IdLE.Core.psd1'
     $stepsPsd1 = Join-Path $repoRoot 'src\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
     $providerMockPsd1 = Join-Path $repoRoot 'src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1'
+
+    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    Import-IdleTestModule
 }
 
 Describe 'Module manifests and public surface' {

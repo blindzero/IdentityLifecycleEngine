@@ -1,6 +1,6 @@
 BeforeAll {
-    $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\src\IdLE\IdLE.psd1'
-    Import-Module $modulePath -Force
+    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    Import-IdleTestModule
 }
 
 Describe 'New-IdleLifecycleRequest' {

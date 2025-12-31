@@ -1,7 +1,8 @@
 Set-StrictMode -Version Latest
 
 BeforeAll {
-    . (Join-Path -Path $PSScriptRoot -ChildPath '_testHelpers.ps1')
+    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    Import-IdleTestModule
 }
 
 Describe 'Module manifests' {

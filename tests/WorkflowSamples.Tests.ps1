@@ -1,15 +1,10 @@
 Set-StrictMode -Version Latest
 
 BeforeAll {
-    . (Join-Path -Path $PSScriptRoot -ChildPath '_testHelpers.ps1')
+    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    Import-IdleTestModule
 
-    $repoRoot = Get-RepoRootPath
-    $idleManifest = Join-Path -Path $repoRoot -ChildPath 'src/IdLE/IdLE.psd1'
-
-    Remove-Module -Name IdLE, IdLE.Core -Force -ErrorAction SilentlyContinue
-    Import-Module -Name $idleManifest -Force -ErrorAction Stop
-
-    $workflowsPath = Join-Path -Path $repoRoot -ChildPath 'examples/workflows'
+    $workflowsPath = Join-Path -Path (Get-RepoRootPath) -ChildPath 'examples/workflows'
 }
 
 Describe 'Example workflows' {
