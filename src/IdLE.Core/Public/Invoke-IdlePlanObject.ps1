@@ -50,11 +50,12 @@ function Invoke-IdlePlanObject {
     $engineEventSink = New-IdleEventSink -CorrelationId $corr -Actor $actor -ExternalEventSink $EventSink -EventBuffer $events
 
     # Resolve step types to PowerShell functions via a registry.
-    # This decouples workflow "Type" strings from actual implementation functions.
-    $stepRegistry = $null
-    if ($null -ne $Providers -and $Providers.ContainsKey('StepRegistry')) {
-        $stepRegistry = $Providers.StepRegistry
-    }
+    #
+    # IMPORTANT:
+    # - The host MAY provide a StepRegistry, but it is optional.
+    # - Built-in steps must remain discoverable without requiring the host to wire a registry.
+    # - Get-IdleStepRegistry merges the host registry (if provided) with built-in handlers (if available).
+    $stepRegistry = Get-IdleStepRegistry -Providers $Providers
 
     $context = [pscustomobject]@{
         PSTypeName    = 'IdLE.ExecutionContext'
