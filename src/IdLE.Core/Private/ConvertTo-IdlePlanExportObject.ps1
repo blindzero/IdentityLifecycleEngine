@@ -3,16 +3,16 @@
 Maps an internal LifecyclePlan object to the canonical Plan Export contract DTO.
 
 .DESCRIPTION
-This is the single source of truth for the Plan Export JSON contract mapping.
+This function is the single source of truth for the Plan Export JSON contract mapping.
 It produces a pure data object (ordered hashtables) that can be serialized to JSON
 deterministically.
 
-Notes:
-- Engine version is intentionally omitted to avoid noise on module version bumps.
-- Plan timestamps are intentionally omitted to keep Golden/Snapshot tests stable.
-  Contract versioning is done via schemaVersion.
+Contract stability decisions:
+- engine.version is intentionally omitted (avoid noise on module version bumps)
+- plan.createdAt is intentionally omitted (avoid non-deterministic timestamps in exports)
+- empty strings are normalized to $null for identifier-like fields (e.g., actor)
 
-The mapping is defensive and accepts multiple internal property names to reduce coupling
+The mapping is defensive and supports multiple internal property names to reduce coupling
 to internal refactors.
 #>
 function ConvertTo-IdlePlanExportObject {
@@ -22,6 +22,12 @@ function ConvertTo-IdlePlanExportObject {
         [ValidateNotNull()]
         [object] $Plan
     )
+
+    function New-OrderedMap {
+        [CmdletBinding()]
+        param()
+        return [ordered] @{}
+    }
 
     function Get-FirstPropertyValue {
         [CmdletBinding()]
@@ -44,15 +50,25 @@ function ConvertTo-IdlePlanExportObject {
         return $null
     }
 
-    function New-OrderedMap {
+    function ConvertTo-NullIfEmptyString {
         [CmdletBinding()]
-        param()
+        param(
+            [Parameter()]
+            [object] $Value
+        )
 
-        return [ordered] @{}
+        if ($null -eq $Value) {
+            return $null
+        }
+
+        if ($Value -is [string] -and [string]::IsNullOrWhiteSpace($Value)) {
+            return $null
+        }
+
+        return $Value
     }
 
     # ---- Engine block --------------------------------------------------------
-    # Export engine name only. Contract versioning is done via schemaVersion.
     $engineMap = New-OrderedMap
     $engineMap.name = 'IdLE'
 
@@ -66,19 +82,36 @@ function ConvertTo-IdlePlanExportObject {
     $requestInput = $null
 
     if ($null -ne $request) {
-        $requestType   = Get-FirstPropertyValue -Object $request -Names @('Type', 'RequestType', 'LifecycleType', 'Kind', 'LifecycleEvent')
-        $correlationId = Get-FirstPropertyValue -Object $request -Names @('CorrelationId', 'CorrelationID', 'Correlation', 'Id')
-        $actor         = Get-FirstPropertyValue -Object $request -Names @('Actor', 'RequestedBy', 'Source', 'Origin')
+        $requestType = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $request -Names @('Type', 'RequestType', 'LifecycleType', 'Kind', 'LifecycleEvent')
+        )
+
+        $correlationId = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $request -Names @('CorrelationId', 'CorrelationID', 'Correlation', 'Id')
+        )
+
+        $actor = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $request -Names @('Actor', 'RequestedBy', 'Source', 'Origin')
+        )
 
         # Keep input opaque. We do not transform or validate here.
-        $requestInput  = Get-FirstPropertyValue -Object $request -Names @('Input', 'Data', 'Payload', 'Attributes')
+        $requestInput = Get-FirstPropertyValue -Object $request -Names @('Input', 'Data', 'Payload', 'Attributes')
     }
     else {
         # Plan-shaped fallback (current IdLE plan object shape).
-        $requestType   = Get-FirstPropertyValue -Object $Plan -Names @('LifecycleEvent', 'Type', 'RequestType')
-        $correlationId = Get-FirstPropertyValue -Object $Plan -Names @('CorrelationId', 'CorrelationID', 'Id', 'PlanId', 'PlanID')
-        $actor         = Get-FirstPropertyValue -Object $Plan -Names @('Actor', 'RequestedBy')
-        $requestInput  = $null
+        $requestType = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $Plan -Names @('LifecycleEvent', 'Type', 'RequestType')
+        )
+
+        $correlationId = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $Plan -Names @('CorrelationId', 'CorrelationID', 'Id', 'PlanId', 'PlanID')
+        )
+
+        $actor = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $Plan -Names @('Actor', 'RequestedBy')
+        )
+
+        $requestInput = $null
     }
 
     $requestMap = New-OrderedMap
@@ -88,11 +121,16 @@ function ConvertTo-IdlePlanExportObject {
     $requestMap.input         = $requestInput
 
     # ---- Plan block ----------------------------------------------------------
-    # Keep plan id stable and aligned with the internal plan identity.
-    $planId = Get-FirstPropertyValue -Object $Plan -Names @('Id', 'PlanId', 'PlanID', 'CorrelationId', 'CorrelationID')
-    $mode   = Get-FirstPropertyValue -Object $Plan -Names @('Mode', 'State', 'Status')
+    $planId = ConvertTo-NullIfEmptyString -Value (
+        Get-FirstPropertyValue -Object $Plan -Names @('Id', 'PlanId', 'PlanID', 'CorrelationId', 'CorrelationID')
+    )
 
-    # Plan timestamps are intentionally omitted for contract stability (Golden tests).
+    $mode = ConvertTo-NullIfEmptyString -Value (
+        Get-FirstPropertyValue -Object $Plan -Names @('Mode', 'State', 'Status')
+    )
+
+    # plan.createdAt is intentionally omitted (non-deterministic in current implementation)
+
     $steps = Get-FirstPropertyValue -Object $Plan -Names @('Steps', 'Items', 'PlanSteps', 'Entries')
     if ($null -eq $steps) {
         $steps = @()
@@ -108,24 +146,38 @@ function ConvertTo-IdlePlanExportObject {
             continue
         }
 
-        $stepId = Get-FirstPropertyValue -Object $step -Names @('Id', 'StepId', 'StepID')
+        $stepId = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $step -Names @('Id', 'StepId', 'StepID')
+        )
+
         if ([string]::IsNullOrWhiteSpace([string] $stepId)) {
             # Deterministic fallback id when none exists.
             $stepId = ('step-{0:00}' -f $index)
         }
 
-        $stepName = Get-FirstPropertyValue -Object $step -Names @('Name', 'DisplayName', 'Title')
-        $stepType = Get-FirstPropertyValue -Object $step -Names @('StepType', 'Type', 'Kind')
-        $provider = Get-FirstPropertyValue -Object $step -Names @('Provider', 'ProviderName', 'Adapter', 'Target')
+        $stepName = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $step -Names @('Name', 'DisplayName', 'Title')
+        )
 
-        # Conditions: export declaratively, without evaluation.
-        # Current plan object shows Condition = $null, so we default to "always".
+        $stepType = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $step -Names @('StepType', 'Type', 'Kind')
+        )
+
+        $provider = ConvertTo-NullIfEmptyString -Value (
+            Get-FirstPropertyValue -Object $step -Names @('Provider', 'ProviderName', 'Adapter', 'Target')
+        )
+
+        # Conditions are exported declaratively without evaluation.
         $condition = Get-FirstPropertyValue -Object $step -Names @('Condition', 'When', 'Applicability', 'Guard')
 
-        $conditionMap = $null
         if ($null -ne $condition) {
-            $conditionType = Get-FirstPropertyValue -Object $condition -Names @('Type', 'Kind')
-            $expression    = Get-FirstPropertyValue -Object $condition -Names @('Expression', 'Expr', 'Query')
+            $conditionType = ConvertTo-NullIfEmptyString -Value (
+                Get-FirstPropertyValue -Object $condition -Names @('Type', 'Kind')
+            )
+
+            $expression = ConvertTo-NullIfEmptyString -Value (
+                Get-FirstPropertyValue -Object $condition -Names @('Expression', 'Expr', 'Query')
+            )
 
             $conditionMap = New-OrderedMap
             $conditionMap.type = $conditionType
@@ -137,10 +189,10 @@ function ConvertTo-IdlePlanExportObject {
             $conditionMap.expression = $null
         }
 
-        # Inputs and expected state are treated as opaque, pure data.
-        # Current plan uses 'With' for inputs.
+        # Inputs and expectedState are treated as opaque, pure data.
+        # Current IdLE plan object shape uses 'With' for inputs.
         $inputs = Get-FirstPropertyValue -Object $step -Names @('Inputs', 'Input', 'Parameters', 'Arguments', 'With')
-        $expectedState = Get-FirstPropertyValue -Object $step -Names @('ExpectedState', 'DesiredState', 'TargetState', 'State')
+        $expectedState = Get-FirstPropertyValue -Object $step -Names @('ExpectedState', 'DesiredState', 'TargetState')
 
         $stepMap = New-OrderedMap
         $stepMap.id = $stepId

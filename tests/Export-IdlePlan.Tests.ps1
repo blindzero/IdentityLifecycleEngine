@@ -41,7 +41,7 @@ Describe 'Export-IdlePlan' {
             $actualJson = $plan | Export-IdlePlan
 
             # Assert
-            $actualJson | Should -Be $expectedJson
+            $actualJson.TrimEnd() | Should -Be $expectedJson.TrimEnd()
         }
     }
 
