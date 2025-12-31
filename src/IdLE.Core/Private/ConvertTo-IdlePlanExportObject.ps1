@@ -63,26 +63,20 @@ function ConvertTo-IdlePlanExportObject {
 
         # Accept DateTime / DateTimeOffset; otherwise keep as-is (string) to avoid lossy coercion.
         if ($Value -is [datetime]) {
-            return ([datetime]::SpecifyKind($Value, [DateTimeKind]::Utc)).ToString("o")
+            return ([datetime]::SpecifyKind($Value, [DateTimeKind]::Utc)).ToString('o')
         }
 
         if ($Value -is [DateTimeOffset]) {
-            return $Value.ToUniversalTime().ToString("o")
+            return $Value.ToUniversalTime().ToString('o')
         }
 
         return [string] $Value
     }
 
     # ---- Engine block --------------------------------------------------------
-    # We expose engine name/version for informational purposes only.
+    # Export engine name only. Engine version is intentionally omitted to keep the artifact stable
+    # across module version bumps. Contract versioning is done via schemaVersion.
     $engineName = 'IdLE'
-    $engineVersion = $null
-
-    # Prefer module version if available; otherwise leave null (the contract version is schemaVersion).
-    $moduleVersion = $MyInvocation.MyCommand.Module.Version
-    if ($null -ne $moduleVersion) {
-        $engineVersion = [string] $moduleVersion
-    }
 
     # ---- Request block -------------------------------------------------------
     $request = Get-FirstPropertyValue -Object $Plan -Names @('Request', 'LifecycleRequest', 'InputRequest')
@@ -156,7 +150,7 @@ function ConvertTo-IdlePlanExportObject {
         }
 
         # Inputs and expected state are treated as opaque, pure data.
-        $inputs = Get-FirstPropertyValue -Object $step -Names @('Inputs', 'Input', 'Parameters', 'Arguments')
+        $inputs = Get-FirstPropertyValue -Object $step -Names @('Inputs', 'Input', 'Parameters', 'Arguments', 'With')
         $expectedState = Get-FirstPropertyValue -Object $step -Names @('ExpectedState', 'DesiredState', 'TargetState', 'State')
 
         $stepMap = New-OrderedMap
@@ -187,7 +181,6 @@ function ConvertTo-IdlePlanExportObject {
     # ---- Root ---------------------------------------------------------------
     $engineMap = New-OrderedMap
     $engineMap.name = $engineName
-    $engineMap.version = $engineVersion
 
     $root = New-OrderedMap
     $root.schemaVersion = '1.0'
