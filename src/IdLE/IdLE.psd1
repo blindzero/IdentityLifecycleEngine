@@ -13,7 +13,8 @@
         'Test-IdleWorkflow',
         'New-IdleLifecycleRequest',
         'New-IdlePlan',
-        'Invoke-IdlePlan'
+        'Invoke-IdlePlan',
+        'Export-IdlePlan'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
