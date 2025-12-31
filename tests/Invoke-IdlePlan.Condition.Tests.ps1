@@ -31,11 +31,13 @@ AfterAll {
     Remove-Item -Path 'Function:\Invoke-IdleConditionTestEmitStep' -ErrorAction SilentlyContinue
 }
 
-Describe 'Invoke-IdlePlan - Condition applicability' {
-
-    It 'does not execute a step when plan marks it as NotApplicable' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'condition.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+InModuleScope IdLE.Core {
+#  Get-Command Test-IdleConditionSchema -All | Select-Object CommandType, Name, Source, Definition
+  
+  Describe 'Invoke-IdlePlan - Condition applicability' {
+      It 'does not execute a step when plan marks it as NotApplicable' {
+          $wfPath = Join-Path -Path $TestDrive -ChildPath 'condition.psd1'
+          Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
   Name           = 'Condition Demo'
   LifecycleEvent = 'Joiner'
@@ -107,4 +109,5 @@ Describe 'Invoke-IdlePlan - Condition applicability' {
         $result.Steps[0].Status | Should -Be 'Completed'
         ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
     }
+  }
 }
