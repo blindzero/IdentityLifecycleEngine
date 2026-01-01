@@ -30,13 +30,51 @@ function Import-IdleCoreModule {
     $coreManifestPath = Join-Path -Path $PSScriptRoot -ChildPath '..\IdLE.Core\IdLE.Core.psd1'
 
     if (-not (Test-Path -Path $coreManifestPath)) {
-        throw "Failed to load '$($script:IdleCoreModuleName)'. Module was not found via PSModulePath and local fallback path does not exist: $coreManifestPath"
+        throw "Failed to load '$($script:IdleCoreModuleName)'. Module not found in PSModulePath and local fallback path does not exist: $coreManifestPath"
     }
 
     Import-Module -Name $coreManifestPath -Force -ErrorAction Stop
 }
 
+
+# region Bootstrap - ensure built-in step packs are loaded
+# The core engine is step-agnostic. This meta module provides a batteries-included
+# experience by importing first-party step packs where available.
+
+$script:IdleBuiltInStepsModuleName = 'IdLE.Steps.Common'
+
+function Import-IdleBuiltInStepsModule {
+    [CmdletBinding()]
+    param()
+
+    # Already loaded -> nothing to do
+    if (Get-Module -Name $script:IdleBuiltInStepsModuleName) {
+        return
+    }
+
+    # 1) Try normal module resolution (e.g. installed from PSGallery)
+    try {
+        Import-Module -Name $script:IdleBuiltInStepsModuleName -ErrorAction Stop
+        return
+    }
+    catch {
+        # Continue with local fallback
+    }
+
+    # 2) Fallback: repo clone layout (IdLE and packs side-by-side under /src)
+    $stepsManifestPath = Join-Path -Path $PSScriptRoot -ChildPath '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
+
+    if (-not (Test-Path -Path $stepsManifestPath)) {
+        Write-Verbose "Built-in steps module '$($script:IdleBuiltInStepsModuleName)' not found. Skipping import. Expected path: $stepsManifestPath"
+        return
+    }
+
+    Import-Module -Name $stepsManifestPath -Force -ErrorAction Stop
+}
+# endregion
+
 Import-IdleCoreModule
+Import-IdleBuiltInStepsModule
 
 $PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
 if (Test-Path -Path $PublicPath) {
