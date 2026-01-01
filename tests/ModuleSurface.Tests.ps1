@@ -32,16 +32,31 @@ Describe 'Module manifests and public surface' {
         ) | Sort-Object
 
         $actual = (Get-Command -Module IdLE).Name | Sort-Object
-
         $actual | Should -Be $expected
     }
 
-    It 'Importing IdLE does not load IdLE.Steps.Common by default' {
-        Remove-Module IdLE, IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
+    It 'Importing IdLE makes built-in steps available to the engine without exporting them globally' {
+        Remove-Module IdLE, IdLE.Core, IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
         Import-Module $idlePsd1 -Force -ErrorAction Stop
 
-        (Get-Module IdLE.Steps.Common) | Should -BeNullOrEmpty
-        (Get-Command Invoke-IdleStepEmitEvent -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+        # Built-in steps are expected to be available within IdLE (nested/hidden module is ok).
+        (Get-Module -All IdLE.Steps.Common) | Should -Not -BeNullOrEmpty
+
+        # But they must not pollute the global session state:
+        (Get-Module -Name IdLE.Steps.Common) | Should -BeNullOrEmpty
+        (Get-Command -Name Invoke-IdleStepEmitEvent -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+        (Get-Command -Name Invoke-IdleStepEnsureAttribute -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+
+        # Engine discovery must work without global exports (module-qualified handler names).
+        InModuleScope IdLE.Core {
+            $registry = Get-IdleStepRegistry -Providers $null
+
+            $registry.ContainsKey('IdLE.Step.EmitEvent') | Should -BeTrue
+            $registry['IdLE.Step.EmitEvent'] | Should -Be 'IdLE.Steps.Common\Invoke-IdleStepEmitEvent'
+
+            $registry.ContainsKey('IdLE.Step.EnsureAttribute') | Should -BeTrue
+            $registry['IdLE.Step.EnsureAttribute'] | Should -Be 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttribute'
+        }
     }
 
     It 'Importing IdLE does not expose IdLE.Core object cmdlets globally' {
@@ -52,7 +67,7 @@ Describe 'Module manifests and public surface' {
         (Get-Command Invoke-IdlePlanObject -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
     }
 
-    It 'IdLE module includes IdLE.Core as nested module' {
+    It 'IdLE module includes IdLE.Core and IdLE.Steps.Common as nested modules' {
         Remove-Module IdLE -Force -ErrorAction SilentlyContinue
         Import-Module $idlePsd1 -Force -ErrorAction Stop
 
@@ -60,6 +75,7 @@ Describe 'Module manifests and public surface' {
         $idle | Should -Not -BeNullOrEmpty
 
         ($idle.NestedModules | Where-Object Name -eq 'IdLE.Core') | Should -Not -BeNullOrEmpty
+        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Steps.Common') | Should -Not -BeNullOrEmpty
     }
 
     It 'Steps module exports the intended step functions' {
