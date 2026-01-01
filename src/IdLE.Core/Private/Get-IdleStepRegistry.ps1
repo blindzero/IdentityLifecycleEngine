@@ -18,6 +18,45 @@ function Get-IdleStepRegistry {
 
     $registry = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
 
+    # Helper: Resolve a step handler name without requiring global command exports.
+    #
+    # Resolution order:
+    # 1) Global command discovery (host imported a module globally) -> "Invoke-IdleStepX"
+    # 2) Module-scoped discovery (nested/hidden module loaded) -> "ModuleName\Invoke-IdleStepX"
+    function Resolve-IdleStepHandlerName {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $CommandName,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $ModuleName
+        )
+
+        # 1) Global discovery (optional; supports hosts that import step packs globally)
+        $cmd = Get-Command -Name $CommandName -ErrorAction SilentlyContinue
+        if ($null -ne $cmd) {
+            return $cmd.Name
+        }
+
+        # 2) Module-scoped discovery (supports nested modules that are not globally exported)
+        $module = Get-Module -Name $ModuleName -All | Select-Object -First 1
+        if ($null -eq $module) {
+            return $null
+        }
+
+        if ($null -ne $module.ExportedCommands -and $module.ExportedCommands.ContainsKey($CommandName)) {
+
+            # Use a module-qualified command name so the engine can invoke it without relying on
+            # global session exports. This keeps built-in steps available "within IdLE" only.
+            return "$($module.Name)\$CommandName"
+        }
+
+        return $null
+    }
+
     # 1) Copy host-provided StepRegistry (optional)
     # We support two shapes for compatibility:
     # - Providers.StepRegistry (hashtable)
@@ -65,18 +104,20 @@ function Get-IdleStepRegistry {
 
     # 2) Register built-in steps if available.
     #
-    # These are optional modules (Steps.Common, etc.). If they are not loaded, the registry entry is not added.
+    # Built-in steps are first-party step packs (e.g. IdLE.Steps.Common). They may be loaded as nested
+    # modules by the IdLE meta module. In that case, the step commands are not necessarily exported
+    # globally. We therefore support module-qualified handler names.
     if (-not $registry.ContainsKey('IdLE.Step.EmitEvent')) {
-        $cmd = Get-Command -Name 'Invoke-IdleStepEmitEvent' -ErrorAction SilentlyContinue
-        if ($null -ne $cmd) {
-            $registry['IdLE.Step.EmitEvent'] = $cmd.Name
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepEmitEvent' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.EmitEvent'] = $handler
         }
     }
 
     if (-not $registry.ContainsKey('IdLE.Step.EnsureAttribute')) {
-        $cmd = Get-Command -Name 'Invoke-IdleStepEnsureAttribute' -ErrorAction SilentlyContinue
-        if ($null -ne $cmd) {
-            $registry['IdLE.Step.EnsureAttribute'] = $cmd.Name
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepEnsureAttribute' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.EnsureAttribute'] = $handler
         }
     }
 
