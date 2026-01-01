@@ -75,24 +75,50 @@ Hosts that require engine build or release information SHOULD attach it as exter
 
 Represents the **business intent** that produced the plan.
 
+The request object captures *why* a plan was created, independent of *how* it will be executed.
+
 ```json
 "request": {
   "type": "Joiner",
   "correlationId": "123e4567-e89b-12d3-a456-426614174000",
   "actor": "HR-System",
   "input": {
-    "userId": "jdoe",
-    "department": "IT"
+    "identityKeys": {
+      "userId": "jdoe"
+    },
+    "desiredState": {
+      "department": "IT"
+    },
+    "changes": null
   }
 }
 ```
 
-Rules:
+### Fields
 
-- `input` is opaque to the engine
-- No validation logic is implied by the export
+| Field | Description |
+| ------ | ------------- |
+| type | Logical lifecycle request type (e.g. Joiner, Mover, Leaver) |
+| correlationId | Stable identifier correlating request, plan, and execution |
+| actor | Originator of the request (system or human), if available |
+| input | Business intent payload (data-only) |
 
----
+### Rules
+
+- The `request` object represents **business intent**, not execution details.
+- `input` is treated as **opaque by the engine**:
+  - the engine MUST NOT rely on input semantics
+  - no validation logic is implied by the export
+- `input` MUST contain **data-only content**:
+  - no script blocks
+  - no executable expressions
+  - no runtime handles
+- For **IdLE-native lifecycle requests**, `input` SHOULD contain:
+  - `identityKeys` – identifiers of the target identity
+  - `desiredState` – intended target state
+  - `changes` – explicit deltas, if applicable
+- Hosts MAY include additional fields in `input`.
+- The request payload is exported for **audit, approval, and traceability purposes** and MUST remain stable once the plan is created.
 
 ## Plan Object
 
