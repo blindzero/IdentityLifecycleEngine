@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "engine": {
+    "name": "IdLE"
+  },
+  "request": {
+    "type": "Joiner",
+    "correlationId": "11111111-1111-1111-1111-111111111111",
+    "actor": null,
+    "input": {
+      "identityKeys": {
+        "userId": "jdoe"
+      },
+      "desiredState": {
+        "department": "IT"
+      },
+      "changes": null
+    }
+  },
+  "plan": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "mode": null,
+    "steps": [
+      {
+        "id": "step-01",
+        "name": "Ensure Mailbox",
+        "stepType": "EnsureMailbox",
+        "provider": null,
+        "condition": {
+          "type": "always",
+          "expression": null
+        },
+        "inputs": {
+          "mailboxType": "User"
+        },
+        "expectedState": null
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "Export-IdlePlanObject",
+    "environment": null,
+    "labels": []
+  }
+}

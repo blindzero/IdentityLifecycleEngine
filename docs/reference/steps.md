@@ -7,7 +7,7 @@ This page documents built-in IdLE steps discovered from `Invoke-IdleStep*` funct
 
 ---
 
-### EmitEvent
+## EmitEvent
 
 - **Step Name**: $stepType
 - **Implementation**: $commandName
@@ -29,10 +29,9 @@ to write structured events.
 
 _Unknown (not detected automatically). Document required With.* keys in the step help and/or use a supported pattern._
 
-
 ---
 
-### EnsureAttribute
+## EnsureAttribute
 
 - **Step Name**: $stepType
 - **Implementation**: $commandName
@@ -56,11 +55,9 @@ The step is idempotent by design: it converges state to the desired value.
 **Inputs (With.\*)**
 
 | Key | Required |
-|---|---|
-| $k | Yes |
-| $k | Yes |
-| $k | Yes |
-
+| --- | --- |
+| IdentityKey | Yes |
+| Name | Yes |
+| Value | Yes |
 
 ---
-

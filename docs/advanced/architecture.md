@@ -27,6 +27,7 @@ Planning creates a deterministic plan:
 - evaluates declarative conditions
 - validates inputs and references
 - produces data-only actions
+- captures a **data-only request intent snapshot** (e.g. IdentityKeys / DesiredState / Changes) for auditing and export
 
 ### Execute
 
@@ -43,6 +44,14 @@ Hosts may persist or exchange a plan as a **machine-readable JSON artifact**.
 The canonical contract format is defined here:
 
 - [Plan export specification (JSON)](../specs/plan-export.md)
+
+The exported artifact is intended for **approvals, CI checks, and audits**.
+To keep exports deterministic and review-friendly, the contract intentionally omits volatile information
+such as engine build versions and timestamps. When required, hosts SHOULD attach build/time metadata
+outside the exported plan artifact.
+
+Because IdLE separates planning from execution, the plan retains a **request intent snapshot** so that
+exports can include `request.input` even after the original request object is no longer available.
 
 ## Declarative conditions
 

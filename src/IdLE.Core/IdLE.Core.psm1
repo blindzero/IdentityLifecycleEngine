@@ -22,5 +22,6 @@ Export-ModuleMember -Function @(
     'New-IdleLifecycleRequestObject',
     'Test-IdleWorkflowDefinitionObject',
     'New-IdlePlanObject',
-    'Invoke-IdlePlanObject'
+    'Invoke-IdlePlanObject',
+    'Export-IdlePlanObject'
 ) -Alias @()
