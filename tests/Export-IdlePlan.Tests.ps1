@@ -31,7 +31,13 @@ Describe 'Export-IdlePlan' {
 }
 '@
 
-            $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -CorrelationId $cid
+            # IMPORTANT: Provide request intent payload so the export can include request.input.
+            $req = New-IdleLifecycleRequest `
+                -LifecycleEvent 'Joiner' `
+                -CorrelationId  $cid `
+                -IdentityKeys   ([ordered]@{ userId = 'jdoe' }) `
+                -DesiredState   ([ordered]@{ department = 'IT' })
+
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ Dummy = $true }
 
             $expectedPath = Join-Path $PSScriptRoot 'fixtures/plan-export/expected/plan-export.json'
@@ -41,7 +47,9 @@ Describe 'Export-IdlePlan' {
             $actualJson = $plan | Export-IdlePlan
 
             # Assert
-            $actualJson.TrimEnd() | Should -Be $expectedJson.TrimEnd()
+            # Normalize trailing whitespace (EOF newline differences) and line endings (Windows/Linux).
+            ($actualJson -replace "`r`n", "`n").TrimEnd() |
+                Should -Be (($expectedJson -replace "`r`n", "`n").TrimEnd())
         }
     }
 
@@ -60,7 +68,11 @@ Describe 'Export-IdlePlan' {
 }
 '@
 
-            $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -CorrelationId $cid
+            $req = New-IdleLifecycleRequest `
+                -LifecycleEvent 'Joiner' `
+                -CorrelationId  $cid `
+                -IdentityKeys   ([ordered]@{ userId = 'jdoe' })
+
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ Dummy = $true }
 
             $outFile = Join-Path $TestDrive 'plan.json'
@@ -91,7 +103,11 @@ Describe 'Export-IdlePlan' {
 }
 '@
 
-            $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -CorrelationId $cid
+            $req = New-IdleLifecycleRequest `
+                -LifecycleEvent 'Joiner' `
+                -CorrelationId  $cid `
+                -IdentityKeys   ([ordered]@{ userId = 'jdoe' })
+
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ Dummy = $true }
 
             # Act

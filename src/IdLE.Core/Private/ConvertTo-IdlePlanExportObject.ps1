@@ -96,6 +96,21 @@ function ConvertTo-IdlePlanExportObject {
 
         # Keep input opaque. We do not transform or validate here.
         $requestInput = Get-FirstPropertyValue -Object $request -Names @('Input', 'Data', 'Payload', 'Attributes')
+
+        if ($null -eq $requestInput) {
+            # IdLE lifecycle requests store business intent as IdentityKeys/DesiredState/Changes.
+            # When present, export these as the canonical request.input payload.
+            $identityKeys = Get-FirstPropertyValue -Object $request -Names @('IdentityKeys', 'IdentityKey', 'Keys')
+            $desiredState = Get-FirstPropertyValue -Object $request -Names @('DesiredState', 'TargetState')
+            $changes      = Get-FirstPropertyValue -Object $request -Names @('Changes', 'Delta')
+
+            if ($null -ne $identityKeys -or $null -ne $desiredState -or $null -ne $changes) {
+                $requestInput = New-OrderedMap
+                $requestInput.identityKeys = $identityKeys
+                $requestInput.desiredState = $desiredState
+                $requestInput.changes      = $changes
+            }
+        }
     }
     else {
         # Plan-shaped fallback (current IdLE plan object shape).
