@@ -205,7 +205,7 @@ function ConvertTo-IdleStepMarkdownSection {
 
     $sb = New-Object System.Text.StringBuilder
 
-    [void]$sb.AppendLine("### $stepType")
+    [void]$sb.AppendLine("## $stepType")
     [void]$sb.AppendLine()
     [void]$sb.AppendLine(("- **Step Name**: `$stepType"))
     [void]$sb.AppendLine(("- **Implementation**: `$commandName"))
@@ -230,15 +230,13 @@ function ConvertTo-IdleStepMarkdownSection {
 
     if ($requiredWithKeys.Count -eq 0) {
         [void]$sb.AppendLine('_Unknown (not detected automatically). Document required With.* keys in the step help and/or use a supported pattern._')
-        [void]$sb.AppendLine()
     }
     else {
         [void]$sb.AppendLine('| Key | Required |')
-        [void]$sb.AppendLine('|---|---|')
+        [void]$sb.AppendLine('| --- | --- |')
         foreach ($k in $requiredWithKeys) {
-            [void]$sb.AppendLine("| `$k` | Yes |")
+            [void]$sb.AppendLine("| $k | Yes |")
         }
-        [void]$sb.AppendLine()
     }
 
     return $sb.ToString()
@@ -338,7 +336,12 @@ foreach ($cmd in ($stepCommands | Sort-Object)) {
     }
 }
 
-Set-Content -Path $OutputPath -Value $body.ToString() -Encoding utf8 -NoNewline
+# Normalize output:
+# - remove trailing whitespace/newlines introduced by StringBuilder
+# - enforce exactly one LF at EOF (avoids "one newline too many" / dangling blank line issues)
+$content = ($body.ToString().TrimEnd()) + "`n"
+
+Set-Content -Path $OutputPath -Value $content -Encoding utf8 -NoNewline
 
 $generatedFile = Get-Item -Path $OutputPath
 "Generated step reference: $($generatedFile.FullName) ($($generatedFile.Length) bytes)"
