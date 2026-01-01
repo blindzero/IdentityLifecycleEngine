@@ -65,6 +65,31 @@ cd IdentityLifecycleEngine
 Import-Module ./src/IdLE/IdLE.psd1 -Force
 ```
 
+#### What gets loaded when you import `IdLE`
+
+`IdLE` is the **batteries-included** entrypoint. Importing it loads:
+
+- `IdLE.Core` — the workflow engine (step-agnostic)
+- `IdLE.Steps.Common` — first-party built-in steps (e.g. `IdLE.Step.EmitEvent`, `IdLE.Step.EnsureAttribute`)
+
+Built-in steps are **available to the engine by default**, but are intentionally **not exported into the global session state**.
+This keeps your PowerShell session clean while still allowing workflows to reference built-in steps by `Step.Type`.
+
+If you want to call step functions directly (e.g. `Invoke-IdleStepEmitEvent`) you can explicitly import the step pack:
+
+```powershell
+Import-Module ./src/IdLE.Steps.Common/IdLE.Steps.Common.psd1 -Force
+```
+
+#### Engine-only import
+
+Advanced hosts can import the engine without any step packs:
+
+```powershell
+Import-Module ./src/IdLE.Core/IdLE.Core.psd1 -Force
+```
+
+
 ### Option B — PowerShell Gallery (planned)
 
 Once published:
@@ -87,7 +112,7 @@ The demo shows:
 
 - creating a lifecycle request
 - building a deterministic plan from a workflow definition (`.psd1`)
-- executing the plan using a host-provided step registry
+- executing the plan using built-in steps (and optionally a host-provided step registry for extensions)
 
 The execution result buffers all emitted events in `result.Events`. Hosts can optionally stream events live
 by providing `-EventSink` as an object implementing `WriteEvent(event)`.
