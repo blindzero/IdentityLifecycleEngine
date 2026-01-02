@@ -58,13 +58,25 @@ function Invoke-IdlePlanObject {
     $stepRegistry = Get-IdleStepRegistry -Providers $Providers
 
     $context = [pscustomobject]@{
-        PSTypeName    = 'IdLE.ExecutionContext'
-        Plan          = $Plan
-        Providers     = $Providers
+        PSTypeName = 'IdLE.ExecutionContext'
+        Plan       = $Plan
+        Providers  = $Providers
 
         # Object-based, stable eventing contract.
         # Steps and the engine call: $Context.EventSink.WriteEvent(...)
-        EventSink     = $engineEventSink
+        EventSink  = $engineEventSink
+    }
+
+    # Execution retry policy (safe-by-default):
+    # - Only retry errors explicitly marked transient by trusted code paths (Exception.Data['Idle.IsTransient'] = $true).
+    # - Fail fast for all other errors.
+    # NOTE: This is currently engine-owned and not configurable via plan/workflow to keep the surface small in this increment.
+    $retryPolicy = @{
+        MaxAttempts             = 3
+        InitialDelayMilliseconds = 250
+        BackoffFactor           = 2.0
+        MaxDelayMilliseconds    = 5000
+        JitterRatio             = 0.2
     }
 
     # Emit run start event.
@@ -108,6 +120,7 @@ function Invoke-IdlePlanObject {
                 Type       = $stepType
                 Status     = 'NotApplicable'
                 Error      = $null
+                Attempts   = 0
             }
 
             $context.EventSink.WriteEvent('StepNotApplicable', "Step '$stepName' not applicable (condition not met).", $stepName, @{
@@ -140,8 +153,25 @@ function Invoke-IdlePlanObject {
                 throw [System.ArgumentException]::new("Step handler for type '$stepType' is not a valid function name.", 'Providers')
             }
 
-            # Execute the step via handler.
-            $result = & $handlerName -Context $context -Step $step
+            # Execute the step via handler using safe retries for transient failures.
+            # Retries are only performed if trusted code marks the exception as transient.
+            $operationName = "Step '$stepName' ($stepType)"
+            $retrySeed = "Plan:$corr|Step:$stepName|Type:$stepType"
+
+            $retryResult = Invoke-IdleWithRetry -Operation {
+                & $handlerName -Context $context -Step $step
+            } -MaxAttempts $retryPolicy.MaxAttempts `
+              -InitialDelayMilliseconds $retryPolicy.InitialDelayMilliseconds `
+              -BackoffFactor $retryPolicy.BackoffFactor `
+              -MaxDelayMilliseconds $retryPolicy.MaxDelayMilliseconds `
+              -JitterRatio $retryPolicy.JitterRatio `
+              -EventSink $context.EventSink `
+              -StepName $stepName `
+              -OperationName $operationName `
+              -DeterministicSeed $retrySeed
+
+            $result   = $retryResult.Value
+            $attempts = [int]$retryResult.Attempts
 
             # Normalize result shape (minimal contract).
             $stepResults += [pscustomobject]@{
@@ -150,23 +180,28 @@ function Invoke-IdlePlanObject {
                 Type       = $stepType
                 Status     = if ($null -ne $result -and $result.PSObject.Properties.Name -contains 'Status') { [string]$result.Status } else { 'Completed' }
                 Error      = if ($null -ne $result -and $result.PSObject.Properties.Name -contains 'Error')  { $result.Error } else { $null }
+                Attempts   = $attempts
             }
 
             $context.EventSink.WriteEvent('StepCompleted', "Step '$stepName' completed.", $stepName, @{
-                StepType = $stepType
-                Index    = $i
+                StepType  = $stepType
+                Index     = $i
+                Attempts  = $attempts
             })
         }
         catch {
             $failed = $true
             $err = $_
 
+            # We cannot reliably know the number of attempts on failure without wrapping errors.
+            # For this increment, we keep the output stable and report a minimum of 1 attempt.
             $stepResults += [pscustomobject]@{
                 PSTypeName = 'IdLE.StepResult'
                 Name       = $stepName
                 Type       = $stepType
                 Status     = 'Failed'
                 Error      = $err.Exception.Message
+                Attempts   = 1
             }
 
             $context.EventSink.WriteEvent('StepFailed', "Step '$stepName' failed.", $stepName, @{
