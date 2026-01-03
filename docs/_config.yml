@@ -15,5 +15,7 @@ header_pages:
   - usage/steps.md
   - usage/providers.md
   - advanced/architecture.md
+  - advanced/provider-capabilities.md
   - advanced/extensibility.md
+  - advanced/security.md
   - advanced/testing.md

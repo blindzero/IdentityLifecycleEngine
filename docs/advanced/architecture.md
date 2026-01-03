@@ -22,12 +22,26 @@ IdLE splits orchestration into two phases.
 
 ### Plan
 
-Planning creates a deterministic plan:
+IdLE builds a deterministic execution plan before any step is executed.
+During this planning phase, the engine validates structural correctness,
+conditions, and execution prerequisites.
 
 - evaluates declarative conditions
 - validates inputs and references
 - produces data-only actions
 - captures a **data-only request intent snapshot** (e.g. IdentityKeys / DesiredState / Changes) for auditing and export
+
+#### Provider Capabilities (Planning-time Validation)
+
+IdLE uses a **capability-based provider model** to validate execution
+prerequisites during plan build.
+
+Steps may declare required capabilities, while providers explicitly
+advertise which capabilities they support. The engine matches both sides
+and fails fast if required functionality is missing.
+
+For details on the capability-based provider model and the validation flow,
+see [Provider Capabilities](provider-capabilities.md).
 
 ### Execute
 
