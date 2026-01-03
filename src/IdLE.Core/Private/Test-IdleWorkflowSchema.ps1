@@ -42,7 +42,7 @@ function Test-IdleWorkflowSchema {
                 continue
             }
 
-            $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description')
+            $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RequiresCapabilities')
             foreach ($k in $step.Keys) {
                 if ($allowedStepKeys -notcontains $k) {
                     $errors.Add("Unknown key '$k' in $stepPath. Allowed keys: $($allowedStepKeys -join ', ').")
