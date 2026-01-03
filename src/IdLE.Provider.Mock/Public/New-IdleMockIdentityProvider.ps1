@@ -18,30 +18,31 @@ function New-IdleMockIdentityProvider {
     .EXAMPLE
     $provider = New-IdleMockIdentityProvider
     $provider.EnsureAttribute('user1', 'Department', 'IT') | Out-Null
+    $provider.GetIdentity('user1') | Format-List
 
     .EXAMPLE
     $provider = New-IdleMockIdentityProvider -InitialStore @{
         'user1' = @{
             IdentityKey = 'user1'
             Enabled     = $true
-            Attributes  = @{ Department = 'HR' }
+            Attributes  = @{
+                Department = 'IT'
+            }
         }
     }
-
-    .OUTPUTS
-    PSCustomObject (PSTypeName: IdLE.Provider.MockIdentityProvider)
     #>
     [CmdletBinding()]
     param(
         [Parameter()]
-        [hashtable] $InitialStore = @{}
+        [hashtable] $InitialStore
     )
 
-    # Shallow-copy the initial store to keep the provider instance deterministic.
-    # We avoid referencing external hashtables directly, so tests cannot mutate the provider by accident.
     $store = @{}
-    foreach ($key in $InitialStore.Keys) {
-        $store[$key] = $InitialStore[$key]
+
+    if ($null -ne $InitialStore) {
+        foreach ($key in $InitialStore.Keys) {
+            $store[$key] = $InitialStore[$key]
+        }
     }
 
     $provider = [pscustomobject]@{
@@ -49,6 +50,26 @@ function New-IdleMockIdentityProvider {
         Name       = 'MockIdentityProvider'
         Store      = $store
     }
+
+    $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+        <#
+        .SYNOPSIS
+        Advertises the capabilities provided by this provider instance.
+
+        .DESCRIPTION
+        Capabilities are stable string identifiers used by IdLE to validate that
+        a workflow plan can be executed with the available providers.
+
+        This mock provider intentionally advertises only the capabilities that it
+        implements to keep tests deterministic.
+        #>
+
+        return @(
+            'Identity.Read'
+            'Identity.Attribute.Ensure'
+            'Identity.Disable'
+        )
+    } -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name GetIdentity -Value {
         param(
@@ -66,21 +87,14 @@ function New-IdleMockIdentityProvider {
             }
         }
 
-        # Ensure required sub-structures exist even when the identity was pre-seeded.
-        if (-not ($this.Store[$IdentityKey] -is [hashtable])) {
-            throw "Mock identity store entry '$IdentityKey' must be a hashtable."
-        }
-        if (-not $this.Store[$IdentityKey].ContainsKey('Attributes') -or $null -eq $this.Store[$IdentityKey].Attributes) {
-            $this.Store[$IdentityKey].Attributes = @{}
-        }
-        if (-not ($this.Store[$IdentityKey].Attributes -is [hashtable])) {
-            throw "Mock identity '$IdentityKey' property 'Attributes' must be a hashtable."
-        }
-        if (-not $this.Store[$IdentityKey].ContainsKey('Enabled')) {
-            $this.Store[$IdentityKey].Enabled = $true
-        }
+        $raw = $this.Store[$IdentityKey]
 
-        return $this.Store[$IdentityKey]
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.Identity'
+            IdentityKey = $raw.IdentityKey
+            Enabled     = [bool]$raw.Enabled
+            Attributes  = [hashtable]$raw.Attributes
+        }
     } -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
@@ -93,31 +107,48 @@ function New-IdleMockIdentityProvider {
             [ValidateNotNullOrEmpty()]
             [string] $Name,
 
-            [Parameter(Mandatory)]
+            [Parameter()]
             [AllowNull()]
-            $Value
+            [object] $Value
         )
 
-        $identity = $this.GetIdentity($IdentityKey)
-        $attrs = $identity.Attributes
+        if (-not $this.Store.ContainsKey($IdentityKey)) {
+            $this.Store[$IdentityKey] = @{
+                IdentityKey = $IdentityKey
+                Enabled     = $true
+                Attributes  = @{}
+            }
+        }
 
-        $hasCurrent = $attrs.ContainsKey($Name)
-        $current = if ($hasCurrent) { $attrs[$Name] } else { $null }
+        $identity = $this.Store[$IdentityKey]
 
-        # Idempotent convergence: only change state if the desired value differs.
-        $changed = (-not $hasCurrent) -or ($current -ne $Value)
+        if ($null -eq $identity.Attributes) {
+            $identity.Attributes = @{}
+        }
 
-        if ($changed) {
-            $attrs[$Name] = $Value
+        $changed = $false
+
+        if (-not $identity.Attributes.ContainsKey($Name)) {
+            $changed = $true
+            $identity.Attributes[$Name] = $Value
+        }
+        else {
+            $existing = $identity.Attributes[$Name]
+
+            # Compare loosely because values may come in as different but equivalent types in tests.
+            if ($existing -ne $Value) {
+                $changed = $true
+                $identity.Attributes[$Name] = $Value
+            }
         }
 
         return [pscustomobject]@{
-            PSTypeName    = 'IdLE.ProviderResult'
-            Operation     = 'EnsureAttribute'
-            IdentityKey   = $IdentityKey
-            Name          = $Name
-            PreviousValue = $current
-            Changed       = [bool]$changed
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'EnsureAttribute'
+            IdentityKey = $IdentityKey
+            Changed     = [bool]$changed
+            Name        = $Name
+            Value       = $Value
         }
     } -Force
 
@@ -128,10 +159,21 @@ function New-IdleMockIdentityProvider {
             [string] $IdentityKey
         )
 
-        $identity = $this.GetIdentity($IdentityKey)
+        if (-not $this.Store.ContainsKey($IdentityKey)) {
+            $this.Store[$IdentityKey] = @{
+                IdentityKey = $IdentityKey
+                Enabled     = $true
+                Attributes  = @{}
+            }
+        }
 
-        # Idempotent convergence: if already disabled, do nothing.
-        $changed = ($identity.Enabled -ne $false)
+        $identity = $this.Store[$IdentityKey]
+        $changed = $false
+
+        if ($identity.Enabled -ne $false) {
+            $changed = $true
+        }
+
         if ($changed) {
             $identity.Enabled = $false
         }
