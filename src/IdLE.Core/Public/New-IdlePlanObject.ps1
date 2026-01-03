@@ -107,6 +107,257 @@ function New-IdlePlanObject {
         return [string] $Value
     }
 
+    function Normalize-IdleRequiredCapabilities {
+        <#
+        .SYNOPSIS
+        Normalizes the optional RequiresCapabilities key from a workflow step.
+
+        .DESCRIPTION
+        A workflow step may declare required capabilities via RequiresCapabilities.
+        Supported shapes:
+        - missing / $null -> empty list
+        - string -> single capability
+        - array/enumerable of strings -> list of capabilities
+
+        The output is a stable, sorted, unique string array.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [object] $Value,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $StepName
+        )
+
+        if ($null -eq $Value) {
+            return @()
+        }
+
+        $items = @()
+
+        if ($Value -is [string]) {
+            $items = @($Value)
+        }
+        elseif ($Value -is [System.Collections.IEnumerable]) {
+            foreach ($v in $Value) {
+                $items += $v
+            }
+        }
+        else {
+            throw [System.ArgumentException]::new(
+                ("Workflow step '{0}' has invalid RequiresCapabilities value. Expected string or string array." -f $StepName),
+                'Workflow'
+            )
+        }
+
+        $normalized = @()
+        foreach ($c in $items) {
+            if ($null -eq $c) {
+                continue
+            }
+
+            $s = ([string]$c).Trim()
+            if ([string]::IsNullOrWhiteSpace($s)) {
+                continue
+            }
+
+            # Keep convention aligned with Get-IdleProviderCapabilities:
+            # - dot-separated segments
+            # - no whitespace
+            # - starts with a letter
+            if ($s -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
+                throw [System.ArgumentException]::new(
+                    ("Workflow step '{0}' declares invalid capability '{1}'. Expected dot-separated segments like 'Identity.Read'." -f $StepName, $s),
+                    'Workflow'
+                )
+            }
+
+            $normalized += $s
+        }
+
+        return @($normalized | Sort-Object -Unique)
+    }
+
+    function Get-IdleProvidersFromMap {
+        <#
+        .SYNOPSIS
+        Extracts provider instances from the -Providers argument.
+
+        .DESCRIPTION
+        The engine currently treats -Providers as a host-controlled bag of objects.
+        This function extracts candidate provider objects for capability discovery.
+
+        Supported shapes:
+        - $null -> no providers
+        - hashtable -> iterate values, ignoring known non-provider keys like 'StepRegistry'
+        - PSCustomObject -> read public properties as provider entries
+
+        This is intentionally conservative: only values that look like provider instances
+        (non-null objects) are returned.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Providers
+        )
+
+        if ($null -eq $Providers) {
+            return @()
+        }
+
+        $result = @()
+
+        if ($Providers -is [hashtable]) {
+            foreach ($k in $Providers.Keys) {
+                # 'StepRegistry' is explicitly not a provider; it is a host extension point.
+                if ([string]$k -eq 'StepRegistry') {
+                    continue
+                }
+
+                $v = $Providers[$k]
+                if ($null -ne $v) {
+                    $result += $v
+                }
+            }
+
+            return $result
+        }
+
+        # Allow an object bag (Providers.IdentityProvider, Providers.Directory, ...).
+        $props = @($Providers.PSObject.Properties)
+        foreach ($p in $props) {
+            if ($p.MemberType -ne 'NoteProperty' -and $p.MemberType -ne 'Property') {
+                continue
+            }
+
+            if ([string]$p.Name -eq 'StepRegistry') {
+                continue
+            }
+
+            if ($null -ne $p.Value) {
+                $result += $p.Value
+            }
+        }
+
+        return $result
+    }
+
+    function Get-IdleAvailableCapabilities {
+        <#
+        .SYNOPSIS
+        Builds a stable set of capabilities available from the provided providers.
+
+        .DESCRIPTION
+        Capabilities are discovered from each provider via Get-IdleProviderCapabilities.
+        During the migration phase we allow minimal inference for legacy providers
+        to avoid breaking existing demos/tests.
+
+        The returned list is stable (sorted, unique).
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Providers
+        )
+
+        $all = @()
+
+        foreach ($p in @(Get-IdleProvidersFromMap -Providers $Providers)) {
+            # AllowInference is a migration aid. Once the ecosystem advertises capabilities
+            # explicitly, we can tighten this to explicit-only for maximum determinism.
+            $all += @(Get-IdleProviderCapabilities -Provider $p -AllowInference)
+        }
+
+        return @($all | Sort-Object -Unique)
+    }
+
+    function Assert-IdlePlanCapabilitiesSatisfied {
+        <#
+        .SYNOPSIS
+        Validates that all required step capabilities are available.
+
+        .DESCRIPTION
+        This is a fail-fast validation executed during planning.
+        If one or more capabilities are missing, an ArgumentException is thrown with a
+        deterministic error message that lists missing capabilities and affected steps.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object[]] $Steps,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $Providers
+        )
+
+        $required = @()
+        $requiredByStep = @{}
+
+        foreach ($s in @($Steps)) {
+            $stepName = if ($s.PSObject.Properties.Name -contains 'Name') { [string]$s.Name } else { '<unknown>' }
+            $caps = @()
+
+            if ($s.PSObject.Properties.Name -contains 'RequiresCapabilities') {
+                $caps = @($s.RequiresCapabilities)
+            }
+
+            if (@($caps).Count -gt 0) {
+                $required += $caps
+                $requiredByStep[$stepName] = @($caps)
+            }
+        }
+
+        $required = @($required | Sort-Object -Unique)
+
+        # Nothing required -> nothing to validate.
+        if (@($required).Count -eq 0) {
+            return
+        }
+
+        $available = Get-IdleAvailableCapabilities -Providers $Providers
+
+        $missing = @()
+        foreach ($c in $required) {
+            if ($available -notcontains $c) {
+                $missing += $c
+            }
+        }
+
+        $missing = @($missing | Sort-Object -Unique)
+
+        if (@($missing).Count -eq 0) {
+            return
+        }
+
+        # Determine which steps are affected for better UX.
+        $affectedSteps = @()
+        foreach ($k in $requiredByStep.Keys) {
+            $caps = @($requiredByStep[$k])
+            foreach ($m in $missing) {
+                if ($caps -contains $m) {
+                    $affectedSteps += $k
+                    break
+                }
+            }
+        }
+
+        $affectedSteps = @($affectedSteps | Sort-Object -Unique)
+
+        $msg = @()
+        $msg += "Plan cannot be built because required provider capabilities are missing."
+        $msg += ("MissingCapabilities: {0}" -f ([string]::Join(', ', $missing)))
+        $msg += ("AffectedSteps: {0}" -f ([string]::Join(', ', $affectedSteps)))
+        $msg += ("AvailableCapabilities: {0}" -f ([string]::Join(', ', $available)))
+
+        throw [System.ArgumentException]::new(([string]::Join(' ', $msg)), 'Providers')
+    }
+
     # Ensure required request properties exist without hard-typing the request class.
     $reqProps = $Request.PSObject.Properties.Name
     if ($reqProps -notcontains 'LifecycleEvent') {
@@ -192,19 +443,28 @@ function New-IdlePlanObject {
             }
         }
 
+        $requiresCaps = @()
+        if ($s.ContainsKey('RequiresCapabilities')) {
+            $requiresCaps = Normalize-IdleRequiredCapabilities -Value $s.RequiresCapabilities -StepName ([string]$s.Name)
+        }
+
         $normalizedSteps += [pscustomobject]@{
-            PSTypeName   = 'IdLE.PlanStep'
-            Name         = [string]$s.Name
-            Type         = [string]$s.Type
-            Description  = if ($s.ContainsKey('Description')) { [string]$s.Description } else { '' }
-            Condition    = $condition
-            With         = if ($s.ContainsKey('With')) { $s.With } else { @{} }
-            Status       = $status
+            PSTypeName            = 'IdLE.PlanStep'
+            Name                  = [string]$s.Name
+            Type                  = [string]$s.Type
+            Description           = if ($s.ContainsKey('Description')) { [string]$s.Description } else { '' }
+            Condition             = $condition
+            With                  = if ($s.ContainsKey('With')) { $s.With } else { @{} }
+            RequiresCapabilities  = $requiresCaps
+            Status                = $status
         }
     }
 
     # Attach steps to the plan after normalization.
     $plan.Steps = $normalizedSteps
+
+    # Fail-fast capability validation (only if at least one step declares requirements).
+    Assert-IdlePlanCapabilitiesSatisfied -Steps $plan.Steps -Providers $Providers
 
     return $plan
 }
