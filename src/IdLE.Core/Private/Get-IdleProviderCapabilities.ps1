@@ -42,7 +42,7 @@ function Get-IdleProviderCapabilities {
     # Prefer explicit advertisement (provider-controlled, deterministic).
     $hasGetCapabilitiesMethod = $Provider.PSObject.Methods.Name -contains 'GetCapabilities'
     if ($hasGetCapabilitiesMethod) {
-        $capabilities = @(& $Provider.GetCapabilities())
+        $capabilities = @($Provider.GetCapabilities())
     }
     elseif ($AllowInference) {
         # Migration helper: infer a minimal set from known method names.
