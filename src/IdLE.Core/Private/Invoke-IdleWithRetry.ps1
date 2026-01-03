@@ -6,15 +6,38 @@ function Test-IdleTransientError {
         [System.Exception] $Exception
     )
 
-    # We only retry when a trusted code path explicitly marks the exception as transient.
-    # This keeps retries safe-by-default and prevents masking auth/validation/logic errors.
+    # Retries must be safe-by-default:
+    # We only retry when a trusted code path explicitly marks an exception as transient.
+    #
+    # Supported markers:
+    # - Exception.Data['Idle.IsTransient'] = $true
+    # - Exception.Data['IdleIsTransient']  = $true
+    #
+    # We accept common "truthy" representations to avoid fragile integrations:
+    # - $true
+    # - 'true' (case-insensitive)
+    # - 1
     $markerKeys = @(
         'Idle.IsTransient',
         'IdleIsTransient'
     )
 
     foreach ($key in $markerKeys) {
-        if ($Exception.Data.Contains($key) -and ($Exception.Data[$key] -eq $true)) {
+        if (-not $Exception.Data.Contains($key)) {
+            continue
+        }
+
+        $value = $Exception.Data[$key]
+
+        if ($value -is [bool] -and $value) {
+            return $true
+        }
+
+        if ($value -is [int] -and $value -eq 1) {
+            return $true
+        }
+
+        if ($value -is [string] -and $value.Trim().ToLowerInvariant() -eq 'true') {
             return $true
         }
     }
@@ -38,8 +61,6 @@ function Get-IdleDeterministicJitter {
         [string] $Seed
     )
 
-    # Jitter helps avoid thundering-herd effects, but we must keep execution deterministic.
-    # Therefore, we derive a stable pseudo-random value from a string seed (no Get-Random).
     if ($JitterRatio -le 0.0) {
         return 0.0
     }
@@ -47,11 +68,9 @@ function Get-IdleDeterministicJitter {
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($Seed)
     $hash  = [System.Security.Cryptography.SHA256]::HashData($bytes)
 
-    # Convert first 8 bytes to an unsigned integer and normalize to [0, 1].
-    $u64 = [System.BitConverter]::ToUInt64($hash, 0)
+    $u64  = [System.BitConverter]::ToUInt64($hash, 0)
     $unit = $u64 / [double][UInt64]::MaxValue
 
-    # Convert to [-1, +1] and scale by jitter ratio.
     return (($unit * 2.0) - 1.0) * $JitterRatio
 }
 
@@ -114,27 +133,22 @@ function Invoke-IdleWithRetry {
         }
         catch {
             $exception = $_.Exception
-            $isTransient = Test-IdleTransientError -Exception $exception
 
-            # Fail-fast: non-transient errors are never retried.
-            if (-not $isTransient) {
+            if (-not (Test-IdleTransientError -Exception $exception)) {
+                # Fail fast for non-transient errors.
                 throw
             }
 
-            # Out of attempts: rethrow the last transient error.
             if ($attempt -ge $MaxAttempts) {
                 throw
             }
 
-            # Exponential backoff, capped by MaxDelayMilliseconds.
             $baseDelay = [math]::Min(
                 $MaxDelayMilliseconds,
                 [math]::Round($InitialDelayMilliseconds * [math]::Pow($BackoffFactor, ($attempt - 1)))
             )
 
-            # Deterministic jitter factor in [-JitterRatio, +JitterRatio].
             $seed = if ([string]::IsNullOrWhiteSpace($DeterministicSeed)) {
-                # Keep stable even when no seed is provided.
                 "$OperationName|$StepName|$attempt"
             } else {
                 "$DeterministicSeed|$attempt"
@@ -142,21 +156,22 @@ function Invoke-IdleWithRetry {
 
             $jitterFactor = Get-IdleDeterministicJitter -JitterRatio $JitterRatio -Seed $seed
             $delay = [math]::Round($baseDelay * (1.0 + $jitterFactor))
+            if ($delay -lt 0) { $delay = 0 }
 
-            if ($delay -lt 0) {
-                $delay = 0
-            }
-
-            # Best-effort event emission (host sinks must never break engine execution).
             if ($null -ne $EventSink -and $EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                 try {
-                    $EventSink.WriteEvent('StepRetrying', "Transient failure in '$OperationName' (attempt $attempt/$MaxAttempts). Retrying.", $StepName, @{
-                        attempt     = $attempt
-                        maxAttempts = $MaxAttempts
-                        delayMs     = $delay
-                        errorType   = $exception.GetType().FullName
-                        message     = $exception.Message
-                    })
+                    $EventSink.WriteEvent(
+                        'StepRetrying',
+                        "Transient failure in '$OperationName' (attempt $attempt/$MaxAttempts). Retrying.",
+                        $StepName,
+                        @{
+                            attempt     = $attempt
+                            maxAttempts = $MaxAttempts
+                            delayMs     = $delay
+                            errorType   = $exception.GetType().FullName
+                            message     = $exception.Message
+                        }
+                    )
                 }
                 catch {
                     # Intentionally ignored.
