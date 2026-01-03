@@ -4,79 +4,100 @@ BeforeDiscovery {
 }
 
 BeforeAll {
-    # The engine invokes step handlers by function name (string) inside module scope.
-    # Therefore, test handler functions must be visible to the module (global scope).
+    # Create a dedicated, ephemeral test module that exports the step handlers.
+    # This avoids global scope pollution while ensuring the engine can resolve
+    # handler names deterministically via module-qualified command names.
+    $script:RetryTestModuleName = 'IdLE.RetryTest'
+    $script:RetryTestModule = New-Module -Name $script:RetryTestModuleName -ScriptBlock {
+        Set-StrictMode -Version Latest
 
-    $script:RetryTest_CallCount_Transient = 0
-    $script:RetryTest_CallCount_NonTransient = 0
+        $script:TransientCallCount = 0
 
-    function global:Invoke-IdleRetryTestTransientStep {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Context,
+        function Invoke-IdleRetryTestTransientStep {
+            [CmdletBinding()]
+            param(
+                [Parameter(Mandatory)]
+                [ValidateNotNull()]
+                [object] $Context,
 
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Step
-        )
+                [Parameter(Mandatory)]
+                [ValidateNotNull()]
+                [object] $Step
+            )
 
-        $script:RetryTest_CallCount_Transient++
+            $script:TransientCallCount++
 
-        if ($script:RetryTest_CallCount_Transient -eq 1) {
-            $ex = [System.Exception]::new('Transient failure (simulated)')
-            $ex.Data['Idle.IsTransient'] = $true
-            throw $ex
+            if ($script:TransientCallCount -eq 1) {
+                $ex = [System.Exception]::new('Transient failure (simulated)')
+                $ex.Data['Idle.IsTransient'] = $true
+                throw $ex
+            }
+
+            return [pscustomobject]@{
+                PSTypeName = 'IdLE.StepResult'
+                Name       = [string]$Step.Name
+                Type       = [string]$Step.Type
+                Status     = 'Completed'
+                Error      = $null
+            }
         }
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
+        function Invoke-IdleRetryTestNonTransientStep {
+            [CmdletBinding()]
+            param(
+                [Parameter(Mandatory)]
+                [ValidateNotNull()]
+                [object] $Context,
+
+                [Parameter(Mandatory)]
+                [ValidateNotNull()]
+                [object] $Step
+            )
+
+            throw [System.Exception]::new('Non-transient failure (simulated)')
         }
-    }
 
-    function global:Invoke-IdleRetryTestNonTransientStep {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Context,
+        function Reset-IdleRetryTestState {
+            [CmdletBinding()]
+            param()
 
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Step
+            $script:TransientCallCount = 0
+        }
+
+        function Get-IdleRetryTestTransientCallCount {
+            [CmdletBinding()]
+            param()
+
+            return [int]$script:TransientCallCount
+        }
+
+        Export-ModuleMember -Function @(
+            'Invoke-IdleRetryTestTransientStep',
+            'Invoke-IdleRetryTestNonTransientStep',
+            'Reset-IdleRetryTestState',
+            'Get-IdleRetryTestTransientCallCount'
         )
-
-        $script:RetryTest_CallCount_NonTransient++
-
-        throw [System.Exception]::new('Non-transient failure (simulated)')
     }
+
+    Import-Module -ModuleInfo $script:RetryTestModule -Force -ErrorAction Stop
 }
 
 AfterAll {
-    # Cleanup global test functions to avoid polluting the session.
-    Remove-Item -Path 'Function:\Invoke-IdleRetryTestTransientStep' -ErrorAction SilentlyContinue
-    Remove-Item -Path 'Function:\Invoke-IdleRetryTestNonTransientStep' -ErrorAction SilentlyContinue
+    # Remove the ephemeral module.
+    Remove-Module -Name $script:RetryTestModuleName -Force -ErrorAction SilentlyContinue
 }
 
-InModuleScope IdLE.Core {
-    Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
+Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
 
-        BeforeEach {
-            $script:RetryTest_CallCount_Transient = 0
-            $script:RetryTest_CallCount_NonTransient = 0
-        }
+    BeforeEach {
+        & "$script:RetryTestModuleName\Reset-IdleRetryTestState"
+    }
 
-        It 'retries a step when the error is explicitly marked transient and then succeeds' {
-            # Avoid slowing down the test run.
-            Mock -CommandName Start-Sleep -MockWith { }
+    It 'retries a step when the error is explicitly marked transient and then succeeds' {
+        Mock -ModuleName IdLE.Core -CommandName Start-Sleep -MockWith { }
 
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'retry-transient.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'retry-transient.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
   Name           = 'Retry Transient Demo'
   LifecycleEvent = 'Joiner'
@@ -86,35 +107,31 @@ InModuleScope IdLE.Core {
 }
 '@
 
-            $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-            $providers = @{
-                StepRegistry = @{
-                    'IdLE.Step.Transient' = 'Invoke-IdleRetryTestTransientStep'
-                }
+        $providers = @{
+            StepRegistry = @{
+                'IdLE.Step.Transient' = "$script:RetryTestModuleName\Invoke-IdleRetryTestTransientStep"
             }
-
-            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-
-            $result.Status | Should -Be 'Completed'
-            $script:RetryTest_CallCount_Transient | Should -Be 2
-
-            # We expect a retry event emitted by the engine retry helper.
-            @($result.Events | Where-Object Type -eq 'StepRetrying').Count | Should -Be 1
-
-            # Step result should indicate completion after retry.
-            $result.Steps[0].Status | Should -Be 'Completed'
-
-            # The engine should have attempted a delay at least once (but Start-Sleep is mocked).
-            Should -Invoke -CommandName Start-Sleep -Times 1 -Exactly
         }
 
-        It 'fails fast and does not retry when the error is not marked transient' {
-            Mock -CommandName Start-Sleep -MockWith { }
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'retry-nontransient.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        $result.Status | Should -Be 'Completed'
+        $result.Steps[0].Status | Should -Be 'Completed'
+
+        @($result.Events | Where-Object Type -eq 'StepRetrying').Count | Should -Be 1
+        Should -Invoke -ModuleName IdLE.Core -CommandName Start-Sleep -Times 1 -Exactly
+
+        (& "$script:RetryTestModuleName\Get-IdleRetryTestTransientCallCount") | Should -Be 2
+    }
+
+    It 'fails fast and does not retry when the error is not marked transient' {
+        Mock -ModuleName IdLE.Core -CommandName Start-Sleep -MockWith { }
+
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'retry-nontransient.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
   Name           = 'Retry Non-Transient Demo'
   LifecycleEvent = 'Joiner'
@@ -124,25 +141,19 @@ InModuleScope IdLE.Core {
 }
 '@
 
-            $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-            $providers = @{
-                StepRegistry = @{
-                    'IdLE.Step.NonTransient' = 'Invoke-IdleRetryTestNonTransientStep'
-                }
+        $providers = @{
+            StepRegistry = @{
+                'IdLE.Step.NonTransient' = "$script:RetryTestModuleName\Invoke-IdleRetryTestNonTransientStep"
             }
-
-            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-
-            $result.Status | Should -Be 'Failed'
-            $script:RetryTest_CallCount_NonTransient | Should -Be 1
-
-            # No retry events should exist for non-transient failures.
-            @($result.Events | Where-Object Type -eq 'StepRetrying').Count | Should -Be 0
-
-            # No delay should be attempted.
-            Should -Invoke -CommandName Start-Sleep -Times 0
         }
+
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+        $result.Status | Should -Be 'Failed'
+        @($result.Events | Where-Object Type -eq 'StepRetrying').Count | Should -Be 0
+        Should -Invoke -ModuleName IdLE.Core -CommandName Start-Sleep -Times 0
     }
 }
