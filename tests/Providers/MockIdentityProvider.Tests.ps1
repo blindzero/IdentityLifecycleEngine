@@ -11,6 +11,19 @@ Describe 'IdLE.Provider.Mock - Mock identity provider' {
         }
 
         Import-Module -Name $modulePath -Force -ErrorAction Stop
+
+        # Load provider contract helpers (no Describe/It at top-level; safe for Pester discovery).
+        $identityContractPath = Join-Path -Path (Get-Location).Path -ChildPath 'tests\ProviderContracts\IdentityProvider.Contract.ps1'
+        if (-not (Test-Path -LiteralPath $identityContractPath -PathType Leaf)) {
+            throw "Identity provider contract not found at: $identityContractPath"
+        }
+        . $identityContractPath
+
+        $capabilitiesContractPath = Join-Path -Path (Get-Location).Path -ChildPath 'tests\ProviderContracts\ProviderCapabilities.Contract.ps1'
+        if (-not (Test-Path -LiteralPath $capabilitiesContractPath -PathType Leaf)) {
+            throw "Provider capabilities contract not found at: $capabilitiesContractPath"
+        }
+        . $capabilitiesContractPath
     }
 
     It 'Creates a provider instance' {
@@ -20,49 +33,14 @@ Describe 'IdLE.Provider.Mock - Mock identity provider' {
         $provider.Name | Should -Be 'MockIdentityProvider'
     }
 
-    Context 'Provider contract (inline)' {
+    Context 'Provider contracts' {
 
-        BeforeAll {
-            $script:Provider = New-IdleMockIdentityProvider
-        }
+        Invoke-IdleIdentityProviderContractTests -NewProvider {
+            New-IdleMockIdentityProvider
+        } -ProviderLabel 'Mock identity provider'
 
-        It 'Exposes required methods' {
-            $script:Provider.PSObject.Methods.Name | Should -Contain 'GetIdentity'
-            $script:Provider.PSObject.Methods.Name | Should -Contain 'EnsureAttribute'
-            $script:Provider.PSObject.Methods.Name | Should -Contain 'DisableIdentity'
-        }
-
-        It 'GetIdentity returns a hashtable with required keys' {
-            $id = "contract-$([guid]::NewGuid().ToString('N'))"
-            $identity = $script:Provider.GetIdentity($id)
-
-            $identity | Should -BeOfType [hashtable]
-            $identity.Keys | Should -Contain 'IdentityKey'
-            $identity.Keys | Should -Contain 'Enabled'
-            $identity.Keys | Should -Contain 'Attributes'
-
-            $identity.IdentityKey | Should -Be $id
-            $identity.Attributes | Should -BeOfType [hashtable]
-        }
-
-        It 'EnsureAttribute is idempotent' {
-            $id = "contract-$([guid]::NewGuid().ToString('N'))"
-
-            $r1 = $script:Provider.EnsureAttribute($id, 'Department', 'IT')
-            $r2 = $script:Provider.EnsureAttribute($id, 'Department', 'IT')
-
-            $r1.Changed | Should -BeTrue
-            $r2.Changed | Should -BeFalse
-        }
-
-        It 'DisableIdentity is idempotent' {
-            $id = "contract-$([guid]::NewGuid().ToString('N'))"
-
-            $r1 = $script:Provider.DisableIdentity($id)
-            $r2 = $script:Provider.DisableIdentity($id)
-
-            $r1.Changed | Should -BeTrue
-            $r2.Changed | Should -BeFalse
+        Invoke-IdleProviderCapabilitiesContractTests -ProviderFactory {
+            New-IdleMockIdentityProvider
         }
     }
 
