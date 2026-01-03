@@ -38,6 +38,7 @@ used between IdLE and its hosts.
 ## Advanced
 
 - [Architecture](advanced/architecture.md)
+- [Provider Capabilities](advanced/provider-capabilities.md)
 - [Security](advanced/security.md)
 - [Extensibility](advanced/extensibility.md)
 - [Testing](advanced/testing.md)
