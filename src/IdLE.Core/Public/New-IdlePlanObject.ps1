@@ -284,17 +284,23 @@ function New-IdlePlanObject {
         This is a fail-fast validation executed during planning.
         If one or more capabilities are missing, an ArgumentException is thrown with a
         deterministic error message that lists missing capabilities and affected steps.
+
+        No-op when the plan contains no steps.
         #>
         [CmdletBinding()]
         param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
+            [Parameter()]
+            [AllowNull()]
             [object[]] $Steps,
 
             [Parameter()]
             [AllowNull()]
             [object] $Providers
         )
+
+        if ($null -eq $Steps -or @($Steps).Count -eq 0) {
+            return
+        }
 
         $required = @()
         $requiredByStep = @{}
@@ -320,7 +326,7 @@ function New-IdlePlanObject {
             return
         }
 
-        $available = Get-IdleAvailableCapabilities -Providers $Providers
+        $available = @(Get-IdleAvailableCapabilities -Providers $Providers)
 
         $missing = @()
         foreach ($c in $required) {
@@ -351,9 +357,9 @@ function New-IdlePlanObject {
 
         $msg = @()
         $msg += "Plan cannot be built because required provider capabilities are missing."
-        $msg += ("MissingCapabilities: {0}" -f ([string]::Join(', ', $missing)))
-        $msg += ("AffectedSteps: {0}" -f ([string]::Join(', ', $affectedSteps)))
-        $msg += ("AvailableCapabilities: {0}" -f ([string]::Join(', ', $available)))
+        $msg += ("MissingCapabilities: {0}" -f ([string]::Join(', ', @($missing))))
+        $msg += ("AffectedSteps: {0}" -f ([string]::Join(', ', @($affectedSteps))))
+        $msg += ("AvailableCapabilities: {0}" -f ([string]::Join(', ', @($available))))
 
         throw [System.ArgumentException]::new(([string]::Join(' ', $msg)), 'Providers')
     }
@@ -407,32 +413,112 @@ function New-IdlePlanObject {
         Workflow = $workflow
     }
 
+    function Test-IdleWorkflowStepKey {
+        <#
+        .SYNOPSIS
+        Checks whether a workflow step contains a given key.
+
+        .DESCRIPTION
+        Workflow steps can be represented as hashtables (IDictionary) or as objects
+        (PSCustomObject) depending on how they were imported. This helper provides a
+        stable way to check for keys across both representations.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Key
+        )
+
+        if ($Step -is [System.Collections.IDictionary]) {
+            return $Step.ContainsKey($Key)
+        }
+
+        return ($Step.PSObject.Properties.Name -contains $Key)
+    }
+
+    function Get-IdleWorkflowStepValue {
+        <#
+        .SYNOPSIS
+        Gets a value from a workflow step by key.
+
+        .DESCRIPTION
+        Workflow steps can be represented as hashtables (IDictionary) or as objects
+        (PSCustomObject) depending on how they were imported. This helper provides a
+        stable way to read values across both representations.
+
+        IMPORTANT:
+        Call Test-IdleWorkflowStepKey before calling this function when the key may be optional.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Key
+        )
+
+        if ($Step -is [System.Collections.IDictionary]) {
+            return $Step[$Key]
+        }
+
+        return $Step.PSObject.Properties[$Key].Value
+    }
+
     # Normalize steps into a stable internal representation.
     # We deliberately keep step entries as PSCustomObject to avoid cross-module class loading issues.
     # Step conditions are evaluated during planning and may mark steps as NotApplicable.
     $normalizedSteps = @()
     foreach ($s in @($workflow.Steps)) {
-        if (-not $s.ContainsKey('Name') -or [string]::IsNullOrWhiteSpace([string]$s.Name)) {
+        $stepName = if (Test-IdleWorkflowStepKey -Step $s -Key 'Name') {
+            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Name')
+        }
+        else {
+            ''
+        }
+
+        if ([string]::IsNullOrWhiteSpace($stepName)) {
             throw [System.ArgumentException]::new('Workflow step is missing required key "Name".', 'Workflow')
         }
-        if (-not $s.ContainsKey('Type') -or [string]::IsNullOrWhiteSpace([string]$s.Type)) {
-            throw [System.ArgumentException]::new(("Workflow step '{0}' is missing required key 'Type'." -f [string]$s.Name), 'Workflow')
+
+        $stepType = if (Test-IdleWorkflowStepKey -Step $s -Key 'Type') {
+            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Type')
         }
-        if ($s.ContainsKey('When')) {
+        else {
+            ''
+        }
+
+        if ([string]::IsNullOrWhiteSpace($stepType)) {
+            throw [System.ArgumentException]::new(("Workflow step '{0}' is missing required key 'Type'." -f $stepName), 'Workflow')
+        }
+
+        if (Test-IdleWorkflowStepKey -Step $s -Key 'When') {
             throw [System.ArgumentException]::new(
-                "Workflow step '$($s.Name)' uses key 'When'. 'When' has been renamed to 'Condition'. Please update the workflow definition.",
+                ("Workflow step '{0}' uses key 'When'. 'When' has been renamed to 'Condition'. Please update the workflow definition." -f $stepName),
                 'Workflow'
             )
         }
 
-        $condition = if ($s.ContainsKey('Condition')) { $s.Condition } else { $null }
+        $condition = if (Test-IdleWorkflowStepKey -Step $s -Key 'Condition') {
+            Get-IdleWorkflowStepValue -Step $s -Key 'Condition'
+        }
+        else {
+            $null
+        }
 
         $status = 'Planned'
         if ($null -ne $condition) {
-            $schemaErrors = Test-IdleConditionSchema -Condition $condition -StepName ([string]$s.Name)
+            $schemaErrors = Test-IdleConditionSchema -Condition $condition -StepName $stepName
             if (@($schemaErrors).Count -gt 0) {
                 throw [System.ArgumentException]::new(
-                    ("Invalid Condition on step '{0}': {1}" -f [string]$s.Name, ([string]::Join(' ', @($schemaErrors)))),
+                    ("Invalid Condition on step '{0}': {1}" -f $stepName, ([string]::Join(' ', @($schemaErrors)))),
                     'Workflow'
                 )
             }
@@ -444,19 +530,33 @@ function New-IdlePlanObject {
         }
 
         $requiresCaps = @()
-        if ($s.ContainsKey('RequiresCapabilities')) {
-            $requiresCaps = Normalize-IdleRequiredCapabilities -Value $s.RequiresCapabilities -StepName ([string]$s.Name)
+        if (Test-IdleWorkflowStepKey -Step $s -Key 'RequiresCapabilities') {
+            $requiresCaps = Normalize-IdleRequiredCapabilities -Value (Get-IdleWorkflowStepValue -Step $s -Key 'RequiresCapabilities') -StepName $stepName
+        }
+
+        $description = if (Test-IdleWorkflowStepKey -Step $s -Key 'Description') {
+            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Description')
+        }
+        else {
+            ''
+        }
+
+        $with = if (Test-IdleWorkflowStepKey -Step $s -Key 'With') {
+            Get-IdleWorkflowStepValue -Step $s -Key 'With'
+        }
+        else {
+            @{}
         }
 
         $normalizedSteps += [pscustomobject]@{
-            PSTypeName            = 'IdLE.PlanStep'
-            Name                  = [string]$s.Name
-            Type                  = [string]$s.Type
-            Description           = if ($s.ContainsKey('Description')) { [string]$s.Description } else { '' }
-            Condition             = $condition
-            With                  = if ($s.ContainsKey('With')) { $s.With } else { @{} }
-            RequiresCapabilities  = $requiresCaps
-            Status                = $status
+            PSTypeName           = 'IdLE.PlanStep'
+            Name                 = $stepName
+            Type                 = $stepType
+            Description          = $description
+            Condition            = $condition
+            With                 = $with
+            RequiresCapabilities = $requiresCaps
+            Status               = $status
         }
     }
 
