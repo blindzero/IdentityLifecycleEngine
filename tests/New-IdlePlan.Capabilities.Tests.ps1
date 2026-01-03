@@ -26,7 +26,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
         try {
-            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{} | Out-Null
+            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $null | Out-Null
             throw 'Expected an exception but none was thrown.'
         }
         catch {
