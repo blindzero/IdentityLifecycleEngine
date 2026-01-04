@@ -11,17 +11,19 @@ function Invoke-IdleProviderCapabilitiesContractTests {
         [switch] $AllowEmpty
     )
 
-    # Capture inside closure for run phase.
-    $providerFactory = $ProviderFactory.GetNewClosure()
+    $cases = @(
+        @{
+            ProviderFactory = $ProviderFactory
+            AllowEmpty      = [bool]$AllowEmpty
+        }
+    )
 
-    Context 'Capability advertisement' {
+    Context 'Capability advertisement' -ForEach $cases {
         BeforeAll {
+            $providerFactory = $_.ProviderFactory
+
             if ($null -eq $providerFactory) {
                 throw 'ProviderFactory scriptblock is required for capability contract tests.'
-            }
-
-            if ($providerFactory -isnot [scriptblock]) {
-                throw 'ProviderFactory must be a scriptblock that returns a provider instance.'
             }
 
             $provider = & $providerFactory
@@ -30,6 +32,7 @@ function Invoke-IdleProviderCapabilitiesContractTests {
             }
 
             $script:Provider = $provider
+            $script:AllowEmpty = $_.AllowEmpty
         }
 
         It 'Exposes GetCapabilities as a method' {
@@ -57,7 +60,7 @@ function Invoke-IdleProviderCapabilitiesContractTests {
         It 'GetCapabilities can be empty only when explicitly allowed' {
             $caps = $script:Provider.GetCapabilities()
 
-            if (-not $AllowEmpty) {
+            if (-not $script:AllowEmpty) {
                 $caps.Count | Should -BeGreaterThan 0
             }
         }

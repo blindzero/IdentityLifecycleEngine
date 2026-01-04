@@ -1,27 +1,6 @@
 Set-StrictMode -Version Latest
 
 function Invoke-IdleIdentityProviderContractTests {
-    <#
-    .SYNOPSIS
-    Defines provider contract tests for an identity provider implementation.
-
-    .DESCRIPTION
-    This file intentionally contains no top-level Describe/It blocks.
-    It provides a function that must be invoked from within a Describe block.
-
-    IMPORTANT (Pester 5):
-    - The contract must be registered during discovery (Describe/Context scope).
-    - The provider instance must be created during runtime (BeforeAll), not during discovery.
-
-    Therefore the contract takes a provider factory scriptblock and creates the provider
-    inside its own BeforeAll.
-
-    .PARAMETER NewProvider
-    ScriptBlock that creates a new provider instance.
-
-    .PARAMETER ProviderLabel
-    Optional label for better test output.
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -32,17 +11,18 @@ function Invoke-IdleIdentityProviderContractTests {
         [string] $ProviderLabel = 'Identity provider'
     )
 
-    # Capture inside closure for run phase (Pester 5 discovery vs run).
-    $providerFactory = $NewProvider.GetNewClosure()
+    $cases = @(
+        @{
+            ProviderFactory = $NewProvider
+        }
+    )
 
-    Context "$ProviderLabel contract" {
+    Context "$ProviderLabel contract" -ForEach $cases {
         BeforeAll {
+            $providerFactory = $_.ProviderFactory
+
             if ($null -eq $providerFactory) {
                 throw 'NewProvider scriptblock is required for identity provider contract tests.'
-            }
-
-            if ($providerFactory -isnot [scriptblock]) {
-                throw 'NewProvider must be a scriptblock that returns a provider instance.'
             }
 
             $script:Provider = & $providerFactory

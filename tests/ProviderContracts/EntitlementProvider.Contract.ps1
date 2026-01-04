@@ -1,34 +1,6 @@
 Set-StrictMode -Version Latest
 
 function Invoke-IdleEntitlementProviderContractTests {
-    <#
-    .SYNOPSIS
-    Defines provider contract tests for an entitlement provider implementation.
-
-    .DESCRIPTION
-    This file intentionally contains no top-level Describe/It blocks.
-    It provides a function that must be invoked from within a Describe block.
-
-    IMPORTANT (Pester 5):
-    - The contract must be registered during discovery (Describe/Context scope).
-    - The provider instance must be created during runtime (BeforeAll), not during discovery.
-
-    This contract expects the following methods on the provider:
-    - ListEntitlements(IdentityKey)
-    - GrantEntitlement(IdentityKey, Entitlement)
-    - RevokeEntitlement(IdentityKey, Entitlement)
-
-    Entitlement is treated as a value object with at least:
-    - Kind (string)
-    - Id (string)
-    - DisplayName (optional)
-
-    .PARAMETER NewProvider
-    ScriptBlock that creates and returns a provider instance.
-
-    .PARAMETER ProviderLabel
-    Optional label for better test output.
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -39,17 +11,18 @@ function Invoke-IdleEntitlementProviderContractTests {
         [string] $ProviderLabel = 'Entitlement provider'
     )
 
-    # Capture inside closure for run phase (Pester 5 discovery vs run).
-    $providerFactory = $NewProvider.GetNewClosure()
+    $cases = @(
+        @{
+            ProviderFactory = $NewProvider
+        }
+    )
 
-    Context "$ProviderLabel contract" {
+    Context "$ProviderLabel contract" -ForEach $cases {
         BeforeAll {
+            $providerFactory = $_.ProviderFactory
+
             if ($null -eq $providerFactory) {
                 throw 'NewProvider scriptblock is required for entitlement provider contract tests.'
-            }
-
-            if ($providerFactory -isnot [scriptblock]) {
-                throw 'NewProvider must be a scriptblock that returns a provider instance.'
             }
 
             $script:Provider = & $providerFactory
@@ -67,7 +40,6 @@ function Invoke-IdleEntitlementProviderContractTests {
         It 'GrantEntitlement returns a stable result shape' {
             $id = "contract-$([guid]::NewGuid().ToString('N'))"
 
-            # Ensure identity exists (some providers are strict).
             [void]$script:Provider.GetIdentity($id)
 
             $entitlement = [pscustomobject]@{
@@ -137,28 +109,21 @@ function Invoke-IdleEntitlementProviderContractTests {
                 Id   = "entitlement-$([guid]::NewGuid().ToString('N'))"
             }
 
-            # Normalize ListEntitlements results:
-            # Providers may return $null to indicate "no entitlements". Treat that as empty.
             $before = @($script:Provider.ListEntitlements($id))
 
             [void]$script:Provider.GrantEntitlement($id, $entitlement)
-
             $afterGrant = @($script:Provider.ListEntitlements($id))
 
             [void]$script:Provider.RevokeEntitlement($id, $entitlement)
-
             $afterRevoke = @($script:Provider.ListEntitlements($id))
 
-            # Sanity: arrays (may be empty). Do NOT use pipeline with empty arrays in Pester.
+            ($afterGrant | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
+            ($afterRevoke | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
+
+            # Sanity: $null is treated as empty.
             ($before -is [object[]]) | Should -BeTrue
             ($afterGrant -is [object[]]) | Should -BeTrue
             ($afterRevoke -is [object[]]) | Should -BeTrue
-
-            # After grant, the entitlement must be present (by Kind+Id).
-            ($afterGrant | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
-
-            # After revoke, it must be absent.
-            ($afterRevoke | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
         }
     }
 }
