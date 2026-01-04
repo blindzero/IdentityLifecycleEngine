@@ -49,15 +49,6 @@ function Get-IdleProviderCapabilities {
         # We keep this conservative to avoid accidentally overstating capabilities.
         $methodNames = @($Provider.PSObject.Methods.Name)
 
-        if ($methodNames -contains 'GetIdentity') {
-            $capabilities += 'Identity.Read'
-        }
-        if ($methodNames -contains 'EnsureAttribute') {
-            $capabilities += 'Identity.Attribute.Ensure'
-        }
-        if ($methodNames -contains 'DisableIdentity') {
-            $capabilities += 'Identity.Disable'
-        }
         if ($methodNames -contains 'ListEntitlements') {
             $capabilities += 'IdLE.Entitlement.List'
         }
@@ -67,10 +58,20 @@ function Get-IdleProviderCapabilities {
         if ($methodNames -contains 'RevokeEntitlement') {
             $capabilities += 'IdLE.Entitlement.Revoke'
         }
+        if ($methodNames -contains 'EnsureAttribute') {
+            $capabilities += 'Identity.Attribute.Ensure'
+        }
+        if ($methodNames -contains 'DisableIdentity') {
+            $capabilities += 'Identity.Disable'
+        }
+        if ($methodNames -contains 'GetIdentity') {
+            $capabilities += 'Identity.Read'
+        }
     }
 
     # Normalize, validate, and return a stable list.
-    $normalized = @()
+    $normalized = New-Object System.Collections.Generic.List[string]
+    $seen = New-Object System.Collections.Generic.HashSet[string]
     foreach ($c in @($capabilities)) {
         if ($null -eq $c) {
             continue
@@ -90,8 +91,10 @@ function Get-IdleProviderCapabilities {
             throw "Provider capability '$s' is invalid. Expected dot-separated segments like 'Identity.Read' or 'Entitlement.Write'."
         }
 
-        $normalized += $s
+        if ($seen.Add($s)) {
+            $null = $normalized.Add($s)
+        }
     }
 
-    return @($normalized | Sort-Object -Unique)
+    return @($normalized)
 }
