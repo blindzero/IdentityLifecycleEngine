@@ -32,18 +32,21 @@ function Invoke-IdleProviderCapabilitiesContractTests {
         [switch] $AllowEmpty
     )
 
-    Context 'Capability advertisement' {
+    Context 'Capability advertisement' -ForEach @{ ProviderFactory = $ProviderFactory } {
+        param($ctx)
 
         BeforeAll {
-            if ($null -eq $ProviderFactory) {
+            $providerFactory = $ctx.ProviderFactory
+
+            if ($null -eq $providerFactory) {
                 throw 'ProviderFactory scriptblock is required for capability contract tests.'
             }
 
-            if ($ProviderFactory -isnot [scriptblock]) {
+            if ($providerFactory -isnot [scriptblock]) {
                 throw 'ProviderFactory must be a scriptblock that returns a provider instance.'
             }
 
-            $script:Provider = & ($ProviderFactory.GetNewClosure())
+            $script:Provider = & ($providerFactory.GetNewClosure())
             if ($null -eq $script:Provider) {
                 throw 'ProviderFactory returned $null. A provider instance is required for contract tests.'
             }

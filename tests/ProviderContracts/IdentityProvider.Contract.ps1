@@ -32,18 +32,21 @@ function Invoke-IdleIdentityProviderContractTests {
         [string] $ProviderLabel = 'Identity provider'
     )
 
-    Context "$ProviderLabel contract" {
+    Context "$ProviderLabel contract" -ForEach @{ ProviderFactory = $NewProvider } {
+        param($ctx)
 
         BeforeAll {
-            if ($null -eq $NewProvider) {
+            $providerFactory = $ctx.ProviderFactory
+
+            if ($null -eq $providerFactory) {
                 throw 'NewProvider scriptblock is required for identity provider contract tests.'
             }
 
-            if ($NewProvider -isnot [scriptblock]) {
+            if ($providerFactory -isnot [scriptblock]) {
                 throw 'NewProvider must be a scriptblock that returns a provider instance.'
             }
 
-            $script:Provider = & ($NewProvider.GetNewClosure())
+            $script:Provider = & ($providerFactory.GetNewClosure())
             if ($null -eq $script:Provider) {
                 throw 'NewProvider returned $null. A provider instance is required for contract tests.'
             }
