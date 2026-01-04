@@ -32,14 +32,22 @@ function Invoke-IdleProviderCapabilitiesContractTests {
         [switch] $AllowEmpty
     )
 
-    BeforeAll {
-        $script:Provider = & $ProviderFactory
-        if ($null -eq $script:Provider) {
-            throw 'ProviderFactory returned $null. A provider instance is required for contract tests.'
-        }
-    }
-
     Context 'Capability advertisement' {
+
+        BeforeAll {
+            if ($null -eq $ProviderFactory) {
+                throw 'ProviderFactory scriptblock is required for capability contract tests.'
+            }
+
+            if ($ProviderFactory -isnot [scriptblock]) {
+                throw 'ProviderFactory must be a scriptblock that returns a provider instance.'
+            }
+
+            $script:Provider = & ($ProviderFactory.GetNewClosure())
+            if ($null -eq $script:Provider) {
+                throw 'ProviderFactory returned $null. A provider instance is required for contract tests.'
+            }
+        }
 
         It 'Exposes GetCapabilities as a method' {
             $script:Provider.PSObject.Methods.Name | Should -Contain 'GetCapabilities'
