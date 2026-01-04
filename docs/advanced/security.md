@@ -13,6 +13,8 @@ These inputs may come from users, CI pipelines, or external systems and **must b
 - Workflow definitions (PSD1)
 - Lifecycle requests (input objects)
 - Step parameters (`With`, `When`)
+- Provider configuration maps (e.g., `Providers` passed into plan execution)
+- Event payloads (`Event.Data`) emitted by steps/providers
 
 **Rule:** Untrusted inputs must be *data-only*. They must not contain ScriptBlocks or other executable objects.
 
@@ -35,6 +37,45 @@ IdLE applies secure defaults to reduce accidental code execution:
 - Workflow configuration is loaded as data and ScriptBlocks are rejected.
 - Event streaming uses an object-based contract (`WriteEvent(event)`); ScriptBlock event sinks are rejected.
 - Step registry handlers must be function names (strings); ScriptBlock handlers are rejected.
+
+## Redaction at output boundaries
+
+IdLE treats certain surfaces as **output boundaries**. Before data crosses these boundaries, IdLE creates a **redacted copy** of structured objects to reduce the risk of leaking secrets into logs, exports, or host systems.
+
+### What gets redacted
+
+IdLE replaces sensitive values with the placeholder string:
+
+- `[REDACTED]`
+
+Redaction happens for:
+
+- **Known secret keys** (case-insensitive, exact match):
+  - `password`, `passphrase`, `secret`, `token`
+  - `apikey`, `apiKey`, `clientSecret`
+  - `accessToken`, `refreshToken`
+  - `credential`, `privateKey`
+- **Sensitive runtime types**, regardless of key name:
+  - `PSCredential`
+  - `SecureString`
+
+### Where redaction is applied
+
+Redaction is applied **before** data is:
+
+- Buffered as run events (execution result `Events`)
+- Sent to external event sinks
+- Exported as plan JSON (`request.input`, `step.inputs`, `step.expectedState`)
+- Returned in execution results (`Providers`)
+
+### Non-goals
+
+- IdLE does **not** attempt to redact secrets embedded inside free-text message strings (e.g., `Event.Message`).
+  - Steps and providers should avoid placing secrets into free-text messages.
+
+### Rationale
+
+Redaction is intentionally centralized at output boundaries to keep the execution model unchanged and to avoid altering step/provider behavior while making outputs safe-by-default.
 
 ## Guidance for hosts
 
