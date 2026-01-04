@@ -38,11 +38,13 @@ function Get-IdleProviderCapabilities {
     )
 
     $capabilities = @()
+    $capabilitySource = 'none'
 
     # Prefer explicit advertisement (provider-controlled, deterministic).
     $hasGetCapabilitiesMethod = $Provider.PSObject.Methods.Name -contains 'GetCapabilities'
     if ($hasGetCapabilitiesMethod) {
         $capabilities = @($Provider.GetCapabilities())
+        $capabilitySource = 'explicit'
     }
     elseif ($AllowInference) {
         # Migration helper: infer a minimal set from known method names.
@@ -67,6 +69,8 @@ function Get-IdleProviderCapabilities {
         if ($methodNames -contains 'GetIdentity') {
             $capabilities += 'Identity.Read'
         }
+
+        $capabilitySource = 'inferred'
     }
 
     # Normalize, validate, and return a stable list.
@@ -96,5 +100,11 @@ function Get-IdleProviderCapabilities {
         }
     }
 
-    return @($normalized | Sort-Object -Unique)
+    if ($capabilitySource -eq 'explicit') {
+        return @($normalized | Sort-Object -Unique)
+    }
+
+    # Preserve inference ordering to keep well-known capabilities in priority order
+    # (e.g., entitlement operations before identity operations).
+    return @($normalized)
 }
