@@ -42,7 +42,15 @@ function Invoke-IdleEntitlementProviderContractTests {
     Context "$ProviderLabel contract" {
 
         BeforeAll {
-            $script:Provider = & $NewProvider
+            if ($null -eq $NewProvider) {
+                throw 'NewProvider scriptblock is required for entitlement provider contract tests.'
+            }
+
+            if ($NewProvider -isnot [scriptblock]) {
+                throw 'NewProvider must be a scriptblock that returns a provider instance.'
+            }
+
+            $script:Provider = & ($NewProvider.GetNewClosure())
             if ($null -eq $script:Provider) {
                 throw 'Provider factory returned $null.'
             }
