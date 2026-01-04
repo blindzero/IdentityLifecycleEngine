@@ -22,6 +22,10 @@ Workflow samples are located in:
 
 - `examples/workflows/`
 
+Highlighted samples:
+
+- `joiner-ensureentitlement.psd1` — ensures a demo group assignment via the built-in EnsureEntitlement step
+
 Workflows are **data-only** PSD1 files. A minimal workflow looks like:
 
 ```powershell
