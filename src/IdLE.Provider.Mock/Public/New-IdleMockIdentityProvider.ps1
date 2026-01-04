@@ -48,7 +48,7 @@ function New-IdleMockIdentityProvider {
         }
     }
 
-    function ConvertTo-IdleMockEntitlement {
+    $convertToEntitlement = {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
@@ -92,7 +92,7 @@ function New-IdleMockIdentityProvider {
         }
     }
 
-    function Test-IdleMockEntitlementEquals {
+    $testEntitlementEquals = {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
@@ -104,8 +104,8 @@ function New-IdleMockIdentityProvider {
             [object] $B
         )
 
-        $aEnt = ConvertTo-IdleMockEntitlement -Value $A
-        $bEnt = ConvertTo-IdleMockEntitlement -Value $B
+        $aEnt = $this.ConvertToEntitlement($A)
+        $bEnt = $this.ConvertToEntitlement($B)
 
         if ($aEnt.Kind -ne $bEnt.Kind) {
             return $false
@@ -119,6 +119,9 @@ function New-IdleMockIdentityProvider {
         Name       = 'MockIdentityProvider'
         Store      = $store
     }
+
+    $provider | Add-Member -MemberType ScriptMethod -Name ConvertToEntitlement -Value $convertToEntitlement -Force
+    $provider | Add-Member -MemberType ScriptMethod -Name TestEntitlementEquals -Value $testEntitlementEquals -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
         <#
@@ -290,7 +293,7 @@ function New-IdleMockIdentityProvider {
 
         $result = @()
         foreach ($e in @($identity.Entitlements)) {
-            $normalized = ConvertTo-IdleMockEntitlement -Value $e
+            $normalized = $this.ConvertToEntitlement($e)
             $result += $normalized
         }
 
@@ -312,14 +315,14 @@ function New-IdleMockIdentityProvider {
             throw "Identity '$IdentityKey' does not exist in the mock provider store."
         }
 
-        $normalized = ConvertTo-IdleMockEntitlement -Value $Entitlement
+        $normalized = $this.ConvertToEntitlement($Entitlement)
 
         $identity = $this.Store[$IdentityKey]
         if ($null -eq $identity.Entitlements) {
             $identity.Entitlements = @()
         }
 
-        $existing = $identity.Entitlements | Where-Object { Test-IdleMockEntitlementEquals -A $_ -B $normalized }
+        $existing = $identity.Entitlements | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
 
         $changed = $false
         if (@($existing).Count -eq 0) {
@@ -351,7 +354,7 @@ function New-IdleMockIdentityProvider {
             throw "Identity '$IdentityKey' does not exist in the mock provider store."
         }
 
-        $normalized = ConvertTo-IdleMockEntitlement -Value $Entitlement
+        $normalized = $this.ConvertToEntitlement($Entitlement)
 
         $identity = $this.Store[$IdentityKey]
         if ($null -eq $identity.Entitlements) {
@@ -362,7 +365,7 @@ function New-IdleMockIdentityProvider {
         $removed = $false
 
         foreach ($item in @($identity.Entitlements)) {
-            if (Test-IdleMockEntitlementEquals -A $item -B $normalized) {
+            if ($this.TestEntitlementEquals($item, $normalized)) {
                 $removed = $true
                 continue
             }
