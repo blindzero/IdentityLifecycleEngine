@@ -1,14 +1,23 @@
 function Invoke-IdlePlanObject {
     <#
     .SYNOPSIS
-    Executes a plan object and returns a deterministic execution result.
+    Executes an IdLE plan (skeleton).
 
     .DESCRIPTION
-    Executes steps in order and records step results and events. This is the core execution
-    function used by Invoke-IdlePlan.
+    Executes a plan deterministically and emits structured events.
+    Executes steps via a registry mapping Step.Type to PowerShell functions.
 
-    The returned execution result is considered an output boundary. Sensitive information
-    must be redacted from exported data surfaces.
+    .PARAMETER Plan
+    Plan object created by New-IdlePlanObject.
+
+    .PARAMETER Providers
+    Provider registry/collection (used for StepRegistry in this increment; passed through for future steps).
+
+    .PARAMETER EventSink
+    Optional external event sink provided by the host.
+
+    .OUTPUTS
+    PSCustomObject (PSTypeName: IdLE.ExecutionResult)
     #>
     [CmdletBinding()]
     param(
@@ -16,24 +25,50 @@ function Invoke-IdlePlanObject {
         [ValidateNotNull()]
         [object] $Plan,
 
-        [Parameter(Mandatory)]
-        [ValidateNotNull()]
-        [hashtable] $Providers
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $Providers,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $EventSink
     )
 
+    $planProps = @($Plan.PSObject.Properties.Name)
+
+    # The engine rejects ScriptBlocks in the plan and providers to avoid accidental code execution.
     Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
     Assert-IdleNoScriptBlock -InputObject $Providers -Path 'Providers'
 
     $events = [System.Collections.Generic.List[object]]::new()
 
+    # Host may pass an external sink. If none is provided, we still buffer events internally.
+    $engineEventSink = New-IdleEventSink -EventSink $EventSink -EventBuffer $events
+
+    $failed = $false
     $stepResults = @()
 
-    $runStatus = 'Completed'
+    # In this increment, request fields are accessed defensively.
+    $request = if ($planProps -contains 'Request') { $Plan.Request } else { $null }
 
-    $request = $Plan.Request
-    $corr = $request.CorrelationId
-    $actor = $request.Actor
+    $corr = if ($null -ne $request -and @($request.PSObject.Properties.Name) -contains 'CorrelationId') {
+        $request.CorrelationId
+    }
+    else {
+        if ($planProps -contains 'CorrelationId') { $Plan.CorrelationId } else { $null }
+    }
 
+    $actor = if ($null -ne $request -and @($request.PSObject.Properties.Name) -contains 'Actor') {
+        $request.Actor
+    }
+    else {
+        if ($planProps -contains 'Actor') { $Plan.Actor } else { $null }
+    }
+
+    # StepRegistry is constructed via helper to ensure built-in steps and host-provided steps can co-exist.
+    # - The host MAY provide a StepRegistry, but it is optional.
+    # - Built-in steps must remain discoverable without requiring the host to wire a registry.
+    # - Get-IdleStepRegistry merges the host registry (if provided) with built-in handlers (if available).
     $stepRegistry = Get-IdleStepRegistry -Providers $Providers
 
     $context = [pscustomobject]@{
@@ -42,61 +77,8 @@ function Invoke-IdlePlanObject {
         Providers  = $Providers
 
         # Object-based, stable eventing contract.
-        EventSink  = [pscustomobject]@{
-            PSTypeName = 'IdLE.EventSink'
-            WriteEvent = {
-                param(
-                    [Parameter(Mandatory)]
-                    [ValidateNotNullOrEmpty()]
-                    [string] $Name,
-
-                    [Parameter(Mandatory)]
-                    [ValidateNotNullOrEmpty()]
-                    [string] $Message,
-
-                    [Parameter()]
-                    [AllowNull()]
-                    [string] $StepName,
-
-                    [Parameter()]
-                    [AllowNull()]
-                    [object] $Data
-                )
-
-                $evt = [pscustomobject]@{
-                    PSTypeName = 'IdLE.Event'
-                    Name       = $Name
-                    Message    = $Message
-                    StepName   = $StepName
-                    Data       = $Data
-                }
-
-                Write-IdleEvent -Event $evt -EventSink $null -EventBuffer $events
-            }
-        }
-
-        # Backwards compatible alias for older hosts/tests.
-        WriteEvent = {
-            param(
-                [Parameter(Mandatory)]
-                [ValidateNotNullOrEmpty()]
-                [string] $Name,
-
-                [Parameter(Mandatory)]
-                [ValidateNotNullOrEmpty()]
-                [string] $Message,
-
-                [Parameter()]
-                [AllowNull()]
-                [string] $StepName,
-
-                [Parameter()]
-                [AllowNull()]
-                [object] $Data
-            )
-
-            $this.EventSink.WriteEvent($Name, $Message, $StepName, $Data)
-        }
+        # Steps and the engine call: $Context.EventSink.WriteEvent(...)
+        EventSink  = $engineEventSink
     }
 
     $context.EventSink.WriteEvent('RunStarted', "Plan execution started (correlationId: $corr).", $null, @{
@@ -107,11 +89,39 @@ function Invoke-IdlePlanObject {
 
     $i = 0
     foreach ($step in $Plan.Steps) {
-        $i++
+
+        if ($null -eq $step) {
+            continue
+        }
 
         $stepName = $step.Name
         $stepType = $step.Type
-        $stepWith = $step.With
+        $stepWith = if (@($step.PSObject.Properties.Name) -contains 'With') { $step.With } else { $null }
+
+        # Conditions are evaluated before the step executes (if present).
+        $stepCondition = if (@($step.PSObject.Properties.Name) -contains 'Condition') { $step.Condition } else { $null }
+        if ($null -ne $stepCondition) {
+
+            $isApplicable = Invoke-IdleConditionTest -Condition $stepCondition -Context $context
+
+            if (-not $isApplicable) {
+                $stepResults += [pscustomobject]@{
+                    PSTypeName = 'IdLE.StepResult'
+                    Name       = $stepName
+                    Type       = $stepType
+                    Status     = 'NotApplicable'
+                    Attempts   = 1
+                }
+
+                $context.EventSink.WriteEvent('StepNotApplicable', "Step '$stepName' not applicable (condition not met).", $stepName, @{
+                    StepType = $stepType
+                    Index    = $i
+                })
+
+                $i++
+                continue
+            }
+        }
 
         $context.EventSink.WriteEvent('StepStarted', "Step '$stepName' started.", $stepName, @{
             StepType = $stepType
@@ -132,13 +142,12 @@ function Invoke-IdlePlanObject {
             $result = & $impl @invokeParams
 
             if ($null -eq $result) {
+                # Steps should return a result, but to keep execution stable we normalize to Completed.
                 $result = [pscustomobject]@{
                     PSTypeName = 'IdLE.StepResult'
                     Name       = $stepName
                     Type       = $stepType
                     Status     = 'Completed'
-                    Changed    = $false
-                    Error      = $null
                     Attempts   = 1
                 }
             }
@@ -146,7 +155,7 @@ function Invoke-IdlePlanObject {
             $stepResults += $result
 
             if ($result.Status -eq 'Failed') {
-                $runStatus = 'Failed'
+                $failed = $true
 
                 $context.EventSink.WriteEvent('StepFailed', "Step '$stepName' failed.", $stepName, @{
                     StepType = $stepType
@@ -154,26 +163,26 @@ function Invoke-IdlePlanObject {
                     Error    = $result.Error
                 })
 
-                # Fail-fast in this increment.
+                # Fail-fast for this increment.
                 break
             }
 
-            $context.EventSink.WriteEvent('StepCompleted', "Step '$stepName' completed (changed: $($result.Changed)).", $stepName, @{
+            $context.EventSink.WriteEvent('StepCompleted', "Step '$stepName' completed.", $stepName, @{
                 StepType = $stepType
                 Index    = $i
-                Changed  = $result.Changed
             })
         }
         catch {
+            $failed = $true
             $err = $_
-            $runStatus = 'Failed'
 
+            # We cannot reliably know the number of attempts on failure without wrapping errors.
+            # For this increment, we keep the output stable and report a minimum of 1 attempt.
             $stepResults += [pscustomobject]@{
                 PSTypeName = 'IdLE.StepResult'
                 Name       = $stepName
                 Type       = $stepType
                 Status     = 'Failed'
-                Changed    = $false
                 Error      = $err.Exception.Message
                 Attempts   = 1
             }
@@ -184,10 +193,14 @@ function Invoke-IdlePlanObject {
                 Error    = $err.Exception.Message
             })
 
-            # Fail-fast in this increment.
+            # Fail-fast for this increment.
             break
         }
+
+        $i++
     }
+
+    $runStatus = if ($failed) { 'Failed' } else { 'Completed' }
 
     $context.EventSink.WriteEvent('RunCompleted', "Plan execution finished (status: $runStatus).", $null, @{
         Status    = $runStatus
@@ -195,7 +208,13 @@ function Invoke-IdlePlanObject {
     })
 
     # Redact provider configuration/state at the output boundary (execution result).
-    $redactedProviders = Copy-IdleRedactedObject -Value $Providers
+    # We never mutate the original providers object; we return a redacted copy.
+    $redactedProviders = if ($null -ne $Providers) {
+        Copy-IdleRedactedObject -Value $Providers
+    }
+    else {
+        $null
+    }
 
     return [pscustomobject]@{
         PSTypeName    = 'IdLE.ExecutionResult'
