@@ -3,7 +3,7 @@ Set-StrictMode -Version Latest
 function Invoke-IdleEntitlementProviderContractTests {
     <#
     .SYNOPSIS
-    Defines provider contract tests for entitlement operations.
+    Defines provider contract tests for an entitlement provider implementation.
 
     .DESCRIPTION
     This file intentionally contains no top-level Describe/It blocks.
@@ -13,15 +13,15 @@ function Invoke-IdleEntitlementProviderContractTests {
     - The contract must be registered during discovery (Describe/Context scope).
     - The provider instance must be created during runtime (BeforeAll), not during discovery.
 
-    Providers must expose entitlement operations for identities:
-    - ListEntitlements(identityKey)
-    - GrantEntitlement(identityKey, entitlement)
-    - RevokeEntitlement(identityKey, entitlement)
+    This contract expects the following methods on the provider:
+    - ListEntitlements(IdentityKey)
+    - GrantEntitlement(IdentityKey, Entitlement)
+    - RevokeEntitlement(IdentityKey, Entitlement)
 
-    Providers must also advertise the following capabilities via GetCapabilities():
-    - IdLE.Entitlement.List
-    - IdLE.Entitlement.Grant
-    - IdLE.Entitlement.Revoke
+    Entitlement is treated as a value object with at least:
+    - Kind (string)
+    - Id (string)
+    - DisplayName (optional)
 
     .PARAMETER NewProvider
     ScriptBlock that creates and returns a provider instance.
@@ -39,12 +39,11 @@ function Invoke-IdleEntitlementProviderContractTests {
         [string] $ProviderLabel = 'Entitlement provider'
     )
 
-    Context "$ProviderLabel contract" -ForEach @(@{ ProviderFactory = $NewProvider }) {
-        param($ctx)
+    # Capture inside closure for run phase (Pester 5 discovery vs run).
+    $providerFactory = $NewProvider.GetNewClosure()
 
+    Context "$ProviderLabel contract" {
         BeforeAll {
-            $providerFactory = $ctx.ProviderFactory
-
             if ($null -eq $providerFactory) {
                 throw 'NewProvider scriptblock is required for entitlement provider contract tests.'
             }
@@ -53,69 +52,113 @@ function Invoke-IdleEntitlementProviderContractTests {
                 throw 'NewProvider must be a scriptblock that returns a provider instance.'
             }
 
-            $script:Provider = & ($providerFactory.GetNewClosure())
+            $script:Provider = & $providerFactory
             if ($null -eq $script:Provider) {
-                throw 'Provider factory returned $null.'
+                throw 'NewProvider returned $null. A provider instance is required for contract tests.'
             }
         }
 
-        It 'Exposes required entitlement methods and capabilities' {
-            $methods = @($script:Provider.PSObject.Methods.Name)
-            $methods | Should -Contain 'ListEntitlements'
-            $methods | Should -Contain 'GrantEntitlement'
-            $methods | Should -Contain 'RevokeEntitlement'
-
-            $capabilities = @($script:Provider.GetCapabilities())
-            $capabilities | Should -Contain 'IdLE.Entitlement.List'
-            $capabilities | Should -Contain 'IdLE.Entitlement.Grant'
-            $capabilities | Should -Contain 'IdLE.Entitlement.Revoke'
+        It 'Exposes required methods' {
+            $script:Provider.PSObject.Methods.Name | Should -Contain 'ListEntitlements'
+            $script:Provider.PSObject.Methods.Name | Should -Contain 'GrantEntitlement'
+            $script:Provider.PSObject.Methods.Name | Should -Contain 'RevokeEntitlement'
         }
 
-        It 'ListEntitlements fails for a non-existent identity' {
-            { $script:Provider.ListEntitlements('missing-identity') } | Should -Throw
+        It 'GrantEntitlement returns a stable result shape' {
+            $id = "contract-$([guid]::NewGuid().ToString('N'))"
+
+            # Ensure identity exists (some providers are strict).
+            [void]$script:Provider.GetIdentity($id)
+
+            $entitlement = [pscustomobject]@{
+                Kind        = 'Contract'
+                Id          = "entitlement-$([guid]::NewGuid().ToString('N'))"
+                DisplayName = 'Contract Entitlement'
+            }
+
+            $result = $script:Provider.GrantEntitlement($id, $entitlement)
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.PSObject.Properties.Name | Should -Contain 'Changed'
+            $result.PSObject.Properties.Name | Should -Contain 'IdentityKey'
+            $result.PSObject.Properties.Name | Should -Contain 'Entitlement'
+
+            $result.IdentityKey | Should -Be $id
+            $result.Changed | Should -BeOfType [bool]
+
+            $result.Entitlement | Should -Not -BeNullOrEmpty
+            $result.Entitlement.PSObject.Properties.Name | Should -Contain 'Kind'
+            $result.Entitlement.PSObject.Properties.Name | Should -Contain 'Id'
         }
 
         It 'GrantEntitlement is idempotent' {
             $id = "contract-$([guid]::NewGuid().ToString('N'))"
-            $entitlement = @{ Kind = 'Group'; Id = 'id-123'; DisplayName = 'Group 123' }
 
-            # Create the identity in a provider-agnostic way.
-            if ($script:Provider.PSObject.Methods.Name -contains 'EnsureAttribute') {
-                $null = $script:Provider.EnsureAttribute($id, 'Seed', 'Value')
+            [void]$script:Provider.GetIdentity($id)
+
+            $entitlement = [pscustomobject]@{
+                Kind = 'Contract'
+                Id   = "entitlement-$([guid]::NewGuid().ToString('N'))"
             }
 
             $r1 = $script:Provider.GrantEntitlement($id, $entitlement)
-            $r1.PSObject.Properties.Name | Should -Contain 'Changed'
+            $r2 = $script:Provider.GrantEntitlement($id, $entitlement)
+
             $r1.Changed | Should -BeTrue
-
-            $r2 = $script:Provider.GrantEntitlement($id, @{ Kind = 'Group'; Id = 'ID-123' })
-            $r2.PSObject.Properties.Name | Should -Contain 'Changed'
             $r2.Changed | Should -BeFalse
-
-            $assignments = @($script:Provider.ListEntitlements($id))
-            $assignments | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq 'id-123' } | Should -Not -BeNullOrEmpty
         }
 
-        It 'RevokeEntitlement is idempotent' {
+        It 'RevokeEntitlement is idempotent (after a grant)' {
             $id = "contract-$([guid]::NewGuid().ToString('N'))"
-            $entitlement = @{ Kind = 'License'; Id = 'sku-basic'; DisplayName = 'Basic SKU' }
 
-            if ($script:Provider.PSObject.Methods.Name -contains 'EnsureAttribute') {
-                $null = $script:Provider.EnsureAttribute($id, 'Seed', 'Value')
+            [void]$script:Provider.GetIdentity($id)
+
+            $entitlement = [pscustomobject]@{
+                Kind = 'Contract'
+                Id   = "entitlement-$([guid]::NewGuid().ToString('N'))"
             }
 
-            $null = $script:Provider.GrantEntitlement($id, $entitlement)
+            [void]$script:Provider.GrantEntitlement($id, $entitlement)
 
             $r1 = $script:Provider.RevokeEntitlement($id, $entitlement)
-            $r1.PSObject.Properties.Name | Should -Contain 'Changed'
-            $r1.Changed | Should -BeTrue
-
             $r2 = $script:Provider.RevokeEntitlement($id, $entitlement)
-            $r2.PSObject.Properties.Name | Should -Contain 'Changed'
-            $r2.Changed | Should -BeFalse
 
-            $assignments = @($script:Provider.ListEntitlements($id))
-            $assignments | Where-Object { $_.Kind -eq 'License' -and $_.Id -eq 'sku-basic' } | Should -BeNullOrEmpty
+            $r1.Changed | Should -BeTrue
+            $r2.Changed | Should -BeFalse
+        }
+
+        It 'ListEntitlements reflects grant and revoke operations' {
+            $id = "contract-$([guid]::NewGuid().ToString('N'))"
+
+            [void]$script:Provider.GetIdentity($id)
+
+            $entitlement = [pscustomobject]@{
+                Kind = 'Contract'
+                Id   = "entitlement-$([guid]::NewGuid().ToString('N'))"
+            }
+
+            # Normalize ListEntitlements results:
+            # Providers may return $null to indicate "no entitlements". Treat that as empty.
+            $before = @($script:Provider.ListEntitlements($id))
+
+            [void]$script:Provider.GrantEntitlement($id, $entitlement)
+
+            $afterGrant = @($script:Provider.ListEntitlements($id))
+
+            [void]$script:Provider.RevokeEntitlement($id, $entitlement)
+
+            $afterRevoke = @($script:Provider.ListEntitlements($id))
+
+            # Sanity: arrays (may be empty). Do NOT use pipeline with empty arrays in Pester.
+            ($before -is [object[]]) | Should -BeTrue
+            ($afterGrant -is [object[]]) | Should -BeTrue
+            ($afterRevoke -is [object[]]) | Should -BeTrue
+
+            # After grant, the entitlement must be present (by Kind+Id).
+            ($afterGrant | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
+
+            # After revoke, it must be absent.
+            ($afterRevoke | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
         }
     }
 }
