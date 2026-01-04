@@ -28,6 +28,9 @@ function New-IdleMockIdentityProvider {
             Attributes  = @{
                 Department = 'IT'
             }
+            Entitlements = @(
+                @{ Kind = 'Group'; Id = 'demo-group'; DisplayName = 'Demo Group' }
+            )
         }
     }
     #>
@@ -45,11 +48,80 @@ function New-IdleMockIdentityProvider {
         }
     }
 
+    $convertToEntitlement = {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Value
+        )
+
+        $kind = $null
+        $id = $null
+        $displayName = $null
+
+        if ($Value -is [System.Collections.IDictionary]) {
+            $kind = $Value['Kind']
+            $id = $Value['Id']
+            if ($Value.Contains('DisplayName')) { $displayName = $Value['DisplayName'] }
+        }
+        else {
+            $props = $Value.PSObject.Properties
+            if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
+            if ($props.Name -contains 'Id') { $id = $Value.Id }
+            if ($props.Name -contains 'DisplayName') { $displayName = $Value.DisplayName }
+        }
+
+        if ([string]::IsNullOrWhiteSpace([string]$kind)) {
+            throw "Entitlement.Kind must not be empty."
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$id)) {
+            throw "Entitlement.Id must not be empty."
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.Entitlement'
+            Kind        = [string]$kind
+            Id          = [string]$id
+            DisplayName = if ($null -eq $displayName -or [string]::IsNullOrWhiteSpace([string]$displayName)) {
+                $null
+            }
+            else {
+                [string]$displayName
+            }
+        }
+    }
+
+    $testEntitlementEquals = {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $A,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $B
+        )
+
+        $aEnt = $this.ConvertToEntitlement($A)
+        $bEnt = $this.ConvertToEntitlement($B)
+
+        if ($aEnt.Kind -ne $bEnt.Kind) {
+            return $false
+        }
+
+        return [string]::Equals($aEnt.Id, $bEnt.Id, [System.StringComparison]::OrdinalIgnoreCase)
+    }
+
     $provider = [pscustomobject]@{
         PSTypeName = 'IdLE.Provider.MockIdentityProvider'
         Name       = 'MockIdentityProvider'
         Store      = $store
     }
+
+    $provider | Add-Member -MemberType ScriptMethod -Name ConvertToEntitlement -Value $convertToEntitlement -Force
+    $provider | Add-Member -MemberType ScriptMethod -Name TestEntitlementEquals -Value $testEntitlementEquals -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
         <#
@@ -68,6 +140,9 @@ function New-IdleMockIdentityProvider {
             'Identity.Read'
             'Identity.Attribute.Ensure'
             'Identity.Disable'
+            'IdLE.Entitlement.List'
+            'IdLE.Entitlement.Grant'
+            'IdLE.Entitlement.Revoke'
         )
     } -Force
 
@@ -81,13 +156,18 @@ function New-IdleMockIdentityProvider {
         # Create missing identities on demand to keep tests and demos frictionless.
         if (-not $this.Store.ContainsKey($IdentityKey)) {
             $this.Store[$IdentityKey] = @{
-                IdentityKey = $IdentityKey
-                Enabled     = $true
-                Attributes  = @{}
+                IdentityKey  = $IdentityKey
+                Enabled      = $true
+                Attributes   = @{}
+                Entitlements = @()
             }
         }
 
         $raw = $this.Store[$IdentityKey]
+
+        if ($null -eq $raw.Entitlements) {
+            $raw.Entitlements = @()
+        }
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.Identity'
@@ -114,9 +194,10 @@ function New-IdleMockIdentityProvider {
 
         if (-not $this.Store.ContainsKey($IdentityKey)) {
             $this.Store[$IdentityKey] = @{
-                IdentityKey = $IdentityKey
-                Enabled     = $true
-                Attributes  = @{}
+                IdentityKey  = $IdentityKey
+                Enabled      = $true
+                Attributes   = @{}
+                Entitlements = @()
             }
         }
 
@@ -124,6 +205,9 @@ function New-IdleMockIdentityProvider {
 
         if ($null -eq $identity.Attributes) {
             $identity.Attributes = @{}
+        }
+        if ($null -eq $identity.Entitlements) {
+            $identity.Entitlements = @()
         }
 
         $changed = $false
@@ -161,13 +245,18 @@ function New-IdleMockIdentityProvider {
 
         if (-not $this.Store.ContainsKey($IdentityKey)) {
             $this.Store[$IdentityKey] = @{
-                IdentityKey = $IdentityKey
-                Enabled     = $true
-                Attributes  = @{}
+                IdentityKey  = $IdentityKey
+                Enabled      = $true
+                Attributes   = @{}
+                Entitlements = @()
             }
         }
 
         $identity = $this.Store[$IdentityKey]
+        if ($null -eq $identity.Entitlements) {
+            $identity.Entitlements = @()
+        }
+
         $changed = $false
 
         if ($identity.Enabled -ne $false) {
@@ -183,6 +272,115 @@ function New-IdleMockIdentityProvider {
             Operation   = 'DisableIdentity'
             IdentityKey = $IdentityKey
             Changed     = [bool]$changed
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey
+        )
+
+        if (-not $this.Store.ContainsKey($IdentityKey)) {
+            throw "Identity '$IdentityKey' does not exist in the mock provider store."
+        }
+
+        $identity = $this.Store[$IdentityKey]
+        if ($null -eq $identity.Entitlements) {
+            $identity.Entitlements = @()
+        }
+
+        $result = @()
+        foreach ($e in @($identity.Entitlements)) {
+            $normalized = $this.ConvertToEntitlement($e)
+            $result += $normalized
+        }
+
+        return $result
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name GrantEntitlement -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Entitlement
+        )
+
+        if (-not $this.Store.ContainsKey($IdentityKey)) {
+            throw "Identity '$IdentityKey' does not exist in the mock provider store."
+        }
+
+        $normalized = $this.ConvertToEntitlement($Entitlement)
+
+        $identity = $this.Store[$IdentityKey]
+        if ($null -eq $identity.Entitlements) {
+            $identity.Entitlements = @()
+        }
+
+        $existing = $identity.Entitlements | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
+
+        $changed = $false
+        if (@($existing).Count -eq 0) {
+            $identity.Entitlements += $normalized
+            $changed = $true
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'GrantEntitlement'
+            IdentityKey = $IdentityKey
+            Changed     = [bool]$changed
+            Entitlement = $normalized
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name RevokeEntitlement -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Entitlement
+        )
+
+        if (-not $this.Store.ContainsKey($IdentityKey)) {
+            throw "Identity '$IdentityKey' does not exist in the mock provider store."
+        }
+
+        $normalized = $this.ConvertToEntitlement($Entitlement)
+
+        $identity = $this.Store[$IdentityKey]
+        if ($null -eq $identity.Entitlements) {
+            $identity.Entitlements = @()
+        }
+
+        $remaining = @()
+        $removed = $false
+
+        foreach ($item in @($identity.Entitlements)) {
+            if ($this.TestEntitlementEquals($item, $normalized)) {
+                $removed = $true
+                continue
+            }
+
+            $remaining += $item
+        }
+
+        $identity.Entitlements = $remaining
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'RevokeEntitlement'
+            IdentityKey = $IdentityKey
+            Changed     = [bool]$removed
+            Entitlement = $normalized
         }
     } -Force
 

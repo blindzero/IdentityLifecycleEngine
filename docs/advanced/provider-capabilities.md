@@ -28,7 +28,15 @@ Naming convention:
 - dot-separated segments
 - no whitespace
 - starts with a letter
-- examples: `Identity.Read`, `Identity.Disable`, `Entitlement.Write`
+- examples: `Identity.Read`, `Identity.Disable`, `IdLE.Entitlement.List`
+
+### Entitlement capability set
+
+Providers that support entitlement assignments should advertise the minimal trio:
+
+- `IdLE.Entitlement.List` — list entitlements assigned to a specific identity
+- `IdLE.Entitlement.Grant` — assign an entitlement to an identity
+- `IdLE.Entitlement.Revoke` — remove an entitlement from an identity
 
 ## High-level flow
 

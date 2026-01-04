@@ -74,4 +74,46 @@ Describe 'New-IdlePlan - required provider capabilities' {
         $plan.Steps.Count | Should -Be 1
         $plan.Steps[0].RequiresCapabilities | Should -Be @('Identity.Disable')
     }
+
+    It 'validates entitlement capabilities for EnsureEntitlement steps' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-entitlements.psd1'
+
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Joiner - Entitlement Capability Validation'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{
+      Name                 = 'Ensure group membership'
+      Type                 = 'IdLE.Step.EnsureEntitlement'
+      With                 = @{ IdentityKey = 'user1'; Entitlement = @{ Kind = 'Group'; Id = 'demo-group' }; State = 'Present' }
+      RequiresCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant')
+    }
+  )
+}
+'@
+
+        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+
+        try {
+            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $null | Out-Null
+            throw 'Expected an exception but none was thrown.'
+        }
+        catch {
+            $_.Exception.Message | Should -Match 'MissingCapabilities: IdLE\.Entitlement\.Grant, IdLE\.Entitlement\.List'
+        }
+
+        $provider = [pscustomobject]@{ Name = 'EntProvider' }
+        $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+            return @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant')
+        } -Force
+
+        $providers = @{ Entitlement = $provider }
+
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+        $plan | Should -Not -BeNullOrEmpty
+        $plan.Steps.Count | Should -Be 1
+        $plan.Steps[0].RequiresCapabilities | Should -Be @('IdLE.Entitlement.Grant', 'IdLE.Entitlement.List')
+    }
 }
