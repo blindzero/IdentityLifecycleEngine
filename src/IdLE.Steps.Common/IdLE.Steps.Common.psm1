@@ -14,5 +14,6 @@ if (Test-Path -Path $PublicPath) {
 
 Export-ModuleMember -Function @(
     'Invoke-IdleStepEmitEvent',
-    'Invoke-IdleStepEnsureAttribute'
+    'Invoke-IdleStepEnsureAttribute',
+    'Invoke-IdleStepEnsureEntitlement'
 )

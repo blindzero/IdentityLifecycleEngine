@@ -17,4 +17,16 @@ BeforeDiscovery {
         throw "Provider capabilities contract not found at: $capabilitiesContractPath"
     }
     . $capabilitiesContractPath
+
+    $entitlementContractPath = Join-Path -Path $repoRoot -ChildPath 'tests\ProviderContracts\EntitlementProvider.Contract.ps1'
+    if (-not (Test-Path -LiteralPath $entitlementContractPath -PathType Leaf)) {
+        throw "Entitlement provider contract not found at: $entitlementContractPath"
+    }
+    . $entitlementContractPath
+}
+
+Describe 'Mock identity provider contracts' {
+    Invoke-IdleIdentityProviderContractTests -NewProvider { New-IdleMockIdentityProvider }
+    Invoke-IdleProviderCapabilitiesContractTests -ProviderFactory { New-IdleMockIdentityProvider }
+    Invoke-IdleEntitlementProviderContractTests -NewProvider { New-IdleMockIdentityProvider }
 }

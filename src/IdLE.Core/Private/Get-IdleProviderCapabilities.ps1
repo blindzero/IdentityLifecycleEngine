@@ -58,6 +58,15 @@ function Get-IdleProviderCapabilities {
         if ($methodNames -contains 'DisableIdentity') {
             $capabilities += 'Identity.Disable'
         }
+        if ($methodNames -contains 'ListEntitlements') {
+            $capabilities += 'IdLE.Entitlement.List'
+        }
+        if ($methodNames -contains 'GrantEntitlement') {
+            $capabilities += 'IdLE.Entitlement.Grant'
+        }
+        if ($methodNames -contains 'RevokeEntitlement') {
+            $capabilities += 'IdLE.Entitlement.Revoke'
+        }
     }
 
     # Normalize, validate, and return a stable list.

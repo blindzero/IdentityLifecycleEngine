@@ -71,6 +71,13 @@ IdLE uses a fail-fast execution model in V1:
 - a failing step stops plan execution
 - results and events capture what happened
 
+## Built-in steps (starter pack)
+
+IdLE ships with a small set of built-in steps to keep demos and tests frictionless:
+
+- **IdLE.Step.EnsureAttribute**: converges an identity attribute to the desired value using `With.IdentityKey`, `With.Name`, and `With.Value`. Requires a provider with `EnsureAttribute` and usually the `Identity.Attribute.Ensure` capability.
+- **IdLE.Step.EnsureEntitlement**: converges an entitlement assignment to `Present` or `Absent` using `With.IdentityKey`, `With.Entitlement` (Kind + Id + optional DisplayName), `With.State`, and optional `With.Provider` (default `Identity`). Requires provider methods `ListEntitlements` plus `GrantEntitlement` or `RevokeEntitlement` and typically the capabilities `IdLE.Entitlement.List` plus `IdLE.Entitlement.Grant|Revoke`.
+
 ## Related
 
 - [Workflows](workflows.md)
