@@ -22,6 +22,9 @@ function Import-IdleTestModule {
 
     $manifestPath = Get-IdleModuleManifestPath
     Import-Module -Name $manifestPath -Force -ErrorAction Stop
+
+    $mockProviderManifestPath = Resolve-Path -Path (Join-Path (Get-RepoRootPath) 'src/IdLE.Provider.Mock/IdLE.Provider.Mock.psd1')
+    Import-Module -Name $mockProviderManifestPath -Force -ErrorAction Stop
 }
 
 function Get-ModuleManifestPaths {
