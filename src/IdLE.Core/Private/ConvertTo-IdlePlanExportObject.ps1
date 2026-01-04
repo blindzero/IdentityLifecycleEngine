@@ -129,19 +129,11 @@ function ConvertTo-IdlePlanExportObject {
         $requestInput = $null
     }
 
-    # Redact request.input at the export boundary (do not mutate the original request object).
-    $redactedRequestInput = if ($null -ne $requestInput) {
-        Copy-IdleRedactedObject -Value $requestInput
-    }
-    else {
-        $null
-    }
-
     $requestMap = New-OrderedMap
     $requestMap.type          = $requestType
     $requestMap.correlationId = $correlationId
     $requestMap.actor         = $actor
-    $requestMap.input         = $redactedRequestInput
+    $requestMap.input         = $requestInput
 
     # ---- Plan block ----------------------------------------------------------
     $planId = ConvertTo-NullIfEmptyString -Value (
@@ -217,29 +209,14 @@ function ConvertTo-IdlePlanExportObject {
         $inputs = Get-FirstPropertyValue -Object $step -Names @('Inputs', 'Input', 'Parameters', 'Arguments', 'With')
         $expectedState = Get-FirstPropertyValue -Object $step -Names @('ExpectedState', 'DesiredState', 'TargetState')
 
-        # Redact step inputs / expectedState at the export boundary (do not mutate original step objects).
-        $redactedInputs = if ($null -ne $inputs) {
-            Copy-IdleRedactedObject -Value $inputs
-        }
-        else {
-            $null
-        }
-
-        $redactedExpectedState = if ($null -ne $expectedState) {
-            Copy-IdleRedactedObject -Value $expectedState
-        }
-        else {
-            $null
-        }
-
         $stepMap = New-OrderedMap
         $stepMap.id = $stepId
         $stepMap.name = $stepName
         $stepMap.stepType = $stepType
         $stepMap.provider = $provider
         $stepMap.condition = $conditionMap
-        $stepMap.inputs = $redactedInputs
-        $stepMap.expectedState = $redactedExpectedState
+        $stepMap.inputs = $inputs
+        $stepMap.expectedState = $expectedState
 
         $stepList += $stepMap
     }
