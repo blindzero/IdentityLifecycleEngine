@@ -38,19 +38,27 @@ function Get-IdleProviderCapabilities {
     )
 
     $capabilities = @()
+    $capabilitySource = 'none'
 
     # Prefer explicit advertisement (provider-controlled, deterministic).
     $hasGetCapabilitiesMethod = $Provider.PSObject.Methods.Name -contains 'GetCapabilities'
     if ($hasGetCapabilitiesMethod) {
         $capabilities = @($Provider.GetCapabilities())
+        $capabilitySource = 'explicit'
     }
     elseif ($AllowInference) {
         # Migration helper: infer a minimal set from known method names.
         # We keep this conservative to avoid accidentally overstating capabilities.
         $methodNames = @($Provider.PSObject.Methods.Name)
 
-        if ($methodNames -contains 'GetIdentity') {
-            $capabilities += 'Identity.Read'
+        if ($methodNames -contains 'GrantEntitlement') {
+            $capabilities += 'IdLE.Entitlement.Grant'
+        }
+        if ($methodNames -contains 'ListEntitlements') {
+            $capabilities += 'IdLE.Entitlement.List'
+        }
+        if ($methodNames -contains 'RevokeEntitlement') {
+            $capabilities += 'IdLE.Entitlement.Revoke'
         }
         if ($methodNames -contains 'EnsureAttribute') {
             $capabilities += 'Identity.Attribute.Ensure'
@@ -58,10 +66,16 @@ function Get-IdleProviderCapabilities {
         if ($methodNames -contains 'DisableIdentity') {
             $capabilities += 'Identity.Disable'
         }
+        if ($methodNames -contains 'GetIdentity') {
+            $capabilities += 'Identity.Read'
+        }
+
+        $capabilitySource = 'inferred'
     }
 
     # Normalize, validate, and return a stable list.
-    $normalized = @()
+    $normalized = New-Object System.Collections.Generic.List[string]
+    $seen = New-Object System.Collections.Generic.HashSet[string]
     foreach ($c in @($capabilities)) {
         if ($null -eq $c) {
             continue
@@ -81,8 +95,16 @@ function Get-IdleProviderCapabilities {
             throw "Provider capability '$s' is invalid. Expected dot-separated segments like 'Identity.Read' or 'Entitlement.Write'."
         }
 
-        $normalized += $s
+        if ($seen.Add($s)) {
+            $null = $normalized.Add($s)
+        }
     }
 
-    return @($normalized | Sort-Object -Unique)
+    if ($capabilitySource -eq 'explicit') {
+        return @($normalized | Sort-Object -Unique)
+    }
+
+    # Preserve inference ordering to keep well-known capabilities in priority order
+    # (e.g., entitlement operations before identity operations).
+    return @($normalized)
 }

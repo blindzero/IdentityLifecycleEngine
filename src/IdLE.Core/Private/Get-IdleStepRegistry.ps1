@@ -121,5 +121,12 @@ function Get-IdleStepRegistry {
         }
     }
 
+    if (-not $registry.ContainsKey('IdLE.Step.EnsureEntitlement')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepEnsureEntitlement' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.EnsureEntitlement'] = $handler
+        }
+    }
+
     return $registry
 }
