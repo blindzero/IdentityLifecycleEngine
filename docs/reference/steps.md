@@ -61,3 +61,37 @@ The step is idempotent by design: it converges state to the desired value.
 | Value | Yes |
 
 ---
+
+## EnsureEntitlement
+
+- **Step Name**: $stepType
+- **Implementation**: $commandName
+- **Idempotent**: $idempotent
+- **Contracts**: $contracts
+- **Events**: Unknown
+
+**Synopsis**
+
+Ensures that an entitlement assignment is present or absent for an identity.
+
+**Description**
+
+This provider-agnostic step uses entitlement provider contracts to converge
+an assignment to the desired state. The host must supply a provider instance
+via `Context.Providers[<ProviderAlias>]` that implements:
+- ListEntitlements(identityKey)
+- GrantEntitlement(identityKey, entitlement)
+- RevokeEntitlement(identityKey, entitlement)
+
+The step is idempotent and only calls Grant/Revoke when the assignment needs
+to change.
+
+**Inputs (With.\*)**
+
+| Key | Required |
+| --- | --- |
+| IdentityKey | Yes |
+| Entitlement | Yes |
+| State | Yes |
+
+---

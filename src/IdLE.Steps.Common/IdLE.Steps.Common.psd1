@@ -9,7 +9,8 @@
 
     FunctionsToExport = @(
         'Invoke-IdleStepEmitEvent',
-        'Invoke-IdleStepEnsureAttribute'
+        'Invoke-IdleStepEnsureAttribute',
+        'Invoke-IdleStepEnsureEntitlement'
     )
 
     PrivateData       = @{

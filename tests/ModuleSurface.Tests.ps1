@@ -46,6 +46,7 @@ Describe 'Module manifests and public surface' {
         (Get-Module -Name IdLE.Steps.Common) | Should -BeNullOrEmpty
         (Get-Command -Name Invoke-IdleStepEmitEvent -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
         (Get-Command -Name Invoke-IdleStepEnsureAttribute -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+        (Get-Command -Name Invoke-IdleStepEnsureEntitlement -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
 
         # Engine discovery must work without global exports (module-qualified handler names).
         InModuleScope IdLE.Core {
@@ -56,6 +57,9 @@ Describe 'Module manifests and public surface' {
 
             $registry.ContainsKey('IdLE.Step.EnsureAttribute') | Should -BeTrue
             $registry['IdLE.Step.EnsureAttribute'] | Should -Be 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttribute'
+
+            $registry.ContainsKey('IdLE.Step.EnsureEntitlement') | Should -BeTrue
+            $registry['IdLE.Step.EnsureEntitlement'] | Should -Be 'IdLE.Steps.Common\Invoke-IdleStepEnsureEntitlement'
         }
     }
 
@@ -85,6 +89,7 @@ Describe 'Module manifests and public surface' {
         $exported = (Get-Command -Module IdLE.Steps.Common).Name
         $exported | Should -Contain 'Invoke-IdleStepEmitEvent'
         $exported | Should -Contain 'Invoke-IdleStepEnsureAttribute'
+        $exported | Should -Contain 'Invoke-IdleStepEnsureEntitlement'
     }
 
     It 'IdLE.Provider.Mock manifest is valid' {

@@ -71,10 +71,16 @@ Describe 'IdLE.Core - Get-IdleProviderCapabilities (provider capability discover
             $provider | Add-Member -MemberType ScriptMethod -Name GetIdentity -Value { param([string] $IdentityKey) } -Force
             $provider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value { param([string] $IdentityKey, [string] $Name, [object] $Value) } -Force
             $provider | Add-Member -MemberType ScriptMethod -Name DisableIdentity -Value { param([string] $IdentityKey) } -Force
+            $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value { param([string] $IdentityKey) } -Force
+            $provider | Add-Member -MemberType ScriptMethod -Name GrantEntitlement -Value { param([string] $IdentityKey, [object] $Entitlement) } -Force
+            $provider | Add-Member -MemberType ScriptMethod -Name RevokeEntitlement -Value { param([string] $IdentityKey, [object] $Entitlement) } -Force
 
             $caps = Get-IdleProviderCapabilities -Provider $provider -AllowInference
 
             $caps | Should -Be @(
+                'IdLE.Entitlement.Grant'
+                'IdLE.Entitlement.List'
+                'IdLE.Entitlement.Revoke'
                 'Identity.Attribute.Ensure'
                 'Identity.Disable'
                 'Identity.Read'

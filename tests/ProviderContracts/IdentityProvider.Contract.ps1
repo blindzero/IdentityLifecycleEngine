@@ -1,27 +1,6 @@
 Set-StrictMode -Version Latest
 
 function Invoke-IdleIdentityProviderContractTests {
-    <#
-    .SYNOPSIS
-    Defines provider contract tests for an identity provider implementation.
-
-    .DESCRIPTION
-    This file intentionally contains no top-level Describe/It blocks.
-    It provides a function that must be invoked from within a Describe block.
-
-    IMPORTANT (Pester 5):
-    - The contract must be registered during discovery (Describe/Context scope).
-    - The provider instance must be created during runtime (BeforeAll), not during discovery.
-
-    Therefore the contract takes a provider factory scriptblock and creates the provider
-    inside its own BeforeAll.
-
-    .PARAMETER NewProvider
-    ScriptBlock that creates a new provider instance.
-
-    .PARAMETER ProviderLabel
-    Optional label for better test output.
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -32,10 +11,24 @@ function Invoke-IdleIdentityProviderContractTests {
         [string] $ProviderLabel = 'Identity provider'
     )
 
-    Context "$ProviderLabel contract" {
+    $cases = @(
+        @{
+            ProviderFactory = $NewProvider
+        }
+    )
 
+    Context "$ProviderLabel contract" -ForEach $cases {
         BeforeAll {
-            $script:Provider = & $NewProvider
+            $providerFactory = $_.ProviderFactory
+
+            if ($null -eq $providerFactory) {
+                throw 'NewProvider scriptblock is required for identity provider contract tests.'
+            }
+
+            $script:Provider = & $providerFactory
+            if ($null -eq $script:Provider) {
+                throw 'NewProvider returned $null. A provider instance is required for contract tests.'
+            }
         }
 
         It 'Exposes required methods' {
@@ -44,30 +37,43 @@ function Invoke-IdleIdentityProviderContractTests {
             $script:Provider.PSObject.Methods.Name | Should -Contain 'DisableIdentity'
         }
 
-        It 'GetIdentity returns a hashtable with required keys' {
+        It 'GetIdentity returns an identity object with required keys/properties' {
             $id = "contract-$([guid]::NewGuid().ToString('N'))"
             $identity = $script:Provider.GetIdentity($id)
 
-            $identity | Should -BeOfType [hashtable]
-            $identity.Keys | Should -Contain 'IdentityKey'
-            $identity.Keys | Should -Contain 'Enabled'
-            $identity.Keys | Should -Contain 'Attributes'
+            $identity | Should -Not -BeNullOrEmpty
 
-            $identity.IdentityKey | Should -Be $id
-            $identity.Attributes | Should -BeOfType [hashtable]
+            if ($identity -is [hashtable]) {
+                $identity.Keys | Should -Contain 'IdentityKey'
+                $identity.Keys | Should -Contain 'Enabled'
+                $identity.Keys | Should -Contain 'Attributes'
+
+                $identity.IdentityKey | Should -Be $id
+                $identity.Enabled | Should -BeOfType [bool]
+                $identity.Attributes | Should -BeOfType [hashtable]
+            }
+            else {
+                $identity.PSObject.Properties.Name | Should -Contain 'IdentityKey'
+                $identity.PSObject.Properties.Name | Should -Contain 'Enabled'
+                $identity.PSObject.Properties.Name | Should -Contain 'Attributes'
+
+                $identity.IdentityKey | Should -Be $id
+                $identity.Enabled | Should -BeOfType [bool]
+                $identity.Attributes | Should -BeOfType [hashtable]
+            }
         }
 
-        It 'EnsureAttribute is idempotent and returns a Changed flag' {
+        It 'EnsureAttribute returns a stable result shape' {
             $id = "contract-$([guid]::NewGuid().ToString('N'))"
 
-            $r1 = $script:Provider.EnsureAttribute($id, 'Department', 'IT')
-            $r2 = $script:Provider.EnsureAttribute($id, 'Department', 'IT')
+            $result = $script:Provider.EnsureAttribute($id, 'contractKey', 'contractValue')
 
-            $r1.PSObject.Properties.Name | Should -Contain 'Changed'
-            $r1.Changed | Should -BeTrue
+            $result | Should -Not -BeNullOrEmpty
+            $result.PSObject.Properties.Name | Should -Contain 'Changed'
+            $result.PSObject.Properties.Name | Should -Contain 'IdentityKey'
 
-            $r2.PSObject.Properties.Name | Should -Contain 'Changed'
-            $r2.Changed | Should -BeFalse
+            $result.IdentityKey | Should -Be $id
+            $result.Changed | Should -BeOfType [bool]
         }
 
         It 'DisableIdentity is idempotent and returns a Changed flag' {

@@ -33,14 +33,17 @@ Authoritative docs:
 ## 2. How to behave as an agent
 
 ### 2.1 No assumptions
+
 - If something is unclear, **ask targeted questions**.
 - Prefer a sensible default proposal, but **explicitly label it** as a default.
 
 ### 2.2 One change-set at a time
+
 - Keep PRs focused: one issue / one theme.
 - Avoid drive-by refactors unless the issue is specifically about refactoring.
 
 ### 2.3 Determinism over cleverness
+
 - Prefer explicit validation and deterministic behavior.
 - Avoid “magic” behavior, hidden fallbacks, or implicit global state.
 
@@ -57,10 +60,12 @@ Follow `STYLEGUIDE.md` for the full rule set. In short:
 - Inline comments should explain **why**, not what
 
 ### 3.1 Public vs. Private
+
 - Keep a clean separation between Public and Private functions.
 - Treat exported commands as stable contracts.
 
 ### 3.2 Configuration is data-only (no code in config)
+
 - Workflow definitions (PSD1) must be **data-only**:
   - No `ScriptBlock`
   - No dynamic PowerShell expressions
@@ -71,6 +76,7 @@ Follow `STYLEGUIDE.md` for the full rule set. In short:
 ## 4. Architectural constraints
 
 ### 4.1 Headless core
+
 The engine (`IdLE.Core`) must **not** depend on:
 
 - UI frameworks
@@ -78,11 +84,13 @@ The engine (`IdLE.Core`) must **not** depend on:
 - service hosts / web servers
 
 ### 4.2 Steps vs. Providers
+
 - **Steps**: convergence logic, idempotent intent, no authentication
 - **Providers**: system adapters, handle authentication and external calls
 - Steps should only write to declared `State.*` outputs.
 
 ### 4.3 Eventing
+
 Use the single event contract:
 
 - `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`
@@ -109,6 +117,7 @@ Follow `docs/advanced/testing.md` and `CONTRIBUTING.md`.
 - Update docs when changing contracts, configuration schema, public cmdlets, step behavior, or provider contracts.
 
 ### 6.1 Generated references
+
 The cmdlet and step references under `docs/reference/` are generated.
 Do **not** edit generated files by hand—regenerate via the repository tools as documented in `CONTRIBUTING.md`.
 
@@ -156,4 +165,3 @@ Prefer:
 - explicit validation over implicit behavior
 - small PRs over large rewrites
 - documentation + tests as part of the same change
-
