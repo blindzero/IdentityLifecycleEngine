@@ -32,7 +32,7 @@ function Invoke-IdleIdentityProviderContractTests {
         [string] $ProviderLabel = 'Identity provider'
     )
 
-    Context "$ProviderLabel contract" -ForEach @{ ProviderFactory = $NewProvider } {
+    Context "$ProviderLabel contract" -ForEach @(@{ ProviderFactory = $NewProvider }) {
         param($ctx)
 
         BeforeAll {

@@ -32,7 +32,7 @@ function Invoke-IdleProviderCapabilitiesContractTests {
         [switch] $AllowEmpty
     )
 
-    Context 'Capability advertisement' -ForEach @{ ProviderFactory = $ProviderFactory } {
+    Context 'Capability advertisement' -ForEach @(@{ ProviderFactory = $ProviderFactory }) {
         param($ctx)
 
         BeforeAll {
