@@ -47,12 +47,34 @@ BeforeAll {
             Error      = $null
         }
     }
+
+    function global:Invoke-IdleTestFailStep {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Context,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step
+        )
+
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.StepResult'
+            Name       = [string]$Step.Name
+            Type       = [string]$Step.Type
+            Status     = 'Failed'
+            Error      = 'Boom'
+        }
+    }
 }
 
 AfterAll {
     # Cleanup global test functions to avoid polluting the session.
     Remove-Item -Path 'Function:\Invoke-IdleTestNoopStep' -ErrorAction SilentlyContinue
     Remove-Item -Path 'Function:\Invoke-IdleTestEmitStep' -ErrorAction SilentlyContinue
+    Remove-Item -Path 'Function:\Invoke-IdleTestFailStep' -ErrorAction SilentlyContinue
 }
 
 Describe 'Invoke-IdlePlan' {
@@ -217,6 +239,129 @@ Describe 'Invoke-IdlePlan' {
       $result.Status | Should -Be 'Completed'
       $result.Steps[0].Status | Should -Be 'Completed'
       ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
+    }
+
+    It 'executes OnFailureSteps when a step fails (best effort)' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'onfailure.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Demo - OnFailure'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'FailPrimary'; Type = 'IdLE.Step.FailPrimary' }
+    @{ Name = 'NeverRuns';   Type = 'IdLE.Step.NeverRuns' }
+  )
+  OnFailureSteps = @(
+    @{ Name = 'OnFailure1'; Type = 'IdLE.Step.OnFailure1' }
+  )
+}
+'@
+
+        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+
+        $providers = @{
+            StepRegistry = @{
+                'IdLE.Step.FailPrimary' = 'Invoke-IdleTestFailStep'
+                'IdLE.Step.NeverRuns'   = 'Invoke-IdleTestNoopStep'
+                'IdLE.Step.OnFailure1'  = 'Invoke-IdleTestEmitStep'
+            }
+        }
+
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+        $result.Status | Should -Be 'Failed'
+        @($result.Steps).Count | Should -Be 1
+        $result.Steps[0].Name | Should -Be 'FailPrimary'
+
+        $result.OnFailure.PSTypeNames | Should -Contain 'IdLE.OnFailureExecutionResult'
+        $result.OnFailure.Status | Should -Be 'Completed'
+        @($result.OnFailure.Steps).Count | Should -Be 1
+        $result.OnFailure.Steps[0].Status | Should -Be 'Completed'
+
+        $types = @($result.Events | ForEach-Object { $_.Type })
+        $types | Should -Contain 'StepFailed'
+        $types | Should -Contain 'OnFailureStarted'
+        $types | Should -Contain 'OnFailureCompleted'
+
+        [array]::IndexOf($types, 'StepFailed') | Should -BeLessThan ([array]::IndexOf($types, 'OnFailureStarted'))
+
+        ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
+    }
+
+    It 'continues OnFailureSteps when an OnFailure step fails (best effort)' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'onfailure-partial.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Demo - OnFailure Partial'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'FailPrimary'; Type = 'IdLE.Step.FailPrimary' }
+  )
+  OnFailureSteps = @(
+    @{ Name = 'OnFailureFail'; Type = 'IdLE.Step.OnFailureFail' }
+    @{ Name = 'OnFailureOk';   Type = 'IdLE.Step.OnFailureOk' }
+  )
+}
+'@
+
+        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+
+        $providers = @{
+            StepRegistry = @{
+                'IdLE.Step.FailPrimary'   = 'Invoke-IdleTestFailStep'
+                'IdLE.Step.OnFailureFail' = 'Invoke-IdleTestFailStep'
+                'IdLE.Step.OnFailureOk'   = 'Invoke-IdleTestEmitStep'
+            }
+        }
+
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+        $result.Status | Should -Be 'Failed'
+        $result.OnFailure.Status | Should -Be 'PartiallyFailed'
+        @($result.OnFailure.Steps).Count | Should -Be 2
+        $result.OnFailure.Steps[0].Status | Should -Be 'Failed'
+        $result.OnFailure.Steps[1].Status | Should -Be 'Completed'
+
+        ($result.Events | Where-Object Type -eq 'OnFailureStepStarted').Count | Should -Be 2
+        ($result.Events | Where-Object Type -eq 'OnFailureStepFailed').Count | Should -Be 1
+        ($result.Events | Where-Object Type -eq 'OnFailureStepCompleted').Count | Should -Be 1
+    }
+
+    It 'does not execute OnFailureSteps when run completes successfully' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'onfailure-notrun.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Demo - OnFailure NotRun'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'Ok'; Type = 'IdLE.Step.Ok' }
+  )
+  OnFailureSteps = @(
+    @{ Name = 'OnFailure1'; Type = 'IdLE.Step.OnFailure1' }
+  )
+}
+'@
+
+        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+
+        $providers = @{
+            StepRegistry = @{
+                'IdLE.Step.Ok'         = 'Invoke-IdleTestNoopStep'
+                'IdLE.Step.OnFailure1' = 'Invoke-IdleTestEmitStep'
+            }
+        }
+
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+        $result.Status | Should -Be 'Completed'
+        $result.OnFailure.Status | Should -Be 'NotRun'
+        @($result.OnFailure.Steps).Count | Should -Be 0
+
+        ($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
+        ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
     }
 
     It 'fails planning when a step is missing Type' {
