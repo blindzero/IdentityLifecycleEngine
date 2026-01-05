@@ -400,6 +400,7 @@ function New-IdlePlanObject {
         Actor          = $requestSnapshot.Actor
         CreatedUtc     = [DateTime]::UtcNow
         Steps          = @()
+        OnFailureSteps  = @()
         Actions        = @()
         Warnings       = @()
         Providers      = $Providers
@@ -560,11 +561,101 @@ function New-IdlePlanObject {
         }
     }
 
+    # Normalize OnFailureSteps into the same internal representation as regular Steps.
+    # These steps are executed only when the run fails (best effort), but they are planned and validated
+    # upfront to keep execution deterministic.
+    $normalizedOnFailureSteps = @()
+    foreach ($s in @($workflow.OnFailureSteps)) {
+        $stepName = if (Test-IdleWorkflowStepKey -Step $s -Key 'Name') {
+            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Name')
+        }
+        else {
+            ''
+        }
+
+        if ([string]::IsNullOrWhiteSpace($stepName)) {
+            throw [System.ArgumentException]::new('OnFailureSteps entry is missing required key "Name".', 'Workflow')
+        }
+
+        $stepType = if (Test-IdleWorkflowStepKey -Step $s -Key 'Type') {
+            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Type')
+        }
+        else {
+            ''
+        }
+
+        if ([string]::IsNullOrWhiteSpace($stepType)) {
+            throw [System.ArgumentException]::new(("OnFailureSteps step '{0}' is missing required key 'Type'." -f $stepName), 'Workflow')
+        }
+
+        if (Test-IdleWorkflowStepKey -Step $s -Key 'When') {
+            throw [System.ArgumentException]::new(
+                ("OnFailureSteps step '{0}' uses key 'When'. 'When' has been renamed to 'Condition'. Please update the workflow definition." -f $stepName),
+                'Workflow'
+            )
+        }
+
+        $condition = if (Test-IdleWorkflowStepKey -Step $s -Key 'Condition') {
+            Get-IdleWorkflowStepValue -Step $s -Key 'Condition'
+        }
+        else {
+            $null
+        }
+
+        $status = 'Planned'
+        if ($null -ne $condition) {
+            $schemaErrors = Test-IdleConditionSchema -Condition $condition -StepName $stepName
+            if (@($schemaErrors).Count -gt 0) {
+                throw [System.ArgumentException]::new(
+                    ("Invalid Condition on OnFailureSteps step '{0}': {1}" -f $stepName, ([string]::Join(' ', @($schemaErrors)))),
+                    'Workflow'
+                )
+            }
+
+            $isApplicable = Test-IdleCondition -Condition $condition -Context $planningContext
+            if (-not $isApplicable) {
+                $status = 'NotApplicable'
+            }
+        }
+
+        $requiresCaps = @()
+        if (Test-IdleWorkflowStepKey -Step $s -Key 'RequiresCapabilities') {
+            $requiresCaps = Normalize-IdleRequiredCapabilities -Value (Get-IdleWorkflowStepValue -Step $s -Key 'RequiresCapabilities') -StepName $stepName
+        }
+
+        $description = if (Test-IdleWorkflowStepKey -Step $s -Key 'Description') {
+            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Description')
+        }
+        else {
+            ''
+        }
+
+        $with = if (Test-IdleWorkflowStepKey -Step $s -Key 'With') {
+            Get-IdleWorkflowStepValue -Step $s -Key 'With'
+        }
+        else {
+            @{}
+        }
+
+        $normalizedOnFailureSteps += [pscustomobject]@{
+            PSTypeName           = 'IdLE.PlanStep'
+            Name                 = $stepName
+            Type                 = $stepType
+            Description          = $description
+            Condition            = $condition
+            With                 = $with
+            RequiresCapabilities = $requiresCaps
+            Status               = $status
+        }
+    }
+
     # Attach steps to the plan after normalization.
     $plan.Steps = $normalizedSteps
+    $plan.OnFailureSteps = $normalizedOnFailureSteps
 
     # Fail-fast capability validation (only if at least one step declares requirements).
-    Assert-IdlePlanCapabilitiesSatisfied -Steps $plan.Steps -Providers $Providers
+    # We validate both regular steps and OnFailureSteps upfront to keep plans deterministic.
+    Assert-IdlePlanCapabilitiesSatisfied -Steps @($plan.Steps + $plan.OnFailureSteps) -Providers $Providers
 
     return $plan
 }
