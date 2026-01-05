@@ -83,7 +83,7 @@ function Test-IdleWorkflowSchema {
             $errors.Add("'OnFailureSteps' must be an array/list of step hashtables.")
         }
         else {
-            $stepNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            $failureStepNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
             $i = 0
             foreach ($step in $Workflow.OnFailureSteps) {
@@ -106,8 +106,8 @@ function Test-IdleWorkflowSchema {
                     $errors.Add("Missing or empty required key '$stepPath.Name'.")
                 }
                 else {
-                    if (-not $stepNames.Add([string]$step.Name)) {
-                        $errors.Add("Duplicate step name '$($step.Name)' detected in 'OnFailureSteps'. Step names must be unique.")
+                    if (-not $failureStepNames.Add([string]$step.Name)) {
+                        $errors.Add("Duplicate step name '$($step.Name)' detected in 'OnFailureSteps'. Step names must be unique within this collection.")
                     }
                 }
 
