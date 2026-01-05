@@ -7,6 +7,34 @@ BeforeAll {
 
     . (Join-Path $PSScriptRoot '_testHelpers.ps1')
     Import-IdleTestModule
+
+    # The engine invokes step handlers by function name (string).
+    # This handler is used to validate the public output contract of Invoke-IdlePlan
+    # without relying on built-in step implementations.
+    function global:Invoke-IdleSurfaceTestNoopStep {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Context,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step
+        )
+
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.StepResult'
+            Name       = [string]$Step.Name
+            Type       = [string]$Step.Type
+            Status     = 'Completed'
+            Error      = $null
+        }
+    }
+}
+
+AfterAll {
+    Remove-Item -Path 'Function:\Invoke-IdleSurfaceTestNoopStep' -ErrorAction SilentlyContinue
 }
 
 Describe 'Module manifests and public surface' {
@@ -33,6 +61,50 @@ Describe 'Module manifests and public surface' {
 
         $actual = (Get-Command -Module IdLE).Name | Sort-Object
         $actual | Should -Be $expected
+    }
+
+    It 'Invoke-IdlePlan returns a public execution result that includes an OnFailure section' {
+        Remove-Module IdLE -Force -ErrorAction SilentlyContinue
+        Import-Module $idlePsd1 -Force -ErrorAction Stop
+
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'surface-onfailure.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Surface - OnFailure Contract'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'Primary'; Type = 'IdLE.Step.Primary' }
+  )
+  OnFailureSteps = @(
+    @{ Name = 'Containment'; Type = 'IdLE.Step.Containment' }
+  )
+}
+'@
+
+        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+
+        $providers = @{
+            StepRegistry = @{
+                'IdLE.Step.Primary'     = 'Invoke-IdleSurfaceTestNoopStep'
+                'IdLE.Step.Containment' = 'Invoke-IdleSurfaceTestNoopStep'
+            }
+        }
+
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PSTypeNames | Should -Contain 'IdLE.ExecutionResult'
+        $result.Status | Should -Be 'Completed'
+
+        # Public result contract: the OnFailure section is always present.
+        $result.PSObject.Properties.Name | Should -Contain 'OnFailure'
+        $result.OnFailure.PSTypeNames | Should -Contain 'IdLE.OnFailureExecutionResult'
+        $result.OnFailure.Status | Should -Be 'NotRun'
+        @($result.OnFailure.Steps).Count | Should -Be 0
+
+        # Successful runs must not emit OnFailure events.
+        ($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
     }
 
     It 'Importing IdLE makes built-in steps available to the engine without exporting them globally' {
