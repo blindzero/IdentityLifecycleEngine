@@ -14,7 +14,7 @@ function Copy-IdleRedactedObject {
         [string] $RedactionMarker = '[REDACTED]'
     )
 
-    # Default key list aligned with the Issue #48 acceptance criteria.
+    # Default key list aligned with Issue #48 acceptance criteria.
     # Keep this list conservative (exact match) to avoid accidental over-redaction.
     $defaultKeys = @(
         'password',
@@ -38,7 +38,6 @@ function Copy-IdleRedactedObject {
     }
 
     # Use a reference-based visit set to avoid runaway recursion for cyclic graphs.
-    # We store RuntimeHelpers hash codes for reference identity.
     $visited = [System.Collections.Generic.HashSet[int]]::new()
 
     function Test-IdleRedactionKeyMatch {
@@ -60,6 +59,33 @@ function Copy-IdleRedactedObject {
         }
 
         return $false
+    }
+
+    function Get-IdlePrimaryTypeName {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Object
+        )
+
+        # Preserve the original PSTypeName when present (e.g., 'IdLE.Event').
+        # We intentionally skip default CLR / PowerShell type names.
+        foreach ($t in $Object.PSObject.TypeNames) {
+            if ([string]::IsNullOrWhiteSpace($t)) {
+                continue
+            }
+
+            if ($t -eq 'System.Object' -or
+                $t -eq 'System.Management.Automation.PSCustomObject' -or
+                $t -like 'System.*') {
+                continue
+            }
+
+            return $t
+        }
+
+        return $null
     }
 
     function Copy-IdleRedactedInternal {
@@ -142,6 +168,12 @@ function Copy-IdleRedactedObject {
 
         if ($null -ne $props -and @($props).Count -gt 0) {
             $map = [ordered]@{}
+
+            # Preserve PSTypeName for objects like IdLE.Event to keep tests and consumers stable.
+            $primaryType = Get-IdlePrimaryTypeName -Object $InnerValue
+            if ($null -ne $primaryType) {
+                $map.PSTypeName = $primaryType
+            }
 
             # Deterministic property order.
             foreach ($p in ($props | Sort-Object -Property Name)) {

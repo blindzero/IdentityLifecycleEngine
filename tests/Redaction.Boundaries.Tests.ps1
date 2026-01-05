@@ -3,7 +3,7 @@ BeforeDiscovery {
     Import-IdleTestModule
 }
 
-Describe 'Issue #48 - Redaction at output boundaries (events, exports, execution results)' {
+Describe 'Redaction at output boundaries (events, exports, execution results)' {
 
     InModuleScope 'IdLE.Core' {
 
@@ -11,13 +11,16 @@ Describe 'Issue #48 - Redaction at output boundaries (events, exports, execution
             $buffer = [System.Collections.Generic.List[object]]::new()
 
             $received = [System.Collections.Generic.List[object]]::new()
+
+            # IMPORTANT: Write-IdleEvent requires a *method* WriteEvent(event), not a NoteProperty.
             $sink = [pscustomobject]@{
                 PSTypeName = 'Tests.EventSink'
-                WriteEvent = {
-                    param([Parameter(Mandatory)][object] $evt)
-                    [void]$received.Add($evt)
-                }
             }
+
+            $sink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+                param([Parameter(Mandatory)][object] $evt)
+                [void]$received.Add($evt)
+            } -Force
 
             $evt = [pscustomobject]@{
                 PSTypeName = 'IdLE.Event'
@@ -119,7 +122,7 @@ Describe 'Issue #48 - Redaction at output boundaries (events, exports, execution
                 }
             }
 
-            $result = Invoke-IdlePlanObject -Plan $plan -Providers $providers
+            $result = Invoke-IdlePlanObject -Plan $plan -Providers $providers -EventSink $null
 
             # Original must remain unchanged
             $providers.Directory.clientSecret | Should -Be 'TopSecret'
