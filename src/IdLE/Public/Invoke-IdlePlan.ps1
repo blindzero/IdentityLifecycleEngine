@@ -40,16 +40,33 @@ function Invoke-IdlePlan {
     process {
         if (-not $PSCmdlet.ShouldProcess('IdLE Plan', 'Invoke')) {
             # For -WhatIf: return a minimal preview object.
+            # Keep the public output contract stable by always including OnFailure.
             $correlationId = $null
             if ($Plan.PSObject.Properties.Name -contains 'CorrelationId') {
                 $correlationId = [string]$Plan.CorrelationId
+            }
+
+            $actor = $null
+            if ($Plan.PSObject.Properties.Name -contains 'Actor') {
+                $actor = [string]$Plan.Actor
+            }
+            elseif ($Plan.PSObject.Properties.Name -contains 'Request' -and $null -ne $Plan.Request) {
+                if ($Plan.Request.PSObject.Properties.Name -contains 'Actor') {
+                    $actor = [string]$Plan.Request.Actor
+                }
             }
 
             return [pscustomobject]@{
                 PSTypeName    = 'IdLE.ExecutionResult'
                 Status        = 'WhatIf'
                 CorrelationId = $correlationId
+                Actor         = $actor
                 Steps         = @($Plan.Steps)
+                OnFailure     = [pscustomobject]@{
+                    PSTypeName = 'IdLE.OnFailureExecutionResult'
+                    Status     = 'NotRun'
+                    Steps      = @()
+                }
                 Events        = @()
             }
         }
