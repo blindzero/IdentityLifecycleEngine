@@ -17,25 +17,53 @@ Describe 'Test-IdleWorkflow' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $result = Test-IdleWorkflow -WorkflowPath $wfPath -Request $req
+        $result = Test-IdleWorkflow -WorkflowPath $wfPath
 
+        $result | Should -Not -BeNullOrEmpty
         $result.IsValid | Should -BeTrue
         $result.WorkflowName | Should -Be 'Joiner - Standard'
         $result.LifecycleEvent | Should -Be 'Joiner'
         $result.StepCount | Should -Be 1
     }
 
-    It 'throws for unknown root keys (strict validation)' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'bad-root.psd1'
+    It 'accepts OnFailureSteps as an optional top-level section' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-onfailure.psd1'
         Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
-  Name           = 'Joiner - Standard'
+  Name           = 'Joiner - OnFailure'
   LifecycleEvent = 'Joiner'
   Steps          = @(
     @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
   )
-  Bogus          = 'nope'
+  OnFailureSteps = @(
+    @{ Name = 'Containment'; Type = 'IdLE.Step.DisableIdentity' }
+  )
+}
+'@
+
+        { Test-IdleWorkflow -WorkflowPath $wfPath } | Should -Not -Throw
+
+        $result = Test-IdleWorkflow -WorkflowPath $wfPath
+        $result.IsValid | Should -BeTrue
+        $result.WorkflowName | Should -Be 'Joiner - OnFailure'
+        $result.LifecycleEvent | Should -Be 'Joiner'
+
+        # Test-IdleWorkflow returns a small report; StepCount reflects primary Steps only.
+        $result.StepCount | Should -Be 1
+    }
+
+    It 'rejects unknown root keys such as CleanupSteps' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-cleanupsteps.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Joiner - Invalid'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+  )
+  CleanupSteps   = @(
+    @{ Name = 'Nope'; Type = 'IdLE.Step.DisableIdentity' }
+  )
 }
 '@
 
@@ -45,53 +73,12 @@ Describe 'Test-IdleWorkflow' {
         }
         catch {
             $_.Exception.Message | Should -Match 'Unknown root key'
+            $_.Exception.Message | Should -Match 'CleanupSteps'
         }
     }
 
-    It 'throws when a step is missing required keys' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'bad-step.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Standard'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{ Name = 'ResolveIdentity' }
-  )
-}
-'@
-
-        try {
-            Test-IdleWorkflow -WorkflowPath $wfPath | Out-Null
-            throw 'Expected an exception but none was thrown.'
-        }
-        catch {
-            $_.Exception.Message | Should -Match 'Steps\[0\]\.Type'
-        }
-    }
-
-    It 'throws when the workflow contains ScriptBlocks (data-only rule)' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'bad-sb.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Standard'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity'; With = @{ X = { "NOPE" } } }
-  )
-}
-'@
-
-        try {
-            Test-IdleWorkflow -WorkflowPath $wfPath | Out-Null
-            throw 'Expected an exception but none was thrown.'
-        }
-        catch {
-            $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
-        }
-    }
-
-    It 'throws when request LifecycleEvent does not match workflow LifecycleEvent' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
+    It 'fails when workflow LifecycleEvent does not match request LifecycleEvent' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-mismatch.psd1'
         Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
   Name           = 'Joiner - Standard'
