@@ -45,14 +45,14 @@ function New-IdlePlanObject {
         param(
             [Parameter()]
             [AllowNull()]
-            [object] $Value
+            [string] $Value
         )
 
         if ($null -eq $Value) {
             return $null
         }
 
-        if ($Value -is [string] -and [string]::IsNullOrWhiteSpace($Value)) {
+        if ([string]::IsNullOrWhiteSpace($Value)) {
             return $null
         }
 
@@ -60,6 +60,23 @@ function New-IdlePlanObject {
     }
 
     function Copy-IdleDataObject {
+        <#
+        .SYNOPSIS
+        Creates a deep-ish, data-only copy of an object.
+
+        .DESCRIPTION
+        This helper is used to snapshot the request input so that the plan can be exported
+        deterministically, without retaining references to the original live object.
+
+        NOTE:
+        This is intentionally conservative and only supports data-like objects:
+        - Hashtable / OrderedDictionary
+        - PSCustomObject / NoteProperties
+        - Arrays/lists
+        - Primitive types
+
+        ScriptBlocks and other executable objects are rejected by upstream validation.
+        #>
         [CmdletBinding()]
         param(
             [Parameter()]
@@ -67,54 +84,77 @@ function New-IdlePlanObject {
             [object] $Value
         )
 
-        if ($null -eq $Value) {
-            return $null
-        }
+        if ($null -eq $Value) { return $null }
 
-        # Primitive / immutable-ish types can be returned as-is.
-        if ($Value -is [string] -or
-            $Value -is [int] -or
-            $Value -is [long] -or
-            $Value -is [double] -or
-            $Value -is [decimal] -or
-            $Value -is [bool] -or
-            $Value -is [datetime] -or
-            $Value -is [guid]) {
-            return $Value
-        }
-
-        # Hashtable / IDictionary -> clone recursively.
         if ($Value -is [System.Collections.IDictionary]) {
-            $copy = @{}
+            $copy = [ordered]@{}
             foreach ($k in $Value.Keys) {
                 $copy[$k] = Copy-IdleDataObject -Value $Value[$k]
             }
             return $copy
         }
 
-        # Arrays / enumerables -> clone recursively.
-        if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
-            $items = @()
+        if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+            $arr = @()
             foreach ($item in $Value) {
-                $items += Copy-IdleDataObject -Value $item
+                $arr += Copy-IdleDataObject -Value $item
             }
-            return $items
+            return $arr
         }
 
-        # PSCustomObject and other objects -> shallow map of public properties (data-only).
-        $props = $Value.PSObject.Properties |
-            Where-Object { $_.MemberType -eq 'NoteProperty' -or $_.MemberType -eq 'Property' }
-
+        $props = @($Value.PSObject.Properties | Where-Object MemberType -in @('NoteProperty', 'Property'))
         if ($null -ne $props -and @($props).Count -gt 0) {
-            $copy = @{}
+            $o = [ordered]@{}
             foreach ($p in $props) {
-                $copy[$p.Name] = Copy-IdleDataObject -Value $p.Value
+                $o[$p.Name] = Copy-IdleDataObject -Value $p.Value
             }
-            return [pscustomobject]$copy
+            return [pscustomobject]$o
         }
 
-        # Fallback: stable string representation (avoid leaking runtime handles).
-        return [string]$Value
+        return $Value
+    }
+
+    function Get-IdleOptionalPropertyValue {
+        <#
+        .SYNOPSIS
+        Safely reads an optional property from an object.
+
+        .DESCRIPTION
+        Works with:
+        - IDictionary (hashtables / ordered dictionaries)
+        - PSCustomObject / objects with note properties
+
+        Returns $null when the property does not exist.
+        Uses Get-Member to avoid PropertyNotFoundException in strict mode.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [object] $Object,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Name
+        )
+
+        if ($null -eq $Object) {
+            return $null
+        }
+
+        if ($Object -is [System.Collections.IDictionary]) {
+            if ($Object.ContainsKey($Name)) {
+                return $Object[$Name]
+            }
+            return $null
+        }
+
+        $m = $Object | Get-Member -Name $Name -MemberType NoteProperty,Property -ErrorAction SilentlyContinue
+        if ($null -eq $m) {
+            return $null
+        }
+
+        return $Object.$Name
     }
 
     function Normalize-IdleRequiredCapabilities {
@@ -196,10 +236,11 @@ function New-IdlePlanObject {
         Extracts provider instances from the -Providers argument.
 
         .DESCRIPTION
-        Supported shapes:
-        - $null -> no providers
-        - hashtable -> iterate values, ignoring known non-provider keys like 'StepRegistry'
-        - PSCustomObject -> read public properties as provider entries
+        Supports both:
+        - hashtable map: @{ Name = <providerObject>; ... }
+        - array/list: @( <providerObject>, ... )
+
+        Returns an array of provider objects.
         #>
         [CmdletBinding()]
         param(
@@ -212,49 +253,60 @@ function New-IdlePlanObject {
             return @()
         }
 
-        $result = @()
-
-        if ($Providers -is [hashtable]) {
+        if ($Providers -is [System.Collections.IDictionary]) {
+            $items = @()
             foreach ($k in $Providers.Keys) {
-                if ([string]$k -eq 'StepRegistry') {
-                    continue
-                }
-
-                $v = $Providers[$k]
-                if ($null -ne $v) {
-                    $result += $v
-                }
+                $items += $Providers[$k]
             }
-
-            return $result
+            return @($items)
         }
 
-        $props = @($Providers.PSObject.Properties)
-        foreach ($p in $props) {
-            if ($p.MemberType -ne 'NoteProperty' -and $p.MemberType -ne 'Property') {
-                continue
+        if ($Providers -is [System.Collections.IEnumerable] -and $Providers -isnot [string]) {
+            $items = @()
+            foreach ($p in $Providers) {
+                $items += $p
             }
-
-            if ([string]$p.Name -eq 'StepRegistry') {
-                continue
-            }
-
-            if ($null -ne $p.Value) {
-                $result += $p.Value
-            }
+            return @($items)
         }
 
-        return $result
+        return @($Providers)
+    }
+
+    function Get-IdleProviderCapabilities {
+        <#
+        .SYNOPSIS
+        Gets the capability list advertised by a provider.
+
+        .DESCRIPTION
+        Providers are expected to expose a GetCapabilities() method.
+        If not present, the provider is treated as advertising no capabilities.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Provider
+        )
+
+        if ($null -eq $Provider) {
+            return @()
+        }
+
+        if ($Provider.PSObject.Methods.Name -contains 'GetCapabilities') {
+            $caps = $Provider.GetCapabilities()
+            if ($null -eq $caps) {
+                return @()
+            }
+            return @($caps | Where-Object { $null -ne $_ } | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+        }
+
+        return @()
     }
 
     function Get-IdleAvailableCapabilities {
         <#
         .SYNOPSIS
-        Builds a stable set of capabilities available from the provided providers.
-
-        .DESCRIPTION
-        Capabilities are discovered from each provider via Get-IdleProviderCapabilities.
-        During the migration phase we allow minimal inference to avoid breaking existing demos/tests.
+        Aggregates capabilities from all providers.
         #>
         [CmdletBinding()]
         param(
@@ -263,13 +315,14 @@ function New-IdlePlanObject {
             [object] $Providers
         )
 
-        $all = @()
+        $providerInstances = @(Get-IdleProvidersFromMap -Providers $Providers)
 
-        foreach ($p in @(Get-IdleProvidersFromMap -Providers $Providers)) {
-            $all += @(Get-IdleProviderCapabilities -Provider $p -AllowInference)
+        $caps = @()
+        foreach ($p in $providerInstances) {
+            $caps += @(Get-IdleProviderCapabilities -Provider $p)
         }
 
-        return @($all | Sort-Object -Unique)
+        return @($caps | Sort-Object -Unique)
     }
 
     function Assert-IdlePlanCapabilitiesSatisfied {
@@ -298,15 +351,20 @@ function New-IdlePlanObject {
         }
 
         $required = @()
-        $requiredByStep = @{}
+        $requiredByStep = [ordered]@{}
 
         foreach ($s in @($Steps)) {
-            $stepName = if ($s.PSObject.Properties.Name -contains 'Name') { [string]$s.Name } else { '<unknown>' }
-            $caps = @()
-
-            if ($s.PSObject.Properties.Name -contains 'RequiresCapabilities') {
-                $caps = @($s.RequiresCapabilities)
+            if ($null -eq $s) {
+                continue
             }
+
+            $stepName = Get-IdleOptionalPropertyValue -Object $s -Name 'Name'
+            if ($null -eq $stepName -or [string]::IsNullOrWhiteSpace([string]$stepName)) {
+                $stepName = '<UnnamedStep>'
+            }
+
+            $capsRaw = Get-IdleOptionalPropertyValue -Object $s -Name 'RequiresCapabilities'
+            $caps = if ($null -eq $capsRaw) { @() } else { @($capsRaw) }
 
             if (@($caps).Count -gt 0) {
                 $required += $caps
@@ -335,9 +393,9 @@ function New-IdlePlanObject {
 
         $affectedSteps = @()
         foreach ($k in $requiredByStep.Keys) {
-            $caps = @($requiredByStep[$k])
+            $capsForStep = @($requiredByStep[$k])
             foreach ($m in $missing) {
-                if ($caps -contains $m) {
+                if ($capsForStep -contains $m) {
                     $affectedSteps += $k
                     break
                 }
@@ -375,7 +433,8 @@ function New-IdlePlanObject {
             return $Step.ContainsKey($Key)
         }
 
-        return ($Step.PSObject.Properties.Name -contains $Key)
+        $m = $Step | Get-Member -Name $Key -MemberType NoteProperty,Property -ErrorAction SilentlyContinue
+        return ($null -ne $m)
     }
 
     function Get-IdleWorkflowStepValue {
@@ -398,7 +457,7 @@ function New-IdlePlanObject {
             return $Step[$Key]
         }
 
-        return $Step.PSObject.Properties[$Key].Value
+        return $Step.$Key
     }
 
     function Normalize-IdleWorkflowSteps {
@@ -408,10 +467,14 @@ function New-IdlePlanObject {
 
         .DESCRIPTION
         Evaluates Condition during planning and sets Status = Planned / NotApplicable.
+
+        IMPORTANT:
+        WorkflowSteps is optional and may be null or empty. A workflow is allowed to omit
+        OnFailureSteps entirely. Therefore we must not mark this parameter as Mandatory.
         #>
         [CmdletBinding()]
         param(
-            [Parameter(Mandatory)]
+            [Parameter()]
             [AllowNull()]
             [object[]] $WorkflowSteps,
 
@@ -510,7 +573,10 @@ function New-IdlePlanObject {
             }
         }
 
-        return $normalizedSteps
+        # IMPORTANT:
+        # Returning an empty array variable can produce no pipeline output, resulting in $null on assignment.
+        # Force a stable array output shape.
+        return @($normalizedSteps)
     }
 
     # Ensure required request properties exist without hard-typing the request class.
@@ -561,9 +627,13 @@ function New-IdlePlanObject {
         Workflow = $workflow
     }
 
+    $workflowOnFailureSteps = Get-IdleOptionalPropertyValue -Object $workflow -Name 'OnFailureSteps'
+
     # Normalize primary and OnFailure steps.
-    $plan.Steps = Normalize-IdleWorkflowSteps -WorkflowSteps @($workflow.Steps) -PlanningContext $planningContext
-    $plan.OnFailureSteps = Normalize-IdleWorkflowSteps -WorkflowSteps @($workflow.OnFailureSteps) -PlanningContext $planningContext
+    # IMPORTANT:
+    # Normalize-IdleWorkflowSteps may return an empty array that would otherwise collapse to $null on assignment.
+    $plan.Steps = @(Normalize-IdleWorkflowSteps -WorkflowSteps $workflow.Steps -PlanningContext $planningContext)
+    $plan.OnFailureSteps = @(Normalize-IdleWorkflowSteps -WorkflowSteps $workflowOnFailureSteps -PlanningContext $planningContext)
 
     # Fail-fast capability validation (includes OnFailureSteps).
     $allStepsForCapabilities = @()

@@ -14,10 +14,10 @@ function Invoke-IdlePlanObject {
     Plan object created by New-IdlePlanObject.
 
     .PARAMETER Providers
-    Provider registry/collection (may be $null).
+    Provider registry/collection passed through to execution.
 
     .PARAMETER EventSink
-    Optional external event sink provided by the host. Must be an object with WriteEvent(event) method.
+    Optional external event sink object. Must provide a WriteEvent(event) method.
 
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.ExecutionResult)
@@ -30,15 +30,12 @@ function Invoke-IdlePlanObject {
 
         [Parameter()]
         [AllowNull()]
-        [hashtable] $Providers,
+        [object] $Providers,
 
         [Parameter()]
         [AllowNull()]
         [object] $EventSink
     )
-
-    Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
-    Assert-IdleNoScriptBlock -InputObject $Providers -Path 'Providers'
 
     function Get-IdleCommandParameterNames {
         [CmdletBinding()]
@@ -59,31 +56,21 @@ function Invoke-IdlePlanObject {
             }
 
             foreach ($p in $paramBlock.Parameters) {
-                # Parameter name is stored as '$name' in the AST; we normalize to 'name'
-                $name = $p.Name.VariablePath.UserPath
-                if (-not [string]::IsNullOrWhiteSpace($name)) {
-                    [void]$set.Add($name)
-                }
+                # Parameter name is stored without the leading '$'
+                $null = $set.Add([string]$p.Name.VariablePath.UserPath)
             }
 
             return $set
         }
 
-        # Command name or CommandInfo
-        $command = $null
-
         if ($Handler -is [System.Management.Automation.CommandInfo]) {
-            $command = $Handler
-        }
-        else {
-            # Most commonly, registry returns a function name (string)
-            $command = Get-Command -Name $Handler -ErrorAction Stop
-        }
-
-        foreach ($kv in $command.Parameters.GetEnumerator()) {
-            [void]$set.Add($kv.Key)
+            foreach ($n in $Handler.Parameters.Keys) {
+                $null = $set.Add([string]$n)
+            }
+            return $set
         }
 
+        # Unknown handler shape: return an empty set.
         return $set
     }
 
@@ -99,42 +86,35 @@ function Invoke-IdlePlanObject {
             [object] $StepRegistry
         )
 
-        # Get-IdleStepRegistry currently returns a hashtable that maps Step.Type -> handler function name (string).
-        # We keep this resolver isolated so that internal representation changes don't leak into the engine loop.
+        $handlerName = $null
 
-        if ($StepRegistry -is [hashtable]) {
-            if (-not $StepRegistry.ContainsKey($StepType)) {
-                throw [System.ArgumentException]::new(
-                    "No step handler registered for step type '$StepType'.",
-                    'Providers'
-                )
+        if ($StepRegistry -is [System.Collections.IDictionary]) {
+            if ($StepRegistry.Contains($StepType)) {
+                $handlerName = $StepRegistry[$StepType]
             }
-
-            $handler = $StepRegistry[$StepType]
-            if ($handler -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$handler)) {
-                throw [System.ArgumentException]::new(
-                    "Step handler for step type '$StepType' must be a non-empty string (function name).",
-                    'Providers'
-                )
+        }
+        else {
+            if ($StepRegistry.PSObject.Properties.Name -contains $StepType) {
+                $handlerName = $StepRegistry.$StepType
             }
-
-            return ([string]$handler).Trim()
         }
 
-        # Backward-compatible shape: registry object with GetStep(string) method.
-        if ($StepRegistry.PSObject.Methods.Name -contains 'GetStep') {
-            return $StepRegistry.GetStep($StepType)
+        if ($null -eq $handlerName -or [string]::IsNullOrWhiteSpace([string]$handlerName)) {
+            throw [System.ArgumentException]::new("No step handler registered for step type '$StepType'.", 'Providers')
         }
 
-        throw [System.ArgumentException]::new(
-            'Step registry must be a hashtable mapping Step.Type to a handler function name (string).',
-            'Providers'
-        )
+        # Reject ScriptBlock handlers (secure default).
+        if ($handlerName -is [scriptblock]) {
+            throw [System.ArgumentException]::new(
+                "Step registry handler for '$StepType' must be a function name (string), not a ScriptBlock.",
+                'Providers'
+            )
+        }
+
+        $cmd = Get-Command -Name ([string]$handlerName) -CommandType Function -ErrorAction Stop
+        return $cmd
     }
 
-    $events = [System.Collections.Generic.List[object]]::new()
-
-    # Resolve request/correlation/actor early because New-IdleEventSink requires CorrelationId.
     $planPropNames = @($Plan.PSObject.Properties.Name)
 
     $request = if ($planPropNames -contains 'Request') { $Plan.Request } else { $null }
@@ -154,6 +134,8 @@ function Invoke-IdlePlanObject {
         if ($planPropNames -contains 'Actor') { $Plan.Actor } else { $null }
     }
 
+    $events = [System.Collections.Generic.List[object]]::new()
+
     # Host may pass an external sink. If none is provided, we still buffer events internally.
     $engineEventSink = New-IdleEventSink -CorrelationId $corr -Actor $actor -ExternalEventSink $EventSink -EventBuffer $events
 
@@ -167,7 +149,7 @@ function Invoke-IdlePlanObject {
         EventSink  = $engineEventSink
     }
 
-    $context.EventSink.WriteEvent('RunStarted', "Plan execution started (correlationId: $corr).", $null, @{
+    $context.EventSink.WriteEvent('RunStarted', 'Plan execution started.', $null, @{
         CorrelationId = $corr
         Actor         = $actor
         StepCount     = @($Plan.Steps).Count
@@ -185,7 +167,7 @@ function Invoke-IdlePlanObject {
 
         $stepPropNames = @($step.PSObject.Properties.Name)
 
-        $stepName = if ($stepPropNames -contains 'Name') { $step.Name } else { $null }
+        $stepName = if ($stepPropNames -contains 'Name') { [string]$step.Name } else { '' }
         $stepType = if ($stepPropNames -contains 'Type') { $step.Type } else { $null }
         $stepWith = if ($stepPropNames -contains 'With') { $step.With } else { $null }
         $stepStatus = if ($stepPropNames -contains 'Status') { [string]$step.Status } else { '' }
@@ -236,7 +218,7 @@ function Invoke-IdlePlanObject {
             # - Only retries if the thrown exception is explicitly marked transient.
             # - Emits 'StepRetrying' events and uses deterministic jitter/backoff.
             $retrySeed = "$corr|$stepType|$stepName|$i"
-            $retry = Invoke-IdleWithRetry -Operation { & $impl @invokeParams } -EventSink $context.EventSink -StepName ([string]$stepName) -OperationName 'StepExecution' -DeterministicSeed $retrySeed
+            $retry = Invoke-IdleWithRetry -Operation { & $impl @invokeParams } -EventSink $context.EventSink -StepName $stepName -OperationName 'StepExecution' -DeterministicSeed $retrySeed
 
             $result = $retry.Value
             $attempts = [int]$retry.Attempts
@@ -303,6 +285,162 @@ function Invoke-IdlePlanObject {
 
     $runStatus = if ($failed) { 'Failed' } else { 'Completed' }
 
+    # Public result contract: the OnFailure section is always present.
+    $onFailure = [pscustomobject]@{
+        PSTypeName = 'IdLE.OnFailureExecutionResult'
+        Status     = 'NotRun'
+        Steps      = @()
+    }
+
+    $planOnFailureSteps = @()
+    if ($planPropNames -contains 'OnFailureSteps') {
+        # Treat nulls as empty deterministically.
+        $planOnFailureSteps = @($Plan.OnFailureSteps) | Where-Object { $null -ne $_ }
+    }
+
+    if ($failed -and @($planOnFailureSteps).Count -gt 0) {
+        $context.EventSink.WriteEvent('OnFailureStarted', 'Executing OnFailureSteps (best effort).', $null, @{
+            OnFailureStepCount = @($planOnFailureSteps).Count
+        })
+
+        $onFailureHadFailures = $false
+        $onFailureStepResults = @()
+
+        $j = 0
+        foreach ($ofStep in @($planOnFailureSteps)) {
+
+            if ($null -eq $ofStep) {
+                $j++
+                continue
+            }
+
+            $ofPropNames = @($ofStep.PSObject.Properties.Name)
+            $ofName = if ($ofPropNames -contains 'Name') { [string]$ofStep.Name } else { '' }
+            $ofType = if ($ofPropNames -contains 'Type') { $ofStep.Type } else { $null }
+            $ofWith = if ($ofPropNames -contains 'With') { $ofStep.With } else { $null }
+            $ofStatus = if ($ofPropNames -contains 'Status') { [string]$ofStep.Status } else { '' }
+
+            # Conditions for OnFailure steps are evaluated during planning as well.
+            if ($ofStatus -eq 'NotApplicable') {
+
+                $onFailureStepResults += [pscustomobject]@{
+                    PSTypeName = 'IdLE.StepResult'
+                    Name       = $ofName
+                    Type       = $ofType
+                    Status     = 'NotApplicable'
+                    Attempts   = 1
+                }
+
+                $context.EventSink.WriteEvent('OnFailureStepNotApplicable', "OnFailure step '$ofName' not applicable (condition not met).", $ofName, @{
+                    StepType = $ofType
+                    Index    = $j
+                })
+
+                $j++
+                continue
+            }
+
+            $context.EventSink.WriteEvent('OnFailureStepStarted', "OnFailure step '$ofName' started.", $ofName, @{
+                StepType = $ofType
+                Index    = $j
+            })
+
+            try {
+                $impl = Resolve-IdleStepHandler -StepType ([string]$ofType) -StepRegistry $stepRegistry
+
+                $supportedParams = Get-IdleCommandParameterNames -Handler $impl
+
+                $invokeParams = @{
+                    Context = $context
+                }
+
+                if ($null -ne $ofWith -and $supportedParams.Contains('With')) {
+                    $invokeParams.With = $ofWith
+                }
+
+                if ($supportedParams.Contains('Step')) {
+                    $invokeParams.Step = $ofStep
+                }
+
+                # Reuse safe-by-default transient retries for OnFailure steps.
+                $retrySeed = "$corr|OnFailure|$ofType|$ofName|$j"
+                $retry = Invoke-IdleWithRetry -Operation { & $impl @invokeParams } -EventSink $context.EventSink -StepName $ofName -OperationName 'OnFailureStepExecution' -DeterministicSeed $retrySeed
+
+                $result = $retry.Value
+                $attempts = [int]$retry.Attempts
+
+                if ($null -eq $result) {
+                    $result = [pscustomobject]@{
+                        PSTypeName = 'IdLE.StepResult'
+                        Name       = $ofName
+                        Type       = $ofType
+                        Status     = 'Completed'
+                        Attempts   = $attempts
+                    }
+                }
+                else {
+                    # Normalize result to include Attempts for observability (non-breaking).
+                    if ($result.PSObject.Properties.Name -notcontains 'Attempts') {
+                        $null = $result | Add-Member -MemberType NoteProperty -Name Attempts -Value $attempts -Force
+                    }
+                }
+
+                $onFailureStepResults += $result
+
+                if ($result.Status -eq 'Failed') {
+                    $onFailureHadFailures = $true
+
+                    $context.EventSink.WriteEvent('OnFailureStepFailed', "OnFailure step '$ofName' failed.", $ofName, @{
+                        StepType = $ofType
+                        Index    = $j
+                        Error    = $result.Error
+                    })
+                }
+                else {
+                    $context.EventSink.WriteEvent('OnFailureStepCompleted', "OnFailure step '$ofName' completed.", $ofName, @{
+                        StepType = $ofType
+                        Index    = $j
+                    })
+                }
+            }
+            catch {
+                $onFailureHadFailures = $true
+                $err = $_
+
+                $onFailureStepResults += [pscustomobject]@{
+                    PSTypeName = 'IdLE.StepResult'
+                    Name       = $ofName
+                    Type       = $ofType
+                    Status     = 'Failed'
+                    Error      = $err.Exception.Message
+                    Attempts   = 1
+                }
+
+                $context.EventSink.WriteEvent('OnFailureStepFailed', "OnFailure step '$ofName' failed.", $ofName, @{
+                    StepType = $ofType
+                    Index    = $j
+                    Error    = $err.Exception.Message
+                })
+            }
+
+            $j++
+        }
+
+        $onFailureStatus = if ($onFailureHadFailures) { 'PartiallyFailed' } else { 'Completed' }
+
+        $onFailure = [pscustomobject]@{
+            PSTypeName = 'IdLE.OnFailureExecutionResult'
+            Status     = $onFailureStatus
+            Steps      = $onFailureStepResults
+        }
+
+        $context.EventSink.WriteEvent('OnFailureCompleted', "OnFailureSteps finished (status: $onFailureStatus).", $null, @{
+            Status    = $onFailureStatus
+            StepCount = @($planOnFailureSteps).Count
+        })
+    }
+
+    # RunCompleted should always be the last event for deterministic event order.
     $context.EventSink.WriteEvent('RunCompleted', "Plan execution finished (status: $runStatus).", $null, @{
         Status    = $runStatus
         StepCount = @($Plan.Steps).Count
@@ -323,6 +461,7 @@ function Invoke-IdlePlanObject {
         CorrelationId = $corr
         Actor         = $actor
         Steps         = $stepResults
+        OnFailure     = $onFailure
         Events        = $events
         Providers     = $redactedProviders
     }
