@@ -59,8 +59,13 @@ IdLE uses multiple configuration layers with clear boundaries:
 
 - Defines lifecycle intent
 - Declares steps, conditions, and parameters
+- Declares optional OnFailureSteps for cleanup/rollback
 - Is environment-agnostic
 - Stored as version-controlled files (e.g. PSD1)
+
+**OnFailureSteps** are an optional workflow section that defines cleanup or rollback steps
+executed when primary steps fail. They run in best-effort mode: each OnFailure step is attempted
+regardless of previous OnFailure step failures.
 
 #### Execution request
 

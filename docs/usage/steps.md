@@ -66,10 +66,40 @@ Security and portability:
 
 ## Error behavior
 
-IdLE uses a fail-fast execution model in V1:
+### Primary steps (fail-fast)
 
-- a failing step stops plan execution
-- results and events capture what happened
+IdLE uses a **fail-fast execution model** for primary workflow steps:
+
+- A failing step stops plan execution immediately
+- Subsequent primary steps are not executed
+- Results and events capture what happened up to the failure
+
+### OnFailureSteps (best-effort)
+
+When primary steps fail, workflows can define **OnFailureSteps** for cleanup or rollback.
+
+OnFailureSteps are executed in **best-effort mode**:
+
+- Each OnFailure step is attempted regardless of previous OnFailure step failures
+- OnFailure step failures do not stop execution of remaining OnFailure steps
+- The overall execution status remains 'Failed' even if all OnFailure steps succeed
+
+**Execution result structure:**
+
+```powershell
+$result.Status                # 'Failed' when primary steps fail
+$result.Steps                 # Array of primary step results (only executed steps)
+$result.OnFailure.Status      # 'NotRun', 'Completed', or 'PartiallyFailed'
+$result.OnFailure.Steps       # Array of OnFailure step results
+```
+
+**OnFailure status values:**
+
+- `NotRun`: No primary steps failed, OnFailure steps were not executed
+- `Completed`: All OnFailure steps succeeded
+- `PartiallyFailed`: At least one OnFailure step failed, but execution continued
+
+For details on declaring OnFailureSteps, see [Workflows](workflows.md).
 
 ## Built-in steps (starter pack)
 

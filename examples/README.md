@@ -24,7 +24,10 @@ Workflow samples are located in:
 
 Highlighted samples:
 
+- `joiner-minimal.psd1` — minimal workflow with a single EmitEvent step
+- `joiner-with-condition.psd1` — demonstrates conditional step execution
 - `joiner-ensureentitlement.psd1` — ensures a demo group assignment via the built-in EnsureEntitlement step
+- `joiner-with-onfailure.psd1` — demonstrates OnFailureSteps for cleanup and notifications
 
 Workflows are **data-only** PSD1 files. A minimal workflow looks like:
 
