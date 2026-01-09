@@ -289,7 +289,7 @@ function Invoke-IdlePlanObject {
     $onFailure = [pscustomobject]@{
         PSTypeName = 'IdLE.OnFailureExecutionResult'
         Status     = 'NotRun'
-        Steps      = @()
+        Steps      = [object[]]@()
     }
 
     $planOnFailureSteps = @()
@@ -431,7 +431,7 @@ function Invoke-IdlePlanObject {
         $onFailure = [pscustomobject]@{
             PSTypeName = 'IdLE.OnFailureExecutionResult'
             Status     = $onFailureStatus
-            Steps      = $onFailureStepResults
+            Steps      = @($onFailureStepResults)
         }
 
         $context.EventSink.WriteEvent('OnFailureCompleted', "OnFailureSteps finished (status: $onFailureStatus).", $null, @{
@@ -460,7 +460,7 @@ function Invoke-IdlePlanObject {
         Status        = $runStatus
         CorrelationId = $corr
         Actor         = $actor
-        Steps         = $stepResults
+        Steps         = @($stepResults)
         OnFailure     = $onFailure
         Events        = $events
         Providers     = $redactedProviders
