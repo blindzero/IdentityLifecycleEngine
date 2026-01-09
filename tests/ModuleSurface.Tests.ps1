@@ -104,7 +104,7 @@ Describe 'Module manifests and public surface' {
         @($result.OnFailure.Steps).Count | Should -Be 0
 
         # Successful runs must not emit OnFailure events.
-        ($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
+        @($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
     }
 
     It 'Importing IdLE makes built-in steps available to the engine without exporting them globally' {

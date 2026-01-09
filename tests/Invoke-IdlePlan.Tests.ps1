@@ -360,8 +360,8 @@ Describe 'Invoke-IdlePlan' {
         $result.OnFailure.Status | Should -Be 'NotRun'
         @($result.OnFailure.Steps).Count | Should -Be 0
 
-        ($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
-        ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
+        @($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
+        @($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
     }
 
     It 'fails planning when a step is missing Type' {
