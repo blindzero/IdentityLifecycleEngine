@@ -400,4 +400,37 @@ Describe 'Invoke-IdlePlan' {
       $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
       { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
     }
-}
+
+    It 'rejects ScriptBlock in Plan object' {
+        $plan = [pscustomobject]@{
+            PSTypeName    = 'IdLE.Plan'
+            CorrelationId = 'test-corr'
+            Steps         = @(
+                @{
+                    Name = 'TestStep'
+                    Type = 'Test'
+                    With = @{
+                        Payload = { Write-Host 'Should not execute' }
+                    }
+                }
+            )
+        }
+
+        { Invoke-IdlePlan -Plan $plan } | Should -Throw '*ScriptBlocks are not allowed*'
+    }
+
+    It 'rejects ScriptBlock in Providers object' {
+        $plan = [pscustomobject]@{
+            PSTypeName    = 'IdLE.Plan'
+            CorrelationId = 'test-corr'
+            Steps         = @()
+        }
+
+        $providers = @{
+            Config = @{
+                Secret = { Get-Secret }
+            }
+        }
+
+        { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*ScriptBlocks are not allowed*'
+    }}

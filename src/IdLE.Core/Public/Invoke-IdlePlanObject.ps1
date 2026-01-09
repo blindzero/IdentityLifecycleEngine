@@ -139,6 +139,10 @@ function Invoke-IdlePlanObject {
     # Host may pass an external sink. If none is provided, we still buffer events internally.
     $engineEventSink = New-IdleEventSink -CorrelationId $corr -Actor $actor -ExternalEventSink $EventSink -EventBuffer $events
 
+    # Enforce data-only boundary: reject ScriptBlocks in untrusted inputs.
+    Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
+    Assert-IdleNoScriptBlock -InputObject $Providers -Path 'Providers'
+
     # StepRegistry is constructed via helper to ensure built-in steps and host-provided steps can co-exist.
     $stepRegistry = Get-IdleStepRegistry -Providers $Providers
 
