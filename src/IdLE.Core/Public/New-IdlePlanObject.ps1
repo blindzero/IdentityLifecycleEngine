@@ -86,6 +86,19 @@ function New-IdlePlanObject {
 
         if ($null -eq $Value) { return $null }
 
+        # Primitive / immutable types should be returned as-is before property inspection.
+        # This prevents strings from being converted to PSCustomObject with Length property.
+        if ($Value -is [string] -or
+            $Value -is [int] -or
+            $Value -is [long] -or
+            $Value -is [double] -or
+            $Value -is [decimal] -or
+            $Value -is [bool] -or
+            $Value -is [datetime] -or
+            $Value -is [guid]) {
+            return $Value
+        }
+
         if ($Value -is [System.Collections.IDictionary]) {
             $copy = [ordered]@{}
             foreach ($k in $Value.Keys) {
