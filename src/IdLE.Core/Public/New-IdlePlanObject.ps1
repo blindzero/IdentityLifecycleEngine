@@ -100,7 +100,7 @@ function New-IdlePlanObject {
         }
 
         if ($Value -is [System.Collections.IDictionary]) {
-            $copy = [ordered]@{}
+            $copy = @{}
             foreach ($k in $Value.Keys) {
                 $copy[$k] = Copy-IdleDataObject -Value $Value[$k]
             }

@@ -238,7 +238,7 @@ foreach ($wf in $selected) {
         Write-DemoHeader "Plan"
         $lifecycleEvent = Get-IdleLifecycleEventFromWorkflowName -Name $wf.Name
         $request = New-IdleLifecycleRequest -LifecycleEvent $lifecycleEvent -Actor 'example-user'
-        $plan = New-IdlePlan -WorkflowPath $wf.Path -Request $request
+        $plan = New-IdlePlan -WorkflowPath $wf.Path -Request $request -Providers $providers
         Write-Host ("Plan created: LifecycleEvent={0} | Steps={1}" -f $lifecycleEvent, ($plan.Steps | Measure-Object).Count)
 
         Write-Host ""
