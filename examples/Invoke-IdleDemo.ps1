@@ -56,7 +56,7 @@ function Write-DemoHeader {
 }
 
 function Format-EventRow {
-    param([Parameter(Mandatory)][object]$Event)
+    param([Parameter(Mandatory)][object]$EventRecord)
 
     $icons = @{
         RunStarted    = '🚀'
@@ -69,23 +69,23 @@ function Format-EventRow {
         Debug         = '🔎'
     }
 
-    $icon = if ($icons.ContainsKey($Event.Type)) { $icons[$Event.Type] } else { '•' }
+    $icon = if ($icons.ContainsKey($EventRecord.Type)) { $icons[$EventRecord.Type] } else { '•' }
 
-    $time = ([DateTime]$Event.TimestampUtc).ToLocalTime().ToString('HH:mm:ss.fff')
-    $step = if ([string]::IsNullOrWhiteSpace($Event.StepName)) { '-' } else { [string]$Event.StepName }
+    $time = ([DateTime]$EventRecord.TimestampUtc).ToLocalTime().ToString('HH:mm:ss.fff')
+    $step = if ([string]::IsNullOrWhiteSpace($EventRecord.StepName)) { '-' } else { [string]$EventRecord.StepName }
 
-    $msg = [string]$Event.Message
+    $msg = [string]$EventRecord.Message
 
     # IMPORTANT: Show error details if the engine attached them.
-    if ($Event.PSObject.Properties.Name -contains 'Data' -and $Event.Data -is [hashtable]) {
-        if ($Event.Data.ContainsKey('Error') -and -not [string]::IsNullOrWhiteSpace([string]$Event.Data.Error)) {
-            $msg = "$msg | ERROR: $([string]$Event.Data.Error)"
+    if ($EventRecord.PSObject.Properties.Name -contains 'Data' -and $EventRecord.Data -is [hashtable]) {
+        if ($EventRecord.Data.ContainsKey('Error') -and -not [string]::IsNullOrWhiteSpace([string]$EventRecord.Data.Error)) {
+            $msg = "$msg | ERROR: $([string]$EventRecord.Data.Error)"
         }
     }
 
     [pscustomobject]@{
         Time    = $time
-        Type    = "$icon $($Event.Type)"
+        Type    = "$icon $($EventRecord.Type)"
         Step    = $step
         Message = $msg
     }
