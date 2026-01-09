@@ -15,9 +15,8 @@ Describe 'New-IdlePlan - required provider capabilities' {
   Steps          = @(
     @{
       Name                 = 'Disable identity'
-      Type                 = 'IdLE.Step.EmitEvent'
-      With                 = @{ Message = 'Disable identity (planning only test)' }
-      RequiresCapabilities = 'Identity.Disable'
+      Type                 = 'IdLE.Step.DisableIdentity'
+      RequiresCapabilities = @('Identity.Disable')
     }
   )
 }
@@ -26,29 +25,27 @@ Describe 'New-IdlePlan - required provider capabilities' {
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
         try {
-            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $null | Out-Null
+            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{} | Out-Null
             throw 'Expected an exception but none was thrown.'
         }
         catch {
-            $_.Exception.Message | Should -Match 'required provider capabilities are missing'
-            $_.Exception.Message | Should -Match 'MissingCapabilities:\s+Identity\.Disable'
-            $_.Exception.Message | Should -Match 'AffectedSteps:\s+Disable identity'
+            $_.Exception.Message | Should -Match 'MissingCapabilities: Identity\.Disable'
+            $_.Exception.Message | Should -Match 'AffectedSteps: Disable identity'
         }
     }
 
-    It 'builds the plan when required capabilities are available' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-capabilities.psd1'
+    It 'allows planning when a provider advertises the required capabilities' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-capabilities-ok.psd1'
 
         Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
-  Name           = 'Joiner - Capability Validation'
+  Name           = 'Joiner - Capability Validation OK'
   LifecycleEvent = 'Joiner'
   Steps          = @(
     @{
       Name                 = 'Disable identity'
-      Type                 = 'IdLE.Step.EmitEvent'
-      With                 = @{ Message = 'Disable identity (planning only test)' }
-      RequiresCapabilities = 'Identity.Disable'
+      Type                 = 'IdLE.Step.DisableIdentity'
+      RequiresCapabilities = @('Identity.Disable')
     }
   )
 }
@@ -56,10 +53,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
-        # Minimal provider that advertises the required capability.
-        $provider = [pscustomobject]@{
-            Name = 'TestProvider'
-        }
+        $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
             return @('Identity.Disable')
         } -Force
@@ -73,6 +67,82 @@ Describe 'New-IdlePlan - required provider capabilities' {
         $plan | Should -Not -BeNullOrEmpty
         $plan.Steps.Count | Should -Be 1
         $plan.Steps[0].RequiresCapabilities | Should -Be @('Identity.Disable')
+    }
+
+    It 'fails fast when an OnFailure step requires capabilities that no provider advertises' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-onfailure-capabilities.psd1'
+
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Joiner - OnFailure Capability Validation'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{
+      Name = 'Primary step'
+      Type = 'IdLE.Step.Primary'
+    }
+  )
+  OnFailureSteps = @(
+    @{
+      Name                 = 'Containment'
+      Type                 = 'IdLE.Step.Containment'
+      RequiresCapabilities = @('Identity.Disable')
+    }
+  )
+}
+'@
+
+        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+
+        try {
+            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{} | Out-Null
+            throw 'Expected an exception but none was thrown.'
+        }
+        catch {
+            $_.Exception.Message | Should -Match 'MissingCapabilities: Identity\.Disable'
+            $_.Exception.Message | Should -Match 'AffectedSteps: Containment'
+        }
+    }
+
+    It 'includes OnFailureSteps capability requirements in successful planning' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-onfailure-capabilities-ok.psd1'
+
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Joiner - OnFailure Capability Validation OK'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{
+      Name = 'Primary step'
+      Type = 'IdLE.Step.Primary'
+    }
+  )
+  OnFailureSteps = @(
+    @{
+      Name                 = 'Containment'
+      Type                 = 'IdLE.Step.Containment'
+      RequiresCapabilities = @('Identity.Disable')
+    }
+  )
+}
+'@
+
+        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+
+        $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
+        $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+            return @('Identity.Disable')
+        } -Force
+
+        $providers = @{
+            IdentityProvider = $provider
+        }
+
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+        $plan | Should -Not -BeNullOrEmpty
+        $plan.OnFailureSteps.Count | Should -Be 1
+        $plan.OnFailureSteps[0].RequiresCapabilities | Should -Be @('Identity.Disable')
     }
 
     It 'validates entitlement capabilities for EnsureEntitlement steps' {
@@ -96,7 +166,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
         try {
-            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $null | Out-Null
+            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{} | Out-Null
             throw 'Expected an exception but none was thrown.'
         }
         catch {

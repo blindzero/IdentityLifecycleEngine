@@ -5,7 +5,13 @@ function New-IdlePlanObject {
 
     .DESCRIPTION
     Loads and validates the workflow definition (PSD1) and creates a normalized plan object.
-    This is a planning-only artifact. Execution is handled by Invoke-IdlePlan later.
+    This is a planning-only artifact. Execution is handled by Invoke-IdlePlanObject later.
+
+    Planning responsibilities:
+    - Create a data-only request snapshot for deterministic exports and auditing.
+    - Normalize workflow steps to IdLE.PlanStep objects.
+    - Evaluate step conditions during planning and mark steps as NotApplicable.
+    - Validate required provider capabilities fail-fast (includes OnFailureSteps).
 
     .PARAMETER WorkflowPath
     Path to the workflow definition (PSD1).
@@ -38,14 +44,15 @@ function New-IdlePlanObject {
         [CmdletBinding()]
         param(
             [Parameter()]
-            [object] $Value
+            [AllowNull()]
+            [string] $Value
         )
 
         if ($null -eq $Value) {
             return $null
         }
 
-        if ($Value -is [string] -and [string]::IsNullOrWhiteSpace($Value)) {
+        if ([string]::IsNullOrWhiteSpace($Value)) {
             return $null
         }
 
@@ -53,17 +60,34 @@ function New-IdlePlanObject {
     }
 
     function Copy-IdleDataObject {
+        <#
+        .SYNOPSIS
+        Creates a deep-ish, data-only copy of an object.
+
+        .DESCRIPTION
+        This helper is used to snapshot the request input so that the plan can be exported
+        deterministically, without retaining references to the original live object.
+
+        NOTE:
+        This is intentionally conservative and only supports data-like objects:
+        - Hashtable / OrderedDictionary
+        - PSCustomObject / NoteProperties
+        - Arrays/lists
+        - Primitive types
+
+        ScriptBlocks and other executable objects are rejected by upstream validation.
+        #>
         [CmdletBinding()]
         param(
             [Parameter()]
+            [AllowNull()]
             [object] $Value
         )
 
-        if ($null -eq $Value) {
-            return $null
-        }
+        if ($null -eq $Value) { return $null }
 
-        # Primitive / immutable-ish types can be returned as-is.
+        # Primitive / immutable types should be returned as-is before property inspection.
+        # This prevents strings from being converted to PSCustomObject with Length property.
         if ($Value -is [string] -or
             $Value -is [int] -or
             $Value -is [long] -or
@@ -75,7 +99,6 @@ function New-IdlePlanObject {
             return $Value
         }
 
-        # Hashtable / IDictionary -> clone recursively.
         if ($Value -is [System.Collections.IDictionary]) {
             $copy = @{}
             foreach ($k in $Value.Keys) {
@@ -84,36 +107,75 @@ function New-IdlePlanObject {
             return $copy
         }
 
-        # Arrays / enumerables -> clone recursively.
-        if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
-            $items = @()
+        if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+            $arr = @()
             foreach ($item in $Value) {
-                $items += Copy-IdleDataObject -Value $item
+                $arr += Copy-IdleDataObject -Value $item
             }
-            return $items
+            return $arr
         }
 
-        # PSCustomObject and other objects -> shallow map of public properties (data-only).
-        $props = $Value.PSObject.Properties | Where-Object { $_.MemberType -eq 'NoteProperty' -or $_.MemberType -eq 'Property' }
+        $props = @($Value.PSObject.Properties | Where-Object MemberType -in @('NoteProperty', 'Property'))
         if ($null -ne $props -and @($props).Count -gt 0) {
-            $copy = @{}
+            $o = [ordered]@{}
             foreach ($p in $props) {
-                $copy[$p.Name] = Copy-IdleDataObject -Value $p.Value
+                $o[$p.Name] = Copy-IdleDataObject -Value $p.Value
             }
-            return [pscustomobject] $copy
+            return [pscustomobject]$o
         }
 
-        # Fallback: return string representation (keeps export stable without leaking runtime handles).
-        return [string] $Value
+        return $Value
     }
 
-    function Normalize-IdleRequiredCapabilities {
+    function Get-IdleOptionalPropertyValue {
+        <#
+        .SYNOPSIS
+        Safely reads an optional property from an object.
+
+        .DESCRIPTION
+        Works with:
+        - IDictionary (hashtables / ordered dictionaries)
+        - PSCustomObject / objects with note properties
+
+        Returns $null when the property does not exist.
+        Uses Get-Member to avoid PropertyNotFoundException in strict mode.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [object] $Object,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Name
+        )
+
+        if ($null -eq $Object) {
+            return $null
+        }
+
+        if ($Object -is [System.Collections.IDictionary]) {
+            if ($Object.ContainsKey($Name)) {
+                return $Object[$Name]
+            }
+            return $null
+        }
+
+        $m = $Object | Get-Member -Name $Name -MemberType NoteProperty,Property -ErrorAction SilentlyContinue
+        if ($null -eq $m) {
+            return $null
+        }
+
+        return $Object.$Name
+    }
+
+    function ConvertTo-IdleRequiredCapabilities {
         <#
         .SYNOPSIS
         Normalizes the optional RequiresCapabilities key from a workflow step.
 
         .DESCRIPTION
-        A workflow step may declare required capabilities via RequiresCapabilities.
         Supported shapes:
         - missing / $null -> empty list
         - string -> single capability
@@ -124,6 +186,7 @@ function New-IdlePlanObject {
         [CmdletBinding()]
         param(
             [Parameter()]
+            [AllowNull()]
             [object] $Value,
 
             [Parameter(Mandatory)]
@@ -186,16 +249,11 @@ function New-IdlePlanObject {
         Extracts provider instances from the -Providers argument.
 
         .DESCRIPTION
-        The engine currently treats -Providers as a host-controlled bag of objects.
-        This function extracts candidate provider objects for capability discovery.
+        Supports both:
+        - hashtable map: @{ Name = <providerObject>; ... }
+        - array/list: @( <providerObject>, ... )
 
-        Supported shapes:
-        - $null -> no providers
-        - hashtable -> iterate values, ignoring known non-provider keys like 'StepRegistry'
-        - PSCustomObject -> read public properties as provider entries
-
-        This is intentionally conservative: only values that look like provider instances
-        (non-null objects) are returned.
+        Returns an array of provider objects.
         #>
         [CmdletBinding()]
         param(
@@ -208,54 +266,60 @@ function New-IdlePlanObject {
             return @()
         }
 
-        $result = @()
-
-        if ($Providers -is [hashtable]) {
+        if ($Providers -is [System.Collections.IDictionary]) {
+            $items = @()
             foreach ($k in $Providers.Keys) {
-                # 'StepRegistry' is explicitly not a provider; it is a host extension point.
-                if ([string]$k -eq 'StepRegistry') {
-                    continue
-                }
-
-                $v = $Providers[$k]
-                if ($null -ne $v) {
-                    $result += $v
-                }
+                $items += $Providers[$k]
             }
-
-            return $result
+            return @($items)
         }
 
-        # Allow an object bag (Providers.IdentityProvider, Providers.Directory, ...).
-        $props = @($Providers.PSObject.Properties)
-        foreach ($p in $props) {
-            if ($p.MemberType -ne 'NoteProperty' -and $p.MemberType -ne 'Property') {
-                continue
+        if ($Providers -is [System.Collections.IEnumerable] -and $Providers -isnot [string]) {
+            $items = @()
+            foreach ($p in $Providers) {
+                $items += $p
             }
-
-            if ([string]$p.Name -eq 'StepRegistry') {
-                continue
-            }
-
-            if ($null -ne $p.Value) {
-                $result += $p.Value
-            }
+            return @($items)
         }
 
-        return $result
+        return @($Providers)
+    }
+
+    function Get-IdleProviderCapabilities {
+        <#
+        .SYNOPSIS
+        Gets the capability list advertised by a provider.
+
+        .DESCRIPTION
+        Providers are expected to expose a GetCapabilities() method.
+        If not present, the provider is treated as advertising no capabilities.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Provider
+        )
+
+        if ($null -eq $Provider) {
+            return @()
+        }
+
+        if ($Provider.PSObject.Methods.Name -contains 'GetCapabilities') {
+            $caps = $Provider.GetCapabilities()
+            if ($null -eq $caps) {
+                return @()
+            }
+            return @($caps | Where-Object { $null -ne $_ } | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+        }
+
+        return @()
     }
 
     function Get-IdleAvailableCapabilities {
         <#
         .SYNOPSIS
-        Builds a stable set of capabilities available from the provided providers.
-
-        .DESCRIPTION
-        Capabilities are discovered from each provider via Get-IdleProviderCapabilities.
-        During the migration phase we allow minimal inference for legacy providers
-        to avoid breaking existing demos/tests.
-
-        The returned list is stable (sorted, unique).
+        Aggregates capabilities from all providers.
         #>
         [CmdletBinding()]
         param(
@@ -264,15 +328,14 @@ function New-IdlePlanObject {
             [object] $Providers
         )
 
-        $all = @()
+        $providerInstances = @(Get-IdleProvidersFromMap -Providers $Providers)
 
-        foreach ($p in @(Get-IdleProvidersFromMap -Providers $Providers)) {
-            # AllowInference is a migration aid. Once the ecosystem advertises capabilities
-            # explicitly, we can tighten this to explicit-only for maximum determinism.
-            $all += @(Get-IdleProviderCapabilities -Provider $p -AllowInference)
+        $caps = @()
+        foreach ($p in $providerInstances) {
+            $caps += @(Get-IdleProviderCapabilities -Provider $p)
         }
 
-        return @($all | Sort-Object -Unique)
+        return @($caps | Sort-Object -Unique)
     }
 
     function Assert-IdlePlanCapabilitiesSatisfied {
@@ -281,11 +344,9 @@ function New-IdlePlanObject {
         Validates that all required step capabilities are available.
 
         .DESCRIPTION
-        This is a fail-fast validation executed during planning.
+        Fail-fast validation executed during planning.
         If one or more capabilities are missing, an ArgumentException is thrown with a
-        deterministic error message that lists missing capabilities and affected steps.
-
-        No-op when the plan contains no steps.
+        deterministic error message listing missing capabilities and affected steps.
         #>
         [CmdletBinding()]
         param(
@@ -303,15 +364,20 @@ function New-IdlePlanObject {
         }
 
         $required = @()
-        $requiredByStep = @{}
+        $requiredByStep = [ordered]@{}
 
         foreach ($s in @($Steps)) {
-            $stepName = if ($s.PSObject.Properties.Name -contains 'Name') { [string]$s.Name } else { '<unknown>' }
-            $caps = @()
-
-            if ($s.PSObject.Properties.Name -contains 'RequiresCapabilities') {
-                $caps = @($s.RequiresCapabilities)
+            if ($null -eq $s) {
+                continue
             }
+
+            $stepName = Get-IdleOptionalPropertyValue -Object $s -Name 'Name'
+            if ($null -eq $stepName -or [string]::IsNullOrWhiteSpace([string]$stepName)) {
+                $stepName = '<UnnamedStep>'
+            }
+
+            $capsRaw = Get-IdleOptionalPropertyValue -Object $s -Name 'RequiresCapabilities'
+            $caps = if ($null -eq $capsRaw) { @() } else { @($capsRaw) }
 
             if (@($caps).Count -gt 0) {
                 $required += $caps
@@ -320,8 +386,6 @@ function New-IdlePlanObject {
         }
 
         $required = @($required | Sort-Object -Unique)
-
-        # Nothing required -> nothing to validate.
         if (@($required).Count -eq 0) {
             return
         }
@@ -336,17 +400,15 @@ function New-IdlePlanObject {
         }
 
         $missing = @($missing | Sort-Object -Unique)
-
         if (@($missing).Count -eq 0) {
             return
         }
 
-        # Determine which steps are affected for better UX.
         $affectedSteps = @()
         foreach ($k in $requiredByStep.Keys) {
-            $caps = @($requiredByStep[$k])
+            $capsForStep = @($requiredByStep[$k])
             foreach ($m in $missing) {
-                if ($caps -contains $m) {
+                if ($capsForStep -contains $m) {
                     $affectedSteps += $k
                     break
                 }
@@ -364,64 +426,10 @@ function New-IdlePlanObject {
         throw [System.ArgumentException]::new(([string]::Join(' ', $msg)), 'Providers')
     }
 
-    # Ensure required request properties exist without hard-typing the request class.
-    $reqProps = $Request.PSObject.Properties.Name
-    if ($reqProps -notcontains 'LifecycleEvent') {
-        throw [System.ArgumentException]::new("Request object must contain property 'LifecycleEvent'.", 'Request')
-    }
-    if ($reqProps -notcontains 'CorrelationId') {
-        throw [System.ArgumentException]::new("Request object must contain property 'CorrelationId'.", 'Request')
-    }
-
-    # Create a data-only snapshot of the incoming request.
-    # This is required for auditing/approvals and for deterministic plan export artifacts.
-    # We intentionally store a snapshot (not a reference) to avoid accidental mutations later.
-    $requestSnapshot = [pscustomobject]@{
-        PSTypeName     = 'IdLE.LifecycleRequestSnapshot'
-        LifecycleEvent = ConvertTo-NullIfEmptyString -Value ([string] $Request.LifecycleEvent)
-        CorrelationId  = ConvertTo-NullIfEmptyString -Value ([string] $Request.CorrelationId)
-        Actor          = if ($reqProps -contains 'Actor') { ConvertTo-NullIfEmptyString -Value ([string] $Request.Actor) } else { $null }
-        IdentityKeys   = if ($reqProps -contains 'IdentityKeys') { Copy-IdleDataObject -Value $Request.IdentityKeys } else { $null }
-        DesiredState   = if ($reqProps -contains 'DesiredState') { Copy-IdleDataObject -Value $Request.DesiredState } else { $null }
-        Changes        = if ($reqProps -contains 'Changes') { Copy-IdleDataObject -Value $Request.Changes } else { $null }
-    }
-
-    # Validate workflow and ensure it matches the request's LifecycleEvent.
-    $workflow = Test-IdleWorkflowDefinitionObject -WorkflowPath $WorkflowPath -Request $Request
-
-    # Create the plan object (planning artifact).
-    # Steps will be populated after we have a stable plan context for condition evaluation.
-    $plan = [pscustomobject]@{
-        PSTypeName     = 'IdLE.Plan'
-        WorkflowName   = [string]$workflow.Name
-        LifecycleEvent = [string]$workflow.LifecycleEvent
-        CorrelationId  = [string]$requestSnapshot.CorrelationId
-        Request        = $requestSnapshot
-        Actor          = $requestSnapshot.Actor
-        CreatedUtc     = [DateTime]::UtcNow
-        Steps          = @()
-        Actions        = @()
-        Warnings       = @()
-        Providers      = $Providers
-    }
-
-    # Build a planning context for condition evaluation.
-    # This allows conditions to reference "Plan.*" paths (e.g. Plan.LifecycleEvent).
-    $planningContext = [pscustomobject]@{
-        Plan     = $plan
-        Request  = $Request
-        Workflow = $workflow
-    }
-
     function Test-IdleWorkflowStepKey {
         <#
         .SYNOPSIS
         Checks whether a workflow step contains a given key.
-
-        .DESCRIPTION
-        Workflow steps can be represented as hashtables (IDictionary) or as objects
-        (PSCustomObject) depending on how they were imported. This helper provides a
-        stable way to check for keys across both representations.
         #>
         [CmdletBinding()]
         param(
@@ -438,21 +446,14 @@ function New-IdlePlanObject {
             return $Step.ContainsKey($Key)
         }
 
-        return ($Step.PSObject.Properties.Name -contains $Key)
+        $m = $Step | Get-Member -Name $Key -MemberType NoteProperty,Property -ErrorAction SilentlyContinue
+        return ($null -ne $m)
     }
 
     function Get-IdleWorkflowStepValue {
         <#
         .SYNOPSIS
         Gets a value from a workflow step by key.
-
-        .DESCRIPTION
-        Workflow steps can be represented as hashtables (IDictionary) or as objects
-        (PSCustomObject) depending on how they were imported. This helper provides a
-        stable way to read values across both representations.
-
-        IMPORTANT:
-        Call Test-IdleWorkflowStepKey before calling this function when the key may be optional.
         #>
         [CmdletBinding()]
         param(
@@ -469,102 +470,190 @@ function New-IdlePlanObject {
             return $Step[$Key]
         }
 
-        return $Step.PSObject.Properties[$Key].Value
+        return $Step.$Key
     }
 
-    # Normalize steps into a stable internal representation.
-    # We deliberately keep step entries as PSCustomObject to avoid cross-module class loading issues.
-    # Step conditions are evaluated during planning and may mark steps as NotApplicable.
-    $normalizedSteps = @()
-    foreach ($s in @($workflow.Steps)) {
-        $stepName = if (Test-IdleWorkflowStepKey -Step $s -Key 'Name') {
-            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Name')
-        }
-        else {
-            ''
+    function ConvertTo-IdleWorkflowSteps {
+        <#
+        .SYNOPSIS
+        Normalizes workflow steps into IdLE.PlanStep objects.
+
+        .DESCRIPTION
+        Evaluates Condition during planning and sets Status = Planned / NotApplicable.
+
+        IMPORTANT:
+        WorkflowSteps is optional and may be null or empty. A workflow is allowed to omit
+        OnFailureSteps entirely. Therefore we must not mark this parameter as Mandatory.
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object[]] $WorkflowSteps,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $PlanningContext
+        )
+
+        if ($null -eq $WorkflowSteps -or @($WorkflowSteps).Count -eq 0) {
+            return @()
         }
 
-        if ([string]::IsNullOrWhiteSpace($stepName)) {
-            throw [System.ArgumentException]::new('Workflow step is missing required key "Name".', 'Workflow')
-        }
+        $normalizedSteps = @()
 
-        $stepType = if (Test-IdleWorkflowStepKey -Step $s -Key 'Type') {
-            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Type')
-        }
-        else {
-            ''
-        }
+        foreach ($s in @($WorkflowSteps)) {
+            $stepName = if (Test-IdleWorkflowStepKey -Step $s -Key 'Name') {
+                [string](Get-IdleWorkflowStepValue -Step $s -Key 'Name')
+            }
+            else {
+                ''
+            }
 
-        if ([string]::IsNullOrWhiteSpace($stepType)) {
-            throw [System.ArgumentException]::new(("Workflow step '{0}' is missing required key 'Type'." -f $stepName), 'Workflow')
-        }
+            if ([string]::IsNullOrWhiteSpace($stepName)) {
+                throw [System.ArgumentException]::new('Workflow step is missing required key "Name".', 'Workflow')
+            }
 
-        if (Test-IdleWorkflowStepKey -Step $s -Key 'When') {
-            throw [System.ArgumentException]::new(
-                ("Workflow step '{0}' uses key 'When'. 'When' has been renamed to 'Condition'. Please update the workflow definition." -f $stepName),
-                'Workflow'
-            )
-        }
+            $stepType = if (Test-IdleWorkflowStepKey -Step $s -Key 'Type') {
+                [string](Get-IdleWorkflowStepValue -Step $s -Key 'Type')
+            }
+            else {
+                ''
+            }
 
-        $condition = if (Test-IdleWorkflowStepKey -Step $s -Key 'Condition') {
-            Get-IdleWorkflowStepValue -Step $s -Key 'Condition'
-        }
-        else {
-            $null
-        }
+            if ([string]::IsNullOrWhiteSpace($stepType)) {
+                throw [System.ArgumentException]::new(("Workflow step '{0}' is missing required key 'Type'." -f $stepName), 'Workflow')
+            }
 
-        $status = 'Planned'
-        if ($null -ne $condition) {
-            $schemaErrors = Test-IdleConditionSchema -Condition $condition -StepName $stepName
-            if (@($schemaErrors).Count -gt 0) {
+            if (Test-IdleWorkflowStepKey -Step $s -Key 'When') {
                 throw [System.ArgumentException]::new(
-                    ("Invalid Condition on step '{0}': {1}" -f $stepName, ([string]::Join(' ', @($schemaErrors)))),
+                    ("Workflow step '{0}' uses key 'When'. 'When' has been renamed to 'Condition'. Please update the workflow definition." -f $stepName),
                     'Workflow'
                 )
             }
 
-            $isApplicable = Test-IdleCondition -Condition $condition -Context $planningContext
-            if (-not $isApplicable) {
-                $status = 'NotApplicable'
+            $condition = if (Test-IdleWorkflowStepKey -Step $s -Key 'Condition') {
+                Get-IdleWorkflowStepValue -Step $s -Key 'Condition'
+            }
+            else {
+                $null
+            }
+
+            $status = 'Planned'
+            if ($null -ne $condition) {
+                $schemaErrors = Test-IdleConditionSchema -Condition $condition -StepName $stepName
+                if (@($schemaErrors).Count -gt 0) {
+                    throw [System.ArgumentException]::new(
+                        ("Invalid Condition on step '{0}': {1}" -f $stepName, ([string]::Join(' ', @($schemaErrors)))),
+                        'Workflow'
+                    )
+                }
+
+                $isApplicable = Test-IdleCondition -Condition $condition -Context $PlanningContext
+                if (-not $isApplicable) {
+                    $status = 'NotApplicable'
+                }
+            }
+
+            $requiresCaps = @()
+            if (Test-IdleWorkflowStepKey -Step $s -Key 'RequiresCapabilities') {
+                $requiresCaps = ConvertTo-IdleRequiredCapabilities -Value (Get-IdleWorkflowStepValue -Step $s -Key 'RequiresCapabilities') -StepName $stepName
+            }
+
+            $description = if (Test-IdleWorkflowStepKey -Step $s -Key 'Description') {
+                [string](Get-IdleWorkflowStepValue -Step $s -Key 'Description')
+            }
+            else {
+                ''
+            }
+
+            $with = if (Test-IdleWorkflowStepKey -Step $s -Key 'With') {
+                Copy-IdleDataObject -Value (Get-IdleWorkflowStepValue -Step $s -Key 'With')
+            }
+            else {
+                @{}
+            }
+
+            $normalizedSteps += [pscustomobject]@{
+                PSTypeName           = 'IdLE.PlanStep'
+                Name                 = $stepName
+                Type                 = $stepType
+                Description          = $description
+                Condition            = Copy-IdleDataObject -Value $condition
+                With                 = $with
+                RequiresCapabilities = $requiresCaps
+                Status               = $status
             }
         }
 
-        $requiresCaps = @()
-        if (Test-IdleWorkflowStepKey -Step $s -Key 'RequiresCapabilities') {
-            $requiresCaps = Normalize-IdleRequiredCapabilities -Value (Get-IdleWorkflowStepValue -Step $s -Key 'RequiresCapabilities') -StepName $stepName
-        }
-
-        $description = if (Test-IdleWorkflowStepKey -Step $s -Key 'Description') {
-            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Description')
-        }
-        else {
-            ''
-        }
-
-        $with = if (Test-IdleWorkflowStepKey -Step $s -Key 'With') {
-            Get-IdleWorkflowStepValue -Step $s -Key 'With'
-        }
-        else {
-            @{}
-        }
-
-        $normalizedSteps += [pscustomobject]@{
-            PSTypeName           = 'IdLE.PlanStep'
-            Name                 = $stepName
-            Type                 = $stepType
-            Description          = $description
-            Condition            = $condition
-            With                 = $with
-            RequiresCapabilities = $requiresCaps
-            Status               = $status
-        }
+        # IMPORTANT:
+        # Returning an empty array variable can produce no pipeline output, resulting in $null on assignment.
+        # Force a stable array output shape.
+        return @($normalizedSteps)
     }
 
-    # Attach steps to the plan after normalization.
-    $plan.Steps = $normalizedSteps
+    # Ensure required request properties exist without hard-typing the request class.
+    $reqProps = $Request.PSObject.Properties.Name
+    if ($reqProps -notcontains 'LifecycleEvent') {
+        throw [System.ArgumentException]::new("Request object must contain property 'LifecycleEvent'.", 'Request')
+    }
+    if ($reqProps -notcontains 'CorrelationId') {
+        throw [System.ArgumentException]::new("Request object must contain property 'CorrelationId'.", 'Request')
+    }
 
-    # Fail-fast capability validation (only if at least one step declares requirements).
-    Assert-IdlePlanCapabilitiesSatisfied -Steps $plan.Steps -Providers $Providers
+    # Create a data-only snapshot of the incoming request for deterministic exports.
+    $requestSnapshot = [pscustomobject]@{
+        PSTypeName     = 'IdLE.LifecycleRequestSnapshot'
+        LifecycleEvent = ConvertTo-NullIfEmptyString -Value ([string]$Request.LifecycleEvent)
+        CorrelationId  = ConvertTo-NullIfEmptyString -Value ([string]$Request.CorrelationId)
+        Actor          = if ($reqProps -contains 'Actor') { ConvertTo-NullIfEmptyString -Value ([string]$Request.Actor) } else { $null }
+        IdentityKeys   = if ($reqProps -contains 'IdentityKeys') { Copy-IdleDataObject -Value $Request.IdentityKeys } else { $null }
+        DesiredState   = if ($reqProps -contains 'DesiredState') { Copy-IdleDataObject -Value $Request.DesiredState } else { $null }
+        Changes        = if ($reqProps -contains 'Changes') { Copy-IdleDataObject -Value $Request.Changes } else { $null }
+    }
+
+    # Validate workflow and ensure it matches the request's LifecycleEvent.
+    $workflow = Test-IdleWorkflowDefinitionObject -WorkflowPath $WorkflowPath -Request $Request
+
+    # Create the plan object (planning artifact).
+    $plan = [pscustomobject]@{
+        PSTypeName     = 'IdLE.Plan'
+        WorkflowName   = [string]$workflow.Name
+        LifecycleEvent = [string]$workflow.LifecycleEvent
+        CorrelationId  = [string]$requestSnapshot.CorrelationId
+        Request        = $requestSnapshot
+        Actor          = $requestSnapshot.Actor
+        CreatedUtc     = [DateTime]::UtcNow
+
+        Steps          = @()
+        OnFailureSteps = @()
+
+        Actions        = @()
+        Warnings       = @()
+        Providers      = $Providers
+    }
+
+    # Build a planning context for condition evaluation.
+    $planningContext = [pscustomobject]@{
+        Plan     = $plan
+        Request  = $Request
+        Workflow = $workflow
+    }
+
+    $workflowOnFailureSteps = Get-IdleOptionalPropertyValue -Object $workflow -Name 'OnFailureSteps'
+
+    # Normalize primary and OnFailure steps.
+    # IMPORTANT:
+    # ConvertTo-IdleWorkflowSteps may return an empty array that would otherwise collapse to $null on assignment.
+    $plan.Steps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflow.Steps -PlanningContext $planningContext)
+    $plan.OnFailureSteps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflowOnFailureSteps -PlanningContext $planningContext)
+
+    # Fail-fast capability validation (includes OnFailureSteps).
+    $allStepsForCapabilities = @()
+    $allStepsForCapabilities += @($plan.Steps)
+    $allStepsForCapabilities += @($plan.OnFailureSteps)
+
+    Assert-IdlePlanCapabilitiesSatisfied -Steps $allStepsForCapabilities -Providers $Providers
 
     return $plan
 }

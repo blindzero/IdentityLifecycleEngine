@@ -68,6 +68,21 @@ function Test-IdleWorkflowDefinitionObject {
         $idx++
     }
 
+    # 4c) Validate OnFailureSteps definitions (Name/Type/Condition/With + data-only).
+    #     These are executed only when a run fails, but they must be valid workflow steps.
+    if ($workflow.ContainsKey('OnFailureSteps') -and $null -ne $workflow.OnFailureSteps) {
+        $idx = 0
+        foreach ($s in @($workflow.OnFailureSteps)) {
+            $stepErrors = Test-IdleStepDefinition -Step $s -Index $idx
+            foreach ($e in @($stepErrors)) {
+                # Re-label errors so operators can clearly distinguish the step collection.
+                $normalizedError = ([string]$e) -replace '^Step\[(\d+)\]', 'OnFailureSteps[$1]'
+                $null = $errors.Add($normalizedError)
+            }
+            $idx++
+        }
+    }
+
     if ($errors.Count -gt 0) {
         # Fail early with a single terminating exception, including all violations.
         $message = "Workflow validation failed:`n- " + ($errors -join "`n- ")
@@ -82,5 +97,6 @@ function Test-IdleWorkflowDefinitionObject {
         LifecycleEvent = [string]$workflow.LifecycleEvent
         Description    = if ($workflow.ContainsKey('Description')) { [string]$workflow.Description } else { $null }
         Steps          = @($workflow.Steps)
+        OnFailureSteps  = if ($workflow.ContainsKey('OnFailureSteps') -and $null -ne $workflow.OnFailureSteps) { @($workflow.OnFailureSteps) } else { @() }
     }
 }

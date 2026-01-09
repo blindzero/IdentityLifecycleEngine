@@ -25,6 +25,52 @@ Example:
 }
 ```
 
+### OnFailureSteps (optional)
+
+Workflows can define cleanup or rollback steps that run when primary steps fail.
+OnFailureSteps are executed in **best-effort mode**:
+
+- They run only if at least one primary step fails
+- Each OnFailure step is attempted regardless of previous OnFailure step failures
+- OnFailure step failures do not stop execution of remaining OnFailure steps
+- The overall execution status remains 'Failed' even if all OnFailure steps succeed
+
+Example:
+
+```powershell
+@{
+  Name           = 'Joiner - With Cleanup'
+  LifecycleEvent = 'Joiner'
+
+  Steps          = @(
+    @{ Name = 'CreateAccount'; Type = 'IdLE.Step.CreateAccount' }
+    @{ Name = 'AssignLicense'; Type = 'IdLE.Step.AssignLicense' }
+  )
+
+  OnFailureSteps = @(
+    @{ Name = 'NotifyAdmin';      Type = 'IdLE.Step.SendEmail'; With = @{ Recipient = 'admin@example.com' } }
+    @{ Name = 'RollbackAccount';  Type = 'IdLE.Step.DeleteAccount' }
+    @{ Name = 'LogFailure';       Type = 'IdLE.Step.LogToDatabase' }
+  )
+}
+```
+
+**Best practices:**
+
+- Use OnFailureSteps for notifications, logging, or rollback operations
+- Keep OnFailure steps simple and resilient
+- Avoid dependencies between OnFailure steps
+- Don't assume OnFailure steps will always succeed
+
+**Execution result:**
+
+The execution result includes a separate `OnFailure` section:
+
+```powershell
+$result.OnFailure.Status      # 'NotRun', 'Completed', or 'PartiallyFailed'
+$result.OnFailure.Steps        # Array of OnFailure step results
+```
+
 ## Planning and validation
 
 Workflows are validated during planning.
