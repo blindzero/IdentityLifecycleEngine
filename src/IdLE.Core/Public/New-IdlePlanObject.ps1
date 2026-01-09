@@ -170,7 +170,7 @@ function New-IdlePlanObject {
         return $Object.$Name
     }
 
-    function Normalize-IdleRequiredCapabilities {
+    function ConvertTo-IdleRequiredCapabilities {
         <#
         .SYNOPSIS
         Normalizes the optional RequiresCapabilities key from a workflow step.
@@ -473,7 +473,7 @@ function New-IdlePlanObject {
         return $Step.$Key
     }
 
-    function Normalize-IdleWorkflowSteps {
+    function ConvertTo-IdleWorkflowSteps {
         <#
         .SYNOPSIS
         Normalizes workflow steps into IdLE.PlanStep objects.
@@ -557,7 +557,7 @@ function New-IdlePlanObject {
 
             $requiresCaps = @()
             if (Test-IdleWorkflowStepKey -Step $s -Key 'RequiresCapabilities') {
-                $requiresCaps = Normalize-IdleRequiredCapabilities -Value (Get-IdleWorkflowStepValue -Step $s -Key 'RequiresCapabilities') -StepName $stepName
+                $requiresCaps = ConvertTo-IdleRequiredCapabilities -Value (Get-IdleWorkflowStepValue -Step $s -Key 'RequiresCapabilities') -StepName $stepName
             }
 
             $description = if (Test-IdleWorkflowStepKey -Step $s -Key 'Description') {
@@ -644,9 +644,9 @@ function New-IdlePlanObject {
 
     # Normalize primary and OnFailure steps.
     # IMPORTANT:
-    # Normalize-IdleWorkflowSteps may return an empty array that would otherwise collapse to $null on assignment.
-    $plan.Steps = @(Normalize-IdleWorkflowSteps -WorkflowSteps $workflow.Steps -PlanningContext $planningContext)
-    $plan.OnFailureSteps = @(Normalize-IdleWorkflowSteps -WorkflowSteps $workflowOnFailureSteps -PlanningContext $planningContext)
+    # ConvertTo-IdleWorkflowSteps may return an empty array that would otherwise collapse to $null on assignment.
+    $plan.Steps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflow.Steps -PlanningContext $planningContext)
+    $plan.OnFailureSteps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflowOnFailureSteps -PlanningContext $planningContext)
 
     # Fail-fast capability validation (includes OnFailureSteps).
     $allStepsForCapabilities = @()
