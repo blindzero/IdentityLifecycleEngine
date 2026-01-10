@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag name to package (e.g. v0.7.0-test). If empty, uses current ref name.'
+        description: 'Artifact tag name (e.g. v0.7.0-test). This does NOT need to exist as a git tag.'
         required: false
         type: string
       publish_release:
@@ -29,6 +29,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Always checkout the workflow ref (branch/tag selected in the UI or the pushed tag ref).
+          # Never treat the "tag" input as a git ref.
+          ref: ${{ github.ref }}
 
       - name: Show PowerShell version
         shell: pwsh
@@ -36,7 +39,7 @@ jobs:
           $PSVersionTable.PSVersion
           pwsh -v
 
-      - name: Determine tag
+      - name: Determine artifact tag
         id: tag
         shell: pwsh
         run: |
@@ -52,12 +55,6 @@ jobs:
           }
 
           "value=$refName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-      - name: Checkout requested tag
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.tag.outputs.value }}
-          fetch-depth: 0
 
       - name: Build release artifact
         shell: pwsh
