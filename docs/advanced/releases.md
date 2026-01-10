@@ -17,13 +17,23 @@ Pre-release tags are **GitHub-only** (no PowerShell Gallery publish).
 - Publishing to PowerShell Gallery is protected via a GitHub **Environment** (`psgallery-prod`) and requires approval.
 - A local end-to-end publish test runs in CI (publishes to a local repository, then installs/imports the module).
 
+## Release workflow safety gates
+
+The Release workflow enforces additional guardrails for tagged releases:
+
+- **Tag must point to `origin/main` HEAD** (fail-fast).
+- **CI must be green for the tag commit** (`ci.yml` must have a successful run for the same SHA).
+- **Tag base version must match all shipped module manifests**.
+
+These checks prevent "broken" releases (e.g., tagging the wrong commit or forgetting the version bump).
+
 ## Versioning policy
 
 ### Stable tags
 
 Stable releases use tags in the form:
 
-- `vMAJOR.MINOR.PATCH` (example: `v0.7.0`)
+- `vMAJOR.MINOR.PATCH` (example: `v1.2.0`)
 
 For stable releases, all shipped module manifests must have:
 
@@ -33,24 +43,24 @@ For stable releases, all shipped module manifests must have:
 
 Pre-releases use tags in the form:
 
-- `vMAJOR.MINOR.PATCH-<label>` (example: `v0.7.0-preview.1`, `v0.7.0-rc.1`)
+- `vMAJOR.MINOR.PATCH-<label>` (example: `v1.2.0-preview.1`, `v1.2.0-rc.1`)
 
 **Important:** the module manifests still use the *base* version:
 
 - `ModuleVersion = MAJOR.MINOR.PATCH`
 
-That means: to cut `v0.7.4-preview.1`, the manifests must already be bumped to `0.7.4`.  
+That means: to cut `v1.2.4-preview.1`, the manifests must already be bumped to `1.2.4`.  
 (The Release workflow extracts the base version and validates it against all module manifests.)
 
 Pre-release tags do **not** publish to PowerShell Gallery.
 
 ## Release preparation (always via PR)
 
-1. Create a branch for the release preparation (for example: `release/v0.7.0`).
+1. Create a branch for the release preparation (for example: `release/v1.2.0`).
 2. Bump all shipped module versions using the repository tool:
 
    ```powershell
-   pwsh -NoProfile -File ./tools/Set-IdleModuleVersion.ps1 -TargetVersion 0.7.0
+   pwsh -NoProfile -File ./tools/Set-IdleModuleVersion.ps1 -TargetVersion 1.2.0
    ```
 
 3. Run tests:
@@ -83,15 +93,15 @@ The workflow uploads an expanded artifact as a workflow run artifact.
 
 Use this when you want a GitHub-only preview build.
 
-1. Ensure the manifests are bumped to the target base version (PR merged), e.g. `0.7.4`.
+1. Ensure the manifests are bumped to the target base version (PR merged), e.g. `1.2.4`.
 2. Create an annotated tag on the `main` merge commit:
 
    ```bash
    git checkout main
    git pull --ff-only
 
-   git tag -a v0.7.4-preview.1 -m "IdLE v0.7.4-preview.1"
-   git push origin v0.7.4-preview.1
+   git tag -a v1.2.4-preview.1 -m "IdLE v1.2.4-preview.1"
+   git push origin v1.2.4-preview.1
    ```
 
 3. The Release workflow will:
@@ -104,7 +114,7 @@ If you need another preview, repeat with `preview.2`, etc. (no version bump requ
 
 ## Cut a stable release (GitHub Release + optional PSGallery publish)
 
-1. Ensure the manifests are bumped to the target version (PR merged), e.g. `0.7.0`.
+1. Ensure the manifests are bumped to the target version (PR merged), e.g. `1.2.0`.
 2. Create an annotated tag:
 
    ```bash
@@ -112,10 +122,10 @@ If you need another preview, repeat with `preview.2`, etc. (no version bump requ
    git pull --ff-only
 
    # Create an annotated tag (recommended)
-   git tag -a v0.7.0 -m "IdLE v0.7.0"
+   git tag -a v1.2.0 -m "IdLE v1.2.0"
 
    # Push the tag to trigger the Release workflow
-   git push origin v0.7.0
+   git push origin v1.2.0
    ```
 
 3. The Release workflow will:
@@ -150,8 +160,8 @@ This script copies the `IdLE` meta-module and required nested modules into a loc
 
 ## Versioning and naming
 
-- Use `vMAJOR.MINOR.PATCH` tags (for example `v0.7.0`).
-- Pre-releases are allowed (for example `v0.7.0-rc.1`). They should be tested via the dry-run path first.
+- Use `vMAJOR.MINOR.PATCH` tags (for example `v1.2.0`).
+- Pre-releases are allowed (for example `v1.2.0-rc.1`). They should be tested via the dry-run path first.
 - Avoid deleting and reusing tags.
 
 ## Troubleshooting
@@ -162,7 +172,7 @@ This script copies the `IdLE` meta-module and required nested modules into a loc
 - Run the packaging script locally in list-only mode to inspect the file list:
 
 ```powershell
-pwsh -NoProfile -File ./tools/New-IdleReleaseArtifact.ps1 -Tag v0.7.0-test -ListOnly
+pwsh -NoProfile -File ./tools/New-IdleReleaseArtifact.ps1 -Tag v1.2.0-test -ListOnly
 ```
 
 ### Tag was pushed but the workflow fails with a version mismatch
@@ -182,7 +192,7 @@ With immutable releases enabled, treat published releases as immutable.
 Preferred approach:
 
 1. Fix the issue on `main`.
-2. Cut a new version tag (for example `v0.7.1`).
+2. Cut a new version tag (for example `v1.2.1`).
 
 ### The PSGallery publish job is blocked
 

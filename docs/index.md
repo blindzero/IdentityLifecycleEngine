@@ -50,4 +50,3 @@ used between IdLE and its hosts.
 - [Contributing](../CONTRIBUTING.md)
 - [Style guide](../STYLEGUIDE.md)
 - [Examples](../examples/README.md)
-
