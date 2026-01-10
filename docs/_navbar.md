@@ -3,3 +3,4 @@
 - [Usage](usage/workflows.md)
 - [Specifications](specs/plan-export.md)
 - [Advanced](advanced/architecture.md)
+- [Releasing](advanced/releases.md)

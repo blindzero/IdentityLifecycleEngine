@@ -42,6 +42,7 @@ used between IdLE and its hosts.
 - [Security](advanced/security.md)
 - [Extensibility](advanced/extensibility.md)
 - [Testing](advanced/testing.md)
+- [Releasing](advanced/releases.md)
 
 ## Repository links
 
