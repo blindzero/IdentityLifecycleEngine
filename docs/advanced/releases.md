@@ -17,6 +17,16 @@ Pre-release tags are **GitHub-only** (no PowerShell Gallery publish).
 - Publishing to PowerShell Gallery is protected via a GitHub **Environment** (`psgallery-prod`) and requires approval.
 - A local end-to-end publish test runs in CI (publishes to a local repository, then installs/imports the module).
 
+## Release workflow safety gates
+
+The Release workflow enforces additional guardrails for tagged releases:
+
+- **Tag must point to `origin/main` HEAD** (fail-fast).
+- **CI must be green for the tag commit** (`ci.yml` must have a successful run for the same SHA).
+- **Tag base version must match all shipped module manifests**.
+
+These checks prevent "broken" releases (e.g., tagging the wrong commit or forgetting the version bump).
+
 ## Versioning policy
 
 ### Stable tags
