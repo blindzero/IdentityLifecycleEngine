@@ -254,7 +254,10 @@ Write-Host "Running PSScriptAnalyzer ($PSScriptAnalyzerVersion) using settings: 
 Write-Host "Analyzing paths:"
 $resolvedPaths | ForEach-Object { Write-Host "  - $_" }
 
-$findings = Invoke-ScriptAnalyzer -Path $resolvedPaths -Recurse -Settings $resolvedSettingsPath
+$findings = @()
+foreach ($path in $resolvedPaths) {
+    $findings += Invoke-ScriptAnalyzer -Path $path -Recurse -Settings $resolvedSettingsPath
+}
 
 # Create a stable, small JSON payload (DiagnosticRecord contains complex members).
 $summary = @(
