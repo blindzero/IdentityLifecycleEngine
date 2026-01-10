@@ -85,7 +85,7 @@ jobs:
 
           git fetch origin main --depth 1 | Out-Null
 
-          $tagSha  = (git rev-parse '${{ github.sha }}').Trim()
+          $tagSha  = (git rev-parse '${{ github.ref }}^{}').Trim()
           $mainSha = (git rev-parse 'origin/main').Trim()
 
           if ($tagSha -ne $mainSha) {
