@@ -28,4 +28,4 @@ Describe any alternative solutions you have considered.
 
 ## Additional Context
 
-Add any other context or examples here, attac logs, screenshots, or relevant files.
+Add any other context or examples here, attach logs, screenshots, or relevant files.
