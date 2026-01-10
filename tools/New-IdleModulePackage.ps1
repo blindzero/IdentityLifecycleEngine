@@ -4,7 +4,7 @@ Creates a self-contained IdLE module package folder suitable for publishing (or 
 
 .DESCRIPTION
 Builds a staging folder that contains the meta-module 'IdLE' and its nested modules
-(e.g. IdLE.Core, IdLE.Steps.Common, IdLE.Provider.Mock) under a local 'Modules/' folder.
+(e.g. IdLE.Core, IdLE.Steps.Common) under a local 'Modules/' folder.
 
 This avoids restructuring the repository while still producing a PowerShell Gallery compatible layout.
 
@@ -18,8 +18,9 @@ Repository root path. Defaults to the parent folder of this script directory.
 Target folder for the staged package. Defaults to '<RepoRootPath>/artifacts/IdLE'.
 
 .PARAMETER NestedModuleNames
-Names of nested modules to include under 'Modules/'. Defaults to IdLE.Core, IdLE.Steps.Common,
-and IdLE.Provider.Mock.
+Names of nested modules to include under 'Modules/'. Defaults to IdLE.Core and IdLE.Steps.Common.
+Note: IdLE.Provider.Mock is published as a separate top-level module to ensure it is discoverable
+via Import-Module when installed from PowerShell Gallery.
 
 .PARAMETER Clean
 If set, deletes the OutputDirectory before staging the package.
@@ -48,8 +49,7 @@ param(
     [ValidateNotNullOrEmpty()]
     [string[]] $NestedModuleNames = @(
         'IdLE.Core',
-        'IdLE.Steps.Common',
-        'IdLE.Provider.Mock'
+        'IdLE.Steps.Common'
     ),
 
     [Parameter()]
