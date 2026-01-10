@@ -66,7 +66,7 @@ Pre-release tags do **not** publish to PowerShell Gallery.
 3. Run tests:
 
    ```powershell
-   pwsh -NoProfile -File ./tools/run-tests.ps1
+   pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1
    ```
 
 4. Commit and push the changes.
