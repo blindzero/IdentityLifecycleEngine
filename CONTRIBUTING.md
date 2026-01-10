@@ -123,13 +123,53 @@ Pull Requests must:
 
 A contribution is complete when:
 
-- all tests pass (`Invoke-Pester -Path ./tests`)
-- no architecture rules are violated (see `docs/01-architecture.md`)
+- all tests pass (`pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1`)
+- static analysis passes (`pwsh -NoProfile -File ./tools/Invoke-IdleScriptAnalyzer.ps1`)
+- no architecture rules are violated (see `docs/advanced/architecture.md`)
 - public APIs are documented (comment-based help for exported functions)
 - documentation is updated where required:
   - README.md (only high-level overview + pointers)
   - docs/ (usage/concepts/examples)
   - provider/step module READMEs if behavior/auth changes
+
+## Local quality checks
+
+IdLE provides canonical scripts under `tools/` so you can reproduce the same checks locally that CI runs.
+
+### Run tests (Pester)
+
+Run the test suite:
+
+- `pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1`
+
+To generate CI-like artifacts (test results + coverage) under `artifacts/`:
+
+- `pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1 -CI`
+
+Outputs:
+
+- `artifacts/test-results.xml` (NUnitXml)
+- `artifacts/coverage.xml` (coverage report)
+
+### Run static analysis (PSScriptAnalyzer)
+
+Run PSScriptAnalyzer using the repository settings:
+
+- `pwsh -NoProfile -File ./tools/Invoke-IdleScriptAnalyzer.ps1`
+
+To generate CI-like artifacts under `artifacts/` (including SARIF for GitHub Code Scanning):
+
+- `pwsh -NoProfile -File ./tools/Invoke-IdleScriptAnalyzer.ps1 -CI`
+
+Outputs:
+
+- `artifacts/pssa-results.json` (summary)
+- `artifacts/pssa-results.sarif` (SARIF)
+
+The rule set is defined in `PSScriptAnalyzerSettings.psd1` at the repository root.
+The runner pins tool versions for deterministic CI results; update pins intentionally and document the change in the PR.
+
+> Note: `artifacts/` is a build output folder and should not be committed.
 
 ---
 
@@ -253,11 +293,6 @@ To fix a failing PR:
 
 Repository maintainers should configure branch protection so that required status checks include this workflow.
 
-
-
-
-
-
 ## Documentation
 
 Keep docs short and linkable:
@@ -269,7 +304,7 @@ Keep docs short and linkable:
 Key links:
 
 - Docs map: `docs/00-index.md`
-- Architecture: `docs/01-architecture.md`
+- Architecture: `docs/advanced/architecture.md`
 - Examples: `docs/02-examples.md`
 - Coding & in-code documentation rules: `STYLEGUIDE.md`
 
