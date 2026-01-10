@@ -32,7 +32,7 @@ Describe how this change was tested.
 
 ### How to test & review
 
-If helpful, provide additional information how to test.
+If helpful, provide additional information on how to test.
 
 ## Checklist
 
