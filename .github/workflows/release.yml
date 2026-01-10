@@ -108,7 +108,7 @@ jobs:
 
           # NOTE: This must match the workflow filename for CI.
           # In this repository it is: .github/workflows/ci.yml
-          $uri = "https://api.github.com/repos/$repo/actions/workflows/ci.yml/runs?per_page=5&head_sha=$sha"
+          $uri = "https://api.github.com/repos/$repo/actions/workflows/ci.yml/runs?per_page=100&head_sha=$sha"
 
           $headers = @{
             Authorization = "Bearer $env:GH_TOKEN"
