@@ -186,7 +186,6 @@ $includeRoots = @(
     'src',
     'docs',
     'examples',
-    'tools',
     'README.md',
     'LICENSE.md',
     'CONTRIBUTING.md',
