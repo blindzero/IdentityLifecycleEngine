@@ -2,6 +2,9 @@
 
 This document describes how maintainers cut a release using the GitHub Actions workflow.
 
+> This is part of the **advanced** documentation because it is maintainer-focused and describes repository
+> operations (tags, GitHub Releases, release artifacts) rather than end-user usage.
+
 ## Prerequisites
 
 - You have write permissions to the repository.
@@ -10,13 +13,23 @@ This document describes how maintainers cut a release using the GitHub Actions w
 
 ## Dry-run (no GitHub Release)
 
-Use this to validate the release packaging without creating a GitHub Release.
+Use this to validate release packaging without creating a GitHub Release.
+
+Important notes:
+
+- The manual run must be executed from a ref that **contains** the workflow (for example `main` or a feature branch).
+  Older tags (for example `v0.6.0`) may not include the `workflow_dispatch` trigger and therefore cannot be used for manual runs.
+- The `tag` input is used for **naming** the artifact and does **not** need to exist as a git tag.
+- For dry-runs, the workflow uploads the **expanded folder contents** as an artifact to avoid a ZIP-in-ZIP experience.
+
+Steps:
 
 1. Go to **GitHub → Actions → Release**.
 2. Click **Run workflow**.
-3. Provide a test tag (for example `v0.7.0-test`).
-4. Leave **publish_release** unchecked / `false`.
-5. When the workflow completes, download the ZIP from the **Artifacts** section of the run.
+3. **Use workflow from**: select `main` (or a feature branch that contains the workflow).
+4. Provide a test tag in the input (for example `v0.7.0-test`).
+5. Leave **publish_release** unchecked / `false`.
+6. When the workflow completes, download the artifact from the **Artifacts** section of the run and inspect the contents.
 
 This verifies:
 
@@ -52,6 +65,7 @@ What happens next:
 
 - Use `vMAJOR.MINOR.PATCH` tags (for example `v0.7.0`).
 - Pre-releases are allowed (for example `v0.7.0-rc.1`). They should be tested via the dry-run path first.
+- Avoid deleting and reusing tags.
 
 ## Troubleshooting
 
@@ -72,5 +86,3 @@ Preferred approach:
 
 1. Fix the issue on `main`.
 2. Cut a new version tag (for example `v0.7.1`).
-
-Avoid deleting and reusing tags.

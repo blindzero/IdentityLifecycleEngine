@@ -72,10 +72,36 @@ jobs:
           }
           Get-Item -LiteralPath $path | Format-List FullName, Length, LastWriteTimeUtc
 
-      - name: Upload workflow artifact (dry run)
+      # For manual dry-runs we upload expanded contents (folder) to avoid a ZIP-in-ZIP experience.
+      # For tag-triggered runs (or manual publish_release=true) we also upload the ZIP itself.
+      - name: Expand artifact for dry-run upload
+        if: ${{ inputs.publish_release != true && !startsWith(github.ref, 'refs/tags/v') }}
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.tag.outputs.value }}'
+          $zipPath = "artifacts/IdLE-$tag.zip"
+          $staging = "artifacts/staging-$tag"
+
+          if (Test-Path -LiteralPath $staging) {
+            Remove-Item -LiteralPath $staging -Recurse -Force
+          }
+
+          New-Item -Path $staging -ItemType Directory -Force | Out-Null
+          Expand-Archive -LiteralPath $zipPath -DestinationPath $staging -Force
+
+      - name: Upload workflow artifact (dry run - expanded)
+        if: ${{ inputs.publish_release != true && !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: IdLE-${{ steps.tag.outputs.value }}
+          path: artifacts/staging-${{ steps.tag.outputs.value }}/
+          if-no-files-found: error
+
+      - name: Upload workflow artifact (zip)
+        if: ${{ inputs.publish_release == true || startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: IdLE-${{ steps.tag.outputs.value }}-zip
           path: artifacts/IdLE-${{ steps.tag.outputs.value }}.zip
           if-no-files-found: error
 
