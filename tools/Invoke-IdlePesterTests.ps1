@@ -38,9 +38,8 @@ Coverage output format supported by Pester.
 One or more paths to include for coverage (e.g. 'src'). Defaults to 'src'
 relative to the repository root.
 
-.PARAMETER MinimumPesterVersion
-Minimum supported Pester version. The script will install Pester in CurrentUser scope
-when missing or below the minimum version.
+.PARAMETER PesterVersion
+Pinned Pester version to use. Defaults to 5.7.1.
 
 .EXAMPLE
 pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1
@@ -85,7 +84,7 @@ param(
 
     [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [version] $MinimumPesterVersion = '5.0.0'
+    [version] $PesterVersion = '5.7.1'
 )
 
 Set-StrictMode -Version Latest
@@ -146,32 +145,36 @@ function Ensure-Directory {
 function Ensure-Pester {
     <#
     .SYNOPSIS
-    Ensures a compatible Pester module is installed and imported.
+    Ensures Pester is installed (pinned version) and imported.
 
     .DESCRIPTION
-    CI runners are ephemeral. If Pester is missing, the script installs it
-    in CurrentUser scope. Local users can also benefit from auto-install.
+    CI runners are ephemeral. When missing, we install Pester in CurrentUser scope.
+    We explicitly pin versions for determinism.
+
+    IMPORTANT:
+    - We keep this logic self-contained and consistent across local + CI runs.
+    - We avoid auto-upgrading to newer versions unless the pinned version is changed in code.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [version] $MinimumVersion
+        [version] $RequiredVersion
     )
 
-    $pester = Get-Module -ListAvailable -Name Pester |
-        Sort-Object Version -Descending |
+    $installed = Get-Module -ListAvailable -Name Pester |
+        Where-Object { $_.Version -eq $RequiredVersion } |
         Select-Object -First 1
 
-    if (-not $pester -or $pester.Version -lt $MinimumVersion) {
+    if (-not $installed) {
         if (-not (Get-Command -Name Install-Module -ErrorAction SilentlyContinue)) {
-            throw "Pester >= $MinimumVersion is required, but Install-Module is not available. Install Pester manually and retry."
+            throw "Pester ($RequiredVersion) is required, but Install-Module is not available. Install Pester manually and retry."
         }
 
-        Write-Host "Installing Pester >= $MinimumVersion (CurrentUser scope)..."
-        Install-Module -Name Pester -Scope CurrentUser -Force -MinimumVersion $MinimumVersion | Out-Null
+        Write-Host "Installing Pester ($RequiredVersion) in CurrentUser scope..."
+        Install-Module -Name Pester -Scope CurrentUser -Force -RequiredVersion $RequiredVersion -AllowClobber | Out-Null
     }
 
-    Import-Module -Name Pester -MinimumVersion $MinimumVersion -Force
+    Import-Module -Name Pester -RequiredVersion $RequiredVersion -Force
 }
 
 $repoRoot = Resolve-IdleRepoRoot
@@ -202,7 +205,7 @@ if ($coverageEnabled) {
     }
 }
 
-Ensure-Pester -MinimumVersion $MinimumPesterVersion
+Ensure-Pester -RequiredVersion $PesterVersion
 
 $config = New-PesterConfiguration
 $config.Run.Path = $resolvedTestPath
