@@ -1,9 +1,12 @@
 ---
 name: Feature request
 about: Suggest an enhancement or new feature for IdLE
-title: "[Feature] "
-labels: enhancement
-assignees: ""
+title: ""
+labels:
+  - enhancement
+  - new
+assignees:
+  - blindzero
 ---
 
 ## Problem Statement
@@ -25,4 +28,4 @@ Describe any alternative solutions you have considered.
 
 ## Additional Context
 
-Add any other context or examples here.
+Add any other context or examples here, attach logs, screenshots, or relevant files.
