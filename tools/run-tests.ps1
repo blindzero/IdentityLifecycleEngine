@@ -1,54 +1,53 @@
+<#
+.SYNOPSIS
+Legacy wrapper for running IdLE Pester tests.
+
+.DESCRIPTION
+DEPRECATED: Use './tools/Invoke-IdlePesterTests.ps1' instead.
+
+This wrapper exists for backward compatibility because older documentation and
+workflows still reference 'run-tests.ps1'. It will be removed in a future release.
+
+.PARAMETER TestPath
+Path to the tests folder. Defaults to 'tests'.
+
+.PARAMETER CI
+Enables CI mode. Passed through to Invoke-IdlePesterTests.ps1.
+
+.PARAMETER TestResultsPath
+Path to the NUnitXml test results file. Passed through to Invoke-IdlePesterTests.ps1.
+
+.EXAMPLE
+pwsh -NoProfile -File ./tools/run-tests.ps1 -CI
+#>
+
 [CmdletBinding()]
 param(
     [Parameter()]
+    [ValidateNotNullOrEmpty()]
     [string] $TestPath = 'tests',
 
     [Parameter()]
     [switch] $CI,
 
     [Parameter()]
+    [ValidateNotNullOrEmpty()]
     [string] $TestResultsPath = 'artifacts/test-results.xml'
 )
 
-Set-StrictMode -Off
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Test-Pester {
-    [CmdletBinding()]
-    param(
-        [Parameter()]
-        [version] $MinimumVersion = '5.0.0'
-    )
-
-    $pester = Get-Module -ListAvailable -Name Pester |
-        Sort-Object Version -Descending |
-        Select-Object -First 1
-
-    if (-not $pester -or $pester.Version -lt $MinimumVersion) {
-        Write-Host "Installing Pester >= $MinimumVersion (CurrentUser scope)..."
-        Install-Module -Name Pester -Scope CurrentUser -Force -MinimumVersion $MinimumVersion
-    }
-
-    Import-Module -Name Pester -MinimumVersion $MinimumVersion -Force
+$targetScript = Join-Path -Path $PSScriptRoot -ChildPath 'Invoke-IdlePesterTests.ps1'
+if (-not (Test-Path -LiteralPath $targetScript)) {
+    throw "Missing required script '$targetScript'. Ensure your working copy includes 'tools/Invoke-IdlePesterTests.ps1'."
 }
 
-# Ensure output folder exists (for CI artifacts)
-$resultsDir = Split-Path -Path $TestResultsPath -Parent
-if ($resultsDir -and -not (Test-Path -Path $resultsDir)) {
-    New-Item -Path $resultsDir -ItemType Directory -Force | Out-Null
+if (-not $CI) {
+    Write-Warning "DEPRECATED: './tools/run-tests.ps1' is deprecated. Use './tools/Invoke-IdlePesterTests.ps1' instead."
 }
 
-Test-Pester -MinimumVersion '5.0.0'
-
-$config = New-PesterConfiguration
-$config.Run.Path = $TestPath
-$config.Run.Exit = $true
-$config.Output.Verbosity = 'Detailed'
-
-if ($CI) {
-    $config.TestResult.Enabled = $true
-    $config.TestResult.OutputFormat = 'NUnitXml'
-    $config.TestResult.OutputPath = $TestResultsPath
-}
-
-Invoke-Pester -Configuration $config
+& $targetScript `
+    -TestPath $TestPath `
+    -CI:$CI `
+    -TestResultsPath $TestResultsPath
