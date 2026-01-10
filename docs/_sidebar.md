@@ -35,3 +35,4 @@
 - [Security](advanced/security.md)
 - [Extensibility](advanced/extensibility.md)
 - [Testing](advanced/testing.md)
+- [Releasing](advanced/releases.md)

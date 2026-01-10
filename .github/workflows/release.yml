@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name to package (e.g. v0.7.0-test). If empty, uses current ref name.'
+        required: false
+        type: string
+      publish_release:
+        description: 'If true, create a GitHub Release and upload the ZIP as a release asset.'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build artifact (and optionally publish release)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show PowerShell version
+        shell: pwsh
+        run: |
+          $PSVersionTable.PSVersion
+          pwsh -v
+
+      - name: Determine tag
+        id: tag
+        shell: pwsh
+        run: |
+          $inputTag = '${{ inputs.tag }}'
+          if (-not [string]::IsNullOrWhiteSpace($inputTag)) {
+            "value=$inputTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            exit 0
+          }
+
+          $refName = '${{ github.ref_name }}'
+          if ([string]::IsNullOrWhiteSpace($refName)) {
+            throw "github.ref_name is empty. Provide inputs.tag when using workflow_dispatch."
+          }
+
+          "value=$refName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Checkout requested tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.value }}
+          fetch-depth: 0
+
+      - name: Build release artifact
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.tag.outputs.value }}'
+          ./tools/New-IdleReleaseArtifact.ps1 -Tag $tag
+
+      - name: Verify artifact exists
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.tag.outputs.value }}'
+          $path = "artifacts/IdLE-$tag.zip"
+          if (-not (Test-Path -LiteralPath $path)) {
+            throw "Expected artifact not found: $path"
+          }
+          Get-Item -LiteralPath $path | Format-List FullName, Length, LastWriteTimeUtc
+
+      - name: Upload workflow artifact (dry run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: IdLE-${{ steps.tag.outputs.value }}
+          path: artifacts/IdLE-${{ steps.tag.outputs.value }}.zip
+          if-no-files-found: error
+
+      - name: Create GitHub Release (optional)
+        if: ${{ inputs.publish_release == true || startsWith(github.ref, 'refs/tags/v') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          name: ${{ steps.tag.outputs.value }}
+          generate_release_notes: true
+          files: |
+            artifacts/IdLE-${{ steps.tag.outputs.value }}.zip
