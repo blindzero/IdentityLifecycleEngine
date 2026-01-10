@@ -53,6 +53,12 @@ jobs:
 
           "value=$refName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
+      - name: Checkout requested tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.value }}
+          fetch-depth: 0
+
       - name: Build release artifact
         shell: pwsh
         run: |
