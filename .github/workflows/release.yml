@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   release:
@@ -36,11 +37,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Always checkout the workflow ref (branch/tag selected in the UI or the pushed tag ref).
-          # Never treat the "tag" input as a git ref.
           ref: ${{ github.ref }}
 
       - name: Show PowerShell version
@@ -71,23 +70,52 @@ jobs:
         shell: pwsh
         run: |
           $tag = '${{ steps.tag.outputs.value }}'
-          # Stable tags: vMAJOR.MINOR.PATCH (e.g. v0.7.0)
           $isStable = $tag -match '^v\d+\.\d+\.\d+$'
-          # Pre-release tags: vMAJOR.MINOR.PATCH-<label> (e.g. v0.7.0-preview.1)
           $isPrerelease = $tag -match '^v\d+\.\d+\.\d+-[0-9A-Za-z][0-9A-Za-z\.\-]*$'
 
           "is_stable=$($isStable.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "is_prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Require green CI on the target commit
+        if: ${{ inputs.publish_release == true || inputs.publish_psgallery == true || startsWith(github.ref, 'refs/tags/v') }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $repo = '${{ github.repository }}'
+          $sha  = '${{ github.sha }}'
+
+          # NOTE: This must match the workflow filename for CI.
+          # In this repository it is: .github/workflows/ci.yml
+          $uri = "https://api.github.com/repos/$repo/actions/workflows/ci.yml/runs?per_page=5&head_sha=$sha"
+
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept        = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+
+          $resp = Invoke-RestMethod -Method Get -Uri $uri -Headers $headers
+          $run = $resp.workflow_runs | Sort-Object run_number -Descending | Select-Object -First 1
+
+          if (-not $run) {
+            throw "No CI workflow run found for SHA $sha. Ensure CI runs on main for this commit before releasing."
+          }
+
+          if ($run.status -ne 'completed' -or $run.conclusion -ne 'success') {
+            throw "CI is not green for SHA $sha. Status=$($run.status), Conclusion=$($run.conclusion)."
+          }
+
+          Write-Host "CI is green for SHA $sha (run #$($run.run_number))."
 
       - name: Validate tag version matches module manifest version(s)
         shell: pwsh
         run: |
           $tag = '${{ steps.tag.outputs.value }}'
 
-          # Accept stable tags and prerelease tags, but always extract the base version (MAJOR.MINOR.PATCH).
-          # Examples:
-          # - v0.7.0             -> 0.7.0
-          # - v0.7.0-preview.1   -> 0.7.0
           if ($tag -notmatch '^v(\d+\.\d+\.\d+)(?:-[0-9A-Za-z][0-9A-Za-z\.\-]*)?$') {
             Write-Host "Tag '$tag' is not SemVer-like. Skipping module version validation."
             exit 0
@@ -96,7 +124,6 @@ jobs:
           $expectedVersion = $Matches[1]
           Write-Host "Expected module version from tag: $expectedVersion"
 
-          # Strict mode (default): all shipped module manifests must match the tag version.
           $manifestPaths = @(
             'src/IdLE/IdLE.psd1',
             'src/IdLE.Core/IdLE.Core.psd1',
@@ -164,7 +191,7 @@ jobs:
 
       - name: Upload workflow artifact (expanded folder)
         if: ${{ inputs.publish_release != true && !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: IdLE-${{ steps.tag.outputs.value }}-expanded
           path: artifacts/staging-${{ steps.tag.outputs.value }}
@@ -172,7 +199,7 @@ jobs:
 
       - name: Upload workflow artifact (zip)
         if: ${{ inputs.publish_release == true || startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: IdLE-${{ steps.tag.outputs.value }}-zip
           path: artifacts/IdLE-${{ steps.tag.outputs.value }}.zip
@@ -196,7 +223,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
@@ -264,7 +291,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
