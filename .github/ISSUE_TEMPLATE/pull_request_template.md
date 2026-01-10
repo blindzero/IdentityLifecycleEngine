@@ -1,16 +1,10 @@
-## Summary
+# Summary
 
 Provide a short summary of the changes.
 
 ## Motivation
 
 Why is this change needed? What problem does it solve?
-
-## Changes
-
-- 
-- 
-- 
 
 ## Type of Change
 
@@ -22,6 +16,12 @@ Please select the relevant option:
 - [ ] Documentation update
 - [ ] Refactoring / internal improvement
 
+## Changes
+
+- 
+- 
+- 
+
 ## Testing
 
 Describe how this change was tested.
@@ -29,6 +29,10 @@ Describe how this change was tested.
 - [ ] Unit tests
 - [ ] Contract tests
 - [ ] Manual testing
+
+### How to test & review
+
+If helpful, provide additional information how to test.
 
 ## Checklist
 
@@ -41,3 +45,5 @@ Describe how this change was tested.
 ## Related Issues
 
 Link related issues here (if any).
+
+Closes #...

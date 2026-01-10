@@ -1,9 +1,8 @@
 ---
 name: Bug report
 about: Report a bug in IdentityLifecycleEngine (IdLE)
-title: "[Bug] "
 labels: bug
-assignees: ""
+assignees: "blindzero"
 ---
 
 ## Description

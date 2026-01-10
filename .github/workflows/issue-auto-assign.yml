@@ -1,9 +1,7 @@
 name: Auto label and assign new issues
 
-on:
-  issues:
-    types: [opened]
-
+on: workflow_dispatch
+  
 jobs:
   label_and_assign:
     if: github.event.issue.user.login != 'blindzero'
