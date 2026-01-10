@@ -56,12 +56,23 @@ IdLE aims to be:
 
 ## Installation
 
-### Option A — Clone & import locally (current)
+### Install from PowerShell Gallery (recommended)
+
+```powershell
+Install-Module -Name IdLE -Scope CurrentUser
+Import-Module IdLE
+```
+
+> The `IdLE` meta-module loads the bundled nested modules (engine, built-in steps, and the mock provider used by examples)
+> from within the installed package.
+
+### Install from source (contributors / development)
 
 ```powershell
 git clone https://github.com/blindzero/IdentityLifecycleEngine
 cd IdentityLifecycleEngine
 
+# Import meta module
 Import-Module ./src/IdLE/IdLE.psd1 -Force
 ```
 
@@ -88,7 +99,6 @@ Advanced hosts can import the engine without any step packs:
 ```powershell
 Import-Module ./src/IdLE.Core/IdLE.Core.psd1 -Force
 ```
-
 
 ### Option B — PowerShell Gallery (planned)
 

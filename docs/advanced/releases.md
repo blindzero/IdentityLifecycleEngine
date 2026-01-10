@@ -61,6 +61,37 @@ What happens next:
 3. A GitHub Release is created for the tag, with auto-generated release notes.
 4. The ZIP is uploaded as a release asset.
 
+## PowerShell Gallery publishing
+
+IdLE is published to the PowerShell Gallery as a **single package** named `IdLE`.
+
+- On tag pushes matching `v*`, the workflow publishes to PSGallery automatically.
+- For manual runs (`workflow_dispatch`), publishing is only performed when **publish_psgallery** is set to `true`.
+
+### PSGallery API key
+
+Publishing requires a repository secret:
+
+- **Name:** `PSGALLERY_API_KEY`
+- **Value:** a PowerShell Gallery API key with permission to publish the `IdLE` module.
+
+### Package staging
+
+The workflow does not publish directly from the repository `src/` layout. Instead it stages a publishable, self-contained
+package into:
+
+- `artifacts/IdLE`
+
+Staging is performed by:
+
+- `tools/New-IdleModulePackage.ps1`
+
+This script copies the `IdLE` meta-module and required nested modules into a local `Modules/` folder and patches the staged
+`IdLE.psd1` so `NestedModules` use in-package relative paths (e.g. `./Modules/IdLE.Core/IdLE.Core.psd1`).
+
+> This approach avoids repository restructuring while ensuring that `Install-Module IdLE` + `Import-Module IdLE` works
+> after installation.
+
 ## Versioning and naming
 
 - Use `vMAJOR.MINOR.PATCH` tags (for example `v0.7.0`).
