@@ -8,12 +8,10 @@ assignees:
   - blindzero
 ---
 
----
 > ⚠️ Note — Please use the dedicated templates
 >
 > - Bug report: https://github.com/blindzero/IdentityLifecycleEngine/issues/new?template=bug_report.md
 > - Feature request: https://github.com/blindzero/IdentityLifecycleEngine/issues/new?template=feature_request.md
----
 
 # Description
 
