@@ -120,7 +120,7 @@ jobs:
           $run = $resp.workflow_runs | Sort-Object run_number -Descending | Select-Object -First 1
 
           if (-not $run) {
-            throw "No CI workflow run found for SHA $sha. Ensure CI runs on main for this commit before releasing."
+            throw "No completed CI workflow run found for SHA $sha. If CI is currently running for this commit, wait for it to complete successfully on main before releasing."
           }
 
           if ($run.status -ne 'completed' -or $run.conclusion -ne 'success') {
