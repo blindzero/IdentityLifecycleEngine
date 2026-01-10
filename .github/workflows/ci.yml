@@ -32,15 +32,17 @@ jobs:
 
       - name: Run Pester
         shell: pwsh
-        run: pwsh -NoProfile -File ./tools/run-tests.ps1 -CI
+        run: pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1 -CI
 
-      - name: Upload test results
+      - name: Upload Pester artifacts
         if: always()
-        continue-on-error: true
         uses: actions/upload-artifact@v6
         with:
-          name: test-results-${{ matrix.os }}
-          path: artifacts/test-results.xml
+          name: pester-artifacts-${{ matrix.os }}
+          if-no-files-found: warn
+          path: |
+            artifacts/test-results.xml
+            artifacts/coverage.xml
 
   docs-cmdlet-reference:
     name: Verify cmdlet reference is up to date
@@ -63,12 +65,12 @@ jobs:
               # Ignore if not supported in this environment
             }
           }
-          
+
           # platyPS is pinned for deterministic Markdown output.
           # See CONTRIBUTING.md for upgrade procedure.
 
           Install-Module -Name platyPS -RequiredVersion 0.14.2 -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
-      
+
       - name: Debug platyPS version
         shell: pwsh
         run: |
