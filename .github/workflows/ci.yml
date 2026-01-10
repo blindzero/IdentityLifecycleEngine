@@ -81,7 +81,7 @@ jobs:
 
           $shouldUpload = $false
 
-          if (Test-Path -LiteralPath $jsonPath -and Test-Path -LiteralPath $sarifPath) {
+          if ((Test-Path -LiteralPath $jsonPath) -and (Test-Path -LiteralPath $sarifPath)) {
             $content = Get-Content -LiteralPath $jsonPath -Raw
             if ($content) {
               $items = $content | ConvertFrom-Json
