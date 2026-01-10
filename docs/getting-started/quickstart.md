@@ -6,9 +6,24 @@ This quickstart walks through the IdLE flow:
 2. Build a plan from a workflow
 3. Execute the plan with host-provided providers
 
-## Run the repository demo
+## If you installed IdLE from PowerShell Gallery
+
+IdLE is an orchestration engine. To **execute** a plan you must provide provider implementations (for example: identity store,
+entitlement store, messaging, etc.). If you only want a runnable end-to-end demo, follow the repository demo section below.
+
+Next steps for library usage:
+
+- Install IdLE: see [Installation](./installation.md)
+- Learn the concepts: [Concept](../overview/concept.md)
+- Cmdlets reference: [Cmdlets](../reference/cmdlets.md)
+- Providers and contracts: [Providers](../usage/providers.md)
+
+## Run the repository demo (recommended first run)
 
 The repository includes a demo runner that showcases the full IdLE flow using predefined example workflows.
+
+1. Clone the repository (or download the source archive from a GitHub release).
+2. Run the demo script:
 
 ```powershell
 .\examples\Invoke-IdleDemo.ps1
