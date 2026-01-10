@@ -1,0 +1,18 @@
+version: 2
+
+updates:
+  # Keep GitHub Actions up to date (workflow actions + reusable actions).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 5
+
+    # Group all GitHub Actions updates into a single weekly PR to reduce noise.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
