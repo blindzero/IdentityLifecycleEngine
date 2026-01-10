@@ -170,6 +170,7 @@ pwsh -NoProfile -File ./tools/New-IdleReleaseArtifact.ps1 -Tag v0.7.0-test -List
 This means the tag version does not match one or more module manifests.
 
 Fix by:
+
 1. Bumping versions via `Set-IdleModuleVersion.ps1`
 2. Merging the PR
 3. Creating a new tag on the correct commit
