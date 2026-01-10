@@ -69,37 +69,8 @@ jobs:
             artifacts/pssa-results.json
             artifacts/pssa-results.sarif
 
-      - name: Decide whether to upload SARIF
-        id: sarif_check
-        shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          $jsonPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath 'artifacts/pssa-results.json'
-          $sarifPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath 'artifacts/pssa-results.sarif'
-
-          $shouldUpload = $false
-
-          if ((Test-Path -LiteralPath $jsonPath) -and (Test-Path -LiteralPath $sarifPath)) {
-            $content = Get-Content -LiteralPath $jsonPath -Raw
-            if ($content) {
-              $items = $content | ConvertFrom-Json
-              if ($null -ne $items) {
-                # ConvertFrom-Json returns PSCustomObject for single element, array for multiple.
-                if ($items -is [System.Array]) {
-                  $shouldUpload = ($items.Count -gt 0)
-                } else {
-                  $shouldUpload = $true
-                }
-              }
-            }
-          }
-
-          "should_upload_sarif=$($shouldUpload.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
       - name: Upload SARIF to GitHub Code Scanning
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.sarif_check.outputs.should_upload_sarif == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: artifacts/pssa-results.sarif
