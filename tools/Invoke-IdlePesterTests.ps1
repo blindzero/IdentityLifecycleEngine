@@ -130,7 +130,7 @@ function Get-IdleFullPath {
     return [System.IO.Path]::GetFullPath((Join-Path -Path $RepoRootPath -ChildPath $Path))
 }
 
-function Ensure-Directory {
+function Initialize-Directory {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -142,10 +142,10 @@ function Ensure-Directory {
     }
 }
 
-function Ensure-Pester {
+function Initialize-Pester {
     <#
     .SYNOPSIS
-    Ensures Pester is installed (pinned version) and imported.
+    Initializes Pester by ensuring it is installed (pinned version) and imported.
 
     .DESCRIPTION
     CI runners are ephemeral. When missing, we install Pester in CurrentUser scope.
@@ -190,7 +190,7 @@ $coverageEnabled = $CI.IsPresent -or $EnableCoverage.IsPresent
 $resolvedTestResultsPath = $null
 if ($emitTestResults) {
     $resolvedTestResultsPath = Get-IdleFullPath -RepoRootPath $repoRoot -Path $TestResultsPath
-    Ensure-Directory -Path (Split-Path -Path $resolvedTestResultsPath -Parent)
+    Initialize-Directory -Path (Split-Path -Path $resolvedTestResultsPath -Parent)
 }
 
 $resolvedCoverageOutputPath = $null
@@ -198,14 +198,14 @@ $resolvedCoveragePaths = @()
 
 if ($coverageEnabled) {
     $resolvedCoverageOutputPath = Get-IdleFullPath -RepoRootPath $repoRoot -Path $CoverageOutputPath
-    Ensure-Directory -Path (Split-Path -Path $resolvedCoverageOutputPath -Parent)
+    Initialize-Directory -Path (Split-Path -Path $resolvedCoverageOutputPath -Parent)
 
     foreach ($p in $CoveragePath) {
         $resolvedCoveragePaths += (Get-IdleFullPath -RepoRootPath $repoRoot -Path $p)
     }
 }
 
-Ensure-Pester -RequiredVersion $PesterVersion
+Initialize-Pester -RequiredVersion $PesterVersion
 
 $config = New-PesterConfiguration
 $config.Run.Path = $resolvedTestPath

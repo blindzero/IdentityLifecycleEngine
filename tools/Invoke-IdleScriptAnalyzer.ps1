@@ -136,7 +136,7 @@ function Get-IdleFullPath {
     return [System.IO.Path]::GetFullPath((Join-Path -Path $RepoRootPath -ChildPath $Path))
 }
 
-function Ensure-Directory {
+function Initialize-Directory {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -148,10 +148,10 @@ function Ensure-Directory {
     }
 }
 
-function Ensure-Module {
+function Initialize-Module {
     <#
     .SYNOPSIS
-    Ensures a module is installed (pinned version) and imported.
+    Initializes a module by ensuring it is installed (pinned version) and imported.
 
     .DESCRIPTION
     CI runners are ephemeral. When missing, we install the module in CurrentUser scope.
@@ -232,7 +232,7 @@ foreach ($p in $Paths) {
 $resolvedJsonOutputPath = $null
 if ($CI) {
     $resolvedJsonOutputPath = Get-IdleFullPath -RepoRootPath $repoRoot -Path $JsonOutputPath
-    Ensure-Directory -Path (Split-Path -Path $resolvedJsonOutputPath -Parent)
+    Initialize-Directory -Path (Split-Path -Path $resolvedJsonOutputPath -Parent)
 }
 
 # SARIF is optional: only generate when CI is on (or user explicitly wants it later)
@@ -241,12 +241,12 @@ $resolvedSarifOutputPath = $null
 $emitSarif = $false
 if ($CI -and $SarifOutputPath) {
     $resolvedSarifOutputPath = Get-IdleFullPath -RepoRootPath $repoRoot -Path $SarifOutputPath
-    Ensure-Directory -Path (Split-Path -Path $resolvedSarifOutputPath -Parent)
+    Initialize-Directory -Path (Split-Path -Path $resolvedSarifOutputPath -Parent)
     $emitSarif = $true
 }
 
 # Ensure analyzer module is present (pinned).
-Ensure-Module -Name 'PSScriptAnalyzer' -RequiredVersion $PSScriptAnalyzerVersion
+Initialize-Module -Name 'PSScriptAnalyzer' -RequiredVersion $PSScriptAnalyzerVersion
 
 # Run analysis using the repo settings file.
 # We rely on the settings file for rule selection and severities.
@@ -281,7 +281,7 @@ if ($CI -and $resolvedJsonOutputPath) {
 if ($emitSarif -and $resolvedSarifOutputPath) {
     # ConvertToSARIF provides the ConvertTo-SARIF cmdlet which accepts -FilePath.
     # We install it only when SARIF output is requested.
-    Ensure-Module -Name 'ConvertToSARIF' -RequiredVersion $ConvertToSarifVersion
+    Initialize-Module -Name 'ConvertToSARIF' -RequiredVersion $ConvertToSarifVersion
 
     $convertCommand = Get-Command -Name 'ConvertTo-SARIF' -ErrorAction SilentlyContinue
     if (-not $convertCommand) {
