@@ -1,8 +1,8 @@
 # Security and Trust Boundaries
 
-IdLE is designed to execute *data-driven* lifecycle workflows in a deterministic way.
+IdLE is designed to execute **data-driven** identity lifecycle workflows in a deterministic way.
 
-Because IdLE is an orchestration engine, it must be very explicit about **what is trusted** and **what is untrusted**.
+Because IdLE is an orchestration engine, it must be explicit about **what is trusted** and **what is untrusted**.
 
 ## Trust boundaries
 
@@ -19,6 +19,15 @@ These inputs may come from users, CI pipelines, or external systems and **must b
 **Rule:** Untrusted inputs must be *data-only*. They must not contain ScriptBlocks or other executable objects.
 
 IdLE enforces this by rejecting ScriptBlocks when importing workflow definitions and by validating inputs at runtime.
+
+IdLE assumes these inputs are **data only**. Dynamic / executable content must be rejected.
+
+Current enforcement principles:
+
+- Workflow definitions must be static data structures (hashtables/arrays/strings/numbers/bools).
+- ScriptBlocks inside workflow definitions are rejected.
+- Event sinks must be objects with a `WriteEvent(event)` method. ScriptBlock sinks are rejected.
+- Step registry handlers must be **function names (strings)**. ScriptBlock handlers are rejected.
 
 ### Trusted extension points (code)
 
@@ -89,3 +98,43 @@ Redaction is intentionally centralized at output boundaries to keep the executio
 - Use providers for system operations; do not embed authentication logic inside steps.
 - Emit events using `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`.
 - Avoid global state. Steps should be idempotent whenever possible.
+
+## Repository security hygiene (maintainers)
+
+This section documents the repository-level security posture and the settings maintainers should keep enabled.
+
+### Dependency hygiene (Dependabot)
+
+IdLE uses Dependabot to keep GitHub Actions dependencies current.
+
+- Configuration file: `.github/dependabot.yml`
+- Expected behaviour: a **weekly** PR that groups GitHub Actions updates
+
+**Verify**:
+
+1. Repository → **Insights** → **Dependency graph** → **Dependabot**
+2. Confirm update activity and that PRs are being opened
+
+### Recommended GitHub repository security settings
+
+These settings are managed in GitHub and cannot be enforced via source control. Maintain them as part of routine repo maintenance:
+
+- **Dependabot alerts**: enabled
+- **Dependabot security updates**: enabled
+- **Secret scanning**: enabled (and **push protection** if available for the repo)
+- **Branch protection rules** on `main`:
+  - Require pull requests before merging
+  - Require status checks to pass before merging (CI)
+  - Restrict force pushes
+- **Least privilege** for workflows:
+  - Use explicit `permissions:` blocks in workflows
+  - Prefer read-only defaults unless a job needs write access
+
+**Verify** (typical locations):
+
+- Repository → **Settings** → **Security** (feature availability depends on GitHub plan)
+- Repository → **Settings** → **Branches** (branch protection)
+
+## See also
+
+- Root security policy: `SECURITY.md`
