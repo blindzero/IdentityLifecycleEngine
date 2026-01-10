@@ -36,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           # Always checkout the workflow ref (branch/tag selected in the UI or the pushed tag ref).
@@ -164,7 +164,7 @@ jobs:
 
       - name: Upload workflow artifact (expanded folder)
         if: ${{ inputs.publish_release != true && !startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: IdLE-${{ steps.tag.outputs.value }}-expanded
           path: artifacts/staging-${{ steps.tag.outputs.value }}
@@ -172,7 +172,7 @@ jobs:
 
       - name: Upload workflow artifact (zip)
         if: ${{ inputs.publish_release == true || startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: IdLE-${{ steps.tag.outputs.value }}-zip
           path: artifacts/IdLE-${{ steps.tag.outputs.value }}.zip
@@ -196,7 +196,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
@@ -264,7 +264,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.ref }}
