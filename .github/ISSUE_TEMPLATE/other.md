@@ -1,6 +1,7 @@
 ---
 name: "General / Other"
 about: "For issues that don't fit 'Bug report' or 'Feature request'."
+title: ""
 labels:
   - new
 assignees:
