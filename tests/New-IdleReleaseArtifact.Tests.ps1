@@ -35,28 +35,29 @@ Describe 'New-IdleReleaseArtifact.ps1' {
 
     Context 'ListOnly output contract' {
 
-        function Get-ListOnlyPaths {
-            [CmdletBinding()]
-            param(
-                [Parameter(Mandatory)]
-                [string] $Tag
-            )
+        BeforeEach {
+            $script:GetListOnlyPaths = {
+                param(
+                    [Parameter(Mandatory)]
+                    [string] $Tag
+                )
 
-            # Write-Host writes to the Information stream in PowerShell 7.
-            # Merge Information stream to success output and parse lines starting with " - ".
-            $lines = & $script:ReleaseScriptPath -Tag $Tag -ListOnly 6>&1 |
-                ForEach-Object { $_.ToString() }
+                # Write-Host writes to the Information stream in PowerShell 7.
+                # Merge Information stream to success output and parse lines starting with " - ".
+                $lines = & $script:ReleaseScriptPath -Tag $Tag -ListOnly 6>&1 |
+                    ForEach-Object { $_.ToString() }
 
-            $paths = $lines |
-                Where-Object { $_ -like ' - *' } |
-                ForEach-Object { $_.Substring(3) }
+                $paths = $lines |
+                    Where-Object { $_ -like ' - *' } |
+                    ForEach-Object { $_.Substring(3) }
 
-            return ,$paths
+                return ,$paths
+            }
         }
 
         It 'returns a deterministic file list (stable ordering)' {
-            $a = Get-ListOnlyPaths -Tag 'v0.7.0-test'
-            $b = Get-ListOnlyPaths -Tag 'v0.7.0-test'
+            $a = & $script:GetListOnlyPaths -Tag 'v0.7.0-test'
+            $b = & $script:GetListOnlyPaths -Tag 'v0.7.0-test'
 
             $a | Should -Not -BeNullOrEmpty
             $b | Should -Not -BeNullOrEmpty
@@ -64,7 +65,7 @@ Describe 'New-IdleReleaseArtifact.ps1' {
         }
 
         It 'does not include excluded top-level paths' {
-            $paths = Get-ListOnlyPaths -Tag 'v0.7.0-test'
+            $paths = & $script:GetListOnlyPaths -Tag 'v0.7.0-test'
 
             # Normalize to forward slashes for consistent assertions
             $norm = $paths | ForEach-Object { $_ -replace '\\', '/' }
@@ -76,7 +77,7 @@ Describe 'New-IdleReleaseArtifact.ps1' {
         }
 
         It 'does not include common build output folders' {
-            $paths = Get-ListOnlyPaths -Tag 'v0.7.0-test'
+            $paths = & $script:GetListOnlyPaths -Tag 'v0.7.0-test'
 
             $norm = $paths | ForEach-Object { $_ -replace '\\', '/' }
 
@@ -129,7 +130,9 @@ Describe 'New-IdleReleaseArtifact.ps1' {
             Add-Type -AssemblyName System.IO.Compression
             Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-            $expected = [DateTimeOffset]::new(1980, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
+            # ZIP timestamps are stored in DOS format. The date should be 1980-01-01.
+            # Due to timezone handling in ZipArchiveEntry, we check the date part only.
+            $expectedDate = [DateTime]::new(1980, 1, 1)
 
             $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
             try {
@@ -138,7 +141,9 @@ Describe 'New-IdleReleaseArtifact.ps1' {
                 $sample | Should -Not -BeNullOrEmpty
 
                 foreach ($e in $sample) {
-                    $e.LastWriteTime | Should -Be $expected
+                    # LastWriteTime from ZipArchiveEntry returns DateTimeOffset.
+                    # Check that the date is 1980-01-01 (ignore time and timezone).
+                    $e.LastWriteTime.Date | Should -Be $expectedDate
                 }
             }
             finally {
