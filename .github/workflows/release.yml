@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Artifact tag name (e.g. v0.7.0-test). This does NOT need to exist as a git tag.'
+        description: 'Artifact release tag name (e.g. v0.7.0-test). This does NOT need to exist as a git tag.'
         required: false
         type: string
       publish_release:
@@ -28,6 +28,11 @@ jobs:
   release:
     name: Build artifact (and optionally publish release)
     runs-on: ubuntu-latest
+
+    outputs:
+      tag: ${{ steps.tag.outputs.value }}
+      is_prerelease: ${{ steps.semver.outputs.is_prerelease }}
+      is_stable: ${{ steps.semver.outputs.is_stable }}
 
     steps:
       - name: Checkout repository
@@ -61,6 +66,19 @@ jobs:
 
           "value=$refName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
+      - name: Classify tag (stable vs prerelease)
+        id: semver
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.tag.outputs.value }}'
+          # Stable tags: vMAJOR.MINOR.PATCH (e.g. v0.7.0)
+          $isStable = $tag -match '^v\d+\.\d+\.\d+$'
+          # Pre-release tags: vMAJOR.MINOR.PATCH-<label> (e.g. v0.7.0-preview.1)
+          $isPrerelease = $tag -match '^v\d+\.\d+\.\d+-[0-9A-Za-z][0-9A-Za-z\.\-]*$'
+
+          "is_stable=$($isStable.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "is_prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - name: Build release artifact
         shell: pwsh
         run: |
@@ -91,15 +109,16 @@ jobs:
             Remove-Item -LiteralPath $staging -Recurse -Force
           }
 
-          New-Item -Path $staging -ItemType Directory -Force | Out-Null
-          Expand-Archive -LiteralPath $zipPath -DestinationPath $staging -Force
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+          Expand-Archive -Path $zipPath -DestinationPath $staging -Force
+          Get-ChildItem -LiteralPath $staging -Recurse | Select-Object FullName | Format-List
 
-      - name: Upload workflow artifact (dry run - expanded)
+      - name: Upload workflow artifact (expanded folder)
         if: ${{ inputs.publish_release != true && !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
-          name: IdLE-${{ steps.tag.outputs.value }}
-          path: artifacts/staging-${{ steps.tag.outputs.value }}/
+          name: IdLE-${{ steps.tag.outputs.value }}-expanded
+          path: artifacts/staging-${{ steps.tag.outputs.value }}
           if-no-files-found: error
 
       - name: Upload workflow artifact (zip)
@@ -117,21 +136,86 @@ jobs:
           tag_name: ${{ steps.tag.outputs.value }}
           name: ${{ steps.tag.outputs.value }}
           generate_release_notes: true
+          prerelease: ${{ steps.semver.outputs.is_prerelease == 'true' }}
           files: |
             artifacts/IdLE-${{ steps.tag.outputs.value }}.zip
+
+  psgallery_local_test:
+    name: Test module publish (local repository)
+    runs-on: ubuntu-latest
+    needs: release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Show PowerShell version
+        shell: pwsh
+        run: |
+          $PSVersionTable.PSVersion
+          pwsh -v
+
+      - name: Install PowerShellGet
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted
+          Install-Module -Name PowerShellGet -Scope CurrentUser -Force -AllowClobber
+          Import-Module PowerShellGet -Force
+          Get-Module PowerShellGet | Select-Object Name, Version, Path | Format-List
+
+      - name: Build publishable module package
+        shell: pwsh
+        run: |
+          ./tools/New-IdleModulePackage.ps1 -Clean | Format-List FullName
+
+      - name: Publish module to local PSRepository and verify install/import
+        shell: pwsh
+        run: |
+          $modulePath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/IdLE'
+          if (-not (Test-Path -LiteralPath $modulePath)) {
+            throw "Staged module path not found: $modulePath"
+          }
+
+          $repoPath = Join-Path $env:RUNNER_TEMP 'psrepo'
+          New-Item -ItemType Directory -Path $repoPath -Force | Out-Null
+
+          Register-PSRepository -Name 'LocalRepo' -SourceLocation $repoPath -PublishLocation $repoPath -InstallationPolicy Trusted
+
+          Publish-Module -Path $modulePath -Repository 'LocalRepo' -ErrorAction Stop
+
+          $published = Find-Module -Name 'IdLE' -Repository 'LocalRepo' -ErrorAction Stop
+          Write-Host "Published to LocalRepo: $($published.Name) $($published.Version)"
+
+          # Ensure we can install and import the module from the local repository.
+          Install-Module -Name 'IdLE' -Repository 'LocalRepo' -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+          Import-Module IdLE -Force -ErrorAction Stop
+
+          $m = Get-Module IdLE
+          if (-not $m) { throw 'IdLE did not import successfully.' }
+          Write-Host "Imported IdLE: $($m.Name) $($m.Version)"
+
+          Unregister-PSRepository -Name 'LocalRepo' -ErrorAction SilentlyContinue
 
   psgallery:
     name: Publish to PowerShell Gallery
     runs-on: ubuntu-latest
-    needs: release
+    needs: [release, psgallery_local_test]
+    environment: psgallery-prod
 
     # Safety:
-    # - Auto-publish only on real tag pushes (v*).
+    # - Publish only for stable tags (vMAJOR.MINOR.PATCH).
     # - Allow manual publish only when explicitly requested via workflow_dispatch + publish_psgallery=true.
+    # - Pre-release tags are GitHub-only (no PSGallery publish).
     if: >-
       ${{
-        startsWith(github.ref, 'refs/tags/v')
-        || (github.event_name == 'workflow_dispatch' && inputs.publish_psgallery == true)
+        needs.release.outputs.is_stable == 'true'
+        && (
+          startsWith(github.ref, 'refs/tags/v')
+          || (github.event_name == 'workflow_dispatch' && inputs.publish_psgallery == true && inputs.tag != '')
+        )
       }}
 
     steps:
