@@ -15,7 +15,7 @@
 
     PrivateData       = @{
         PSData = @{
-            Tags       = @('Identity Lifecycle Engine', 'IdLE', 'Steps')
+            Tags       = @('IdentityLifecycleEngine', 'IdLE', 'Steps')
             LicenseUri = 'https://www.apache.org/licenses/LICENSE-2.0'
             ProjectUri = 'https://github.com/blindzero/IdentityLifecycleEngine'
             ContactEmail = '13959569+blindzero@users.noreply.github.com'
