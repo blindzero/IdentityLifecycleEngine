@@ -117,8 +117,8 @@ function Invoke-IdleEntitlementProviderContractTests {
             [void]$script:Provider.RevokeEntitlement($id, $entitlement)
             $afterRevoke = @($script:Provider.ListEntitlements($id))
 
-            ($afterGrant | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
-            ($afterRevoke | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
+            @($afterGrant | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
+            @($afterRevoke | Where-Object { $_.Kind -eq $entitlement.Kind -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
 
             # Sanity: $null is treated as empty.
             ($before -is [object[]]) | Should -BeTrue

@@ -63,11 +63,19 @@ Pre-release tags do **not** publish to PowerShell Gallery.
    pwsh -NoProfile -File ./tools/Set-IdleModuleVersion.ps1 -TargetVersion 1.2.0
    ```
 
-3. Run tests:
+3. Run quality checks locally:
 
-   ```powershell
-   pwsh -NoProfile -File ./tools/run-tests.ps1
-   ```
+   - Pester tests:
+
+     ```powershell
+     pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1
+     ```
+
+   - Static analysis (PSScriptAnalyzer):
+
+     ```powershell
+     pwsh -NoProfile -File ./tools/Invoke-IdleScriptAnalyzer.ps1
+     ```
 
 4. Commit and push the changes.
 5. Open a Pull Request to `main` and wait for CI to pass.

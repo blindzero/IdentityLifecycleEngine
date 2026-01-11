@@ -99,6 +99,20 @@ Providers:
 - No live system calls in unit tests
 - Providers require contract tests
 
+## Quality Gates
+
+IdLE uses static analysis and automated tests to keep the codebase consistent and maintainable.
+
+- **PSScriptAnalyzer** is the required linter for PowerShell code.
+  - Repository policy is defined in `PSScriptAnalyzerSettings.psd1` (repo root).
+  - Run locally via `pwsh -NoProfile -File ./tools/Invoke-IdleScriptAnalyzer.ps1`.
+  - CI publishes analyzer outputs under `artifacts/`.
+  - On default-branch runs, CI also uploads SARIF to GitHub Code Scanning.
+
+- **Pester** is the required test framework.
+  - Run locally via `pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1`.
+  - CI publishes test results and coverage under `artifacts/`.
+
 ---
 
 ## Documentation Responsibilities

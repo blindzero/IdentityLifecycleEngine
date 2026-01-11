@@ -1,36 +1,67 @@
 # Testing
 
-IdLE is designed to be testable in isolation.
+IdLE is designed to be testable in isolation. Tests should be deterministic, fast, and runnable on any machine (local or CI) without requiring live systems.
+
+## Running tests locally
+
+Use the canonical test runner:
+
+```powershell
+pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1
+```
+
+Enable coverage (optional):
+
+```powershell
+pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1 -EnableCoverage
+```
+
+If you want a specific coverage format:
+
+```powershell
+pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1 -EnableCoverage -CoverageOutputFormat Cobertura
+```
 
 ## Unit tests
 
 Unit tests should:
 
-- use Pester
-- use mock providers
+- use **Pester**
+- use **mock providers**
 - avoid live system calls
+- prefer explicit, committed fixtures over writing ad-hoc temporary files
 
 ## Provider contract tests
 
 Provider contract tests verify that an implementation matches the expected contract.
-They can run against:
 
-- a mock harness
-- a local test double
-- a dedicated test tenant (only when explicitly intended)
+They should:
 
-## Workflow validation in CI
+- test the *contract behavior* (inputs/outputs, error handling, capability surface)
+- run against **mock/file providers** by default
+- run against real providers only as an explicit, opt-in scenario (separate pipeline / environment)
 
-Validate workflows and step metadata in CI using a dedicated validation command.
+## CI artifacts
 
-Principles:
+The CI pipeline produces test artifacts under the `artifacts/` folder and uploads them.
 
-- fail fast for unknown keys
-- fail early for invalid references
-- keep configuration data-only (no script blocks)
+Expected outputs:
 
-## Tips
+- `artifacts/test-results.xml` (NUnitXml test results)
+- `artifacts/coverage.xml` (code coverage report; format depends on configuration)
 
-- Prefer deterministic input fixtures
-- Keep tests readable and focused
-- Treat public cmdlets as stable contracts
+## Static analysis
+
+IdLE uses **PSScriptAnalyzer** as a CI quality gate to enforce baseline style and correctness rules.
+
+Local run:
+
+```powershell
+pwsh -NoProfile -File ./tools/Invoke-IdleScriptAnalyzer.ps1
+```
+
+The analyzer uses the repository settings file:
+
+- `PSScriptAnalyzerSettings.psd1` (repo root)
+
+In CI, PSScriptAnalyzer emits machine-readable artifacts under `artifacts/` (JSON and optional SARIF) and can publish SARIF findings to GitHub Code Scanning on default-branch runs.
