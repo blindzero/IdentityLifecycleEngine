@@ -70,7 +70,7 @@ jobs:
             artifacts/pssa-results.sarif
 
       - name: Upload SARIF to GitHub Code Scanning
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: artifacts/pssa-results.sarif
