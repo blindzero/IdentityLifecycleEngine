@@ -153,6 +153,114 @@ function Invoke-IdlePlanObject {
         EventSink  = $engineEventSink
     }
 
+    # Expose common run metadata on the execution context so providers can enrich session acquisition requests
+    # without having to parse the plan structure themselves.
+    $null = $context | Add-Member -MemberType NoteProperty -Name CorrelationId -Value $corr -Force
+    $null = $context | Add-Member -MemberType NoteProperty -Name Actor -Value $actor -Force
+
+    # Session acquisition boundary:
+    # - Providers MUST NOT implement their own authentication flows.
+    # - The host supplies an AuthSessionBroker in Providers.AuthSessionBroker.
+    # - Options must be data-only (no ScriptBlocks).
+    $null = $context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Name,
+
+            [Parameter()]
+            [AllowNull()]
+            [hashtable] $Options
+        )
+
+        function Assert-IdleNoScriptBlockInAuthSessionOptions {
+            [CmdletBinding()]
+            param(
+                [Parameter(Mandatory)]
+                [AllowNull()]
+                [object] $InputObject,
+
+                [Parameter(Mandatory)]
+                [ValidateNotNullOrEmpty()]
+                [string] $Path
+            )
+
+            if ($null -eq $InputObject) { return }
+
+            if ($InputObject -is [scriptblock]) {
+                throw [System.ArgumentException]::new(
+                    "ScriptBlocks are not allowed in auth session options. Found at: $Path",
+                    $Path
+                )
+            }
+
+            if ($InputObject -is [System.Collections.IDictionary]) {
+                foreach ($key in $InputObject.Keys) {
+                    Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $InputObject[$key] -Path "$Path.$key"
+                }
+                return
+            }
+
+            if (($InputObject -is [System.Collections.IEnumerable]) -and ($InputObject -isnot [string])) {
+                $i = 0
+                foreach ($item in $InputObject) {
+                    Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $item -Path "$Path[$i]"
+                    $i++
+                }
+                return
+            }
+
+            if ($InputObject -is [pscustomobject]) {
+                foreach ($p in $InputObject.PSObject.Properties) {
+                    if ($p.MemberType -eq 'NoteProperty') {
+                        Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $p.Value -Path "$Path.$($p.Name)"
+                    }
+                }
+            }
+        }
+
+        $providers = $this.Providers
+        $broker = $null
+
+        if ($providers -is [System.Collections.IDictionary]) {
+            if ($providers.Contains('AuthSessionBroker')) {
+                $broker = $providers['AuthSessionBroker']
+            }
+        }
+        else {
+            if ($null -ne $providers -and $providers.PSObject.Properties.Name -contains 'AuthSessionBroker') {
+                $broker = $providers.AuthSessionBroker
+            }
+        }
+
+        if ($null -eq $broker) {
+            throw [System.InvalidOperationException]::new(
+                'No AuthSessionBroker configured. Provide Providers.AuthSessionBroker to acquire auth sessions during execution.'
+            )
+        }
+
+        if ($broker.PSObject.Methods.Name -notcontains 'AcquireAuthSession') {
+            throw [System.InvalidOperationException]::new(
+                'AuthSessionBroker must provide an AcquireAuthSession(Name, Options) method.'
+            )
+        }
+
+        $normalizedOptions = if ($null -eq $Options) { @{} } else { $Options }
+        Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $normalizedOptions -Path 'AuthSessionOptions'
+
+        # Copy options to avoid mutating caller-owned hashtables.
+        $optionsCopy = @{}
+        foreach ($k in $normalizedOptions.Keys) {
+            $optionsCopy[$k] = $normalizedOptions[$k]
+        }
+
+        if ($null -ne $this.CorrelationId) { $optionsCopy['CorrelationId'] = $this.CorrelationId }
+        if ($null -ne $this.Actor) { $optionsCopy['Actor'] = $this.Actor }
+
+        return $broker.AcquireAuthSession($Name, $optionsCopy)
+    } -Force
+
     $context.EventSink.WriteEvent('RunStarted', 'Plan execution started.', $null, @{
         CorrelationId = $corr
         Actor         = $actor
@@ -404,6 +512,7 @@ function Invoke-IdlePlanObject {
                     $context.EventSink.WriteEvent('OnFailureStepCompleted', "OnFailure step '$ofName' completed.", $ofName, @{
                         StepType = $ofType
                         Index    = $j
+                        Error    = $result.Error
                     })
                 }
             }
