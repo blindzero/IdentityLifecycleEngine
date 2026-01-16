@@ -71,11 +71,11 @@ function Test-IdleConditionSchema {
         }
 
         $allowedGroupKeys = @('All', 'Any', 'None')
-        $allowedOpKeys    = @('Equals', 'NotEquals', 'Exists', 'In')
-        $allowedKeys      = @($allowedGroupKeys + $allowedOpKeys)
+        $allowedOpKeys = @('Equals', 'NotEquals', 'Exists', 'In')
+        $allowedKeys = @($allowedGroupKeys + $allowedOpKeys)
 
         $presentGroupKeys = @($allowedGroupKeys | Where-Object { $Node.Contains($_) })
-        $presentOpKeys    = @($allowedOpKeys | Where-Object { $Node.Contains($_) })
+        $presentOpKeys = @($allowedOpKeys | Where-Object { $Node.Contains($_) })
 
         # Enforce: either group OR operator, never both.
         if ($presentGroupKeys.Count -gt 0 -and $presentOpKeys.Count -gt 0) {
@@ -140,8 +140,8 @@ function Test-IdleConditionSchema {
         }
 
         # OPERATOR: Exactly one of Equals/NotEquals/Exists/In.
-        $opKey  = [string]$presentOpKeys[0]
-        $opVal  = $Node[$opKey]
+        $opKey = [string]$presentOpKeys[0]
+        $opVal = $Node[$opKey]
         $opPath = ("{0}.{1}" -f $NodePath, $opKey)
 
         switch ($opKey) {

@@ -310,8 +310,6 @@ if (-not $stepCommands) {
     throw "No step commands found. Ensure step modules are included in -StepModules (currently: $($StepModules -join ', '))."
 }
 
-$timestampUtc = [DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm:ss "UTC"')
-
 $header = @(
     '# Step Catalog'
     ''

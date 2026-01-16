@@ -168,8 +168,6 @@ function New-IdleCmdletIndexMarkdown {
         New-Item -Path $indexDir -ItemType Directory -Force | Out-Null
     }
 
-    $timestampUtc = [DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm:ss "UTC"')
-
     $lines = New-Object System.Collections.Generic.List[string]
     $lines.Add('# Cmdlet Reference')
     $lines.Add('')

@@ -366,7 +366,7 @@ function Invoke-IdlePlanObject {
     $requiresAuthBroker = $false
     foreach ($step in $Plan.Steps) {
         if ($null -eq $step) { continue }
-        
+
         $stepType = $null
         if ($step -is [System.Collections.IDictionary]) {
             if ($step.Contains('Type')) {
@@ -377,7 +377,7 @@ function Invoke-IdlePlanObject {
             $stepPropNames = @($step.PSObject.Properties.Name)
             $stepType = if ($stepPropNames -contains 'Type') { $step.Type } else { $null }
         }
-        
+
         if ($stepType -eq 'IdLE.Step.AcquireAuthSession') {
             $requiresAuthBroker = $true
             break

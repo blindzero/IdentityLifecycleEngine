@@ -19,11 +19,11 @@ class IdleLifecycleRequest {
         [string] $actor
     ) {
         $this.LifecycleEvent = $lifecycleEvent
-        $this.IdentityKeys   = $identityKeys
-        $this.DesiredState   = $desiredState
-        $this.Changes        = $changes
-        $this.CorrelationId  = $correlationId
-        $this.Actor          = $actor
+        $this.IdentityKeys = $identityKeys
+        $this.DesiredState = $desiredState
+        $this.Changes = $changes
+        $this.CorrelationId = $correlationId
+        $this.Actor = $actor
 
         $this.Normalize()
     }

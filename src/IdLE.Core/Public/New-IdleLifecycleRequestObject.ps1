@@ -30,7 +30,7 @@ function New-IdleLifecycleRequestObject {
     # shallow clone is sufficient as we have already validated no ScriptBlocks are present
     $IdentityKeys = if ($null -eq $IdentityKeys) { @{} } else { $IdentityKeys.Clone() }
     $DesiredState = if ($null -eq $DesiredState) { @{} } else { $DesiredState.Clone() }
-    $Changes      = if ($null -eq $Changes) { $null } else { $Changes.Clone() }
+    $Changes = if ($null -eq $Changes) { $null } else { $Changes.Clone() }
 
     # Construct and return the core domain object defined in Private/IdleLifecycleRequest.ps1
     return [IdleLifecycleRequest]::new(
