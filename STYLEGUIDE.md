@@ -28,6 +28,7 @@ It follows widely accepted **GitHub and PowerShell community conventions**.
 - Verb-Noun cmdlet naming
 - Singular nouns
 - Avoid abbreviations
+- Only approved Verbs
 
 ---
 
@@ -87,7 +88,7 @@ Steps must:
 Providers:
 
 - handle authentication
-- use `ExecutionContext.AcquireSession()`
+- use `ExecutionContext.AcquireAuthSession()`
 - must be mockable
 - must not assume global state
 
@@ -129,6 +130,7 @@ This style guide focuses on **in-code documentation rules** (comment-based help,
 - validate early
 - write tests
 - document decisions
+- keep surface small, no private function exports
 
 ### Don't
 
