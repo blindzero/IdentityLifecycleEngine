@@ -92,6 +92,24 @@ Buffering is the default because it keeps the core:
 
 ---
 
+### Optional streaming to a host sink
+
+Hosts may provide an **event sink** to receive events as they happen.
+
+The engine expects an object with a `WriteEvent(event)` method.
+If present, the engine forwards each event to that sink **in addition to** buffering
+events in the execution result.
+
+This enables patterns such as:
+
+- forward events to a central logging system
+- push events to a message bus
+- render progress updates in an interactive host
+
+The engine still does not assume anything about formatting, persistence, or transport.
+
+---
+
 ## Usage
 
 ### Typical consumption patterns
@@ -139,6 +157,24 @@ Clear responsibility boundaries are essential:
   - May ignore events entirely
 
 This separation ensures that IdLE remains portable and reusable across environments.
+
+---
+
+## Security and sensitive data
+
+Events are a primary observability surface and therefore a common place where sensitive
+values can accidentally leak.
+
+Guidelines:
+
+- **Do not emit secrets** in `Event.Data` (tokens, passwords, client secrets, API keys, certificates).
+- Prefer **references** (for example: identity IDs, step names, correlation IDs) over raw payloads.
+- The engine applies **redaction** at output boundaries (buffered events and host sinks) for
+  common sensitive key names (for example: `password`, `token`, `secret`, `apiKey`).
+  Redaction is a safety net, not a design strategy.
+- When acquiring authentication sessions, use `Providers.AuthSessionBroker` via
+  `Context.AcquireAuthSession(Name, Options)`. Auth session options are a data-only boundary
+  and reject ScriptBlocks.
 
 ---
 
