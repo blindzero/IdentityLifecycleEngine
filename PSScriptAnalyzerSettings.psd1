@@ -36,13 +36,13 @@
 
     Rules        = @{
         PSUseConsistentIndentation = @{
-            Enable             = $true
-            IndentationSize    = 4
+            Enable              = $true
+            IndentationSize     = 4
             PipelineIndentation = 'IncreaseIndentationForFirstPipeline'
-            Kind               = 'space'
+            Kind                = 'space'
         }
 
-        PSUseConsistentWhitespace  = @{
+        PSUseConsistentWhitespace = @{
             Enable                          = $true
             CheckInnerBrace                 = $true
             CheckOpenBrace                  = $true
@@ -52,7 +52,7 @@
             CheckPipeForRedundantWhitespace = $false
             CheckSeparator                  = $true
             CheckParameter                  = $false
-            IgnoreAssignmentOperatorInsideHashTable = $false
+            IgnoreAssignmentOperatorInsideHashTable = $true
         }
     }
 }
