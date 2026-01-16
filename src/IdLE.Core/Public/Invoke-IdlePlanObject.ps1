@@ -576,7 +576,6 @@ function Invoke-IdlePlanObject {
                     $context.EventSink.WriteEvent('OnFailureStepCompleted', "OnFailure step '$ofName' completed.", $ofName, @{
                         StepType = $ofType
                         Index    = $j
-                        Error    = $result.Error
                     })
                 }
             }
