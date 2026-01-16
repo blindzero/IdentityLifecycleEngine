@@ -68,6 +68,56 @@ BeforeAll {
             Error      = 'Boom'
         }
     }
+
+    function global:Invoke-IdleTestAcquireAuthSessionStep {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Context,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step
+        )
+
+        $with = $Step.With
+        $name = $null
+        $options = $null
+
+        if ($with -is [System.Collections.IDictionary]) {
+            if ($with.Contains('Name')) {
+                $name = [string]$with['Name']
+            }
+
+            if ($with.Contains('Options')) {
+                $options = $with['Options']
+            }
+        }
+        else {
+            if ($null -ne $with -and $with.PSObject.Properties.Name -contains 'Name') {
+                $name = [string]$with.Name
+            }
+
+            if ($null -ne $with -and $with.PSObject.Properties.Name -contains 'Options') {
+                $options = $with.Options
+            }
+        }
+
+        $session = $Context.AcquireAuthSession($name, $options)
+
+        if ($null -eq $session) {
+            throw [System.InvalidOperationException]::new('AcquireAuthSession returned null.')
+        }
+
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.StepResult'
+            Name       = [string]$Step.Name
+            Type       = [string]$Step.Type
+            Status     = 'Completed'
+            Error      = $null
+        }
+    }
 }
 
 AfterAll {
@@ -75,6 +125,7 @@ AfterAll {
     Remove-Item -Path 'Function:\Invoke-IdleTestNoopStep' -ErrorAction SilentlyContinue
     Remove-Item -Path 'Function:\Invoke-IdleTestEmitStep' -ErrorAction SilentlyContinue
     Remove-Item -Path 'Function:\Invoke-IdleTestFailStep' -ErrorAction SilentlyContinue
+    Remove-Item -Path 'Function:\Invoke-IdleTestAcquireAuthSessionStep' -ErrorAction SilentlyContinue
 }
 
 Describe 'Invoke-IdlePlan' {
@@ -433,4 +484,179 @@ Describe 'Invoke-IdlePlan' {
         }
 
         { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*ScriptBlocks are not allowed*'
-    }}
+    }
+
+    It 'throws when AuthSessionBroker is missing (AuthSession acquisition)' {
+        $plan = [pscustomobject]@{
+            PSTypeName    = 'IdLE.Plan'
+            CorrelationId = 'test-corr'
+            Steps         = @(
+                @{
+                    Name = 'Acquire'
+                    Type = 'IdLE.Step.AcquireAuthSession'
+                    With = @{
+                        Name    = 'Demo'
+                        Options = @{}
+                    }
+                }
+            )
+        }
+
+        $providers = @{
+            StepRegistry = @{
+                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+            }
+        }
+
+        { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*AuthSessionBroker*'
+    }
+
+    It 'normalizes null options and enriches CorrelationId when acquiring an auth session' {
+        $plan = [pscustomobject]@{
+            PSTypeName    = 'IdLE.Plan'
+            CorrelationId = 'test-corr'
+            Steps         = @(
+                @{
+                    Name = 'Acquire'
+                    Type = 'IdLE.Step.AcquireAuthSession'
+                    With = @{
+                        Name    = 'Demo'
+                        Options = $null
+                    }
+                }
+            )
+        }
+
+        $callLog = [pscustomobject]@{
+            CallCount = 0
+            Name      = $null
+            Options   = $null
+        }
+
+        $broker = [pscustomobject]@{}
+        $acquireMethod = {
+            param($Name, $Options)
+            $callLog.CallCount++
+            $callLog.Name = $Name
+            $callLog.Options = $Options
+
+            return [pscustomobject]@{
+                PSTypeName = 'IdLE.AuthSession'
+                Kind       = 'Test'
+            }
+        }.GetNewClosure()
+        $null = Add-Member -InputObject $broker -MemberType ScriptMethod -Name 'AcquireAuthSession' -Value $acquireMethod -Force
+
+        $providers = @{
+            StepRegistry      = @{
+                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+            }
+            AuthSessionBroker = $broker
+        }
+
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+        $result.Status | Should -Be 'Completed'
+        $callLog.CallCount | Should -Be 1
+        $callLog.Name | Should -Be 'Demo'
+
+        $callLog.Options | Should -BeOfType 'hashtable'
+        $callLog.Options.ContainsKey('CorrelationId') | Should -BeTrue
+        $callLog.Options['CorrelationId'] | Should -Be 'test-corr'
+    }
+
+    It 'rejects ScriptBlocks in auth session options (security)' {
+        $plan = [pscustomobject]@{
+            PSTypeName    = 'IdLE.Plan'
+            CorrelationId = 'test-corr'
+            Steps         = @(
+                @{
+                    Name = 'Acquire'
+                    Type = 'IdLE.Step.AcquireAuthSession'
+                    With = @{
+                        Name    = 'Demo'
+                        Options = @{
+                            Nested = @{
+                                Bad = { 'do-not-allow' }
+                            }
+                        }
+                    }
+                }
+            )
+        }
+
+        $broker = [pscustomobject]@{}
+        $acquireMethod = {
+            param($Name, $Options)
+            return [pscustomobject]@{
+                PSTypeName = 'IdLE.AuthSession'
+                Kind       = 'Test'
+            }
+        }
+        $null = Add-Member -InputObject $broker -MemberType ScriptMethod -Name 'AcquireAuthSession' -Value $acquireMethod -Force
+
+        $providers = @{
+            StepRegistry      = @{
+                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+            }
+            AuthSessionBroker = $broker
+        }
+
+        { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*auth session options*'
+    }
+
+    It 'calls the AuthSessionBroker and returns a completed step result (AuthSession acquisition)' {
+        $plan = [pscustomobject]@{
+            PSTypeName    = 'IdLE.Plan'
+            CorrelationId = 'test-corr'
+            Steps         = @(
+                @{
+                    Name = 'Acquire'
+                    Type = 'IdLE.Step.AcquireAuthSession'
+                    With = @{
+                        Name    = 'Demo'
+                        Options = @{
+                            Mode     = 'Auto'
+                            CacheKey = 'unit-test'
+                        }
+                    }
+                }
+            )
+        }
+
+        $callLog = [pscustomobject]@{
+            CallCount = 0
+            Name      = $null
+            Options   = $null
+        }
+
+        $broker = [pscustomobject]@{}
+        $acquireMethod = {
+            param($Name, $Options)
+            $callLog.CallCount++
+            $callLog.Name = $Name
+            $callLog.Options = $Options
+
+            return [pscustomobject]@{
+                PSTypeName = 'IdLE.AuthSession'
+                Kind       = 'Test'
+            }
+        }.GetNewClosure()
+        $null = Add-Member -InputObject $broker -MemberType ScriptMethod -Name 'AcquireAuthSession' -Value $acquireMethod -Force
+
+        $providers = @{
+            StepRegistry      = @{
+                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+            }
+            AuthSessionBroker = $broker
+        }
+
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+        $result.Status | Should -Be 'Completed'
+        $callLog.CallCount | Should -Be 1
+        $callLog.Name | Should -Be 'Demo'
+        $callLog.Options['Mode'] | Should -Be 'Auto'
+        $callLog.Options['CacheKey'] | Should -Be 'unit-test'
+    }
+}
