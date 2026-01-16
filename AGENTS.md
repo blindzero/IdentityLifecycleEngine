@@ -41,6 +41,7 @@ Authoritative docs:
 
 - Keep PRs focused: one issue / one theme.
 - Avoid drive-by refactors unless the issue is specifically about refactoring.
+- Minimal changes, no unrelated refactors.
 
 ### 2.3 Determinism over cleverness
 
