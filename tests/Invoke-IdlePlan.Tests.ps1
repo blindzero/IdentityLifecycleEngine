@@ -511,6 +511,39 @@ Describe 'Invoke-IdlePlan' {
         { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*AuthSessionBroker*'
     }
 
+    It 'does not require AuthSessionBroker when AcquireAuthSession steps are NotApplicable' {
+        $plan = [pscustomobject]@{
+            PSTypeName    = 'IdLE.Plan'
+            CorrelationId = 'test-corr'
+            Steps         = @(
+                @{
+                    Name   = 'ConditionalAcquire'
+                    Type   = 'IdLE.Step.AcquireAuthSession'
+                    Status = 'NotApplicable'
+                    With   = @{
+                        Name    = 'Demo'
+                        Options = @{}
+                    }
+                }
+                @{
+                    Name = 'SomeOtherStep'
+                    Type = 'IdLE.Step.Noop'
+                    With = @{}
+                }
+            )
+        }
+
+        $providers = @{
+            StepRegistry = @{
+                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+                'IdLE.Step.Noop'               = 'Invoke-IdleTestNoopStep'
+            }
+        }
+
+        # Should not throw because the AcquireAuthSession step is NotApplicable
+        { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Not -Throw
+    }
+
     It 'normalizes null options and enriches CorrelationId when acquiring an auth session' {
         $plan = [pscustomobject]@{
             PSTypeName    = 'IdLE.Plan'

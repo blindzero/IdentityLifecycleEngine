@@ -271,22 +271,28 @@ function Invoke-IdlePlanObject {
 
     # Fail-fast security validation: Check if AuthSessionBroker is required but missing.
     # AcquireAuthSession steps require an AuthSessionBroker to be present in Providers.
+    # Skip NotApplicable steps, as they won't be executed and don't require the broker.
     $requiresAuthBroker = $false
     foreach ($step in $Plan.Steps) {
         if ($null -eq $step) { continue }
 
         $stepType = $null
+        $stepStatus = $null
         if ($step -is [System.Collections.IDictionary]) {
             if ($step.Contains('Type')) {
                 $stepType = $step['Type']
+            }
+            if ($step.Contains('Status')) {
+                $stepStatus = $step['Status']
             }
         }
         else {
             $stepPropNames = @($step.PSObject.Properties.Name)
             $stepType = if ($stepPropNames -contains 'Type') { $step.Type } else { $null }
+            $stepStatus = if ($stepPropNames -contains 'Status') { $step.Status } else { $null }
         }
 
-        if ($stepType -eq 'IdLE.Step.AcquireAuthSession') {
+        if ($stepType -eq 'IdLE.Step.AcquireAuthSession' -and $stepStatus -ne 'NotApplicable') {
             $requiresAuthBroker = $true
             break
         }
