@@ -273,7 +273,9 @@ function Invoke-IdlePlanObject {
     # AcquireAuthSession steps require an AuthSessionBroker to be present in Providers.
     # Skip NotApplicable steps, as they won't be executed and don't require the broker.
     $requiresAuthBroker = $false
-    foreach ($step in $Plan.Steps) {
+    $planPropNames = @($Plan.PSObject.Properties.Name)
+    $steps = if ($planPropNames -contains 'Steps') { $Plan.Steps } else { @() }
+    foreach ($step in $steps) {
         if ($null -eq $step) { continue }
 
         $stepType = $null
