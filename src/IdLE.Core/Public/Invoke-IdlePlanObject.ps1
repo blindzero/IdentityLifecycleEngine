@@ -115,6 +115,81 @@ function Invoke-IdlePlanObject {
         return $cmd
     }
 
+    function Get-IdleStepField {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [object] $Step,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Name
+        )
+
+        if ($null -eq $Step) { return $null }
+
+        if ($Step -is [System.Collections.IDictionary]) {
+            if ($Step.Contains($Name)) {
+                return $Step[$Name]
+            }
+            return $null
+        }
+
+        $propNames = @($Step.PSObject.Properties.Name)
+        if ($propNames -contains $Name) {
+            return $Step.$Name
+        }
+
+        return $null
+    }
+
+    function Assert-IdleNoScriptBlockInAuthSessionOptions {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [object] $InputObject,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Path
+        )
+
+        if ($null -eq $InputObject) { return }
+
+        if ($InputObject -is [scriptblock]) {
+            throw [System.ArgumentException]::new(
+                "ScriptBlocks are not allowed in auth session options. Found at: $Path",
+                $Path
+            )
+        }
+
+        if ($InputObject -is [System.Collections.IDictionary]) {
+            foreach ($key in $InputObject.Keys) {
+                Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $InputObject[$key] -Path "$Path.$key"
+            }
+            return
+        }
+
+        if (($InputObject -is [System.Collections.IEnumerable]) -and ($InputObject -isnot [string])) {
+            $i = 0
+            foreach ($item in $InputObject) {
+                Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $item -Path "$Path[$i]"
+                $i++
+            }
+            return
+        }
+
+        if ($InputObject -is [pscustomobject]) {
+            foreach ($p in $InputObject.PSObject.Properties) {
+                if ($p.MemberType -eq 'NoteProperty') {
+                    Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $p.Value -Path "$Path.$($p.Name)"
+                }
+            }
+        }
+    }
+
     $planPropNames = @($Plan.PSObject.Properties.Name)
 
     $request = if ($planPropNames -contains 'Request') { $Plan.Request } else { $null }
@@ -140,6 +215,31 @@ function Invoke-IdlePlanObject {
     $engineEventSink = New-IdleEventSink -CorrelationId $corr -Actor $actor -ExternalEventSink $EventSink -EventBuffer $events
 
     # Enforce data-only boundary: reject ScriptBlocks in untrusted inputs.
+    # Special-case: for auth session acquisition options, throw a contextualized error message.
+    $planSteps = if ($planPropNames -contains 'Steps') { $Plan.Steps } else { $null }
+    if ($null -ne $planSteps -and ($planSteps -is [System.Collections.IEnumerable]) -and ($planSteps -isnot [string])) {
+        $i = 0
+        foreach ($step in $planSteps) {
+            $stepType = [string](Get-IdleStepField -Step $step -Name 'Type')
+            if ($stepType -eq 'IdLE.Step.AcquireAuthSession') {
+                $with = Get-IdleStepField -Step $step -Name 'With'
+                $options = $null
+                if ($null -ne $with) {
+                    if ($with -is [System.Collections.IDictionary]) {
+                        if ($with.Contains('Options')) { $options = $with['Options'] }
+                    }
+                    else {
+                        if ($with.PSObject.Properties.Name -contains 'Options') { $options = $with.Options }
+                    }
+                }
+
+                Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $options -Path "Plan.Steps[$i].With.Options"
+            }
+
+            $i++
+        }
+    }
+
     Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
     Assert-IdleNoScriptBlock -InputObject $Providers -Path 'Providers'
 
@@ -261,6 +361,49 @@ function Invoke-IdlePlanObject {
         return $broker.AcquireAuthSession($Name, $optionsCopy)
     } -Force
 
+    # Fail-fast security validation: Check if AuthSessionBroker is required but missing.
+    # AcquireAuthSession steps require an AuthSessionBroker to be present in Providers.
+    $requiresAuthBroker = $false
+    foreach ($step in $Plan.Steps) {
+        if ($null -eq $step) { continue }
+        
+        $stepType = $null
+        if ($step -is [System.Collections.IDictionary]) {
+            if ($step.Contains('Type')) {
+                $stepType = $step['Type']
+            }
+        }
+        else {
+            $stepPropNames = @($step.PSObject.Properties.Name)
+            $stepType = if ($stepPropNames -contains 'Type') { $step.Type } else { $null }
+        }
+        
+        if ($stepType -eq 'IdLE.Step.AcquireAuthSession') {
+            $requiresAuthBroker = $true
+            break
+        }
+    }
+
+    if ($requiresAuthBroker) {
+        $broker = $null
+        if ($Providers -is [System.Collections.IDictionary]) {
+            if ($Providers.Contains('AuthSessionBroker')) {
+                $broker = $Providers['AuthSessionBroker']
+            }
+        }
+        else {
+            if ($null -ne $Providers -and $Providers.PSObject.Properties.Name -contains 'AuthSessionBroker') {
+                $broker = $Providers.AuthSessionBroker
+            }
+        }
+
+        if ($null -eq $broker) {
+            throw [System.InvalidOperationException]::new(
+                'AuthSessionBroker is required but not configured. One or more steps require auth session acquisition. Provide Providers.AuthSessionBroker to proceed.'
+            )
+        }
+    }
+
     $context.EventSink.WriteEvent('RunStarted', 'Plan execution started.', $null, @{
         CorrelationId = $corr
         Actor         = $actor
@@ -277,12 +420,13 @@ function Invoke-IdlePlanObject {
             continue
         }
 
-        $stepPropNames = @($step.PSObject.Properties.Name)
+        $stepName = [string](Get-IdleStepField -Step $step -Name 'Name')
+        if ($null -eq $stepName) { $stepName = '' }
 
-        $stepName = if ($stepPropNames -contains 'Name') { [string]$step.Name } else { '' }
-        $stepType = if ($stepPropNames -contains 'Type') { $step.Type } else { $null }
-        $stepWith = if ($stepPropNames -contains 'With') { $step.With } else { $null }
-        $stepStatus = if ($stepPropNames -contains 'Status') { [string]$step.Status } else { '' }
+        $stepType = Get-IdleStepField -Step $step -Name 'Type'
+        $stepWith = Get-IdleStepField -Step $step -Name 'With'
+        $stepStatus = [string](Get-IdleStepField -Step $step -Name 'Status')
+        if ($null -eq $stepStatus) { $stepStatus = '' }
 
         # Conditions are evaluated during planning and represented as Step.Status.
         if ($stepStatus -eq 'NotApplicable') {
