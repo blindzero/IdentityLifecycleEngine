@@ -160,6 +160,72 @@ their implementation beyond contract usage.
 
 ---
 
+## Auth session acquisition (AuthSessionBroker)
+
+Many providers require authenticated connections (tokens, API clients, remote sessions).
+IdLE keeps authentication out of the engine and out of individual providers by using a
+host-supplied broker.
+
+### Contract
+
+The host injects an **AuthSessionBroker** into the providers map:
+
+- `Providers.AuthSessionBroker`
+
+During execution, steps and providers may acquire sessions via the execution context:
+
+- `Context.AcquireAuthSession(Name, Options)`
+
+Where:
+
+- `Name` identifies the requested session (e.g. `Graph`, `ExchangeOnline`, `Ldap`, ...).
+- `Options` is an optional **data-only** hashtable.
+  - `$null` is treated as an empty hashtable.
+  - ScriptBlocks are rejected, including nested values.
+
+The broker must expose a method:
+
+- `AcquireAuthSession(Name, Options)`
+
+### Responsibility boundaries
+
+- **Engine**
+  - Provides `Context.AcquireAuthSession()` as a stable API.
+  - Enforces the data-only boundary for `Options`.
+  - Does not implement authentication.
+
+- **Host**
+  - Implements and configures the AuthSessionBroker.
+  - Decides how to authenticate (interactive, managed identity, certificate, secrets, ...).
+  - Must ensure secrets are not leaked into plans, events, or exports.
+
+- **Providers / Steps**
+  - Request sessions through the execution context.
+  - Must not perform their own authentication flows.
+
+### Enrichment
+
+The execution context may enrich the broker request with common run metadata, such as:
+
+- `CorrelationId`
+- `Actor`
+
+Providers and steps should treat these values as optional.
+
+---
+
+## Execution context injection (backwards compatibility)
+
+IdLE step handlers can optionally accept a `Context` parameter.
+
+To remain backwards compatible, the engine passes `-Context $Context` **only if** the
+handler supports a `Context` parameter.
+
+Guidance:
+
+- New step handlers should accept `Context` to access providers, event sink, and auth session acquisition.
+- Existing handlers without `Context` continue to work unchanged.
+
 ## Common pitfalls
 
 ### Treating providers as part of the engine
