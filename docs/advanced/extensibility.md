@@ -46,6 +46,8 @@ Broker contract:
 - `Options` is optional (`$null` is treated as an empty hashtable) and must be data-only:
   - ScriptBlock values are rejected, including nested values.
 - The engine enriches options with `CorrelationId` and `Actor` when available.
+- The engine deep-copies `Options` before invoking the broker; brokers MUST treat
+  options as immutable and MUST NOT mutate nested values.
 
 Security notes:
 

@@ -258,10 +258,7 @@ function Invoke-IdlePlanObject {
         Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $normalizedOptions -Path 'AuthSessionOptions'
 
         # Copy options to avoid mutating caller-owned hashtables.
-        $optionsCopy = @{}
-        foreach ($k in $normalizedOptions.Keys) {
-            $optionsCopy[$k] = $normalizedOptions[$k]
-        }
+        $optionsCopy = Copy-IdleDataObject -Value $normalizedOptions
 
         if ($null -ne $this.CorrelationId) { $optionsCopy['CorrelationId'] = $this.CorrelationId }
         if ($null -ne $this.Actor) { $optionsCopy['Actor'] = $this.Actor }
