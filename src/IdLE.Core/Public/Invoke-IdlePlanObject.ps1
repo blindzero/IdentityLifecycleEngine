@@ -458,8 +458,11 @@ function Invoke-IdlePlanObject {
 
             $supportedParams = Get-IdleCommandParameterNames -Handler $impl
 
-            $invokeParams = @{
-                Context = $context
+            $invokeParams = @{}
+
+            # Backwards compatibility: pass -Context only when the handler supports it.
+            if ($supportedParams.Contains('Context')) {
+                $invokeParams.Context = $context
             }
 
             if ($null -ne $stepWith -and $supportedParams.Contains('With')) {
@@ -606,8 +609,11 @@ function Invoke-IdlePlanObject {
 
                 $supportedParams = Get-IdleCommandParameterNames -Handler $impl
 
-                $invokeParams = @{
-                    Context = $context
+                $invokeParams = @{}
+
+                # Backwards compatibility: pass -Context only when the handler supports it.
+                if ($supportedParams.Contains('Context')) {
+                    $invokeParams.Context = $context
                 }
 
                 if ($null -ne $ofWith -and $supportedParams.Contains('With')) {
