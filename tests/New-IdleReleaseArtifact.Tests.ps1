@@ -51,7 +51,7 @@ Describe 'New-IdleReleaseArtifact.ps1' {
                     Where-Object { $_ -like ' - *' } |
                     ForEach-Object { $_.Substring(3) }
 
-                return ,$paths
+                return , $paths
             }
         }
 

@@ -127,7 +127,7 @@ function Get-IdleNestedModuleEntryPaths {
         ".\Modules\$n\$n.psd1"
     }
 
-    return ,$paths
+    return , $paths
 }
 
 function Set-IdleNestedModulesInManifest {
