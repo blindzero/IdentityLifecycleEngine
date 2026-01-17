@@ -174,7 +174,8 @@ function Invoke-IdleWithRetry {
                     )
                 }
                 catch {
-                    # Intentionally ignored.
+                    # Intentionally ignored, but surfaced for diagnostics.
+                    Write-Verbose "EventSink.WriteEvent failed: $($_.Exception.Message)"
                 }
             }
 

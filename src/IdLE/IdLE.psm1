@@ -24,6 +24,7 @@ function Import-IdleCoreModule {
     }
     catch {
         # Continue with local fallback
+        Write-Verbose "Failed to import '$($script:IdleCoreModuleName)' from PSModulePath: $($_.Exception.Message)"
     }
 
     # 2) Fallback: repo clone layout (IdLE and IdLE.Core side-by-side under /src)
@@ -59,6 +60,7 @@ function Import-IdleBuiltInStepsModule {
     }
     catch {
         # Continue with local fallback
+        Write-Verbose "Failed to import '$($script:IdleBuiltInStepsModuleName)' from PSModulePath: $($_.Exception.Message)"
     }
 
     # 2) Fallback: repo clone layout (IdLE and packs side-by-side under /src)

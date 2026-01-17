@@ -129,6 +129,7 @@ function Get-IdleCmdletMetadata {
         }
         catch {
             # Missing help should not fail generation; we reflect it in the synopsis.
+            Write-Verbose "Help not available for '$($cmd.Name)': $($_.Exception.Message)"
         }
 
         $synopsis = ''
