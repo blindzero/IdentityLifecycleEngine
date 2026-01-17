@@ -118,6 +118,24 @@ BeforeAll {
             Error      = $null
         }
     }
+
+    # Legacy step handler without Context parameter for backwards compatibility testing
+    function global:Invoke-IdleTestLegacyStep {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step
+        )
+
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.StepResult'
+            Name       = [string]$Step.Name
+            Type       = [string]$Step.Type
+            Status     = 'Completed'
+            Error      = $null
+        }
+    }
 }
 
 AfterAll {
@@ -126,6 +144,7 @@ AfterAll {
     Remove-Item -Path 'Function:\Invoke-IdleTestEmitStep' -ErrorAction SilentlyContinue
     Remove-Item -Path 'Function:\Invoke-IdleTestFailStep' -ErrorAction SilentlyContinue
     Remove-Item -Path 'Function:\Invoke-IdleTestAcquireAuthSessionStep' -ErrorAction SilentlyContinue
+    Remove-Item -Path 'Function:\Invoke-IdleTestLegacyStep' -ErrorAction SilentlyContinue
 }
 
 Describe 'Invoke-IdlePlan' {
@@ -691,5 +710,33 @@ Describe 'Invoke-IdlePlan' {
         $callLog.Name | Should -Be 'Demo'
         $callLog.Options['Mode'] | Should -Be 'Auto'
         $callLog.Options['CacheKey'] | Should -Be 'unit-test'
+    }
+
+    It 'supports step handlers without Context parameter (backwards compatibility)' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'legacy.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Legacy'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'LegacyStep'; Type = 'IdLE.Step.Legacy' }
+  )
+}
+'@
+
+        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+
+        $providers = @{
+            StepRegistry = @{
+                'IdLE.Step.Legacy' = 'Invoke-IdleTestLegacyStep'
+            }
+        }
+
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+        $result.Status | Should -Be 'Completed'
+        $result.Steps[0].Status | Should -Be 'Completed'
+        $result.Steps[0].Name | Should -Be 'LegacyStep'
     }
 }
