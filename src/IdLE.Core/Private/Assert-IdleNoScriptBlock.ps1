@@ -50,5 +50,3 @@ function Assert-IdleNoScriptBlock {
         }
     }
 }
-
-
