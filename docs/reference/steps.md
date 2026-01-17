@@ -9,8 +9,8 @@ This page documents built-in IdLE steps discovered from `Invoke-IdleStep*` funct
 
 ## EmitEvent
 
-- **Step Name**: $stepType
-- **Implementation**: $commandName
+- **Step Name**: `EmitEvent`
+- **Implementation**: `Invoke-IdleStepEmitEvent`
 - **Idempotent**: `Unknown`
 - **Contracts**: `Unknown`
 - **Events**: Unknown
@@ -33,8 +33,8 @@ _Unknown (not detected automatically). Document required With.* keys in the step
 
 ## EnsureAttribute
 
-- **Step Name**: $stepType
-- **Implementation**: $commandName
+- **Step Name**: `EnsureAttribute`
+- **Implementation**: `Invoke-IdleStepEnsureAttribute`
 - **Idempotent**: `Yes`
 - **Contracts**: `Provider must implement method: $providerMethod`
 - **Events**: Unknown
@@ -64,8 +64,8 @@ The step is idempotent by design: it converges state to the desired value.
 
 ## EnsureEntitlement
 
-- **Step Name**: $stepType
-- **Implementation**: $commandName
+- **Step Name**: `EnsureEntitlement`
+- **Implementation**: `Invoke-IdleStepEnsureEntitlement`
 - **Idempotent**: `Yes`
 - **Contracts**: `Unknown`
 - **Events**: Unknown
@@ -79,6 +79,7 @@ Ensures that an entitlement assignment is present or absent for an identity.
 This provider-agnostic step uses entitlement provider contracts to converge
 an assignment to the desired state. The host must supply a provider instance
 via `Context.Providers[<ProviderAlias>]` that implements:
+
 - ListEntitlements(identityKey)
 - GrantEntitlement(identityKey, entitlement)
 - RevokeEntitlement(identityKey, entitlement)
