@@ -50,7 +50,8 @@ IdLE aims to be:
 ## Requirements
 
 - PowerShell **7.x** (`pwsh`)
-- Pester **5.x** (for tests)
+- Pester **5.7.1** (for tests)
+- PSScriptAnalyzer **1.24.0** (for tests)
 
 ---
 
@@ -100,14 +101,6 @@ Advanced hosts can import the engine without any step packs:
 Import-Module ./src/IdLE.Core/IdLE.Core.psd1 -Force
 ```
 
-### Option B — PowerShell Gallery (planned)
-
-Once published:
-
-```powershell
-Install-Module IdLE
-```
-
 ---
 
 ## Quickstart
@@ -145,16 +138,11 @@ Start here:
 - `docs/advanced/architecture.md` – architecture and principles
 - `docs/usage/workflows.md` – workflow schema and validation
 
-Project docs:
-
-- Contributing: `CONTRIBUTING.md`
-- Style guide: `STYLEGUIDE.md`
-
 ---
 
 ## Contributing
 
-PRs welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md)
+PRs welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md) and [STYLEGUIDE.md](STYLEGUIDE.md)
 
 ---
 
