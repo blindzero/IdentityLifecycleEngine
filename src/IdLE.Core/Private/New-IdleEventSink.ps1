@@ -1,5 +1,6 @@
 function New-IdleEventSink {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'EventBuffer', Justification = 'Passed to Write-IdleEvent via closure.')]
     param(
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]

@@ -1,5 +1,6 @@
 function Copy-IdleRedactedObject {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'RedactionMarker', Justification = 'Used within nested helper functions for redaction output.')]
     param(
         [Parameter()]
         [AllowNull()]
