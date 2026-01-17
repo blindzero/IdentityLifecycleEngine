@@ -207,8 +207,8 @@ function ConvertTo-IdleStepMarkdownSection {
 
     [void]$sb.AppendLine("## $stepType")
     [void]$sb.AppendLine()
-    [void]$sb.AppendLine(("- **Step Name**: `$stepType"))
-    [void]$sb.AppendLine(("- **Implementation**: `$commandName"))
+    [void]$sb.AppendLine(("- **Step Name**: ``{0}``" -f $stepType))
+    [void]$sb.AppendLine(("- **Implementation**: ``{0}``" -f $commandName))
     [void]$sb.AppendLine(("- **Idempotent**: ``{0}``" -f $idempotent))
     [void]$sb.AppendLine(("- **Contracts**: ``{0}``" -f $contracts))
     [void]$sb.AppendLine(("- **Events**: Unknown"))
