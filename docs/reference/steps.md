@@ -11,8 +11,8 @@ This page documents built-in IdLE steps discovered from `Invoke-IdleStep*` funct
 
 - **Step Name**: $stepType
 - **Implementation**: $commandName
-- **Idempotent**: $idempotent
-- **Contracts**: $contracts
+- **Idempotent**: `Unknown`
+- **Contracts**: `Unknown`
 - **Events**: Unknown
 
 **Synopsis**
@@ -35,8 +35,8 @@ _Unknown (not detected automatically). Document required With.* keys in the step
 
 - **Step Name**: $stepType
 - **Implementation**: $commandName
-- **Idempotent**: $idempotent
-- **Contracts**: $contracts
+- **Idempotent**: `Yes`
+- **Contracts**: `Provider must implement method: $providerMethod`
 - **Events**: Unknown
 
 **Synopsis**
@@ -66,8 +66,8 @@ The step is idempotent by design: it converges state to the desired value.
 
 - **Step Name**: $stepType
 - **Implementation**: $commandName
-- **Idempotent**: $idempotent
-- **Contracts**: $contracts
+- **Idempotent**: `Yes`
+- **Contracts**: `Unknown`
 - **Events**: Unknown
 
 **Synopsis**
