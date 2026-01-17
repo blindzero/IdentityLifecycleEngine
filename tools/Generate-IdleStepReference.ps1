@@ -201,16 +201,16 @@ function ConvertTo-IdleStepMarkdownSection {
     }
 
     $providerMethod = Get-IdleProviderMethodHintFromDescription -DescriptionText $description
-    $contracts = if ($providerMethod) { "Provider must implement method: `$providerMethod" } else { 'Unknown' }
+    $contracts = if ($providerMethod) { "Provider must implement method: $providerMethod" } else { 'Unknown' }
 
     $sb = New-Object System.Text.StringBuilder
 
     [void]$sb.AppendLine("## $stepType")
     [void]$sb.AppendLine()
-    [void]$sb.AppendLine(("- **Step Name**: `$stepType"))
-    [void]$sb.AppendLine(("- **Implementation**: `$commandName"))
-    [void]$sb.AppendLine(("- **Idempotent**: `$idempotent"))
-    [void]$sb.AppendLine(("- **Contracts**: `$contracts"))
+    [void]$sb.AppendLine(("- **Step Name**: ``{0}``" -f $stepType))
+    [void]$sb.AppendLine(("- **Implementation**: ``{0}``" -f $commandName))
+    [void]$sb.AppendLine(("- **Idempotent**: ``{0}``" -f $idempotent))
+    [void]$sb.AppendLine(("- **Contracts**: ``{0}``" -f $contracts))
     [void]$sb.AppendLine(("- **Events**: Unknown"))
     [void]$sb.AppendLine()
     [void]$sb.AppendLine("**Synopsis**")
@@ -295,14 +295,12 @@ foreach ($m in $StepModules) {
 }
 
 # Discover step commands from the configured step modules.
-$stepCommands =
-    foreach ($m in $StepModules) {
-        Get-Command -Module $m -CommandType Function -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like 'Invoke-IdleStep*' }
-    }
+$stepCommands = foreach ($m in $StepModules) {
+    Get-Command -Module $m -CommandType Function -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like 'Invoke-IdleStep*' }
+}
 
-$stepCommands =
-    $stepCommands |
+$stepCommands = $stepCommands |
     Where-Object { $_.Name -and $_.Name -notin $ExcludeCommands } |
     Sort-Object -Property Name -Unique
 

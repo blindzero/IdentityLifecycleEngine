@@ -1,5 +1,6 @@
 function Test-IdleCondition {
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Context', Justification = 'Used for path resolution within nested helper functions.')]
     param(
         [Parameter(Mandatory)]
         [ValidateNotNull()]

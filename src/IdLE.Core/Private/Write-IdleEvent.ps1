@@ -20,7 +20,7 @@ function Write-IdleEvent {
     #
     # We never mutate the original event object. We emit a redacted copy.
     $shouldEmitToSink = ($null -ne $EventSink)
-    $shouldBuffer     = ($null -ne $EventBuffer)
+    $shouldBuffer = ($null -ne $EventBuffer)
 
     $eventToEmit = $Event
     if ($shouldEmitToSink -or $shouldBuffer) {

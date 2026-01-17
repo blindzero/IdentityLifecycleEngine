@@ -99,9 +99,7 @@ function Get-ManifestModuleInfo {
 
     $content = Get-Content -Path $ManifestPath -Raw
 
-    $moduleVersion =
-        if ($content -match "(?m)^\s*ModuleVersion\s*=\s*'([^']+)'") { $Matches[1] }
-        else { $null }
+    $moduleVersion = if ($content -match "(?m)^\s*ModuleVersion\s*=\s*'([^']+)'") { $Matches[1] } else { $null }
 
     $moduleName = Split-Path -Path (Split-Path -Path $ManifestPath -Parent) -Leaf
 

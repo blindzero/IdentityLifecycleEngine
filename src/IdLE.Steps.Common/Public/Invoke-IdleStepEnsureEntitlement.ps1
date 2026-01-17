@@ -7,6 +7,7 @@ function Invoke-IdleStepEnsureEntitlement {
     This provider-agnostic step uses entitlement provider contracts to converge
     an assignment to the desired state. The host must supply a provider instance
     via `Context.Providers[<ProviderAlias>]` that implements:
+
     - ListEntitlements(identityKey)
     - GrantEntitlement(identityKey, entitlement)
     - RevokeEntitlement(identityKey, entitlement)
