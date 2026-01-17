@@ -37,7 +37,7 @@ function New-IdleEventSink {
     }
 
     # Capture command references once to avoid scope/name resolution issues inside script methods.
-    $newIdleEventCmd   = Get-Command -Name 'New-IdleEvent'   -CommandType Function -ErrorAction Stop
+    $newIdleEventCmd = Get-Command -Name 'New-IdleEvent'   -CommandType Function -ErrorAction Stop
     $writeIdleEventCmd = Get-Command -Name 'Write-IdleEvent' -CommandType Function -ErrorAction Stop
 
     $sink = [pscustomobject]@{

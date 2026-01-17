@@ -102,13 +102,13 @@ function ConvertTo-IdlePlanExportObject {
             # When present, export these as the canonical request.input payload.
             $identityKeys = Get-FirstPropertyValue -Object $request -Names @('IdentityKeys', 'IdentityKey', 'Keys')
             $desiredState = Get-FirstPropertyValue -Object $request -Names @('DesiredState', 'TargetState')
-            $changes      = Get-FirstPropertyValue -Object $request -Names @('Changes', 'Delta')
+            $changes = Get-FirstPropertyValue -Object $request -Names @('Changes', 'Delta')
 
             if ($null -ne $identityKeys -or $null -ne $desiredState -or $null -ne $changes) {
                 $requestInput = New-OrderedMap
                 $requestInput.identityKeys = $identityKeys
                 $requestInput.desiredState = $desiredState
-                $requestInput.changes      = $changes
+                $requestInput.changes = $changes
             }
         }
     }
@@ -138,10 +138,10 @@ function ConvertTo-IdlePlanExportObject {
     }
 
     $requestMap = New-OrderedMap
-    $requestMap.type          = $requestType
+    $requestMap.type = $requestType
     $requestMap.correlationId = $correlationId
-    $requestMap.actor         = $actor
-    $requestMap.input         = $redactedRequestInput
+    $requestMap.actor = $actor
+    $requestMap.input = $redactedRequestInput
 
     # ---- Plan block ----------------------------------------------------------
     $planId = ConvertTo-NullIfEmptyString -Value (

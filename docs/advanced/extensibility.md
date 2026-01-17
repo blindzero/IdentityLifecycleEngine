@@ -26,8 +26,34 @@ A new provider typically involves:
 
 1. A contract interface (if not already present)
 2. A provider implementation module
-3. Session acquisition via host execution context
+3. Auth session acquisition via host execution context (AuthSessionBroker)
 4. Contract tests and unit tests
+
+### Auth session acquisition (AuthSessionBroker)
+
+IdLE keeps authentication out of the core engine. Hosts provide an auth session broker
+that is responsible for obtaining and caching authenticated runtime handles (tokens,
+Graph clients, Exchange Online sessions, LDAP binds, etc.).
+
+- Hosts MUST pass the broker via `Providers.AuthSessionBroker`.
+- Providers SHOULD acquire sessions through the execution context:
+  - `Context.AcquireAuthSession(Name, Options)`
+
+Broker contract:
+
+- The broker MUST expose an `AcquireAuthSession(Name, Options)` method.
+- `Name` is a routing key (for example: `MicrosoftGraph`, `ExchangeOnline`, `ActiveDirectory`).
+- `Options` is optional (`$null` is treated as an empty hashtable) and must be data-only:
+  - ScriptBlock values are rejected, including nested values.
+- The engine enriches options with `CorrelationId` and `Actor` when available.
+- The engine deep-copies `Options` before invoking the broker; brokers MUST treat
+  options as immutable and MUST NOT mutate nested values.
+
+Security notes:
+
+- Do not embed credentials directly in `Options`.
+- Treat `Options` as configuration input, not a secret store.
+- Use host secret management and keep secrets out of plans, events, and exports.
 
 ### Capability Advertisement
 
@@ -56,6 +82,7 @@ Do not add:
 
 - interactive prompts
 - authentication code inside steps
+- authentication flows inside providers (use AuthSessionBroker)
 - UI or web server dependencies
 
 Those belong in a host application.
@@ -68,3 +95,7 @@ Steps are executed via a host-provided step registry.
 - The host maps this identifier to a **function name** (string) in the step registry.
 
 ScriptBlock handlers are intentionally not supported as a secure default.
+
+Step handlers may optionally declare a `Context` parameter.
+For backwards compatibility, the engine passes `-Context` only when the handler
+supports it.

@@ -163,7 +163,7 @@ function Get-IdleReleaseFileList {
         Where-Object { -not (Test-IdlePathExcluded -RelativePath $_.RelativePath) } |
         Sort-Object SortKey
 
-    return ,($sorted.FileInfo)
+    return , ($sorted.FileInfo)
 }
 
 function ConvertTo-IdleSafeFileName {

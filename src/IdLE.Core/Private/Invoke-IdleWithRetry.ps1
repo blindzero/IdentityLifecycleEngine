@@ -66,9 +66,9 @@ function Get-IdleDeterministicJitter {
     }
 
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($Seed)
-    $hash  = [System.Security.Cryptography.SHA256]::HashData($bytes)
+    $hash = [System.Security.Cryptography.SHA256]::HashData($bytes)
 
-    $u64  = [System.BitConverter]::ToUInt64($hash, 0)
+    $u64 = [System.BitConverter]::ToUInt64($hash, 0)
     $unit = $u64 / [double][UInt64]::MaxValue
 
     return (($unit * 2.0) - 1.0) * $JitterRatio

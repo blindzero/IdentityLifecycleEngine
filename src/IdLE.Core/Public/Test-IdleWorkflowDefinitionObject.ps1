@@ -49,7 +49,7 @@ function Test-IdleWorkflowDefinitionObject {
         }
         else {
             $reqEvent = [string]$Request.LifecycleEvent
-            $wfEvent  = [string]$workflow.LifecycleEvent
+            $wfEvent = [string]$workflow.LifecycleEvent
 
             if (-not [string]::IsNullOrWhiteSpace($reqEvent) -and
                 -not $reqEvent.Equals($wfEvent, [System.StringComparison]::OrdinalIgnoreCase)) {

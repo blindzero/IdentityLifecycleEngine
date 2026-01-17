@@ -2,7 +2,7 @@
 
 Set-StrictMode -Version Latest
 
-$PublicPath  = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
+$PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
 $PrivatePath = Join-Path -Path $PSScriptRoot -ChildPath 'Private'
 
 foreach ($path in @($PrivatePath, $PublicPath)) {

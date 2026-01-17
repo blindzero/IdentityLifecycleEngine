@@ -134,5 +134,52 @@ Describe 'Redaction at output boundaries (events, exports, execution results)' {
             $result.Providers.Directory.token        | Should -Be '[REDACTED]'
             $result.Providers.Mail.apiKey            | Should -Be '[REDACTED]'
         }
+
+        It 'redacts AuthSessionBroker secrets and does not leak broker methods in the returned execution result (Providers surface)' {
+            $plan = [pscustomobject]@{
+                PSTypeName = 'IdLE.Plan'
+                Request    = [pscustomobject]@{
+                    PSTypeName    = 'IdLE.LifecycleRequest'
+                    Type          = 'Joiner'
+                    CorrelationId = 'corr-003'
+                    Actor         = 'tester'
+                }
+                Steps = @()
+            }
+
+            $broker = [pscustomobject]@{
+                PSTypeName = 'Tests.AuthSessionBroker'
+                token      = 'abc123'
+                note       = 'ok'
+            }
+
+            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+                param([Parameter(Mandatory)][string] $Name, [Parameter(Mandatory)][hashtable] $Options)
+                return [pscustomobject]@{
+                    PSTypeName = 'IdLE.AuthSession'
+                    Kind       = 'Test'
+                    Name       = $Name
+                }
+            } -Force
+
+            $providers = @{
+                Directory        = @{
+                    clientSecret = 'TopSecret'
+                }
+                AuthSessionBroker = $broker
+            }
+
+            $result = Invoke-IdlePlanObject -Plan $plan -Providers $providers -EventSink $null
+
+            # Original broker must remain unchanged
+            $providers.AuthSessionBroker.token | Should -Be 'abc123'
+            $providers.AuthSessionBroker.note  | Should -Be 'ok'
+            $providers.AuthSessionBroker.PSObject.Methods.Name | Should -Contain 'AcquireAuthSession'
+
+            # Result must be redacted (token) and must not include broker methods
+            $result.Providers.AuthSessionBroker.token | Should -Be '[REDACTED]'
+            $result.Providers.AuthSessionBroker.note  | Should -Be 'ok'
+            $result.Providers.AuthSessionBroker.PSObject.Methods.Name | Should -Not -Contain 'AcquireAuthSession'
+        }
     }
 }
