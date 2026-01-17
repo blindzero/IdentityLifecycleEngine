@@ -201,7 +201,7 @@ function ConvertTo-IdleStepMarkdownSection {
     }
 
     $providerMethod = Get-IdleProviderMethodHintFromDescription -DescriptionText $description
-    $contracts = if ($providerMethod) { "Provider must implement method: `$providerMethod" } else { 'Unknown' }
+    $contracts = if ($providerMethod) { "Provider must implement method: $providerMethod" } else { 'Unknown' }
 
     $sb = New-Object System.Text.StringBuilder
 
