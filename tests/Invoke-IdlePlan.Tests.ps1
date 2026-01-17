@@ -567,6 +567,7 @@ Describe 'Invoke-IdlePlan' {
         $plan = [pscustomobject]@{
             PSTypeName    = 'IdLE.Plan'
             CorrelationId = 'test-corr'
+            Actor         = 'test-actor'
             Steps         = @(
                 @{
                     Name = 'Acquire'
@@ -615,6 +616,8 @@ Describe 'Invoke-IdlePlan' {
         $callLog.Options | Should -BeOfType 'hashtable'
         $callLog.Options.ContainsKey('CorrelationId') | Should -BeTrue
         $callLog.Options['CorrelationId'] | Should -Be 'test-corr'
+        $callLog.Options.ContainsKey('Actor') | Should -BeTrue
+        $callLog.Options['Actor'] | Should -Be 'test-actor'
     }
 
     It 'rejects ScriptBlocks in auth session options (security)' {
