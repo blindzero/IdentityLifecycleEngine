@@ -94,7 +94,7 @@ function New-IdlePlanObject {
             return $null
         }
 
-        $m = $Object | Get-Member -Name $Name -MemberType NoteProperty,Property -ErrorAction SilentlyContinue
+        $m = $Object | Get-Member -Name $Name -MemberType NoteProperty, Property -ErrorAction SilentlyContinue
         if ($null -eq $m) {
             return $null
         }
@@ -378,7 +378,7 @@ function New-IdlePlanObject {
             return $Step.ContainsKey($Key)
         }
 
-        $m = $Step | Get-Member -Name $Key -MemberType NoteProperty,Property -ErrorAction SilentlyContinue
+        $m = $Step | Get-Member -Name $Key -MemberType NoteProperty, Property -ErrorAction SilentlyContinue
         return ($null -ne $m)
     }
 
