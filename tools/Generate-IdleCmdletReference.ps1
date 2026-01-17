@@ -117,8 +117,7 @@ function Get-IdleCmdletMetadata {
         [string[]] $Exclude = @()
     )
 
-    $cmds =
-        Get-Command -Module $ModuleName -CommandType Function, Cmdlet -ErrorAction Stop |
+    $cmds = Get-Command -Module $ModuleName -CommandType Function, Cmdlet -ErrorAction Stop |
         Where-Object { $_.Name -and $_.Name -notin $Exclude } |
         Sort-Object -Property Name -Unique
 

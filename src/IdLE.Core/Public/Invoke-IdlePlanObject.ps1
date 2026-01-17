@@ -316,11 +316,16 @@ function Invoke-IdlePlanObject {
         }
     }
 
-    $context.EventSink.WriteEvent('RunStarted', 'Plan execution started.', $null, @{
-        CorrelationId = $corr
-        Actor         = $actor
-        StepCount     = @($Plan.Steps).Count
-    })
+    $context.EventSink.WriteEvent(
+        'RunStarted',
+        'Plan execution started.',
+        $null,
+        @{
+            CorrelationId = $corr
+            Actor         = $actor
+            StepCount     = @($Plan.Steps).Count
+        }
+    )
 
     $failed = $false
     $stepResults = @()
@@ -351,19 +356,29 @@ function Invoke-IdlePlanObject {
                 Attempts   = 1
             }
 
-            $context.EventSink.WriteEvent('StepNotApplicable', "Step '$stepName' not applicable (condition not met).", $stepName, @{
-                StepType = $stepType
-                Index    = $i
-            })
+            $context.EventSink.WriteEvent(
+                'StepNotApplicable',
+                "Step '$stepName' not applicable (condition not met).",
+                $stepName,
+                @{
+                    StepType = $stepType
+                    Index    = $i
+                }
+            )
 
             $i++
             continue
         }
 
-        $context.EventSink.WriteEvent('StepStarted', "Step '$stepName' started.", $stepName, @{
-            StepType = $stepType
-            Index    = $i
-        })
+        $context.EventSink.WriteEvent(
+            'StepStarted',
+            "Step '$stepName' started.",
+            $stepName,
+            @{
+                StepType = $stepType
+                Index    = $i
+            }
+        )
 
         try {
             $impl = Resolve-IdleStepHandler -StepType ([string]$stepType) -StepRegistry $stepRegistry
@@ -415,19 +430,29 @@ function Invoke-IdlePlanObject {
             if ($result.Status -eq 'Failed') {
                 $failed = $true
 
-                $context.EventSink.WriteEvent('StepFailed', "Step '$stepName' failed.", $stepName, @{
-                    StepType = $stepType
-                    Index    = $i
-                    Error    = $result.Error
-                })
+                $context.EventSink.WriteEvent(
+                    'StepFailed',
+                    "Step '$stepName' failed.",
+                    $stepName,
+                    @{
+                        StepType = $stepType
+                        Index    = $i
+                        Error    = $result.Error
+                    }
+                )
 
                 break
             }
 
-            $context.EventSink.WriteEvent('StepCompleted', "Step '$stepName' completed.", $stepName, @{
-                StepType = $stepType
-                Index    = $i
-            })
+            $context.EventSink.WriteEvent(
+                'StepCompleted',
+                "Step '$stepName' completed.",
+                $stepName,
+                @{
+                    StepType = $stepType
+                    Index    = $i
+                }
+            )
         }
         catch {
             $failed = $true
@@ -442,11 +467,16 @@ function Invoke-IdlePlanObject {
                 Attempts   = 1
             }
 
-            $context.EventSink.WriteEvent('StepFailed', "Step '$stepName' failed.", $stepName, @{
-                StepType = $stepType
-                Index    = $i
-                Error    = $err.Exception.Message
-            })
+            $context.EventSink.WriteEvent(
+                'StepFailed',
+                "Step '$stepName' failed.",
+                $stepName,
+                @{
+                    StepType = $stepType
+                    Index    = $i
+                    Error    = $err.Exception.Message
+                }
+            )
 
             break
         }
@@ -470,9 +500,14 @@ function Invoke-IdlePlanObject {
     }
 
     if ($failed -and @($planOnFailureSteps).Count -gt 0) {
-        $context.EventSink.WriteEvent('OnFailureStarted', 'Executing OnFailureSteps (best effort).', $null, @{
-            OnFailureStepCount = @($planOnFailureSteps).Count
-        })
+        $context.EventSink.WriteEvent(
+            'OnFailureStarted',
+            'Executing OnFailureSteps (best effort).',
+            $null,
+            @{
+                OnFailureStepCount = @($planOnFailureSteps).Count
+            }
+        )
 
         $onFailureHadFailures = $false
         $onFailureStepResults = @()
@@ -502,19 +537,29 @@ function Invoke-IdlePlanObject {
                     Attempts   = 1
                 }
 
-                $context.EventSink.WriteEvent('OnFailureStepNotApplicable', "OnFailure step '$ofName' not applicable (condition not met).", $ofName, @{
-                    StepType = $ofType
-                    Index    = $j
-                })
+                $context.EventSink.WriteEvent(
+                    'OnFailureStepNotApplicable',
+                    "OnFailure step '$ofName' not applicable (condition not met).",
+                    $ofName,
+                    @{
+                        StepType = $ofType
+                        Index    = $j
+                    }
+                )
 
                 $j++
                 continue
             }
 
-            $context.EventSink.WriteEvent('OnFailureStepStarted', "OnFailure step '$ofName' started.", $ofName, @{
-                StepType = $ofType
-                Index    = $j
-            })
+            $context.EventSink.WriteEvent(
+                'OnFailureStepStarted',
+                "OnFailure step '$ofName' started.",
+                $ofName,
+                @{
+                    StepType = $ofType
+                    Index    = $j
+                }
+            )
 
             try {
                 $impl = Resolve-IdleStepHandler -StepType ([string]$ofType) -StepRegistry $stepRegistry
@@ -564,17 +609,27 @@ function Invoke-IdlePlanObject {
                 if ($result.Status -eq 'Failed') {
                     $onFailureHadFailures = $true
 
-                    $context.EventSink.WriteEvent('OnFailureStepFailed', "OnFailure step '$ofName' failed.", $ofName, @{
-                        StepType = $ofType
-                        Index    = $j
-                        Error    = $result.Error
-                    })
+                    $context.EventSink.WriteEvent(
+                        'OnFailureStepFailed',
+                        "OnFailure step '$ofName' failed.",
+                        $ofName,
+                        @{
+                            StepType = $ofType
+                            Index    = $j
+                            Error    = $result.Error
+                        }
+                    )
                 }
                 else {
-                    $context.EventSink.WriteEvent('OnFailureStepCompleted', "OnFailure step '$ofName' completed.", $ofName, @{
-                        StepType = $ofType
-                        Index    = $j
-                    })
+                    $context.EventSink.WriteEvent(
+                        'OnFailureStepCompleted',
+                        "OnFailure step '$ofName' completed.",
+                        $ofName,
+                        @{
+                            StepType = $ofType
+                            Index    = $j
+                        }
+                    )
                 }
             }
             catch {
@@ -590,11 +645,16 @@ function Invoke-IdlePlanObject {
                     Attempts   = 1
                 }
 
-                $context.EventSink.WriteEvent('OnFailureStepFailed', "OnFailure step '$ofName' failed.", $ofName, @{
-                    StepType = $ofType
-                    Index    = $j
-                    Error    = $err.Exception.Message
-                })
+                $context.EventSink.WriteEvent(
+                    'OnFailureStepFailed',
+                    "OnFailure step '$ofName' failed.",
+                    $ofName,
+                    @{
+                        StepType = $ofType
+                        Index    = $j
+                        Error    = $err.Exception.Message
+                    }
+                )
             }
 
             $j++
@@ -608,17 +668,27 @@ function Invoke-IdlePlanObject {
             Steps      = @($onFailureStepResults)
         }
 
-        $context.EventSink.WriteEvent('OnFailureCompleted', "OnFailureSteps finished (status: $onFailureStatus).", $null, @{
-            Status    = $onFailureStatus
-            StepCount = @($planOnFailureSteps).Count
-        })
+        $context.EventSink.WriteEvent(
+            'OnFailureCompleted',
+            "OnFailureSteps finished (status: $onFailureStatus).",
+            $null,
+            @{
+                Status    = $onFailureStatus
+                StepCount = @($planOnFailureSteps).Count
+            }
+        )
     }
 
     # RunCompleted should always be the last event for deterministic event order.
-    $context.EventSink.WriteEvent('RunCompleted', "Plan execution finished (status: $runStatus).", $null, @{
-        Status    = $runStatus
-        StepCount = @($Plan.Steps).Count
-    })
+    $context.EventSink.WriteEvent(
+        'RunCompleted',
+        "Plan execution finished (status: $runStatus).",
+        $null,
+        @{
+            Status    = $runStatus
+            StepCount = @($Plan.Steps).Count
+        }
+    )
 
     # Issue #48:
     # Redact provider configuration/state at the output boundary (execution result).

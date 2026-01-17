@@ -295,14 +295,12 @@ foreach ($m in $StepModules) {
 }
 
 # Discover step commands from the configured step modules.
-$stepCommands =
-    foreach ($m in $StepModules) {
-        Get-Command -Module $m -CommandType Function -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like 'Invoke-IdleStep*' }
-    }
+$stepCommands = foreach ($m in $StepModules) {
+    Get-Command -Module $m -CommandType Function -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like 'Invoke-IdleStep*' }
+}
 
-$stepCommands =
-    $stepCommands |
+$stepCommands = $stepCommands |
     Where-Object { $_.Name -and $_.Name -notin $ExcludeCommands } |
     Sort-Object -Property Name -Unique
 
