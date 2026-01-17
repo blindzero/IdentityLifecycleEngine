@@ -36,7 +36,7 @@ _Unknown (not detected automatically). Document required With.* keys in the step
 - **Step Name**: `EnsureAttribute`
 - **Implementation**: `Invoke-IdleStepEnsureAttribute`
 - **Idempotent**: `Yes`
-- **Contracts**: `Provider must implement method: $providerMethod`
+- **Contracts**: `Provider must implement method: EnsureAttribute`
 - **Events**: Unknown
 
 **Synopsis**
