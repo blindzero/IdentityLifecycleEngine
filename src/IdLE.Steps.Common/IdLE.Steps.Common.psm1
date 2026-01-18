@@ -15,5 +15,10 @@ if (Test-Path -Path $PublicPath) {
 Export-ModuleMember -Function @(
     'Invoke-IdleStepEmitEvent',
     'Invoke-IdleStepEnsureAttribute',
-    'Invoke-IdleStepEnsureEntitlement'
+    'Invoke-IdleStepEnsureEntitlement',
+    'Invoke-IdleStepCreateIdentity',
+    'Invoke-IdleStepDisableIdentity',
+    'Invoke-IdleStepEnableIdentity',
+    'Invoke-IdleStepMoveIdentity',
+    'Invoke-IdleStepDeleteIdentity'
 )

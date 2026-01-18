@@ -128,5 +128,40 @@ function Get-IdleStepRegistry {
         }
     }
 
+    if (-not $registry.ContainsKey('IdLE.Step.CreateIdentity')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepCreateIdentity' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.CreateIdentity'] = $handler
+        }
+    }
+
+    if (-not $registry.ContainsKey('IdLE.Step.DisableIdentity')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepDisableIdentity' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.DisableIdentity'] = $handler
+        }
+    }
+
+    if (-not $registry.ContainsKey('IdLE.Step.EnableIdentity')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepEnableIdentity' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.EnableIdentity'] = $handler
+        }
+    }
+
+    if (-not $registry.ContainsKey('IdLE.Step.MoveIdentity')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepMoveIdentity' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.MoveIdentity'] = $handler
+        }
+    }
+
+    if (-not $registry.ContainsKey('IdLE.Step.DeleteIdentity')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepDeleteIdentity' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.DeleteIdentity'] = $handler
+        }
+    }
+
     return $registry
 }
