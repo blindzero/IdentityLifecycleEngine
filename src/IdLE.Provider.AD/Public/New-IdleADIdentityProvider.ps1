@@ -140,6 +140,7 @@ function New-IdleADIdentityProvider {
         }
         catch [System.Management.Automation.MethodException] {
             # TryParse failed, continue to other resolution methods
+            Write-Verbose "GUID parsing failed for '$IdentityKey', trying UPN/sAMAccountName resolution"
         }
 
         # Try UPN format (contains @)

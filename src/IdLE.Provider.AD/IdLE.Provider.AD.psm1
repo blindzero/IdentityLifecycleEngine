@@ -2,11 +2,13 @@
 
 Set-StrictMode -Version Latest
 
-# Validate ActiveDirectory module availability at module load time (best effort)
+# Validate ActiveDirectory module availability at module load time (best effort, non-blocking)
 # The adapter will perform hard validation when instantiated
+# Module import will succeed even if ActiveDirectory is not available to allow unit tests and
+# cross-platform development. Provider instantiation will fail with clear error if AD module is missing.
 if ($PSVersionTable.Platform -eq 'Win32NT' -or $PSVersionTable.Platform -eq 'Windows') {
     if (-not (Get-Module -Name ActiveDirectory -ListAvailable)) {
-        Write-Warning "IdLE.Provider.AD requires the ActiveDirectory module (RSAT). Install it with: Install-WindowsFeature -Name RSAT-AD-PowerShell (Windows Server) or Get-WindowsCapability -Online -Name 'Rsat.ActiveDirectory*' | Add-WindowsCapability -Online (Windows 10/11)"
+        Write-Verbose "IdLE.Provider.AD: ActiveDirectory module not found. The provider will require RSAT/ActiveDirectory at runtime."
     }
 }
 
