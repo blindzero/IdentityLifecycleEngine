@@ -159,6 +159,16 @@ Other attributes can be set using the `Replace` parameter pattern (handled by th
 
 ## Entitlements (Groups)
 
+### Important: AD Only Supports Group Entitlements
+
+Active Directory only supports security groups and distribution groups as entitlements. The AD provider:
+
+- **Only supports** `Kind = 'Group'`
+- **Does not support** arbitrary entitlement kinds (e.g., roles, permissions, licenses)
+- All entitlements returned by `ListEntitlements` will have `Kind = 'Group'`
+
+This is a fundamental constraint of Active Directory and differs from cloud identity providers that may support multiple entitlement types.
+
 ### Group Identification
 
 The provider uses **DistinguishedName (DN)** as the canonical group identifier:

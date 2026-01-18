@@ -342,8 +342,99 @@ Describe 'AD identity provider' {
             New-IdleADIdentityProvider -Adapter $script:FakeAdapter
         }
 
-        Invoke-IdleEntitlementProviderContractTests -NewProvider {
-            New-IdleADIdentityProvider -Adapter $script:FakeAdapter
+        # Note: Generic entitlement contract tests are skipped for AD provider because:
+        # - AD only supports Kind='Group' (not arbitrary entitlement kinds like 'Contract')
+        # - Generic contract tests use Kind='Contract' which doesn't match AD's behavior
+        # - AD-specific entitlement tests with Kind='Group' are in the 'Idempotency' context below
+    }
+
+    Context 'AD-specific entitlement operations' {
+        BeforeAll {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            $script:TestProvider = $provider
+            $script:TestAdapter = $adapter
+        }
+
+        It 'Exposes required entitlement methods' {
+            $script:TestProvider.PSObject.Methods.Name | Should -Contain 'ListEntitlements'
+            $script:TestProvider.PSObject.Methods.Name | Should -Contain 'GrantEntitlement'
+            $script:TestProvider.PSObject.Methods.Name | Should -Contain 'RevokeEntitlement'
+        }
+
+        It 'GrantEntitlement returns stable result shape with Kind=Group' {
+            $testUser = $script:TestAdapter.NewUser('EntTest1', @{ SamAccountName = 'enttest1' }, $true)
+            $id = $testUser.ObjectGuid.ToString()
+
+            $entitlement = @{
+                Kind        = 'Group'
+                Id          = 'CN=TestGroup,OU=Groups,DC=domain,DC=local'
+                DisplayName = 'Test Group'
+            }
+
+            $result = $script:TestProvider.GrantEntitlement($id, $entitlement)
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.PSObject.Properties.Name | Should -Contain 'Changed'
+            $result.PSObject.Properties.Name | Should -Contain 'IdentityKey'
+            $result.PSObject.Properties.Name | Should -Contain 'Entitlement'
+            $result.Changed | Should -BeOfType [bool]
+            $result.Entitlement.Kind | Should -Be 'Group'
+        }
+
+        It 'GrantEntitlement is idempotent with Kind=Group' {
+            $testUser = $script:TestAdapter.NewUser('EntTest2', @{ SamAccountName = 'enttest2' }, $true)
+            $id = $testUser.ObjectGuid.ToString()
+
+            $entitlement = @{
+                Kind = 'Group'
+                Id   = 'CN=IdempotentGroup,OU=Groups,DC=domain,DC=local'
+            }
+
+            $r1 = $script:TestProvider.GrantEntitlement($id, $entitlement)
+            $r2 = $script:TestProvider.GrantEntitlement($id, $entitlement)
+
+            $r1.Changed | Should -BeTrue
+            $r2.Changed | Should -BeFalse
+        }
+
+        It 'RevokeEntitlement is idempotent with Kind=Group' {
+            $testUser = $script:TestAdapter.NewUser('EntTest3', @{ SamAccountName = 'enttest3' }, $true)
+            $id = $testUser.ObjectGuid.ToString()
+
+            $entitlement = @{
+                Kind = 'Group'
+                Id   = 'CN=RevokeGroup,OU=Groups,DC=domain,DC=local'
+            }
+
+            $script:TestProvider.GrantEntitlement($id, $entitlement) | Out-Null
+
+            $r1 = $script:TestProvider.RevokeEntitlement($id, $entitlement)
+            $r2 = $script:TestProvider.RevokeEntitlement($id, $entitlement)
+
+            $r1.Changed | Should -BeTrue
+            $r2.Changed | Should -BeFalse
+        }
+
+        It 'ListEntitlements reflects grant and revoke operations with Kind=Group' {
+            $testUser = $script:TestAdapter.NewUser('EntTest4', @{ SamAccountName = 'enttest4' }, $true)
+            $id = $testUser.ObjectGuid.ToString()
+
+            $entitlement = @{
+                Kind = 'Group'
+                Id   = 'CN=ListTestGroup,OU=Groups,DC=domain,DC=local'
+            }
+
+            $before = @($script:TestProvider.ListEntitlements($id))
+
+            $script:TestProvider.GrantEntitlement($id, $entitlement) | Out-Null
+            $afterGrant = @($script:TestProvider.ListEntitlements($id))
+
+            $script:TestProvider.RevokeEntitlement($id, $entitlement) | Out-Null
+            $afterRevoke = @($script:TestProvider.ListEntitlements($id))
+
+            @($afterGrant | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
+            @($afterRevoke | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
         }
     }
 
