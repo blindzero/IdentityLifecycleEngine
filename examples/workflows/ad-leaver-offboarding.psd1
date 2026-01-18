@@ -7,6 +7,8 @@
             Type                 = 'IdLE.Step.DisableIdentity'
             With                 = @{
                 IdentityKey = 'leavinguser@contoso.local'
+                # Provider alias references the provider hashtable key set by the host.
+                # The alias name is flexible and chosen when injecting providers.
                 Provider    = 'Identity'
             }
             RequiresCapabilities = @('IdLE.Identity.Disable')

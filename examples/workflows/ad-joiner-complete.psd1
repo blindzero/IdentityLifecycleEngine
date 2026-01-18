@@ -16,6 +16,9 @@
                     Description       = 'New employee account'
                     Path              = 'OU=Joiners,OU=Users,DC=contoso,DC=local'
                 }
+                # Provider alias - references the key in the provider hashtable.
+                # The host chooses this name when creating the provider hashtable.
+                # If omitted, defaults to 'Identity'.
                 Provider    = 'Identity'
             }
             RequiresCapabilities = @('IdLE.Identity.Create')

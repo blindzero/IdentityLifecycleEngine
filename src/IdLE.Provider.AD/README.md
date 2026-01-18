@@ -61,6 +61,8 @@ Import-Module IdLE.Provider.AD
 $provider = New-IdleADIdentityProvider
 
 # Use with IdLE plan execution
+# The hashtable key 'Identity' is a provider alias - you can use any name you choose.
+# Workflow steps reference this alias via With.Provider (defaults to 'Identity' if not specified).
 $providers = @{
     Identity = $provider
 }
@@ -68,6 +70,31 @@ $providers = @{
 $plan = New-IdlePlan -WorkflowPath '.\workflows\joiner.psd1' -Request $request -Providers $providers
 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 ```
+
+### Using Custom Provider Aliases
+
+The provider alias (hashtable key) is **not fixed** and can be any name you choose. This is particularly useful when working with multiple provider instances:
+
+```powershell
+# Example: Multiple AD forests
+$sourceAD = New-IdleADIdentityProvider -Credential $sourceCredential
+$targetAD = New-IdleADIdentityProvider -Credential $targetCredential
+
+$providers = @{
+    SourceAD = $sourceAD
+    TargetAD = $targetAD
+}
+
+# In your workflow, specify which provider to use:
+# With = @{ IdentityKey = 'user@source.local'; Provider = 'SourceAD' }
+# With = @{ IdentityKey = 'user@target.local'; Provider = 'TargetAD' }
+```
+
+**Key points:**
+- The alias can be any valid PowerShell hashtable key (e.g., `Identity`, `SourceAD`, `SystemX`, `ProdForest`)
+- Workflow steps reference the alias via `With.Provider`
+- If `With.Provider` is not specified in a step, it defaults to `'Identity'`
+- The alias should match between the provider hashtable and the workflow step configuration
 
 ### Using Explicit Credentials
 

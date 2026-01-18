@@ -9,6 +9,8 @@
                 IdentityKey = 'existinguser@contoso.local'
                 Name        = 'Department'
                 Value       = 'Sales'
+                # Provider alias - can be customized when host creates the provider hashtable.
+                # Examples: 'Identity', 'SourceAD', 'TargetAD', 'SystemX', etc.
                 Provider    = 'Identity'
             }
             RequiresCapabilities = @('IdLE.Identity.Attribute.Ensure')
