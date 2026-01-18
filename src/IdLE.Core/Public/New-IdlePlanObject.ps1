@@ -164,17 +164,12 @@ function New-IdlePlanObject {
             # - starts with a letter
             if ($s -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
                 throw [System.ArgumentException]::new(
-                    ("Workflow step '{0}' declares invalid capability '{1}'. Expected dot-separated segments like 'Identity.Read'." -f $StepName, $s),
+                    ("Workflow step '{0}' declares invalid capability '{1}'. Expected dot-separated segments like 'IdLE.Identity.Read'." -f $StepName, $s),
                     'Workflow'
                 )
             }
 
-            # Normalize legacy capability names to canonical form
-            # EventSink is not available during planning, so we normalize silently here
-            # Warnings about legacy usage should be emitted by hosts or during execution
-            $canonical = ConvertTo-IdleCanonicalCapability -Capability $s -EventSink $null
-
-            $normalized += $canonical
+            $normalized += $s
         }
 
         return @($normalized | Sort-Object -Unique)
@@ -247,16 +242,7 @@ function New-IdlePlanObject {
             if ($null -eq $caps) {
                 return @()
             }
-            
-            # Normalize and deduplicate
-            $normalized = @()
-            foreach ($c in @($caps | Where-Object { $null -ne $_ } | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
-                # Normalize legacy capability names to canonical form
-                $canonical = ConvertTo-IdleCanonicalCapability -Capability $c -EventSink $null
-                $normalized += $canonical
-            }
-            
-            return @($normalized | Sort-Object -Unique)
+            return @($caps | Where-Object { $null -ne $_ } | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
         }
 
         return @()

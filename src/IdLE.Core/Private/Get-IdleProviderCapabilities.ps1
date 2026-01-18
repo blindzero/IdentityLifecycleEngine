@@ -90,18 +90,13 @@ function Get-IdleProviderCapabilities {
         # - dot-separated segments
         # - no whitespace
         # - starts with a letter
-        # Example: 'Entitlement.Write', 'Identity.Attribute.Ensure'
+        # Example: 'IdLE.Entitlement.Write', 'IdLE.Identity.Attribute.Ensure'
         if ($s -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
-            throw "Provider capability '$s' is invalid. Expected dot-separated segments like 'Identity.Read' or 'Entitlement.Write'."
+            throw "Provider capability '$s' is invalid. Expected dot-separated segments like 'IdLE.Identity.Read' or 'IdLE.Entitlement.Write'."
         }
 
-        # Normalize legacy capability names to canonical form
-        # Note: EventSink is not available here during provider capability discovery
-        # Warnings will be emitted during plan-time validation instead
-        $canonical = ConvertTo-IdleCanonicalCapability -Capability $s -EventSink $null
-
-        if ($seen.Add($canonical)) {
-            $null = $normalized.Add($canonical)
+        if ($seen.Add($s)) {
+            $null = $normalized.Add($s)
         }
     }
 

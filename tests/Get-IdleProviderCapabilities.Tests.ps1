@@ -104,51 +104,5 @@ Describe 'IdLE.Core - Get-IdleProviderCapabilities (provider capability discover
 
             $caps | Should -Be @('IdLE.Identity.Read')
         }
-
-        It 'normalizes legacy capability names to canonical form' {
-            $provider = [pscustomobject]@{
-                Name = 'LegacyProvider'
-            }
-
-            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-                return @(
-                    'Identity.Read'
-                    'Identity.Disable'
-                    'Identity.Attribute.Ensure'
-                )
-            } -Force
-
-            $caps = Get-IdleProviderCapabilities -Provider $provider
-
-            $caps | Should -Be @(
-                'IdLE.Identity.Attribute.Ensure'
-                'IdLE.Identity.Disable'
-                'IdLE.Identity.Read'
-            )
-        }
-
-        It 'normalizes mixed legacy and canonical capability names' {
-            $provider = [pscustomobject]@{
-                Name = 'MixedProvider'
-            }
-
-            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-                return @(
-                    'Identity.Read'                    # legacy
-                    'IdLE.Identity.Disable'            # canonical
-                    'Identity.Attribute.Ensure'        # legacy
-                    'IdLE.Entitlement.Grant'           # canonical
-                )
-            } -Force
-
-            $caps = Get-IdleProviderCapabilities -Provider $provider
-
-            $caps | Should -Be @(
-                'IdLE.Entitlement.Grant'
-                'IdLE.Identity.Attribute.Ensure'
-                'IdLE.Identity.Disable'
-                'IdLE.Identity.Read'
-            )
-        }
     }
 }
