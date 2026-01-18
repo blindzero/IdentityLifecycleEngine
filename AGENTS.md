@@ -94,8 +94,8 @@ The engine (`IdLE.Core`) must **not** depend on:
 - Steps should only write to declared `State.*` outputs.
 - Authentication model (no prompting):
   - Providers must not prompt interactively or implement ad-hoc login flows.
-  - If authentication material is required, it must be pre-acquired by the host (e.g., via an AuthSessionBroker) and injected into the provider at construction time (factory cmdlet) or via provider options.
-  - Provider options must remain data-only (no ScriptBlocks, no executable objects).
+  - Hosts MUST provide an `AuthSessionBroker`, and steps/providers MUST acquire auth sessions via `Context.AcquireAuthSession(...)` rather than receiving raw credentials directly.
+  - Do not pass secrets or credential objects via provider options or workflow configuration; provider options must remain data-only (no ScriptBlocks, no executable objects).
 
 #### 4.2.1 Capability naming convention
 
