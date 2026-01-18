@@ -1,0 +1,481 @@
+Set-StrictMode -Version Latest
+
+BeforeDiscovery {
+    . (Join-Path -Path $PSScriptRoot -ChildPath '..\_testHelpers.ps1')
+    Import-IdleTestModule
+
+    $testsRoot = Split-Path -Path $PSScriptRoot -Parent
+    $repoRoot  = Split-Path -Path $testsRoot -Parent
+
+    $identityContractPath = Join-Path -Path $repoRoot -ChildPath 'tests\ProviderContracts\IdentityProvider.Contract.ps1'
+    if (-not (Test-Path -LiteralPath $identityContractPath -PathType Leaf)) {
+        throw "Identity provider contract not found at: $identityContractPath"
+    }
+    . $identityContractPath
+
+    $capabilitiesContractPath = Join-Path -Path $repoRoot -ChildPath 'tests\ProviderContracts\ProviderCapabilities.Contract.ps1'
+    if (-not (Test-Path -LiteralPath $capabilitiesContractPath -PathType Leaf)) {
+        throw "Provider capabilities contract not found at: $capabilitiesContractPath"
+    }
+    . $capabilitiesContractPath
+
+    $entitlementContractPath = Join-Path -Path $repoRoot -ChildPath 'tests\ProviderContracts\EntitlementProvider.Contract.ps1'
+    if (-not (Test-Path -LiteralPath $entitlementContractPath -PathType Leaf)) {
+        throw "Entitlement provider contract not found at: $entitlementContractPath"
+    }
+    . $entitlementContractPath
+}
+
+Describe 'AD identity provider' {
+    BeforeAll {
+        $repoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
+        $adProviderPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.AD\IdLE.Provider.AD.psd1'
+        
+        if (Test-Path -LiteralPath $adProviderPath -PathType Leaf) {
+            Import-Module $adProviderPath -Force
+        }
+
+        function New-FakeADAdapter {
+            $store = @{}
+
+            $adapter = [pscustomobject]@{
+                PSTypeName = 'FakeADAdapter'
+                Store      = $store
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+                param([string]$Upn)
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].UserPrincipalName -eq $Upn) {
+                        return $this.Store[$key]
+                    }
+                }
+                return $null
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserBySam -Value {
+                param([string]$SamAccountName)
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].sAMAccountName -eq $SamAccountName) {
+                        return $this.Store[$key]
+                    }
+                }
+                return $null
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByGuid -Value {
+                param([string]$Guid)
+                if ($this.Store.ContainsKey($Guid)) {
+                    return $this.Store[$Guid]
+                }
+                return $null
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name NewUser -Value {
+                param([string]$Name, [hashtable]$Attributes, [bool]$Enabled)
+                
+                $guid = [guid]::NewGuid().ToString()
+                $sam = if ($Attributes.ContainsKey('SamAccountName')) { $Attributes['SamAccountName'] } else { $Name }
+                $upn = if ($Attributes.ContainsKey('UserPrincipalName')) { $Attributes['UserPrincipalName'] } else { "$sam@domain.local" }
+                $path = if ($Attributes.ContainsKey('Path')) { $Attributes['Path'] } else { 'OU=Users,DC=domain,DC=local' }
+
+                $user = [pscustomobject]@{
+                    ObjectGuid         = [guid]$guid
+                    sAMAccountName     = $sam
+                    UserPrincipalName  = $upn
+                    DistinguishedName  = "CN=$Name,$path"
+                    Enabled            = $Enabled
+                    GivenName          = $Attributes['GivenName']
+                    Surname            = $Attributes['Surname']
+                    DisplayName        = $Attributes['DisplayName']
+                    Description        = $Attributes['Description']
+                    Department         = $Attributes['Department']
+                    Title              = $Attributes['Title']
+                    EmailAddress       = $Attributes['EmailAddress']
+                }
+
+                $this.Store[$guid] = $user
+                return $user
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name SetUser -Value {
+                param([string]$Identity, [string]$AttributeName, $Value)
+                
+                $user = $null
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].DistinguishedName -eq $Identity) {
+                        $user = $this.Store[$key]
+                        break
+                    }
+                }
+
+                if ($null -eq $user) {
+                    throw "User not found: $Identity"
+                }
+
+                $user.$AttributeName = $Value
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name DisableUser -Value {
+                param([string]$Identity)
+                
+                $user = $null
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].DistinguishedName -eq $Identity) {
+                        $user = $this.Store[$key]
+                        break
+                    }
+                }
+
+                if ($null -eq $user) {
+                    throw "User not found: $Identity"
+                }
+
+                $user.Enabled = $false
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name EnableUser -Value {
+                param([string]$Identity)
+                
+                $user = $null
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].DistinguishedName -eq $Identity) {
+                        $user = $this.Store[$key]
+                        break
+                    }
+                }
+
+                if ($null -eq $user) {
+                    throw "User not found: $Identity"
+                }
+
+                $user.Enabled = $true
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name MoveObject -Value {
+                param([string]$Identity, [string]$TargetPath)
+                
+                $user = $null
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].DistinguishedName -eq $Identity) {
+                        $user = $this.Store[$key]
+                        break
+                    }
+                }
+
+                if ($null -eq $user) {
+                    throw "User not found: $Identity"
+                }
+
+                $cn = $user.DistinguishedName -replace ',.*$', ''
+                $user.DistinguishedName = "$cn,$TargetPath"
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name DeleteUser -Value {
+                param([string]$Identity)
+                
+                $keyToRemove = $null
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].DistinguishedName -eq $Identity) {
+                        $keyToRemove = $key
+                        break
+                    }
+                }
+
+                if ($null -ne $keyToRemove) {
+                    $this.Store.Remove($keyToRemove)
+                }
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
+                param([string]$Identity)
+                
+                return [pscustomobject]@{
+                    DistinguishedName = $Identity
+                    Name = ($Identity -split ',')[0] -replace '^CN=', ''
+                    sAMAccountName = ($Identity -split ',')[0] -replace '^CN=', ''
+                    ObjectGuid = [guid]::NewGuid()
+                }
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {
+                param([string]$GroupIdentity, [string]$MemberIdentity)
+                
+                $user = $null
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].DistinguishedName -eq $MemberIdentity) {
+                        $user = $this.Store[$key]
+                        break
+                    }
+                }
+
+                if ($null -eq $user) {
+                    throw "User not found: $MemberIdentity"
+                }
+
+                if ($null -eq $user.Groups) {
+                    $user | Add-Member -MemberType NoteProperty -Name Groups -Value @()
+                }
+
+                if ($user.Groups -notcontains $GroupIdentity) {
+                    $user.Groups += $GroupIdentity
+                }
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
+                param([string]$GroupIdentity, [string]$MemberIdentity)
+                
+                $user = $null
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].DistinguishedName -eq $MemberIdentity) {
+                        $user = $this.Store[$key]
+                        break
+                    }
+                }
+
+                if ($null -eq $user) {
+                    throw "User not found: $MemberIdentity"
+                }
+
+                if ($null -ne $user.Groups) {
+                    $user.Groups = @($user.Groups | Where-Object { $_ -ne $GroupIdentity })
+                }
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserGroups -Value {
+                param([string]$Identity)
+                
+                $user = $null
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].DistinguishedName -eq $Identity) {
+                        $user = $this.Store[$key]
+                        break
+                    }
+                }
+
+                if ($null -eq $user) {
+                    throw "User not found: $Identity"
+                }
+
+                $groups = @()
+                if ($null -ne $user.Groups) {
+                    foreach ($groupDn in $user.Groups) {
+                        $groups += [pscustomobject]@{
+                            DistinguishedName = $groupDn
+                            Name = ($groupDn -split ',')[0] -replace '^CN=', ''
+                        }
+                    }
+                }
+                return $groups
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {
+                param([hashtable]$Filter)
+                
+                $results = @()
+                foreach ($key in $this.Store.Keys) {
+                    $user = $this.Store[$key]
+                    
+                    if ($null -ne $Filter -and $Filter.ContainsKey('Search')) {
+                        $search = $Filter['Search']
+                        if ($user.sAMAccountName -like "$search*" -or $user.UserPrincipalName -like "$search*") {
+                            $results += $user
+                        }
+                    }
+                    else {
+                        $results += $user
+                    }
+                }
+                return $results
+            } -Force
+
+            return $adapter
+        }
+
+        $script:FakeAdapter = New-FakeADAdapter
+    }
+
+    Context 'Provider contract tests' {
+        Invoke-IdleIdentityProviderContractTests -NewProvider {
+            New-IdleADIdentityProvider -Adapter $script:FakeAdapter
+        }
+
+        Invoke-IdleProviderCapabilitiesContractTests -ProviderFactory {
+            New-IdleADIdentityProvider -Adapter $script:FakeAdapter
+        }
+
+        Invoke-IdleEntitlementProviderContractTests -NewProvider {
+            New-IdleADIdentityProvider -Adapter $script:FakeAdapter
+        }
+    }
+
+    Context 'Identity resolution' {
+        BeforeAll {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+
+            $testUser = $adapter.NewUser('TestUser', @{
+                SamAccountName = 'testuser'
+                UserPrincipalName = 'testuser@domain.local'
+                GivenName = 'Test'
+                Surname = 'User'
+            }, $true)
+
+            $script:TestProvider = $provider
+            $script:TestGuid = $testUser.ObjectGuid.ToString()
+            $script:TestUpn = $testUser.UserPrincipalName
+            $script:TestSam = $testUser.sAMAccountName
+        }
+
+        It 'Resolves identity by GUID' {
+            $identity = $script:TestProvider.GetIdentity($script:TestGuid)
+            $identity.IdentityKey | Should -Be $script:TestGuid
+            $identity.Attributes['sAMAccountName'] | Should -Be $script:TestSam
+        }
+
+        It 'Resolves identity by UPN' {
+            $identity = $script:TestProvider.GetIdentity($script:TestUpn)
+            $identity.IdentityKey | Should -Be $script:TestGuid
+            $identity.Attributes['UserPrincipalName'] | Should -Be $script:TestUpn
+        }
+
+        It 'Resolves identity by sAMAccountName' {
+            $identity = $script:TestProvider.GetIdentity($script:TestSam)
+            $identity.IdentityKey | Should -Be $script:TestGuid
+            $identity.Attributes['sAMAccountName'] | Should -Be $script:TestSam
+        }
+
+        It 'Throws when identity not found' {
+            { $script:TestProvider.GetIdentity('nonexistent') } | Should -Throw
+        }
+    }
+
+    Context 'Idempotency' {
+        BeforeEach {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter -AllowDelete
+            $script:TestProvider = $provider
+            $script:TestAdapter = $adapter
+        }
+
+        It 'CreateIdentity is idempotent - returns Changed=$false if identity exists' {
+            $attrs = @{
+                SamAccountName = 'idempotent1'
+                UserPrincipalName = 'idempotent1@domain.local'
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            $result1 = $script:TestProvider.CreateIdentity('idempotent1', $attrs)
+            $result1.Changed | Should -BeTrue
+
+            $result2 = $script:TestProvider.CreateIdentity('idempotent1', $attrs)
+            $result2.Changed | Should -BeFalse
+        }
+
+        It 'DisableIdentity is idempotent' {
+            $testUser = $script:TestAdapter.NewUser('DisableTest', @{ SamAccountName = 'distest' }, $true)
+            $guid = $testUser.ObjectGuid.ToString()
+
+            $result1 = $script:TestProvider.DisableIdentity($guid)
+            $result1.Changed | Should -BeTrue
+
+            $result2 = $script:TestProvider.DisableIdentity($guid)
+            $result2.Changed | Should -BeFalse
+        }
+
+        It 'EnableIdentity is idempotent' {
+            $testUser = $script:TestAdapter.NewUser('EnableTest', @{ SamAccountName = 'entest' }, $false)
+            $guid = $testUser.ObjectGuid.ToString()
+
+            $result1 = $script:TestProvider.EnableIdentity($guid)
+            $result1.Changed | Should -BeTrue
+
+            $result2 = $script:TestProvider.EnableIdentity($guid)
+            $result2.Changed | Should -BeFalse
+        }
+
+        It 'MoveIdentity is idempotent' {
+            $testUser = $script:TestAdapter.NewUser('MoveTest', @{ 
+                SamAccountName = 'movetest'
+                Path = 'OU=Source,DC=domain,DC=local'
+            }, $true)
+            $guid = $testUser.ObjectGuid.ToString()
+
+            $targetOu = 'OU=Target,DC=domain,DC=local'
+
+            $result1 = $script:TestProvider.MoveIdentity($guid, $targetOu)
+            $result1.Changed | Should -BeTrue
+
+            $result2 = $script:TestProvider.MoveIdentity($guid, $targetOu)
+            $result2.Changed | Should -BeFalse
+        }
+
+        It 'DeleteIdentity is idempotent - returns Changed=$false if already deleted' {
+            $testUser = $script:TestAdapter.NewUser('DeleteTest', @{ SamAccountName = 'deltest' }, $true)
+            $guid = $testUser.ObjectGuid.ToString()
+
+            $result1 = $script:TestProvider.DeleteIdentity($guid)
+            $result1.Changed | Should -BeTrue
+
+            $result2 = $script:TestProvider.DeleteIdentity($guid)
+            $result2.Changed | Should -BeFalse
+        }
+
+        It 'GrantEntitlement is idempotent' {
+            $testUser = $script:TestAdapter.NewUser('GrantTest', @{ SamAccountName = 'granttest' }, $true)
+            $guid = $testUser.ObjectGuid.ToString()
+
+            $entitlement = @{ Kind = 'Group'; Id = 'CN=TestGroup,OU=Groups,DC=domain,DC=local' }
+
+            $result1 = $script:TestProvider.GrantEntitlement($guid, $entitlement)
+            $result1.Changed | Should -BeTrue
+
+            $result2 = $script:TestProvider.GrantEntitlement($guid, $entitlement)
+            $result2.Changed | Should -BeFalse
+        }
+
+        It 'RevokeEntitlement is idempotent' {
+            $testUser = $script:TestAdapter.NewUser('RevokeTest', @{ SamAccountName = 'revoketest' }, $true)
+            $guid = $testUser.ObjectGuid.ToString()
+
+            $entitlement = @{ Kind = 'Group'; Id = 'CN=TestGroup,OU=Groups,DC=domain,DC=local' }
+
+            $script:TestProvider.GrantEntitlement($guid, $entitlement) | Out-Null
+
+            $result1 = $script:TestProvider.RevokeEntitlement($guid, $entitlement)
+            $result1.Changed | Should -BeTrue
+
+            $result2 = $script:TestProvider.RevokeEntitlement($guid, $entitlement)
+            $result2.Changed | Should -BeFalse
+        }
+    }
+
+    Context 'AllowDelete gating' {
+        It 'Advertises Delete capability when AllowDelete=$true' {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter -AllowDelete
+
+            $caps = $provider.GetCapabilities()
+            $caps | Should -Contain 'IdLE.Identity.Delete'
+        }
+
+        It 'Does not advertise Delete capability when AllowDelete=$false' {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+
+            $caps = $provider.GetCapabilities()
+            $caps | Should -Not -Contain 'IdLE.Identity.Delete'
+        }
+
+        It 'Throws when DeleteIdentity is called without AllowDelete' {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            
+            $testUser = $adapter.NewUser('DeleteGateTest', @{ SamAccountName = 'delgate' }, $true)
+            $guid = $testUser.ObjectGuid.ToString()
+
+            { $provider.DeleteIdentity($guid) } | Should -Throw -ExpectedMessage '*AllowDelete*'
+        }
+    }
+}
