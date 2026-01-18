@@ -222,7 +222,7 @@ function New-IdleADIdentityProvider {
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.Identity'
-            IdentityKey = $user.ObjectGuid.ToString()
+            IdentityKey = $IdentityKey
             Enabled     = [bool]$user.Enabled
             Attributes  = $attributes
         }
@@ -259,7 +259,7 @@ function New-IdleADIdentityProvider {
                 return [pscustomobject]@{
                     PSTypeName  = 'IdLE.ProviderResult'
                     Operation   = 'CreateIdentity'
-                    IdentityKey = $existing.ObjectGuid.ToString()
+                    IdentityKey = $IdentityKey
                     Changed     = $false
                 }
             }
@@ -277,7 +277,7 @@ function New-IdleADIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'CreateIdentity'
-            IdentityKey = $user.ObjectGuid.ToString()
+            IdentityKey = $IdentityKey
             Changed     = $true
         }
     } -Force
@@ -299,7 +299,7 @@ function New-IdleADIdentityProvider {
             return [pscustomobject]@{
                 PSTypeName  = 'IdLE.ProviderResult'
                 Operation   = 'DeleteIdentity'
-                IdentityKey = $user.ObjectGuid.ToString()
+                IdentityKey = $IdentityKey
                 Changed     = $true
             }
         }
@@ -347,7 +347,7 @@ function New-IdleADIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'EnsureAttribute'
-            IdentityKey = $user.ObjectGuid.ToString()
+            IdentityKey = $IdentityKey
             Changed     = $changed
             Name        = $Name
             Value       = $Value
@@ -378,7 +378,7 @@ function New-IdleADIdentityProvider {
         return [pscustomobject]@{
             PSTypeName       = 'IdLE.ProviderResult'
             Operation        = 'MoveIdentity'
-            IdentityKey      = $user.ObjectGuid.ToString()
+            IdentityKey      = $IdentityKey
             Changed          = $changed
             TargetContainer  = $TargetContainer
         }
@@ -402,7 +402,7 @@ function New-IdleADIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'DisableIdentity'
-            IdentityKey = $user.ObjectGuid.ToString()
+            IdentityKey = $IdentityKey
             Changed     = $changed
         }
     } -Force
@@ -425,7 +425,7 @@ function New-IdleADIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'EnableIdentity'
-            IdentityKey = $user.ObjectGuid.ToString()
+            IdentityKey = $IdentityKey
             Changed     = $changed
         }
     } -Force
@@ -480,7 +480,7 @@ function New-IdleADIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'GrantEntitlement'
-            IdentityKey = $user.ObjectGuid.ToString()
+            IdentityKey = $IdentityKey
             Changed     = $changed
             Entitlement = $normalized
         }
@@ -513,7 +513,7 @@ function New-IdleADIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'RevokeEntitlement'
-            IdentityKey = $user.ObjectGuid.ToString()
+            IdentityKey = $IdentityKey
             Changed     = $changed
             Entitlement = $normalized
         }
