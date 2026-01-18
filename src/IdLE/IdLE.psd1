@@ -9,7 +9,8 @@
 
     NestedModules = @(
         '..\IdLE.Core\IdLE.Core.psd1',
-        '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
+        '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1',
+        '..\IdLE.Provider.AD\IdLE.Provider.AD.psd1'
     )
 
     FunctionsToExport = @(

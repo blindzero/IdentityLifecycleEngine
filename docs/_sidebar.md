@@ -20,6 +20,7 @@
 - [Cmdlet Reference](reference/cmdlets.md)
 - [Events and Observability](reference/events-and-observability.md)
 - [Providers and Contracts](reference/providers-and-contracts.md)
+- [Active Directory Provider](reference/provider-ad.md)
 - [Configuration](reference/configuration.md)
 - [Steps and Metadata](reference/steps-and-metadata.md)
 - [Step Catalog](reference/steps.md)

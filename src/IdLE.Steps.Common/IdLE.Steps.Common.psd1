@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Steps.Common.psm1'
-    ModuleVersion = '0.7.4'
+    ModuleVersion = '0.8.0'
     GUID              = '9bdf5e97-0344-4191-82ed-c534bd7cb9b5'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
@@ -10,7 +10,12 @@
     FunctionsToExport = @(
         'Invoke-IdleStepEmitEvent',
         'Invoke-IdleStepEnsureAttribute',
-        'Invoke-IdleStepEnsureEntitlement'
+        'Invoke-IdleStepEnsureEntitlement',
+        'Invoke-IdleStepCreateIdentity',
+        'Invoke-IdleStepDisableIdentity',
+        'Invoke-IdleStepEnableIdentity',
+        'Invoke-IdleStepMoveIdentity',
+        'Invoke-IdleStepDeleteIdentity'
     )
 
     PrivateData       = @{
