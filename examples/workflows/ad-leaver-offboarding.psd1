@@ -40,10 +40,9 @@
                 Provider    = 'Identity'
             }
             RequiresCapabilities = @('IdLE.Identity.Delete')
-            When                 = @{
-                Condition = @{
-                    Type  = 'Input.PropertyPresent'
-                    Value = 'AllowDelete'
+            Condition            = @{
+                Exists = @{
+                    Path = 'Input.AllowDelete'
                 }
             }
         }
