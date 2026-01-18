@@ -313,18 +313,17 @@ function New-IdleADIdentityProvider {
                 Changed     = $true
             }
         }
-        catch {
+        catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
             # If identity is not found, treat as already deleted (idempotent)
-            # Note: This is fragile across AD module versions/locales
-            # Future: adapter should provide structured error types
-            if ($_.Exception.Message -match 'not found') {
-                return [pscustomobject]@{
-                    PSTypeName  = 'IdLE.ProviderResult'
-                    Operation   = 'DeleteIdentity'
-                    IdentityKey = $IdentityKey
-                    Changed     = $false
-                }
+            # This uses a structured exception type instead of locale-dependent message text.
+            return [pscustomobject]@{
+                PSTypeName  = 'IdLE.ProviderResult'
+                Operation   = 'DeleteIdentity'
+                IdentityKey = $IdentityKey
+                Changed     = $false
             }
+        }
+        catch {
             throw
         }
     } -Force
