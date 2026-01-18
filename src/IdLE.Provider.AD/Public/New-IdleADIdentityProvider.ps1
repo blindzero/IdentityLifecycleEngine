@@ -128,19 +128,20 @@ function New-IdleADIdentityProvider {
         )
 
         # Try GUID format first (most deterministic)
-        try {
-            $guid = [System.Guid]::Empty
-            if ([System.Guid]::TryParse($IdentityKey, [ref]$guid)) {
+        $guid = [System.Guid]::Empty
+        if ([System.Guid]::TryParse($IdentityKey, [ref]$guid)) {
+            try {
                 $user = $this.Adapter.GetUserByGuid($guid.ToString())
-                if ($null -ne $user) {
-                    return $user
-                }
-                throw "Identity with GUID '$IdentityKey' not found."
             }
-        }
-        catch [System.Management.Automation.MethodException] {
-            # TryParse failed, continue to other resolution methods
-            Write-Verbose "GUID parsing failed for '$IdentityKey', trying UPN/sAMAccountName resolution"
+            catch [System.Management.Automation.MethodException] {
+                Write-Verbose "GetUserByGuid failed for GUID '$IdentityKey': $_"
+                $user = $null
+            }
+
+            if ($null -ne $user) {
+                return $user
+            }
+            throw "Identity with GUID '$IdentityKey' not found."
         }
 
         # Try UPN format (contains @)
