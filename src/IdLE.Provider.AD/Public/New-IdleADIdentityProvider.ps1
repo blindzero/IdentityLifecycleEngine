@@ -314,17 +314,25 @@ function New-IdleADIdentityProvider {
                 Changed     = $true
             }
         }
-        catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
-            # If identity is not found, treat as already deleted (idempotent)
-            # This uses a structured exception type instead of locale-dependent message text.
-            return [pscustomobject]@{
-                PSTypeName  = 'IdLE.ProviderResult'
-                Operation   = 'DeleteIdentity'
-                IdentityKey = $IdentityKey
-                Changed     = $false
-            }
-        }
         catch {
+            # Check if identity doesn't exist (idempotent delete)
+            # Use exception type if available, otherwise fall back to message check
+            $isNotFound = $false
+            if ($_.Exception.GetType().FullName -eq 'Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException') {
+                $isNotFound = $true
+            }
+            elseif ($_.Exception.Message -match 'not found|cannot be found|does not exist') {
+                $isNotFound = $true
+            }
+
+            if ($isNotFound) {
+                return [pscustomobject]@{
+                    PSTypeName  = 'IdLE.ProviderResult'
+                    Operation   = 'DeleteIdentity'
+                    IdentityKey = $IdentityKey
+                    Changed     = $false
+                }
+            }
             throw
         }
     } -Force

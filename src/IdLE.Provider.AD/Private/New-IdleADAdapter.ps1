@@ -17,6 +17,21 @@ function New-IdleADAdapter {
         [PSCredential] $Credential
     )
 
+    # Helper function to escape LDAP filter special characters (LDAP injection prevention)
+    function Escape-LdapFilterValue {
+        param(
+            [Parameter(Mandatory)]
+            [string] $Value
+        )
+
+        $escaped = $Value -replace '\\', '\5c'
+        $escaped = $escaped -replace '\*', '\2a'
+        $escaped = $escaped -replace '\(', '\28'
+        $escaped = $escaped -replace '\)', '\29'
+        $escaped = $escaped -replace "`0", '\00'
+        return $escaped
+    }
+
     $adapter = [pscustomobject]@{
         PSTypeName = 'IdLE.ADAdapter'
         Credential = $Credential
@@ -29,8 +44,9 @@ function New-IdleADAdapter {
             [string] $Upn
         )
 
+        $escapedUpn = Escape-LdapFilterValue -Value $Upn
         $params = @{
-            Filter     = "UserPrincipalName -eq '$Upn'"
+            Filter     = "UserPrincipalName -eq '$escapedUpn'"
             Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
             ErrorAction = 'Stop'
         }
@@ -54,8 +70,10 @@ function New-IdleADAdapter {
             [string] $SamAccountName
         )
 
+        $escapedSam = Escape-LdapFilterValue -Value $SamAccountName
+
         $params = @{
-            Filter     = "sAMAccountName -eq '$SamAccountName'"
+            Filter     = "sAMAccountName -eq '$escapedSam'"
             Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
             ErrorAction = 'Stop'
         }
@@ -381,8 +399,9 @@ function New-IdleADAdapter {
 
         $filterString = '*'
         if ($null -ne $Filter -and $Filter.ContainsKey('Search') -and -not [string]::IsNullOrWhiteSpace($Filter['Search'])) {
-            $searchValue = $Filter['Search']
-            $filterString = "sAMAccountName -like '$searchValue*' -or UserPrincipalName -like '$searchValue*'"
+            $searchValue = [string] $Filter['Search']
+            $escapedSearch = Escape-LdapFilterValue -Value $searchValue
+            $filterString = "sAMAccountName -like '$escapedSearch*' -or UserPrincipalName -like '$escapedSearch*'"
         }
 
         $params = @{
