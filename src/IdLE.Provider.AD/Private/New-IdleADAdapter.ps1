@@ -18,7 +18,8 @@ function New-IdleADAdapter {
     )
 
     # Helper function to escape LDAP filter special characters (LDAP injection prevention)
-    function Escape-LdapFilterValue {
+    # Uses 'Protect' prefix as 'Escape' is not an approved PowerShell verb
+    function Protect-LdapFilterValue {
         param(
             [Parameter(Mandatory)]
             [string] $Value
@@ -44,7 +45,7 @@ function New-IdleADAdapter {
             [string] $Upn
         )
 
-        $escapedUpn = Escape-LdapFilterValue -Value $Upn
+        $escapedUpn = Protect-LdapFilterValue -Value $Upn
         $params = @{
             Filter     = "UserPrincipalName -eq '$escapedUpn'"
             Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
@@ -70,7 +71,7 @@ function New-IdleADAdapter {
             [string] $SamAccountName
         )
 
-        $escapedSam = Escape-LdapFilterValue -Value $SamAccountName
+        $escapedSam = Protect-LdapFilterValue -Value $SamAccountName
 
         $params = @{
             Filter     = "sAMAccountName -eq '$escapedSam'"
@@ -400,7 +401,7 @@ function New-IdleADAdapter {
         $filterString = '*'
         if ($null -ne $Filter -and $Filter.ContainsKey('Search') -and -not [string]::IsNullOrWhiteSpace($Filter['Search'])) {
             $searchValue = [string] $Filter['Search']
-            $escapedSearch = Escape-LdapFilterValue -Value $searchValue
+            $escapedSearch = Protect-LdapFilterValue -Value $searchValue
             $filterString = "sAMAccountName -like '$escapedSearch*' -or UserPrincipalName -like '$escapedSearch*'"
         }
 

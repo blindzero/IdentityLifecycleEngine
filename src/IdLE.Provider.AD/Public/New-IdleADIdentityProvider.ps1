@@ -276,6 +276,7 @@ function New-IdleADIdentityProvider {
         }
         catch {
             # Identity does not exist, proceed with creation (expected for idempotent create)
+            Write-Verbose "Identity '$IdentityKey' does not exist, proceeding with creation"
         }
 
         $enabled = $true
@@ -283,7 +284,7 @@ function New-IdleADIdentityProvider {
             $enabled = [bool]$Attributes['Enabled']
         }
 
-        $user = $this.Adapter.NewUser($IdentityKey, $Attributes, $enabled)
+        $null = $this.Adapter.NewUser($IdentityKey, $Attributes, $enabled)
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
