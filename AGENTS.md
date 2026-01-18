@@ -27,6 +27,9 @@ Authoritative docs:
 - `docs/index.md` (documentation entry point)
 - `docs/advanced/architecture.md` (architecture decisions)
 - `docs/advanced/security.md` (trust boundaries)
+- `docs/advanced/provider-capabilities.md` (Capability rules)
+- `docs/reference/providers-and-contracts.md` (Provider contracts)
+- `docs/reference/steps-and-metadata.md` (Step metadata/capabilities usage)
 
 ---
 
@@ -89,12 +92,24 @@ The engine (`IdLE.Core`) must **not** depend on:
 - **Steps**: convergence logic, idempotent intent, no authentication
 - **Providers**: system adapters, handle authentication and external calls
 - Steps should only write to declared `State.*` outputs.
+- Authentication model (no prompting):
+  - Providers must not prompt interactively or implement ad-hoc login flows.
+  - Hosts MUST provide an `AuthSessionBroker`, and steps/providers MUST acquire auth sessions via `Context.AcquireAuthSession(...)` rather than receiving raw credentials directly.
+  - Do not pass secrets or credential objects via provider options or workflow configuration; provider options must remain data-only (no ScriptBlocks, no executable objects).
+
+#### 4.2.1 Capability naming convention
+
+- New work MUST use the IdLE. capability namespace (e.g., IdLE.Identity.Read, IdLE.Identity.Attribute.Ensure, IdLE.Entitlement.Grant).
+- Do not introduce new un-namespaced capabilities (e.g., Identity.Read) in new modules.
+- If legacy capability names exist, treat them as deprecated aliases and document migration behavior explicitly in the relevant issue/PR.
 
 ### 4.3 Eventing
 
 Use the single event contract:
 
 - `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`
+- This is the runtime contract used by steps/providers through the execution context.
+- External event sinks (host implementations) must follow the guidance in `docs/reference/events-and-observability.md` (object-based event payload), but the engine-facing API remains `Context.EventSink.WriteEvent(...)`.
 
 Do not introduce alternative eventing APIs unless explicitly planned and documented.
 
@@ -107,6 +122,8 @@ Follow `docs/advanced/testing.md` and `CONTRIBUTING.md`.
 - Use **Pester** for tests.
 - Unit tests must not call live systems.
 - Provider implementations require **provider contract tests**.
+- Providers should be tested against the existing provider contract test suites and must avoid live system dependencies in CI.
+- If a provider wraps external cmdlets/APIs, introduce an internal adapter layer so unit tests can mock behavior without calling the real system.
 
 **PR rule:** New behavior should include tests. Bug fixes must include a regression test.
 
@@ -131,6 +148,7 @@ Follow `docs/advanced/security.md`.
 - Treat workflow definitions and lifecycle requests as **untrusted inputs**
 - Reject executable objects in untrusted inputs (e.g., ScriptBlocks)
 - Treat step registry, providers, and external event sinks as **trusted extension points**, but validate their shapes
+- Authentication material (credentials/tokens) is considered secret input and must not be logged or emitted in events; redact at output boundaries as documented in `docs/advanced/security.md`
 
 ---
 
