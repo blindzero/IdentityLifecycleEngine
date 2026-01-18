@@ -128,14 +128,18 @@ function New-IdleADIdentityProvider {
         )
 
         # Try GUID format first (most deterministic)
-        # Check if it looks like a GUID before trying to parse
-        if ($IdentityKey -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' -or
-            $IdentityKey -match '^[0-9a-fA-F]{32}$') {
-            $user = $this.Adapter.GetUserByGuid($IdentityKey)
-            if ($null -ne $user) {
-                return $user
+        try {
+            $guid = [System.Guid]::Empty
+            if ([System.Guid]::TryParse($IdentityKey, [ref]$guid)) {
+                $user = $this.Adapter.GetUserByGuid($guid.ToString())
+                if ($null -ne $user) {
+                    return $user
+                }
+                throw "Identity with GUID '$IdentityKey' not found."
             }
-            throw "Identity with GUID '$IdentityKey' not found."
+        }
+        catch [System.Management.Automation.MethodException] {
+            # TryParse failed, continue to other resolution methods
         }
 
         # Try UPN format (contains @)

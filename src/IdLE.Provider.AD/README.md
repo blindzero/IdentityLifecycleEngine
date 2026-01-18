@@ -35,7 +35,7 @@ Get-WindowsCapability -Online -Name "Rsat.ActiveDirectory*" | Add-WindowsCapabil
 The account running IdLE (or the account provided via `-Credential`) must have appropriate AD permissions for the operations being performed:
 
 | Operation | Required Permission |
-|-----------|---------------------|
+| --------- | ------------------- |
 | Read identity | Read access to user objects |
 | Create identity | Create user objects in target OU |
 | Delete identity | Delete user objects (opt-in via `AllowDelete`) |
