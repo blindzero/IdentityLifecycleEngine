@@ -43,6 +43,10 @@ Describe 'AD identity provider' {
                 Store      = $store
             }
 
+            # Auto-creation behavior: The fake adapter auto-creates identities on lookup
+            # to support provider contract tests (which expect this behavior from test providers).
+            # This differs from the real AD adapter which will throw when an identity is not found.
+
             $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
                 param([string]$Upn)
                 foreach ($key in $this.Store.Keys) {

@@ -127,6 +127,8 @@ function New-IdleADIdentityProvider {
             [string] $IdentityKey
         )
 
+        # Try GUID format first (most deterministic)
+        # Check if it looks like a GUID before trying to parse
         if ($IdentityKey -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' -or
             $IdentityKey -match '^[0-9a-fA-F]{32}$') {
             $user = $this.Adapter.GetUserByGuid($IdentityKey)
@@ -136,6 +138,7 @@ function New-IdleADIdentityProvider {
             throw "Identity with GUID '$IdentityKey' not found."
         }
 
+        # Try UPN format (contains @)
         if ($IdentityKey -match '@') {
             $user = $this.Adapter.GetUserByUpn($IdentityKey)
             if ($null -ne $user) {
@@ -144,6 +147,7 @@ function New-IdleADIdentityProvider {
             throw "Identity with UPN '$IdentityKey' not found."
         }
 
+        # Fallback to sAMAccountName
         $user = $this.Adapter.GetUserBySam($IdentityKey)
         if ($null -ne $user) {
             return $user
@@ -265,6 +269,7 @@ function New-IdleADIdentityProvider {
             }
         }
         catch {
+            # Identity does not exist, proceed with creation (expected for idempotent create)
         }
 
         $enabled = $true
@@ -304,6 +309,9 @@ function New-IdleADIdentityProvider {
             }
         }
         catch {
+            # If identity is not found, treat as already deleted (idempotent)
+            # Note: This is fragile across AD module versions/locales
+            # Future: adapter should provide structured error types
             if ($_.Exception.Message -match 'not found') {
                 return [pscustomobject]@{
                     PSTypeName  = 'IdLE.ProviderResult'
