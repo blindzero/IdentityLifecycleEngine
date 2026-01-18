@@ -46,6 +46,7 @@ function ConvertTo-IdleCanonicalCapability {
         'Identity.Move'              = 'IdLE.Identity.Move'
         'Identity.List'              = 'IdLE.Identity.List'
         'Identity.Attribute.Ensure'  = 'IdLE.Identity.Attribute.Ensure'
+        # Alternative legacy form (if it existed in the wild)
         'Identity.EnsureAttribute'   = 'IdLE.Identity.Attribute.Ensure'
     }
 
