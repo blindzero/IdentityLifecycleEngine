@@ -169,7 +169,12 @@ function New-IdlePlanObject {
                 )
             }
 
-            $normalized += $s
+            # Normalize legacy capability names to canonical form
+            # EventSink is not available during planning, so we normalize silently here
+            # Warnings about legacy usage should be emitted by hosts or during execution
+            $canonical = ConvertTo-IdleCanonicalCapability -Capability $s -EventSink $null
+
+            $normalized += $canonical
         }
 
         return @($normalized | Sort-Object -Unique)

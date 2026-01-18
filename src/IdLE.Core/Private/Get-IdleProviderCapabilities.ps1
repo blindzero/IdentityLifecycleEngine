@@ -61,13 +61,13 @@ function Get-IdleProviderCapabilities {
             $capabilities += 'IdLE.Entitlement.Revoke'
         }
         if ($methodNames -contains 'EnsureAttribute') {
-            $capabilities += 'Identity.Attribute.Ensure'
+            $capabilities += 'IdLE.Identity.Attribute.Ensure'
         }
         if ($methodNames -contains 'DisableIdentity') {
-            $capabilities += 'Identity.Disable'
+            $capabilities += 'IdLE.Identity.Disable'
         }
         if ($methodNames -contains 'GetIdentity') {
-            $capabilities += 'Identity.Read'
+            $capabilities += 'IdLE.Identity.Read'
         }
 
         $capabilitySource = 'inferred'
@@ -95,8 +95,13 @@ function Get-IdleProviderCapabilities {
             throw "Provider capability '$s' is invalid. Expected dot-separated segments like 'Identity.Read' or 'Entitlement.Write'."
         }
 
-        if ($seen.Add($s)) {
-            $null = $normalized.Add($s)
+        # Normalize legacy capability names to canonical form
+        # Note: EventSink is not available here during provider capability discovery
+        # Warnings will be emitted during plan-time validation instead
+        $canonical = ConvertTo-IdleCanonicalCapability -Capability $s -EventSink $null
+
+        if ($seen.Add($canonical)) {
+            $null = $normalized.Add($canonical)
         }
     }
 

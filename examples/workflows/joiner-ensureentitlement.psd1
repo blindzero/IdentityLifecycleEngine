@@ -6,7 +6,7 @@
             Name                 = 'Ensure Department'
             Type                 = 'IdLE.Step.EnsureAttribute'
             With                 = @{ IdentityKey = 'user1'; Name = 'Department'; Value = 'IT'; Provider = 'Identity' }
-            RequiresCapabilities = 'Identity.Attribute.Ensure'
+            RequiresCapabilities = 'IdLE.Identity.Attribute.Ensure'
         },
         @{
             Name                 = 'Assign demo group'
