@@ -16,7 +16,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     @{
       Name                 = 'Disable identity'
       Type                 = 'IdLE.Step.DisableIdentity'
-      RequiresCapabilities = @('Identity.Disable')
+      RequiresCapabilities = @('IdLE.Identity.Disable')
     }
   )
 }
@@ -29,7 +29,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
             throw 'Expected an exception but none was thrown.'
         }
         catch {
-            $_.Exception.Message | Should -Match 'MissingCapabilities: Identity\.Disable'
+            $_.Exception.Message | Should -Match 'MissingCapabilities: IdLE\.Identity\.Disable'
             $_.Exception.Message | Should -Match 'AffectedSteps: Disable identity'
         }
     }
@@ -45,7 +45,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     @{
       Name                 = 'Disable identity'
       Type                 = 'IdLE.Step.DisableIdentity'
-      RequiresCapabilities = @('Identity.Disable')
+      RequiresCapabilities = @('IdLE.Identity.Disable')
     }
   )
 }
@@ -55,7 +55,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-            return @('Identity.Disable')
+            return @('IdLE.Identity.Disable')
         } -Force
 
         $providers = @{
@@ -66,7 +66,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
         $plan | Should -Not -BeNullOrEmpty
         $plan.Steps.Count | Should -Be 1
-        $plan.Steps[0].RequiresCapabilities | Should -Be @('Identity.Disable')
+        $plan.Steps[0].RequiresCapabilities | Should -Be @('IdLE.Identity.Disable')
     }
 
     It 'fails fast when an OnFailure step requires capabilities that no provider advertises' {
@@ -86,7 +86,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     @{
       Name                 = 'Containment'
       Type                 = 'IdLE.Step.Containment'
-      RequiresCapabilities = @('Identity.Disable')
+      RequiresCapabilities = @('IdLE.Identity.Disable')
     }
   )
 }
@@ -99,7 +99,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
             throw 'Expected an exception but none was thrown.'
         }
         catch {
-            $_.Exception.Message | Should -Match 'MissingCapabilities: Identity\.Disable'
+            $_.Exception.Message | Should -Match 'MissingCapabilities: IdLE\.Identity\.Disable'
             $_.Exception.Message | Should -Match 'AffectedSteps: Containment'
         }
     }
@@ -121,7 +121,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     @{
       Name                 = 'Containment'
       Type                 = 'IdLE.Step.Containment'
-      RequiresCapabilities = @('Identity.Disable')
+      RequiresCapabilities = @('IdLE.Identity.Disable')
     }
   )
 }
@@ -131,7 +131,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-            return @('Identity.Disable')
+            return @('IdLE.Identity.Disable')
         } -Force
 
         $providers = @{
@@ -142,7 +142,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
         $plan | Should -Not -BeNullOrEmpty
         $plan.OnFailureSteps.Count | Should -Be 1
-        $plan.OnFailureSteps[0].RequiresCapabilities | Should -Be @('Identity.Disable')
+        $plan.OnFailureSteps[0].RequiresCapabilities | Should -Be @('IdLE.Identity.Disable')
     }
 
     It 'validates entitlement capabilities for EnsureEntitlement steps' {

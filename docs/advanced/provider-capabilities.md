@@ -28,7 +28,7 @@ Naming convention:
 - dot-separated segments
 - no whitespace
 - starts with a letter
-- examples: `Identity.Read`, `Identity.Disable`, `IdLE.Entitlement.List`
+- examples: `IdLE.Identity.Read`, `IdLE.Identity.Disable`, `IdLE.Entitlement.List`
 
 ### Entitlement capability set
 
@@ -79,9 +79,9 @@ The method returns a string list, e.g.:
 ```powershell
 $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
     return @(
-        'Identity.Read'
-        'Identity.Attribute.Ensure'
-        'Identity.Disable'
+        'IdLE.Identity.Read'
+        'IdLE.Identity.Attribute.Ensure'
+        'IdLE.Identity.Disable'
     )
 } -Force
 ```
@@ -114,7 +114,7 @@ Example:
 @{
   Name                 = 'Disable identity'
   Type                 = 'DisableIdentity'
-  RequiresCapabilities = @('Identity.Read', 'Identity.Disable')
+  RequiresCapabilities = @('IdLE.Identity.Read', 'IdLE.Identity.Disable')
 }
 ```
 

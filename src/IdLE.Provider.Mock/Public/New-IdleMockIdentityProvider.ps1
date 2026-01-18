@@ -137,9 +137,9 @@ function New-IdleMockIdentityProvider {
         #>
 
         return @(
-            'Identity.Read'
-            'Identity.Attribute.Ensure'
-            'Identity.Disable'
+            'IdLE.Identity.Read'
+            'IdLE.Identity.Attribute.Ensure'
+            'IdLE.Identity.Disable'
             'IdLE.Entitlement.List'
             'IdLE.Entitlement.Grant'
             'IdLE.Entitlement.Revoke'

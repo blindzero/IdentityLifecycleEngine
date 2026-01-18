@@ -164,7 +164,7 @@ function New-IdlePlanObject {
             # - starts with a letter
             if ($s -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
                 throw [System.ArgumentException]::new(
-                    ("Workflow step '{0}' declares invalid capability '{1}'. Expected dot-separated segments like 'Identity.Read'." -f $StepName, $s),
+                    ("Workflow step '{0}' declares invalid capability '{1}'. Expected dot-separated segments like 'IdLE.Identity.Read'." -f $StepName, $s),
                     'Workflow'
                 )
             }

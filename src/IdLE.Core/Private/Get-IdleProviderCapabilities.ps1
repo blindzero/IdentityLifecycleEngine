@@ -61,13 +61,13 @@ function Get-IdleProviderCapabilities {
             $capabilities += 'IdLE.Entitlement.Revoke'
         }
         if ($methodNames -contains 'EnsureAttribute') {
-            $capabilities += 'Identity.Attribute.Ensure'
+            $capabilities += 'IdLE.Identity.Attribute.Ensure'
         }
         if ($methodNames -contains 'DisableIdentity') {
-            $capabilities += 'Identity.Disable'
+            $capabilities += 'IdLE.Identity.Disable'
         }
         if ($methodNames -contains 'GetIdentity') {
-            $capabilities += 'Identity.Read'
+            $capabilities += 'IdLE.Identity.Read'
         }
 
         $capabilitySource = 'inferred'
@@ -90,9 +90,9 @@ function Get-IdleProviderCapabilities {
         # - dot-separated segments
         # - no whitespace
         # - starts with a letter
-        # Example: 'Entitlement.Write', 'Identity.Attribute.Ensure'
+        # Example: 'IdLE.Entitlement.Write', 'IdLE.Identity.Attribute.Ensure'
         if ($s -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
-            throw "Provider capability '$s' is invalid. Expected dot-separated segments like 'Identity.Read' or 'Entitlement.Write'."
+            throw "Provider capability '$s' is invalid. Expected dot-separated segments like 'IdLE.Identity.Read' or 'IdLE.Entitlement.Write'."
         }
 
         if ($seen.Add($s)) {
