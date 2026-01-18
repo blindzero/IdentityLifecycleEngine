@@ -247,7 +247,16 @@ function New-IdlePlanObject {
             if ($null -eq $caps) {
                 return @()
             }
-            return @($caps | Where-Object { $null -ne $_ } | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+            
+            # Normalize and deduplicate
+            $normalized = @()
+            foreach ($c in @($caps | Where-Object { $null -ne $_ } | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+                # Normalize legacy capability names to canonical form
+                $canonical = ConvertTo-IdleCanonicalCapability -Capability $c -EventSink $null
+                $normalized += $canonical
+            }
+            
+            return @($normalized | Sort-Object -Unique)
         }
 
         return @()
