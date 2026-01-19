@@ -185,33 +185,10 @@ function Invoke-IdleStepEnsureEntitlement {
         }
     }
 
-    # Helper function to check if a provider method supports AuthSession parameter
-    $testMethodSupportsAuthSession = {
-        param([string]$MethodName)
-        $method = $provider.PSObject.Methods[$MethodName]
-        if ($method.MemberType -eq 'ScriptMethod') {
-            $scriptBlock = $method.Script
-            if ($null -ne $scriptBlock -and $null -ne $scriptBlock.Ast -and $null -ne $scriptBlock.Ast.ParamBlock) {
-                $params = $scriptBlock.Ast.ParamBlock.Parameters
-                if ($null -ne $params) {
-                    foreach ($param in $params) {
-                        if ($null -ne $param.Name -and $null -ne $param.Name.VariablePath) {
-                            $paramName = $param.Name.VariablePath.UserPath
-                            if ($paramName -eq 'AuthSession') {
-                                return $true
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return $false
-    }
-
     # Check AuthSession support for each method
-    $listSupportsAuthSession = & $testMethodSupportsAuthSession -MethodName 'ListEntitlements'
-    $grantSupportsAuthSession = & $testMethodSupportsAuthSession -MethodName 'GrantEntitlement'
-    $revokeSupportsAuthSession = & $testMethodSupportsAuthSession -MethodName 'RevokeEntitlement'
+    $listSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'AuthSession'
+    $grantSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['GrantEntitlement'] -ParameterName 'AuthSession'
+    $revokeSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['RevokeEntitlement'] -ParameterName 'AuthSession'
 
     if ($listSupportsAuthSession -and $null -ne $authSession) {
         $current = @($provider.ListEntitlements($identityKey, $authSession))

@@ -99,31 +99,49 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
 
 ### AuthSessionBroker-based Authentication
 
-Use an AuthSessionBroker to manage authentication centrally:
+Use an AuthSessionBroker to manage authentication centrally and enable multi-role scenarios.
+
+The broker is a simple object with an `AcquireAuthSession(Name, Options)` method. The `Options` parameter is a hashtable you define - its keys and structure are completely up to you. Common patterns:
+
+- `@{ Role = 'Tier0' }` - select by role/privilege level
+- `@{ Domain = 'SourceAD' }` - select by AD domain
+- `@{ Environment = 'Production' }` - select by environment
+
+**Example: Simple broker with role-based selection**
 
 ```powershell
-# Create provider without embedded credentials
+# Create provider
 $provider = New-IdleADIdentityProvider
 
-# Define broker that returns credentials based on auth session options
-$broker = [pscustomobject]@{}
-$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-    param($Name, $Options)
-    # Return appropriate credential based on role
-    if ($null -ne $Options -and $Options.Role -eq 'Tier0') {
-        return [PSCredential]::new('DOMAIN\Tier0Admin', $tier0SecurePassword)
+# Simple broker factory function
+function New-ADAuthBroker {
+    param(
+        [PSCredential]$Tier0Credential,
+        [PSCredential]$AdminCredential
+    )
+    
+    $broker = [pscustomobject]@{}
+    $broker | Add-Member -MemberType ScriptProperty -Name Tier0Cred -Value { $Tier0Credential }
+    $broker | Add-Member -MemberType ScriptProperty -Name AdminCred -Value { $AdminCredential }
+    $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+        param($Name, $Options)
+        if ($Options.Role -eq 'Tier0') {
+            return $this.Tier0Cred
+        }
+        return $this.AdminCred
     }
-    return [PSCredential]::new('DOMAIN\Admin', $adminSecurePassword)
+    return $broker
 }
 
-# Use provider with broker
+# Use the broker
+$broker = New-ADAuthBroker -Tier0Credential $tier0Cred -AdminCredential $adminCred
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
     Identity = $provider
     AuthSessionBroker = $broker
 }
 ```
 
-In workflow definitions, steps can specify which auth context to use:
+In workflow definitions, steps specify which auth context to use via `AuthSessionOptions`:
 
 ```powershell
 @{
@@ -134,7 +152,7 @@ In workflow definitions, steps can specify which auth context to use:
         Name = 'AdminCount'
         Value = 1
         AuthSessionName = 'ActiveDirectory'
-        AuthSessionOptions = @{ Role = 'Tier0' }  # Uses Tier0 admin
+        AuthSessionOptions = @{ Role = 'Tier0' }  # Broker returns Tier0 credential
     }
 }
 
@@ -146,16 +164,16 @@ In workflow definitions, steps can specify which auth context to use:
         Name = 'Department'
         Value = 'IT'
         AuthSessionName = 'ActiveDirectory'
-        AuthSessionOptions = @{ Role = 'Admin' }  # Uses regular admin
+        AuthSessionOptions = @{ Role = 'Admin' }  # Broker returns Admin credential
     }
 }
 ```
 
-This approach enables:
-- Multiple auth contexts in a single workflow
-- Centralized credential management
-- No secrets in workflow definitions
-- Support for MFA/interactive auth in the broker
+**Key points:**
+- The `Role` key (or any other key) is **defined by you** - it's not a built-in keyword
+- Your broker implementation decides how to interpret `AuthSessionOptions`
+- The broker can use any logic you want: hashtable lookups, vault APIs, interactive prompts, etc.
+- `AuthSessionOptions` must be data-only (no ScriptBlocks) for security
 
 ### With Delete Capability (Opt-in)
 

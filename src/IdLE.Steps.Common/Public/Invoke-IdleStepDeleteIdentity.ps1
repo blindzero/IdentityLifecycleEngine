@@ -87,25 +87,7 @@ function Invoke-IdleStepDeleteIdentity {
         throw "Provider '$providerAlias' does not implement DeleteIdentity method."
     }
 
-    # Check if the method is a ScriptMethod and inspect its parameters
-    $supportsAuthSession = $false
-    if ($providerMethod.MemberType -eq 'ScriptMethod') {
-        $scriptBlock = $providerMethod.Script
-        if ($null -ne $scriptBlock -and $null -ne $scriptBlock.Ast -and $null -ne $scriptBlock.Ast.ParamBlock) {
-            $params = $scriptBlock.Ast.ParamBlock.Parameters
-            if ($null -ne $params) {
-                foreach ($param in $params) {
-                    if ($null -ne $param.Name -and $null -ne $param.Name.VariablePath) {
-                        $paramName = $param.Name.VariablePath.UserPath
-                        if ($paramName -eq 'AuthSession') {
-                            $supportsAuthSession = $true
-                            break
-                        }
-                    }
-                }
-            }
-        }
-    }
+    $supportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $providerMethod -ParameterName 'AuthSession'
 
     # Call provider method with appropriate signature
     if ($supportsAuthSession -and $null -ne $authSession) {
