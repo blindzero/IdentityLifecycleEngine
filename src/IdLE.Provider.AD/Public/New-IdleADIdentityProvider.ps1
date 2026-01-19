@@ -183,6 +183,34 @@ function New-IdleADIdentityProvider {
         AllowDelete = [bool]$AllowDelete
     }
 
+    # Helper method to extract credential from AuthSession and create effective adapter
+    $getEffectiveAdapter = {
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        if ($null -eq $AuthSession) {
+            return $this.Adapter
+        }
+
+        $credential = $null
+        if ($AuthSession -is [PSCredential]) {
+            $credential = $AuthSession
+        }
+        elseif ($AuthSession.PSObject.Properties.Name -contains 'Credential') {
+            $credential = $AuthSession.Credential
+        }
+
+        if ($null -ne $credential) {
+            return New-IdleADAdapter -Credential $credential
+        }
+
+        return $this.Adapter
+    }
+
+    $provider | Add-Member -MemberType ScriptMethod -Name GetEffectiveAdapter -Value $getEffectiveAdapter -Force
     $provider | Add-Member -MemberType ScriptMethod -Name ConvertToEntitlement -Value $convertToEntitlement -Force
     $provider | Add-Member -MemberType ScriptMethod -Name TestEntitlementEquals -Value $testEntitlementEquals -Force
     $provider | Add-Member -MemberType ScriptMethod -Name ResolveIdentity -Value $resolveIdentity -Force
@@ -350,10 +378,24 @@ function New-IdleADIdentityProvider {
 
             [Parameter()]
             [AllowNull()]
-            [object] $Value
+            [object] $Value,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $user = $this.ResolveIdentity($IdentityKey)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        # Temporarily use the effective adapter for identity resolution
+        $originalAdapter = $this.Adapter
+        $this.Adapter = $adapter
+        try {
+            $user = $this.ResolveIdentity($IdentityKey)
+        }
+        finally {
+            $this.Adapter = $originalAdapter
+        }
 
         $currentValue = $null
         if ($user.PSObject.Properties.Name -contains $Name) {
@@ -362,7 +404,7 @@ function New-IdleADIdentityProvider {
 
         $changed = $false
         if ($currentValue -ne $Value) {
-            $this.Adapter.SetUser($user.DistinguishedName, $Name, $Value)
+            $adapter.SetUser($user.DistinguishedName, $Name, $Value)
             $changed = $true
         }
 
