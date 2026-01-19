@@ -25,9 +25,6 @@
                     }
                 }
             }
-            Outputs = @(
-                'State.EntraID.UserObjectId'
-            )
         }
         @{
             Name = 'AddToBaseGroups'
@@ -35,7 +32,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{State.EntraID.UserObjectId}}'
+                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
                 Desired            = @(
                     @{
                         Kind        = 'Group'
@@ -54,13 +51,16 @@
             Name = 'SetManagerAttribute'
             Type = 'IdLE.Step.EnsureAttribute'
             Condition = @{
-                Type  = 'Expression'
-                Value = '{{Request.Input.ManagerId}} -ne $null'
+                All = @(
+                    @{
+                        Exists = 'Request.Input.ManagerId'
+                    }
+                )
             }
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{State.EntraID.UserObjectId}}'
+                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
                 Name               = 'Manager'
                 Value              = '{{Request.Input.ManagerId}}'
             }
@@ -71,14 +71,14 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{State.EntraID.UserObjectId}}'
+                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
             }
         }
         @{
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'EntraID user {{State.EntraID.UserObjectId}} created and configured successfully.'
+                Message = 'EntraID user {{Request.Input.UserPrincipalName}} created and configured successfully.'
             }
         }
     )

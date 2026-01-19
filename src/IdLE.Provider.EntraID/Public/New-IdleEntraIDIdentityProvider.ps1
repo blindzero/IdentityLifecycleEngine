@@ -386,13 +386,12 @@ function New-IdleEntraIDIdentityProvider {
         $companyName = & $getUserProperty $user 'companyName'
         if ($null -ne $companyName) { $attributes['CompanyName'] = $companyName }
         
-        # Get id and accountEnabled
-        $userId = & $getUserProperty $user 'id'
+        # Get accountEnabled
         $accountEnabled = & $getUserProperty $user 'accountEnabled'
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.Identity'
-            IdentityKey = $userId
+            IdentityKey = $IdentityKey
             Enabled     = [bool]$accountEnabled
             Attributes  = $attributes
         }
@@ -442,7 +441,7 @@ function New-IdleEntraIDIdentityProvider {
                 return [pscustomobject]@{
                     PSTypeName  = 'IdLE.ProviderResult'
                     Operation   = 'CreateIdentity'
-                    IdentityKey = $existing.id
+                    IdentityKey = $IdentityKey
                     Changed     = $false
                 }
             }
@@ -511,7 +510,7 @@ function New-IdleEntraIDIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'CreateIdentity'
-            IdentityKey = $user.id
+            IdentityKey = $IdentityKey
             Changed     = $true
         }
     } -Force
@@ -540,7 +539,7 @@ function New-IdleEntraIDIdentityProvider {
             return [pscustomobject]@{
                 PSTypeName  = 'IdLE.ProviderResult'
                 Operation   = 'DeleteIdentity'
-                IdentityKey = $user.id
+                IdentityKey = $IdentityKey
                 Changed     = $true
             }
         }
@@ -617,7 +616,7 @@ function New-IdleEntraIDIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'EnsureAttribute'
-            IdentityKey = $user.id
+            IdentityKey = $IdentityKey
             Changed     = $changed
             Name        = $Name
             Value       = $Value
@@ -664,7 +663,7 @@ function New-IdleEntraIDIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'DisableIdentity'
-            IdentityKey = $userId
+            IdentityKey = $IdentityKey
             Changed     = $changed
         }
     } -Force
@@ -709,7 +708,7 @@ function New-IdleEntraIDIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'EnableIdentity'
-            IdentityKey = $userId
+            IdentityKey = $IdentityKey
             Changed     = $changed
         }
     } -Force
@@ -768,6 +767,9 @@ function New-IdleEntraIDIdentityProvider {
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
         $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
 
+        # Update normalized entitlement with canonical group ID
+        $normalized.Id = $groupObjectId
+
         # Check if already a member (idempotency)
         $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
         $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
@@ -781,7 +783,7 @@ function New-IdleEntraIDIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'GrantEntitlement'
-            IdentityKey = $user.id
+            IdentityKey = $IdentityKey
             Changed     = $changed
             Entitlement = $normalized
         }
@@ -811,6 +813,9 @@ function New-IdleEntraIDIdentityProvider {
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
         $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
 
+        # Update normalized entitlement with canonical group ID
+        $normalized.Id = $groupObjectId
+
         # Check if currently a member (idempotency)
         $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
         $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
@@ -824,7 +829,7 @@ function New-IdleEntraIDIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'RevokeEntitlement'
-            IdentityKey = $user.id
+            IdentityKey = $IdentityKey
             Changed     = $changed
             Entitlement = $normalized
         }

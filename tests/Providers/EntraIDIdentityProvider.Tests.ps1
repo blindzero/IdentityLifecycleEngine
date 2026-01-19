@@ -60,6 +60,11 @@ Describe 'EntraID identity provider - Contract tests' {
 
         $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
             param($Upn, $AccessToken)
+            # Try direct lookup first
+            if ($this.Store.ContainsKey("upn:$Upn")) {
+                return $this.Store["upn:$Upn"]
+            }
+            # Fallback to search (for backwards compatibility)
             foreach ($key in $this.Store.Keys) {
                 if ($this.Store[$key].userPrincipalName -eq $Upn) {
                     return $this.Store[$key]
@@ -70,6 +75,11 @@ Describe 'EntraID identity provider - Contract tests' {
 
         $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
             param($Mail, $AccessToken)
+            # Try direct lookup first
+            if ($this.Store.ContainsKey("mail:$Mail")) {
+                return $this.Store["mail:$Mail"]
+            }
+            # Fallback to search (for backwards compatibility)
             foreach ($key in $this.Store.Keys) {
                 if ($this.Store[$key].mail -eq $Mail) {
                     return $this.Store[$key]
@@ -91,6 +101,10 @@ Describe 'EntraID identity provider - Contract tests' {
                 surname           = $Payload.surname
             }
             $this.Store["id:$id"] = $user
+            # Also store by UPN for easier lookup
+            if ($Payload.userPrincipalName) {
+                $this.Store["upn:$($Payload.userPrincipalName)"] = $user
+            }
             return $user
         }
 
@@ -132,8 +146,14 @@ Describe 'EntraID identity provider - Contract tests' {
 
         $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
             param($DisplayName, $AccessToken)
+            # Generate a deterministic GUID based on the display name
+            # This simulates real Graph API behavior where groups have GUID ids
+            $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($DisplayName))
+            $guidBytes = [byte[]]$hash[0..15]
+            $guid = [System.Guid]::new($guidBytes)
+            
             return @{
-                id          = "group-id-$DisplayName"
+                id          = $guid.ToString()
                 displayName = $DisplayName
                 mail        = "group-$DisplayName@test.local"
             }
@@ -154,12 +174,24 @@ Describe 'EntraID identity provider - Contract tests' {
             if (-not $this.Store.ContainsKey($key)) {
                 $this.Store[$key] = @()
             }
-            $group = @{
-                id          = $GroupObjectId
-                displayName = "Group $GroupObjectId"
-                mail        = "group-$GroupObjectId@test.local"
+            
+            # Check if already a member (idempotency)
+            $alreadyMember = $false
+            foreach ($existingGroup in $this.Store[$key]) {
+                if ($existingGroup.id -eq $GroupObjectId) {
+                    $alreadyMember = $true
+                    break
+                }
             }
-            $this.Store[$key] += $group
+            
+            if (-not $alreadyMember) {
+                $group = @{
+                    id          = $GroupObjectId
+                    displayName = "Group $GroupObjectId"
+                    mail        = "group-$GroupObjectId@test.local"
+                }
+                $this.Store[$key] += $group
+            }
         }
 
         $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
@@ -256,6 +288,26 @@ Describe 'EntraID identity provider - Idempotency' {
             param($ObjectId, $AccessToken)
             if ($this.Store.ContainsKey($ObjectId)) {
                 return $this.Store[$ObjectId]
+            }
+            return $null
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+            param($Upn, $AccessToken)
+            foreach ($key in $this.Store.Keys) {
+                if ($this.Store[$key].userPrincipalName -eq $Upn) {
+                    return $this.Store[$key]
+                }
+            }
+            return $null
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
+            param($Mail, $AccessToken)
+            foreach ($key in $this.Store.Keys) {
+                if ($this.Store[$key].mail -eq $Mail) {
+                    return $this.Store[$key]
+                }
             }
             return $null
         }
@@ -501,7 +553,7 @@ Describe 'EntraID identity provider - Identity resolution' {
         }
 
         $result = $provider.GetIdentity($upn, 'fake-token')
-        $result.IdentityKey | Should -Be $userId
+        $result.IdentityKey | Should -Be $upn  # Returns original key format
     }
 
     It 'Falls back to mail when UPN lookup fails' {
@@ -517,7 +569,7 @@ Describe 'EntraID identity provider - Identity resolution' {
         }
 
         $result = $provider.GetIdentity($mail, 'fake-token')
-        $result.IdentityKey | Should -Be $userId
+        $result.IdentityKey | Should -Be $mail  # Returns original key format
     }
 
     It 'Throws when identity is not found' {

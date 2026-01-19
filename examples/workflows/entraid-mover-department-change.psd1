@@ -18,8 +18,11 @@
             Name = 'UpdateJobTitle'
             Type = 'IdLE.Step.EnsureAttribute'
             Condition = @{
-                Type  = 'Expression'
-                Value = '{{Request.Input.NewJobTitle}} -ne $null'
+                All = @(
+                    @{
+                        Exists = 'Request.Input.NewJobTitle'
+                    }
+                )
             }
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
@@ -33,8 +36,11 @@
             Name = 'UpdateOfficeLocation'
             Type = 'IdLE.Step.EnsureAttribute'
             Condition = @{
-                Type  = 'Expression'
-                Value = '{{Request.Input.NewOfficeLocation}} -ne $null'
+                All = @(
+                    @{
+                        Exists = 'Request.Input.NewOfficeLocation'
+                    }
+                )
             }
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
@@ -71,8 +77,11 @@
             Name = 'UpdateManager'
             Type = 'IdLE.Step.EnsureAttribute'
             Condition = @{
-                Type  = 'Expression'
-                Value = '{{Request.Input.NewManagerId}} -ne $null'
+                All = @(
+                    @{
+                        Exists = 'Request.Input.NewManagerId'
+                    }
+                )
             }
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'

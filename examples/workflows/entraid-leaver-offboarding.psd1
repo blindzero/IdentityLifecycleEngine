@@ -48,8 +48,14 @@
             Name = 'DeleteAccountAfterRetention'
             Type = 'IdLE.Step.DeleteIdentity'
             Condition = @{
-                Type  = 'Expression'
-                Value = '{{Request.Input.DeleteAfterDisable}} -eq $true'
+                All = @(
+                    @{
+                        Equals = @{
+                            Path  = 'Request.Input.DeleteAfterDisable'
+                            Value = $true
+                        }
+                    }
+                )
             }
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
