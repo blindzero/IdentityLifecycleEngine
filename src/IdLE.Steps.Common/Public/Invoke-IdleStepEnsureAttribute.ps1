@@ -11,6 +11,14 @@ function Invoke-IdleStepEnsureAttribute {
 
     The step is idempotent by design: it converges state to the desired value.
 
+    Authentication:
+    - If With.AuthSessionName is present, the step acquires an auth session via
+      Context.AcquireAuthSession(Name, Options) and passes it to the provider method
+      if the provider supports an AuthSession parameter.
+    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
+      session selection (e.g., @{ Role = 'Tier0' }).
+    - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+
     .PARAMETER Context
     Execution context created by IdLE.Core.
 
@@ -54,8 +62,12 @@ function Invoke-IdleStepEnsureAttribute {
         throw "Provider '$providerAlias' was not supplied by the host."
     }
 
-    $provider = $Context.Providers[$providerAlias]
-    $result = $provider.EnsureAttribute([string]$with.IdentityKey, [string]$with.Name, $with.Value)
+    $result = Invoke-IdleProviderMethod `
+        -Context $Context `
+        -With $with `
+        -ProviderAlias $providerAlias `
+        -MethodName 'EnsureAttribute' `
+        -MethodArguments @([string]$with.IdentityKey, [string]$with.Name, $with.Value)
 
     $changed = $false
     if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {

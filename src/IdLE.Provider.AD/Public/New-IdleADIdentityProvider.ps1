@@ -15,8 +15,14 @@ function New-IdleADIdentityProvider {
     - UPN (UserPrincipalName) - contains @
     - sAMAccountName - default fallback
 
-    .PARAMETER Credential
-    Optional PSCredential for AD operations. If not provided, uses integrated auth (run-as).
+    Authentication:
+    Provider methods accept an optional AuthSession parameter for runtime credential
+    selection via the AuthSessionBroker. This enables multi-role scenarios (e.g.,
+    Tier0 vs. Admin) without embedding credentials in the provider or workflow.
+
+    By default, the provider uses integrated authentication (run-as credentials).
+    For runtime credential selection, configure an AuthSessionBroker and use
+    With.AuthSessionName and With.AuthSessionOptions in step definitions.
 
     .PARAMETER AllowDelete
     Opt-in flag to enable the IdLE.Identity.Delete capability.
@@ -28,20 +34,51 @@ function New-IdleADIdentityProvider {
     a fake AD adapter without requiring a real Active Directory environment.
 
     .EXAMPLE
+    # Use integrated authentication (run-as)
     $provider = New-IdleADIdentityProvider
-    $provider.GetIdentity('user@domain.com')
+    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+        Identity = $provider
+    }
 
     .EXAMPLE
-    $cred = Get-Credential
-    $provider = New-IdleADIdentityProvider -Credential $cred -AllowDelete $true
-    $provider.DeleteIdentity('user@domain.com')
+    # Multi-role scenario with New-IdleAuthSessionBroker (recommended)
+    $tier0Credential = Get-Credential -Message "Enter Tier0 admin credentials"
+    $adminCredential = Get-Credential -Message "Enter regular admin credentials"
+
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ Role = 'Tier0' } = $tier0Credential
+        @{ Role = 'Admin' } = $adminCredential
+    } -DefaultCredential $adminCredential
+
+    $provider = New-IdleADIdentityProvider
+    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+        Identity = $provider
+        AuthSessionBroker = $broker
+    }
+
+    # Workflow steps can specify different auth contexts:
+    # With.AuthSessionName = 'ActiveDirectory'
+    # With.AuthSessionOptions = @{ Role = 'Tier0' }
+
+    .EXAMPLE
+    # Custom broker for advanced scenarios (vault integration, MFA)
+    $broker = [pscustomobject]@{}
+    $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+        param($Name, $Options)
+        if ($Options.Role -eq 'Tier0') {
+            return Get-SecretFromVault -Name 'AD-Tier0'
+        }
+        return Get-SecretFromVault -Name 'AD-Admin'
+    }
+
+    $provider = New-IdleADIdentityProvider
+    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+        Identity = $provider
+        AuthSessionBroker = $broker
+    }
     #>
     [CmdletBinding()]
     param(
-        [Parameter()]
-        [AllowNull()]
-        [PSCredential] $Credential,
-
         [Parameter()]
         [switch] $AllowDelete,
 
@@ -51,7 +88,7 @@ function New-IdleADIdentityProvider {
     )
 
     if ($null -eq $Adapter) {
-        $Adapter = New-IdleADAdapter -Credential $Credential
+        $Adapter = New-IdleADAdapter
     }
 
     $convertToEntitlement = {
@@ -124,14 +161,20 @@ function New-IdleADIdentityProvider {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $IdentityKey
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
+
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
 
         # Try GUID format first (most deterministic)
         $guid = [System.Guid]::Empty
         if ([System.Guid]::TryParse($IdentityKey, [ref]$guid)) {
             try {
-                $user = $this.Adapter.GetUserByGuid($guid.ToString())
+                $user = $adapter.GetUserByGuid($guid.ToString())
             }
             catch [System.Management.Automation.MethodException] {
                 Write-Verbose "GetUserByGuid failed for GUID '$IdentityKey': $_"
@@ -146,7 +189,7 @@ function New-IdleADIdentityProvider {
 
         # Try UPN format (contains @)
         if ($IdentityKey -match '@') {
-            $user = $this.Adapter.GetUserByUpn($IdentityKey)
+            $user = $adapter.GetUserByUpn($IdentityKey)
             if ($null -ne $user) {
                 return $user
             }
@@ -154,7 +197,7 @@ function New-IdleADIdentityProvider {
         }
 
         # Fallback to sAMAccountName
-        $user = $this.Adapter.GetUserBySam($IdentityKey)
+        $user = $adapter.GetUserBySam($IdentityKey)
         if ($null -ne $user) {
             return $user
         }
@@ -165,10 +208,16 @@ function New-IdleADIdentityProvider {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $GroupId
+            [string] $GroupId,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $group = $this.Adapter.GetGroupById($GroupId)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        $group = $adapter.GetGroupById($GroupId)
         if ($null -eq $group) {
             throw "Group '$GroupId' not found."
         }
@@ -183,6 +232,34 @@ function New-IdleADIdentityProvider {
         AllowDelete = [bool]$AllowDelete
     }
 
+    # Helper method to extract credential from AuthSession and create effective adapter
+    $getEffectiveAdapter = {
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        if ($null -eq $AuthSession) {
+            return $this.Adapter
+        }
+
+        $credential = $null
+        if ($AuthSession -is [PSCredential]) {
+            $credential = $AuthSession
+        }
+        elseif ($AuthSession.PSObject.Properties.Name -contains 'Credential') {
+            $credential = $AuthSession.Credential
+        }
+
+        if ($null -ne $credential) {
+            return New-IdleADAdapter -Credential $credential
+        }
+
+        return $this.Adapter
+    }
+
+    $provider | Add-Member -MemberType ScriptMethod -Name GetEffectiveAdapter -Value $getEffectiveAdapter -Force
     $provider | Add-Member -MemberType ScriptMethod -Name ConvertToEntitlement -Value $convertToEntitlement -Force
     $provider | Add-Member -MemberType ScriptMethod -Name TestEntitlementEquals -Value $testEntitlementEquals -Force
     $provider | Add-Member -MemberType ScriptMethod -Name ResolveIdentity -Value $resolveIdentity -Force
@@ -213,10 +290,16 @@ function New-IdleADIdentityProvider {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $IdentityKey
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $user = $this.ResolveIdentity($IdentityKey)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $attributes = @{}
         if ($null -ne $user.GivenName) { $attributes['GivenName'] = $user.GivenName }
@@ -241,10 +324,16 @@ function New-IdleADIdentityProvider {
     $provider | Add-Member -MemberType ScriptMethod -Name ListIdentities -Value {
         param(
             [Parameter()]
-            [hashtable] $Filter
+            [hashtable] $Filter,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $users = $this.Adapter.ListUsers($Filter)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        $users = $adapter.ListUsers($Filter)
         $identityKeys = @()
         foreach ($user in $users) {
             $identityKeys += $user.ObjectGuid.ToString()
@@ -260,11 +349,17 @@ function New-IdleADIdentityProvider {
 
             [Parameter(Mandatory)]
             [ValidateNotNull()]
-            [hashtable] $Attributes
+            [hashtable] $Attributes,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
         try {
-            $existing = $this.ResolveIdentity($IdentityKey)
+            $existing = $this.ResolveIdentity($IdentityKey, $AuthSession)
             if ($null -ne $existing) {
                 return [pscustomobject]@{
                     PSTypeName  = 'IdLE.ProviderResult'
@@ -284,7 +379,7 @@ function New-IdleADIdentityProvider {
             $enabled = [bool]$Attributes['Enabled']
         }
 
-        $null = $this.Adapter.NewUser($IdentityKey, $Attributes, $enabled)
+        $null = $adapter.NewUser($IdentityKey, $Attributes, $enabled)
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
@@ -298,16 +393,22 @@ function New-IdleADIdentityProvider {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $IdentityKey
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
         if (-not $this.AllowDelete) {
             throw "Delete capability is not enabled. Set AllowDelete = `$true when creating the provider."
         }
 
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
         try {
-            $user = $this.ResolveIdentity($IdentityKey)
-            $this.Adapter.DeleteUser($user.DistinguishedName)
+            $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+            $adapter.DeleteUser($user.DistinguishedName)
             return [pscustomobject]@{
                 PSTypeName  = 'IdLE.ProviderResult'
                 Operation   = 'DeleteIdentity'
@@ -350,10 +451,16 @@ function New-IdleADIdentityProvider {
 
             [Parameter()]
             [AllowNull()]
-            [object] $Value
+            [object] $Value,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $user = $this.ResolveIdentity($IdentityKey)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $currentValue = $null
         if ($user.PSObject.Properties.Name -contains $Name) {
@@ -362,7 +469,7 @@ function New-IdleADIdentityProvider {
 
         $changed = $false
         if ($currentValue -ne $Value) {
-            $this.Adapter.SetUser($user.DistinguishedName, $Name, $Value)
+            $adapter.SetUser($user.DistinguishedName, $Name, $Value)
             $changed = $true
         }
 
@@ -384,16 +491,22 @@ function New-IdleADIdentityProvider {
 
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $TargetContainer
+            [string] $TargetContainer,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $user = $this.ResolveIdentity($IdentityKey)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $currentOu = $user.DistinguishedName -replace '^CN=[^,]+,', ''
 
         $changed = $false
         if ($currentOu -ne $TargetContainer) {
-            $this.Adapter.MoveObject($user.DistinguishedName, $TargetContainer)
+            $adapter.MoveObject($user.DistinguishedName, $TargetContainer)
             $changed = $true
         }
 
@@ -410,14 +523,20 @@ function New-IdleADIdentityProvider {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $IdentityKey
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $user = $this.ResolveIdentity($IdentityKey)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $changed = $false
         if ($user.Enabled -ne $false) {
-            $this.Adapter.DisableUser($user.DistinguishedName)
+            $adapter.DisableUser($user.DistinguishedName)
             $changed = $true
         }
 
@@ -433,14 +552,20 @@ function New-IdleADIdentityProvider {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $IdentityKey
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $user = $this.ResolveIdentity($IdentityKey)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $changed = $false
         if ($user.Enabled -ne $true) {
-            $this.Adapter.EnableUser($user.DistinguishedName)
+            $adapter.EnableUser($user.DistinguishedName)
             $changed = $true
         }
 
@@ -456,11 +581,18 @@ function New-IdleADIdentityProvider {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $IdentityKey
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $user = $this.ResolveIdentity($IdentityKey)
-        $groups = $this.Adapter.GetUserGroups($user.DistinguishedName)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        $groups = $adapter.GetUserGroups($user.DistinguishedName)
 
         $result = @()
         foreach ($group in $groups) {
@@ -483,19 +615,26 @@ function New-IdleADIdentityProvider {
 
             [Parameter(Mandatory)]
             [ValidateNotNull()]
-            [object] $Entitlement
+            [object] $Entitlement,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $normalized = $this.ConvertToEntitlement($Entitlement)
-        $user = $this.ResolveIdentity($IdentityKey)
-        $groupDn = $this.NormalizeGroupId($normalized.Id)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        $currentGroups = $this.ListEntitlements($IdentityKey)
+        $normalized = $this.ConvertToEntitlement($Entitlement)
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+        $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+
+        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
         $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
 
         $changed = $false
         if (@($existing).Count -eq 0) {
-            $this.Adapter.AddGroupMember($groupDn, $user.DistinguishedName)
+            $adapter.AddGroupMember($groupDn, $user.DistinguishedName)
             $changed = $true
         }
 
@@ -516,19 +655,26 @@ function New-IdleADIdentityProvider {
 
             [Parameter(Mandatory)]
             [ValidateNotNull()]
-            [object] $Entitlement
+            [object] $Entitlement,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $normalized = $this.ConvertToEntitlement($Entitlement)
-        $user = $this.ResolveIdentity($IdentityKey)
-        $groupDn = $this.NormalizeGroupId($normalized.Id)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        $currentGroups = $this.ListEntitlements($IdentityKey)
+        $normalized = $this.ConvertToEntitlement($Entitlement)
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+        $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+
+        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
         $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
 
         $changed = $false
         if (@($existing).Count -gt 0) {
-            $this.Adapter.RemoveGroupMember($groupDn, $user.DistinguishedName)
+            $adapter.RemoveGroupMember($groupDn, $user.DistinguishedName)
             $changed = $true
         }
 

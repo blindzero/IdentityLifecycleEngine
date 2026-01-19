@@ -15,6 +15,14 @@ function Invoke-IdleStepEnsureEntitlement {
     The step is idempotent and only calls Grant/Revoke when the assignment needs
     to change.
 
+    Authentication:
+    - If With.AuthSessionName is present, the step acquires an auth session via
+      Context.AcquireAuthSession(Name, Options) and passes it to the provider methods
+      if the provider supports an AuthSession parameter.
+    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
+      session selection (e.g., @{ Role = 'Tier0' }).
+    - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+
     .PARAMETER Context
     Execution context created by IdLE.Core.
 
@@ -148,6 +156,19 @@ function Invoke-IdleStepEnsureEntitlement {
         throw "Provider '$providerAlias' was not supplied by the host."
     }
 
+    # Auth session acquisition (optional, data-only)
+    $authSession = $null
+    if ($with.ContainsKey('AuthSessionName')) {
+        $sessionName = [string]$with.AuthSessionName
+        $sessionOptions = if ($with.ContainsKey('AuthSessionOptions')) { $with.AuthSessionOptions } else { $null }
+
+        if ($null -ne $sessionOptions -and -not ($sessionOptions -is [hashtable])) {
+            throw "With.AuthSessionOptions must be a hashtable or null."
+        }
+
+        $authSession = $Context.AcquireAuthSession($sessionName, $sessionOptions)
+    }
+
     $provider = $Context.Providers[$providerAlias]
 
     $requiredMethods = @('ListEntitlements')
@@ -164,14 +185,29 @@ function Invoke-IdleStepEnsureEntitlement {
         }
     }
 
-    $current = @($provider.ListEntitlements($identityKey))
+    # Check AuthSession support for each method
+    $listSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'AuthSession'
+    $grantSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['GrantEntitlement'] -ParameterName 'AuthSession'
+    $revokeSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['RevokeEntitlement'] -ParameterName 'AuthSession'
+
+    if ($listSupportsAuthSession -and $null -ne $authSession) {
+        $current = @($provider.ListEntitlements($identityKey, $authSession))
+    }
+    else {
+        $current = @($provider.ListEntitlements($identityKey))
+    }
     $matches = @($current | Where-Object { Test-IdleStepEntitlementEquals -A $_ -B $entitlement })
 
     $changed = $false
 
     if ($state -eq 'present') {
         if (@($matches).Count -eq 0) {
-            $result = $provider.GrantEntitlement($identityKey, $entitlement)
+            if ($grantSupportsAuthSession -and $null -ne $authSession) {
+                $result = $provider.GrantEntitlement($identityKey, $entitlement, $authSession)
+            }
+            else {
+                $result = $provider.GrantEntitlement($identityKey, $entitlement)
+            }
             if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
                 $changed = [bool]$result.Changed
             }
@@ -182,7 +218,12 @@ function Invoke-IdleStepEnsureEntitlement {
     }
     else {
         if (@($matches).Count -gt 0) {
-            $result = $provider.RevokeEntitlement($identityKey, $entitlement)
+            if ($revokeSupportsAuthSession -and $null -ne $authSession) {
+                $result = $provider.RevokeEntitlement($identityKey, $entitlement, $authSession)
+            }
+            else {
+                $result = $provider.RevokeEntitlement($identityKey, $entitlement)
+            }
             if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
                 $changed = [bool]$result.Changed
             }

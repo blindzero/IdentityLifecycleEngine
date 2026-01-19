@@ -97,12 +97,82 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
 }
 ```
 
-### With Explicit Credentials
+### AuthSessionBroker-based Authentication
+
+Use an AuthSessionBroker to manage authentication centrally and enable multi-role scenarios.
+
+**Simple approach with New-IdleAuthSessionBroker:**
 
 ```powershell
-$credential = Get-Credential
-$provider = New-IdleADIdentityProvider -Credential $credential
+# Assuming you have credentials available (e.g., from a secure vault or credential manager)
+$tier0Credential = Get-Credential -Message "Enter Tier0 admin credentials"
+$adminCredential = Get-Credential -Message "Enter regular admin credentials"
+
+# Create provider
+$provider = New-IdleADIdentityProvider
+
+# Create broker with role-based credential mapping
+$broker = New-IdleAuthSessionBroker -SessionMap @{
+    @{ Role = 'Tier0' } = $tier0Credential
+    @{ Role = 'Admin' } = $adminCredential
+} -DefaultCredential $adminCredential
+
+# Use provider with broker
+$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+    Identity = $provider
+    AuthSessionBroker = $broker
+}
 ```
+
+**Custom broker for advanced scenarios:**
+
+For advanced scenarios (vault integration, MFA, dynamic credential retrieval), implement a custom broker:
+
+```powershell
+$broker = [pscustomobject]@{}
+$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+    param($Name, $Options)
+    # Custom logic: retrieve from vault, prompt for MFA, etc.
+    if ($Options.Role -eq 'Tier0') {
+        return Get-SecretFromVault -Name 'AD-Tier0'
+    }
+    return Get-SecretFromVault -Name 'AD-Admin'
+}
+```
+
+In workflow definitions, steps specify which auth context to use via `AuthSessionOptions`:
+
+```powershell
+@{
+    Type = 'IdLE.Step.EnsureAttribute'
+    Name = 'SetPrivilegedAttribute'
+    With = @{
+        IdentityKey = 'user@domain.com'
+        Name = 'AdminCount'
+        Value = 1
+        AuthSessionName = 'ActiveDirectory'
+        AuthSessionOptions = @{ Role = 'Tier0' }  # Broker returns Tier0 credential
+    }
+}
+
+@{
+    Type = 'IdLE.Step.EnsureAttribute'
+    Name = 'SetDepartment'
+    With = @{
+        IdentityKey = 'user@domain.com'
+        Name = 'Department'
+        Value = 'IT'
+        AuthSessionName = 'ActiveDirectory'
+        AuthSessionOptions = @{ Role = 'Admin' }  # Broker returns Admin credential
+    }
+}
+```
+
+**Key points:**
+- The `Role` key (or any other key) is **defined by you** - it's not a built-in keyword
+- Your broker implementation decides how to interpret `AuthSessionOptions`
+- The broker can use any logic you want: hashtable lookups, vault APIs, interactive prompts, etc.
+- `AuthSessionOptions` must be data-only (no ScriptBlocks) for security
 
 ### With Delete Capability (Opt-in)
 
@@ -114,13 +184,54 @@ $provider = New-IdleADIdentityProvider -AllowDelete
 
 ### Multi-Provider Scenarios
 
+For scenarios with multiple AD forests or domains, use provider aliases with the AuthSessionBroker:
+
 ```powershell
-$sourceAD = New-IdleADIdentityProvider -Credential $sourceCred
-$targetAD = New-IdleADIdentityProvider -Credential $targetCred -AllowDelete
+# Assuming you have credentials for each domain
+$sourceCred = Get-Credential -Message "Enter Source AD admin credentials"
+$targetCred = Get-Credential -Message "Enter Target AD admin credentials"
+
+# Create providers for different AD environments
+$sourceAD = New-IdleADIdentityProvider
+$targetAD = New-IdleADIdentityProvider -AllowDelete
+
+# Use New-IdleAuthSessionBroker for domain-based credential routing
+$broker = New-IdleAuthSessionBroker -SessionMap @{
+    @{ Domain = 'Source' } = $sourceCred
+    @{ Domain = 'Target' } = $targetCred
+}
 
 $plan = New-IdlePlan -WorkflowPath './migration.psd1' -Request $request -Providers @{
     SourceAD = $sourceAD
     TargetAD = $targetAD
+    AuthSessionBroker = $broker
+}
+```
+
+Workflow steps specify which domain to authenticate against:
+
+```powershell
+@{
+    Type = 'IdLE.Step.GetIdentity'
+    Name = 'ReadSource'
+    With = @{
+        IdentityKey = 'user@source.com'
+        Provider = 'SourceAD'
+        AuthSessionName = 'ActiveDirectory'
+        AuthSessionOptions = @{ Domain = 'Source' }
+    }
+}
+
+@{
+    Type = 'IdLE.Step.CreateIdentity'
+    Name = 'CreateTarget'
+    With = @{
+        IdentityKey = 'user@target.com'
+        Attributes = @{ ... }
+        Provider = 'TargetAD'
+        AuthSessionName = 'ActiveDirectory'
+        AuthSessionOptions = @{ Domain = 'Target' }
+    }
 }
 ```
 

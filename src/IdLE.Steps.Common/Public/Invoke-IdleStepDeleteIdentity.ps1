@@ -15,6 +15,14 @@ function Invoke-IdleStepDeleteIdentity {
     capability, which is typically opt-in for safety. The provider must be configured
     to allow deletion (e.g., AllowDelete = $true for AD provider).
 
+    Authentication:
+    - If With.AuthSessionName is present, the step acquires an auth session via
+      Context.AcquireAuthSession(Name, Options) and passes it to the provider method
+      if the provider supports an AuthSession parameter.
+    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
+      session selection (e.g., @{ Role = 'Tier0' }).
+    - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+
     .PARAMETER Context
     Execution context created by IdLE.Core.
 
@@ -58,8 +66,12 @@ function Invoke-IdleStepDeleteIdentity {
         throw "Provider '$providerAlias' was not supplied by the host."
     }
 
-    $provider = $Context.Providers[$providerAlias]
-    $result = $provider.DeleteIdentity([string]$with.IdentityKey)
+    $result = Invoke-IdleProviderMethod `
+        -Context $Context `
+        -With $with `
+        -ProviderAlias $providerAlias `
+        -MethodName 'DeleteIdentity' `
+        -MethodArguments @([string]$with.IdentityKey)
 
     $changed = $false
     if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
