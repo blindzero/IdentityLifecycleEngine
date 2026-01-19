@@ -70,11 +70,13 @@ function New-IdleEntraIDAdapter {
         catch {
             $statusCode = $null
             $requestId = $null
+            $retryAfter = $null
 
             if ($_.Exception.Response) {
                 $statusCode = [int]$_.Exception.Response.StatusCode
                 if ($_.Exception.Response.Headers) {
                     $requestId = $_.Exception.Response.Headers['request-id']
+                    $retryAfter = $_.Exception.Response.Headers['Retry-After']
                 }
             }
 
@@ -90,13 +92,20 @@ function New-IdleEntraIDAdapter {
                 $isTransient = $true
             }
 
-            $errorMessage = "Graph API request failed: $($_.Exception.Message)"
+            # Build error message without exposing sensitive data
+            $errorMessage = "Graph API request failed"
             if ($statusCode) {
                 $errorMessage += " | Status: $statusCode"
             }
             if ($requestId) {
                 $errorMessage += " | RequestId: $requestId"
             }
+            if ($retryAfter) {
+                $errorMessage += " | RetryAfter: $retryAfter"
+            }
+            
+            # Do not include the full exception message as it might contain tokens or sensitive data
+            # Only include safe error details
 
             $ex = [System.Exception]::new($errorMessage, $_.Exception)
             if ($isTransient) {

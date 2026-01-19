@@ -1,15 +1,33 @@
+#requires -Version 7.0
+
 Set-StrictMode -Version Latest
 
-$Public = @(Get-ChildItem -Path "$PSScriptRoot/Public/*.ps1" -ErrorAction SilentlyContinue)
-$Private = @(Get-ChildItem -Path "$PSScriptRoot/Private/*.ps1" -ErrorAction SilentlyContinue)
+# Note: Microsoft Graph API access is provided by the host via AuthSessionBroker.
+# No external module dependencies are required at module load time.
+# The provider uses direct REST API calls to Microsoft Graph v1.0 endpoints.
 
-foreach ($import in @($Public + $Private)) {
-    try {
-        . $import.FullName
-    }
-    catch {
-        Write-Error -Message "Failed to import function $($import.FullName): $_"
+$PrivatePath = Join-Path -Path $PSScriptRoot -ChildPath 'Private'
+if (Test-Path -Path $PrivatePath) {
+
+    # Materialize first to avoid enumeration issues during import.
+    $privateScripts = @(Get-ChildItem -Path $PrivatePath -Filter '*.ps1' -File | Sort-Object -Property FullName)
+
+    foreach ($script in $privateScripts) {
+        . $script.FullName
     }
 }
 
-Export-ModuleMember -Function $Public.BaseName
+$PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
+if (Test-Path -Path $PublicPath) {
+
+    # Materialize first to avoid enumeration issues during import.
+    $publicScripts = @(Get-ChildItem -Path $PublicPath -Filter '*.ps1' -File | Sort-Object -Property FullName)
+
+    foreach ($script in $publicScripts) {
+        . $script.FullName
+    }
+}
+
+Export-ModuleMember -Function @(
+    'New-IdleEntraIDIdentityProvider'
+)

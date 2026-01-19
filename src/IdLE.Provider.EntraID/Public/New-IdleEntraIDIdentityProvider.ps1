@@ -41,7 +41,8 @@ function New-IdleEntraIDIdentityProvider {
 
     .EXAMPLE
     # Basic usage with delegated auth
-    $accessToken = 'eyJ0eXAiOiJKV1QiLC...'  # from host auth flow
+    # Host obtains token via secure method (not shown here - see provider documentation)
+    $accessToken = Get-SecureGraphToken
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{} = $accessToken
     } -DefaultCredential $accessToken
@@ -83,7 +84,7 @@ function New-IdleEntraIDIdentityProvider {
     - Group.Read.All, GroupMember.ReadWrite.All
     - For delete: User.ReadWrite.All
 
-    See docs/reference/provider-entraID.md for detailed permission requirements.
+    See docs/reference/providers/provider-entraID.md for detailed permission requirements.
     #>
     [CmdletBinding()]
     param(

@@ -1,65 +1,43 @@
 # IdLE.Provider.EntraID
 
-Microsoft Entra ID (Azure AD) identity provider for IdentityLifecycleEngine (IdLE).
+Microsoft Entra ID (Azure AD) provider for IdLE.
 
-## Overview
-
-This provider integrates with Microsoft Entra ID (formerly Azure Active Directory) via the Microsoft Graph API to support identity lifecycle operations.
-
-## Features
-
-- Identity operations: Create, Read, Enable, Disable, Delete (opt-in), Attribute management
-- Group entitlement management: List, Grant, Revoke
-- Multiple identity lookup modes: objectId (GUID), UserPrincipalName, mail
-- Canonical identity key: objectId (GUID)
-- Host-owned authentication via AuthSessionBroker pattern
-- Idempotent operations for safe retries
-- Transient error classification for retry policies
-- Graph API paging support
-
-## Requirements
-
-- PowerShell 7.0+
-- Microsoft Graph API access (v1.0 endpoints)
-- Valid authentication session (delegated or app-only via host-provided AuthSessionBroker)
-
-## Authentication
-
-This provider does NOT perform authentication internally. Authentication is managed by the host via the `AuthSessionBroker` pattern as defined in IdLE architecture.
-
-The provider expects to receive an authentication session from the host that provides a valid Microsoft Graph access token.
-
-For details on required permissions and authentication setup, see [docs/reference/provider-entraID.md](../../docs/reference/provider-entraID.md).
-
-## Usage
+## Quick Start
 
 ```powershell
-# Basic usage with delegated auth
-$broker = New-IdleAuthSessionBroker -SessionMap @{
-    @{} = $graphAccessToken  # or PSCredential/object with AccessToken
-} -DefaultCredential $graphAccessToken
+# Automatically imported when you import IdLE
+Import-Module IdLE
 
+# Host obtains Graph access token (delegated or app-only)
+$token = Get-GraphToken
+
+# Create broker for auth routing
+$broker = New-IdleAuthSessionBroker -SessionMap @{
+    @{} = $token
+} -DefaultCredential $token
+
+# Create provider
 $provider = New-IdleEntraIDIdentityProvider
-$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+
+# Use in workflows
+$providers = @{
     Identity = $provider
     AuthSessionBroker = $broker
 }
+$plan = New-IdlePlan -WorkflowPath '.\joiner.psd1' -Request $request -Providers $providers
 ```
 
-## Safety
+## Prerequisites
 
-The Delete capability is opt-in only for safety. Use `-AllowDelete` to enable:
-
-```powershell
-$provider = New-IdleEntraIDIdentityProvider -AllowDelete
-```
+- PowerShell 7.0+
+- Microsoft Graph API access token (host-managed)
 
 ## Documentation
 
-- [Provider Reference](../../docs/reference/provider-entraID.md)
-- [IdLE Architecture](../../docs/advanced/architecture.md)
-- [Example Workflows](../../examples/workflows/)
-
-## License
-
-Apache 2.0
+See **[Complete Provider Documentation](../../docs/reference/providers/provider-entraID.md)** for:
+- Full usage guide and examples
+- Capabilities and built-in steps
+- Authentication patterns (delegated + app-only)
+- Required Graph API permissions
+- Identity resolution and idempotency
+- Troubleshooting
