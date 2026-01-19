@@ -12,6 +12,10 @@ param(
     [switch]$All,
 
     [Parameter(ParameterSetName = 'Run')]
+    [ValidateSet('Mock', 'EntraID')]
+    [string]$Provider = 'Mock',
+
+    [Parameter(ParameterSetName = 'Run')]
     [ValidateRange(1, 50)]
     [int]$Repeat = 1,
 
@@ -202,7 +206,15 @@ function Select-DemoWorkflows {
 # Import modules from the repo (path-based import, no global installation required).
 Import-Module (Join-Path $PSScriptRoot '..\src\IdLE\IdLE.psd1') -Force -ErrorAction Stop
 Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Steps.Common\IdLE.Steps.Common.psd1') -Force -ErrorAction Stop
-Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1') -Force -ErrorAction Stop
+
+# Import provider module based on -Provider parameter
+if ($Provider -eq 'EntraID') {
+    Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Provider.EntraID\IdLE.Provider.EntraID.psd1') -Force -ErrorAction Stop
+    Write-Host "Using EntraID provider (requires valid Microsoft Graph token)" -ForegroundColor Yellow
+}
+else {
+    Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1') -Force -ErrorAction Stop
+}
 
 $available = @(Get-DemoWorkflows)
 
@@ -218,8 +230,56 @@ if ($List) {
 
 $selected = @(Select-DemoWorkflows -AvailableWorkflows $available -ExampleNames $Example -AllWorkflows:$All)
 
-$providers = @{
-    Identity = New-IdleMockIdentityProvider
+# Configure providers based on -Provider parameter
+if ($Provider -eq 'EntraID') {
+    # For EntraID provider, user must supply authentication
+    # This is a demo/example - in production, obtain tokens securely
+    Write-Host ""
+    Write-Host "EntraID Provider Configuration" -ForegroundColor Cyan
+    Write-Host "==============================" -ForegroundColor Cyan
+    Write-Host "The EntraID provider requires a valid Microsoft Graph access token."
+    Write-Host "This demo accepts a token string for testing purposes."
+    Write-Host ""
+    Write-Host "To obtain a token:"
+    Write-Host "  1. Use Connect-AzAccount and Get-AzAccessToken -ResourceUrl 'https://graph.microsoft.com'"
+    Write-Host "  2. Use Connect-MgGraph and Get-MgContext | Select-Object -ExpandProperty AccessToken"
+    Write-Host "  3. Use your own token acquisition method (MSAL, Azure CLI, etc.)"
+    Write-Host ""
+    
+    # Check if token is provided via environment variable (for automation)
+    $graphToken = $env:IDLE_DEMO_GRAPH_TOKEN
+    
+    if (-not $graphToken) {
+        Write-Host "Provide your Microsoft Graph access token (or press Enter to use test mode):" -ForegroundColor Yellow
+        $graphToken = Read-Host -AsSecureString
+        if ($graphToken.Length -eq 0) {
+            Write-Host "No token provided. Using test mode (will fail on real Graph API calls)." -ForegroundColor Yellow
+            $graphToken = 'demo-test-token-not-for-production'
+        }
+        else {
+            $graphToken = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
+                [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($graphToken)
+            )
+        }
+    }
+    
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{} = $graphToken
+    } -DefaultCredential $graphToken
+    
+    $providers = @{
+        Identity = New-IdleEntraIDIdentityProvider
+        AuthSessionBroker = $broker
+    }
+    
+    Write-Host "EntraID provider configured." -ForegroundColor Green
+    Write-Host ""
+}
+else {
+    # Use Mock provider (default, no authentication required)
+    $providers = @{
+        Identity = New-IdleMockIdentityProvider
+    }
 }
 
 $allResults = @()
