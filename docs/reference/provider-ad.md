@@ -104,6 +104,10 @@ Use an AuthSessionBroker to manage authentication centrally and enable multi-rol
 **Simple approach with New-IdleAuthSessionBroker:**
 
 ```powershell
+# Assuming you have credentials available (e.g., from a secure vault or credential manager)
+$tier0Credential = Get-Credential -Message "Enter Tier0 admin credentials"
+$adminCredential = Get-Credential -Message "Enter regular admin credentials"
+
 # Create provider
 $provider = New-IdleADIdentityProvider
 
@@ -183,6 +187,10 @@ $provider = New-IdleADIdentityProvider -AllowDelete
 For scenarios with multiple AD forests or domains, use provider aliases with the AuthSessionBroker:
 
 ```powershell
+# Assuming you have credentials for each domain
+$sourceCred = Get-Credential -Message "Enter Source AD admin credentials"
+$targetCred = Get-Credential -Message "Enter Target AD admin credentials"
+
 # Create providers for different AD environments
 $sourceAD = New-IdleADIdentityProvider
 $targetAD = New-IdleADIdentityProvider -AllowDelete
