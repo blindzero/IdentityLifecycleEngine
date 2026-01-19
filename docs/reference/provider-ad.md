@@ -97,19 +97,9 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
 }
 ```
 
-### With Explicit Credentials (Deprecated)
+### AuthSessionBroker-based Authentication
 
-> **⚠️ DEPRECATED:** The `-Credential` parameter approach is deprecated and will be removed in a future version. Use AuthSessionBroker-based authentication (see below) for new implementations.
-
-```powershell
-# Legacy approach (deprecated)
-$credential = Get-Credential
-$provider = New-IdleADIdentityProvider -Credential $credential
-```
-
-### Recommended: AuthSessionBroker-based Authentication
-
-The recommended approach uses an AuthSessionBroker to manage authentication centrally:
+Use an AuthSessionBroker to manage authentication centrally:
 
 ```powershell
 # Create provider without embedded credentials
