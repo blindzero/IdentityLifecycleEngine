@@ -15,8 +15,23 @@ function New-IdleADIdentityProvider {
     - UPN (UserPrincipalName) - contains @
     - sAMAccountName - default fallback
 
+    Authentication:
+    Provider methods accept an optional AuthSession parameter for runtime credential
+    selection via the AuthSessionBroker. This enables multi-role scenarios (e.g.,
+    Tier0 vs. Admin) without embedding credentials in the provider or workflow.
+
+    The -Credential parameter is deprecated and will be removed in a future version.
+    Use AuthSessionBroker-based authentication instead.
+
     .PARAMETER Credential
-    Optional PSCredential for AD operations. If not provided, uses integrated auth (run-as).
+    [DEPRECATED] Optional PSCredential for AD operations. If not provided, uses integrated auth (run-as).
+    
+    This parameter is deprecated. Use AuthSessionBroker-based authentication instead by:
+    1. Configuring an AuthSessionBroker in Providers.AuthSessionBroker
+    2. Using With.AuthSessionName and With.AuthSessionOptions in step definitions
+    
+    The broker approach enables multiple auth contexts per workflow without embedding
+    credentials in provider construction.
 
     .PARAMETER AllowDelete
     Opt-in flag to enable the IdLE.Identity.Delete capability.
@@ -28,13 +43,34 @@ function New-IdleADIdentityProvider {
     a fake AD adapter without requiring a real Active Directory environment.
 
     .EXAMPLE
+    # Recommended: Use integrated authentication (run-as)
     $provider = New-IdleADIdentityProvider
-    $provider.GetIdentity('user@domain.com')
+    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+        Identity = $provider
+        AuthSessionBroker = $broker
+    }
 
     .EXAMPLE
-    $cred = Get-Credential
-    $provider = New-IdleADIdentityProvider -Credential $cred -AllowDelete $true
-    $provider.DeleteIdentity('user@domain.com')
+    # Recommended: Multi-role scenario with AuthSessionBroker
+    # Broker returns different credentials based on With.AuthSessionOptions
+    $broker = [pscustomobject]@{}
+    $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+        param($Name, $Options)
+        if ($Options.Role -eq 'Tier0') {
+            return [PSCredential]::new('DOMAIN\Tier0Admin', $tier0SecurePassword)
+        }
+        return [PSCredential]::new('DOMAIN\Admin', $adminSecurePassword)
+    }
+
+    $provider = New-IdleADIdentityProvider
+    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+        Identity = $provider
+        AuthSessionBroker = $broker
+    }
+
+    # Workflow steps can specify different auth contexts:
+    # With.AuthSessionName = 'ActiveDirectory'
+    # With.AuthSessionOptions = @{ Role = 'Tier0' }
     #>
     [CmdletBinding()]
     param(
@@ -49,6 +85,20 @@ function New-IdleADIdentityProvider {
         [AllowNull()]
         [object] $Adapter
     )
+
+    # Deprecation warning for -Credential parameter
+    if ($PSBoundParameters.ContainsKey('Credential') -and $null -ne $Credential) {
+        Write-Warning @"
+The -Credential parameter is deprecated and will be removed in a future version.
+Use AuthSessionBroker-based authentication instead:
+
+1. Configure an AuthSessionBroker in Providers.AuthSessionBroker
+2. Use With.AuthSessionName and With.AuthSessionOptions in step definitions
+
+This approach enables multiple auth contexts per workflow without embedding credentials
+in provider construction. See 'Get-Help New-IdleADIdentityProvider -Examples' for details.
+"@
+    }
 
     if ($null -eq $Adapter) {
         $Adapter = New-IdleADAdapter -Credential $Credential

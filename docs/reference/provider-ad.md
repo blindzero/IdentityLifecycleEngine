@@ -97,12 +97,75 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
 }
 ```
 
-### With Explicit Credentials
+### With Explicit Credentials (Deprecated)
+
+> **⚠️ DEPRECATED:** The `-Credential` parameter approach is deprecated and will be removed in a future version. Use AuthSessionBroker-based authentication (see below) for new implementations.
 
 ```powershell
+# Legacy approach (deprecated)
 $credential = Get-Credential
 $provider = New-IdleADIdentityProvider -Credential $credential
 ```
+
+### Recommended: AuthSessionBroker-based Authentication
+
+The recommended approach uses an AuthSessionBroker to manage authentication centrally:
+
+```powershell
+# Create provider without embedded credentials
+$provider = New-IdleADIdentityProvider
+
+# Define broker that returns credentials based on auth session options
+$broker = [pscustomobject]@{}
+$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+    param($Name, $Options)
+    # Return appropriate credential based on role
+    if ($null -ne $Options -and $Options.Role -eq 'Tier0') {
+        return [PSCredential]::new('DOMAIN\Tier0Admin', $tier0SecurePassword)
+    }
+    return [PSCredential]::new('DOMAIN\Admin', $adminSecurePassword)
+}
+
+# Use provider with broker
+$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+    Identity = $provider
+    AuthSessionBroker = $broker
+}
+```
+
+In workflow definitions, steps can specify which auth context to use:
+
+```powershell
+@{
+    Type = 'IdLE.Step.EnsureAttribute'
+    Name = 'SetPrivilegedAttribute'
+    With = @{
+        IdentityKey = 'user@domain.com'
+        Name = 'AdminCount'
+        Value = 1
+        AuthSessionName = 'ActiveDirectory'
+        AuthSessionOptions = @{ Role = 'Tier0' }  # Uses Tier0 admin
+    }
+}
+
+@{
+    Type = 'IdLE.Step.EnsureAttribute'
+    Name = 'SetDepartment'
+    With = @{
+        IdentityKey = 'user@domain.com'
+        Name = 'Department'
+        Value = 'IT'
+        AuthSessionName = 'ActiveDirectory'
+        AuthSessionOptions = @{ Role = 'Admin' }  # Uses regular admin
+    }
+}
+```
+
+This approach enables:
+- Multiple auth contexts in a single workflow
+- Centralized credential management
+- No secrets in workflow definitions
+- Support for MFA/interactive auth in the broker
 
 ### With Delete Capability (Opt-in)
 
@@ -114,13 +177,58 @@ $provider = New-IdleADIdentityProvider -AllowDelete
 
 ### Multi-Provider Scenarios
 
+For scenarios with multiple AD forests or domains, use provider aliases with the AuthSessionBroker:
+
 ```powershell
-$sourceAD = New-IdleADIdentityProvider -Credential $sourceCred
-$targetAD = New-IdleADIdentityProvider -Credential $targetCred -AllowDelete
+# Create providers for different AD environments
+$sourceAD = New-IdleADIdentityProvider
+$targetAD = New-IdleADIdentityProvider -AllowDelete
+
+# Define broker that routes credentials based on provider
+$broker = [pscustomobject]@{}
+$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+    param($Name, $Options)
+    $domain = $Options.Domain
+    if ($domain -eq 'Source') {
+        return [PSCredential]::new('SOURCE\Admin', $sourceSecurePassword)
+    }
+    elseif ($domain -eq 'Target') {
+        return [PSCredential]::new('TARGET\Admin', $targetSecurePassword)
+    }
+    throw "Unknown domain: $domain"
+}
 
 $plan = New-IdlePlan -WorkflowPath './migration.psd1' -Request $request -Providers @{
     SourceAD = $sourceAD
     TargetAD = $targetAD
+    AuthSessionBroker = $broker
+}
+```
+
+Workflow steps specify which domain to authenticate against:
+
+```powershell
+@{
+    Type = 'IdLE.Step.GetIdentity'
+    Name = 'ReadSource'
+    With = @{
+        IdentityKey = 'user@source.com'
+        Provider = 'SourceAD'
+        AuthSessionName = 'ActiveDirectory'
+        AuthSessionOptions = @{ Domain = 'Source' }
+    }
+}
+
+@{
+    Type = 'IdLE.Step.CreateIdentity'
+    Name = 'CreateTarget'
+    With = @{
+        IdentityKey = 'user@target.com'
+        Attributes = @{ ... }
+        Provider = 'TargetAD'
+        AuthSessionName = 'ActiveDirectory'
+        AuthSessionOptions = @{ Domain = 'Target' }
+    }
 }
 ```
 
