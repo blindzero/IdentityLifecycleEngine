@@ -38,7 +38,11 @@ If anything in this file conflicts with those, the more specific document wins.
 ## Documentation rules
 
 - Do not edit generated references under `docs/reference/` by hand.
-  - Regenerate via the repository tools as documented in `CONTRIBUTING.md`.
+  - **Always regenerate** after changing public cmdlets or step implementations:
+    - `./tools/Generate-IdleCmdletReference.ps1` - after cmdlet/help changes
+    - `./tools/Generate-IdleStepReference.ps1` - after step changes
+  - See `CONTRIBUTING.md` for complete instructions.
+  - CI will fail if generated docs are out of date.
 
 ## Git / PR conventions
 
