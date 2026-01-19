@@ -1,0 +1,747 @@
+function New-IdleEntraIDIdentityProvider {
+    <#
+    .SYNOPSIS
+    Creates a Microsoft Entra ID identity provider for IdLE.
+
+    .DESCRIPTION
+    This provider integrates with Microsoft Entra ID (formerly Azure Active Directory)
+    via the Microsoft Graph API (v1.0). It supports both delegated and app-only authentication
+    via the host-provided AuthSessionBroker pattern.
+
+    The provider supports common identity operations (Create, Read, Disable, Enable, Delete)
+    and group entitlement management (List, Grant, Revoke).
+
+    Identity addressing supports:
+    - objectId (GUID string) - most deterministic
+    - UserPrincipalName (UPN) - contains @
+    - mail - email address
+
+    The canonical identity key for all outputs is the user objectId (GUID string).
+
+    Authentication:
+    Provider methods accept an optional AuthSession parameter for runtime credential
+    selection via the AuthSessionBroker. The provider supports multiple auth session formats:
+    - String access token (Bearer token)
+    - Object with AccessToken property
+    - Object with GetAccessToken() method
+    - PSCredential (must contain AccessToken in password field for Graph API)
+
+    By default, steps should use:
+    - With.AuthSessionName = 'MicrosoftGraph'
+    - With.AuthSessionOptions = @{ Role = 'Admin' } (or other routing keys)
+
+    .PARAMETER AllowDelete
+    Opt-in flag to enable the IdLE.Identity.Delete capability.
+    When $true, the provider advertises the Delete capability and allows identity deletion.
+    Default is $false for safety.
+
+    .PARAMETER Adapter
+    Internal parameter for dependency injection during testing. Allows unit tests to inject
+    a fake Graph adapter without requiring a real Entra ID environment.
+
+    .EXAMPLE
+    # Basic usage with delegated auth
+    $accessToken = 'eyJ0eXAiOiJKV1QiLC...'  # from host auth flow
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{} = $accessToken
+    } -DefaultCredential $accessToken
+
+    $provider = New-IdleEntraIDIdentityProvider
+    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+        Identity = $provider
+        AuthSessionBroker = $broker
+    }
+
+    .EXAMPLE
+    # Multi-role scenario
+    $tier0Token = Get-GraphTokenForTier0  # host-managed auth
+    $adminToken = Get-GraphTokenForAdmin
+
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ Role = 'Tier0' } = $tier0Token
+        @{ Role = 'Admin' } = $adminToken
+    } -DefaultCredential $adminToken
+
+    $provider = New-IdleEntraIDIdentityProvider
+    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+        Identity = $provider
+        AuthSessionBroker = $broker
+    }
+
+    # Workflow steps specify: With.AuthSessionOptions = @{ Role = 'Tier0' }
+
+    .EXAMPLE
+    # Enable delete capability (opt-in)
+    $provider = New-IdleEntraIDIdentityProvider -AllowDelete
+
+    .OUTPUTS
+    PSCustomObject with IdLE provider contract methods
+
+    .NOTES
+    Requires Microsoft Graph API permissions (delegated or app-only):
+    - User.Read.All, User.ReadWrite.All
+    - Group.Read.All, GroupMember.ReadWrite.All
+    - For delete: User.ReadWrite.All
+
+    See docs/reference/provider-entraID.md for detailed permission requirements.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [switch] $AllowDelete,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $Adapter
+    )
+
+    if ($null -eq $Adapter) {
+        $Adapter = New-IdleEntraIDAdapter
+    }
+
+    $convertToEntitlement = {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Value
+        )
+
+        $kind = $null
+        $id = $null
+        $displayName = $null
+        $mail = $null
+
+        if ($Value -is [System.Collections.IDictionary]) {
+            $kind = $Value['Kind']
+            $id = $Value['Id']
+            if ($Value.Contains('DisplayName')) { $displayName = $Value['DisplayName'] }
+            if ($Value.Contains('Mail')) { $mail = $Value['Mail'] }
+        }
+        else {
+            $props = $Value.PSObject.Properties
+            if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
+            if ($props.Name -contains 'Id') { $id = $Value.Id }
+            if ($props.Name -contains 'DisplayName') { $displayName = $Value.DisplayName }
+            if ($props.Name -contains 'Mail') { $mail = $Value.Mail }
+        }
+
+        if ([string]::IsNullOrWhiteSpace([string]$kind)) {
+            throw "Entitlement.Kind must not be empty."
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$id)) {
+            throw "Entitlement.Id must not be empty."
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.Entitlement'
+            Kind        = [string]$kind
+            Id          = [string]$id
+            DisplayName = if ($null -eq $displayName -or [string]::IsNullOrWhiteSpace([string]$displayName)) {
+                $null
+            }
+            else {
+                [string]$displayName
+            }
+            Mail        = if ($null -eq $mail -or [string]::IsNullOrWhiteSpace([string]$mail)) {
+                $null
+            }
+            else {
+                [string]$mail
+            }
+        }
+    }
+
+    $testEntitlementEquals = {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $A,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $B
+        )
+
+        $aEnt = $this.ConvertToEntitlement($A)
+        $bEnt = $this.ConvertToEntitlement($B)
+
+        if ($aEnt.Kind -ne $bEnt.Kind) {
+            return $false
+        }
+
+        return [string]::Equals($aEnt.Id, $bEnt.Id, [System.StringComparison]::OrdinalIgnoreCase)
+    }
+
+    $extractAccessToken = {
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        if ($null -eq $AuthSession) {
+            throw "AuthSession is required for Entra ID provider operations."
+        }
+
+        # String token
+        if ($AuthSession -is [string]) {
+            return $AuthSession
+        }
+
+        # Object with GetAccessToken() method
+        if ($AuthSession.PSObject.Methods.Name -contains 'GetAccessToken') {
+            return $AuthSession.GetAccessToken()
+        }
+
+        # Object with AccessToken property
+        if ($AuthSession.PSObject.Properties.Name -contains 'AccessToken') {
+            return $AuthSession.AccessToken
+        }
+
+        # PSCredential with token in password field
+        if ($AuthSession -is [PSCredential]) {
+            return $AuthSession.GetNetworkCredential().Password
+        }
+
+        throw "AuthSession format not recognized. Expected: string token, object with AccessToken property, object with GetAccessToken() method, or PSCredential."
+    }
+
+    $resolveIdentity = {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+
+        # Try GUID format first (most deterministic)
+        $guid = [System.Guid]::Empty
+        if ([System.Guid]::TryParse($IdentityKey, [ref]$guid)) {
+            $user = $this.Adapter.GetUserById($IdentityKey, $accessToken)
+            if ($null -ne $user) {
+                return $user
+            }
+            throw "Identity with objectId '$IdentityKey' not found."
+        }
+
+        # Try UPN format (contains @)
+        if ($IdentityKey -match '@') {
+            $user = $this.Adapter.GetUserByUpn($IdentityKey, $accessToken)
+            if ($null -ne $user) {
+                return $user
+            }
+
+            # Fallback: try as mail
+            $user = $this.Adapter.GetUserByMail($IdentityKey, $accessToken)
+            if ($null -ne $user) {
+                return $user
+            }
+
+            throw "Identity with UPN/mail '$IdentityKey' not found."
+        }
+
+        throw "Identity key '$IdentityKey' is not in a recognized format (objectId GUID, UPN, or mail)."
+    }
+
+    $normalizeGroupId = {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $GroupId,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+
+        # Try as objectId first
+        $guid = [System.Guid]::Empty
+        if ([System.Guid]::TryParse($GroupId, [ref]$guid)) {
+            $group = $this.Adapter.GetGroupById($GroupId, $accessToken)
+            if ($null -ne $group) {
+                return $group.id
+            }
+            throw "Group with objectId '$GroupId' not found."
+        }
+
+        # Try as displayName
+        $group = $this.Adapter.GetGroupByDisplayName($GroupId, $accessToken)
+        if ($null -ne $group) {
+            return $group.id
+        }
+
+        throw "Group '$GroupId' not found."
+    }
+
+    $provider = [pscustomobject]@{
+        PSTypeName  = 'IdLE.Provider.EntraIDIdentityProvider'
+        Name        = 'EntraIDIdentityProvider'
+        Adapter     = $Adapter
+        AllowDelete = [bool]$AllowDelete
+    }
+
+    $provider | Add-Member -MemberType ScriptMethod -Name ExtractAccessToken -Value $extractAccessToken -Force
+    $provider | Add-Member -MemberType ScriptMethod -Name ConvertToEntitlement -Value $convertToEntitlement -Force
+    $provider | Add-Member -MemberType ScriptMethod -Name TestEntitlementEquals -Value $testEntitlementEquals -Force
+    $provider | Add-Member -MemberType ScriptMethod -Name ResolveIdentity -Value $resolveIdentity -Force
+    $provider | Add-Member -MemberType ScriptMethod -Name NormalizeGroupId -Value $normalizeGroupId -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+        $caps = @(
+            'IdLE.Identity.Read'
+            'IdLE.Identity.List'
+            'IdLE.Identity.Create'
+            'IdLE.Identity.Attribute.Ensure'
+            'IdLE.Identity.Disable'
+            'IdLE.Identity.Enable'
+            'IdLE.Entitlement.List'
+            'IdLE.Entitlement.Grant'
+            'IdLE.Entitlement.Revoke'
+        )
+
+        if ($this.AllowDelete) {
+            $caps += 'IdLE.Identity.Delete'
+        }
+
+        return $caps
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name GetIdentity -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        $attributes = @{}
+        if ($null -ne $user.givenName) { $attributes['GivenName'] = $user.givenName }
+        if ($null -ne $user.surname) { $attributes['Surname'] = $user.surname }
+        if ($null -ne $user.displayName) { $attributes['DisplayName'] = $user.displayName }
+        if ($null -ne $user.userPrincipalName) { $attributes['UserPrincipalName'] = $user.userPrincipalName }
+        if ($null -ne $user.mail) { $attributes['Mail'] = $user.mail }
+        if ($null -ne $user.department) { $attributes['Department'] = $user.department }
+        if ($null -ne $user.jobTitle) { $attributes['JobTitle'] = $user.jobTitle }
+        if ($null -ne $user.officeLocation) { $attributes['OfficeLocation'] = $user.officeLocation }
+        if ($null -ne $user.companyName) { $attributes['CompanyName'] = $user.companyName }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.Identity'
+            IdentityKey = $user.id
+            Enabled     = [bool]$user.accountEnabled
+            Attributes  = $attributes
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name ListIdentities -Value {
+        param(
+            [Parameter()]
+            [hashtable] $Filter,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $users = $this.Adapter.ListUsers($Filter, $accessToken)
+
+        $identityKeys = @()
+        foreach ($user in $users) {
+            $identityKeys += $user.id
+        }
+        return $identityKeys
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name CreateIdentity -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [hashtable] $Attributes,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+
+        # Check if user already exists (idempotency)
+        try {
+            $existing = $this.ResolveIdentity($IdentityKey, $AuthSession)
+            if ($null -ne $existing) {
+                return [pscustomobject]@{
+                    PSTypeName  = 'IdLE.ProviderResult'
+                    Operation   = 'CreateIdentity'
+                    IdentityKey = $existing.id
+                    Changed     = $false
+                }
+            }
+        }
+        catch {
+            # Identity does not exist, proceed with creation
+            Write-Verbose "Identity '$IdentityKey' does not exist, proceeding with creation"
+        }
+
+        # Build Graph API payload
+        $payload = @{
+            accountEnabled = $true
+        }
+
+        # Required fields for user creation
+        if ($Attributes.ContainsKey('UserPrincipalName')) {
+            $payload['userPrincipalName'] = $Attributes['UserPrincipalName']
+        }
+        else {
+            $payload['userPrincipalName'] = $IdentityKey
+        }
+
+        if ($Attributes.ContainsKey('DisplayName')) {
+            $payload['displayName'] = $Attributes['DisplayName']
+        }
+        else {
+            $payload['displayName'] = $IdentityKey
+        }
+
+        # MailNickname is required
+        if ($Attributes.ContainsKey('MailNickname')) {
+            $payload['mailNickname'] = $Attributes['MailNickname']
+        }
+        else {
+            # Generate from UPN
+            $payload['mailNickname'] = $payload['userPrincipalName'].Split('@')[0]
+        }
+
+        # Password policy for new users
+        if ($Attributes.ContainsKey('PasswordProfile')) {
+            $payload['passwordProfile'] = $Attributes['PasswordProfile']
+        }
+        else {
+            # Default: force change on first sign-in
+            $payload['passwordProfile'] = @{
+                forceChangePasswordNextSignIn = $true
+                password                      = [System.Guid]::NewGuid().ToString()
+            }
+        }
+
+        # Optional attributes
+        if ($Attributes.ContainsKey('GivenName')) { $payload['givenName'] = $Attributes['GivenName'] }
+        if ($Attributes.ContainsKey('Surname')) { $payload['surname'] = $Attributes['Surname'] }
+        if ($Attributes.ContainsKey('Mail')) { $payload['mail'] = $Attributes['Mail'] }
+        if ($Attributes.ContainsKey('Department')) { $payload['department'] = $Attributes['Department'] }
+        if ($Attributes.ContainsKey('JobTitle')) { $payload['jobTitle'] = $Attributes['JobTitle'] }
+        if ($Attributes.ContainsKey('OfficeLocation')) { $payload['officeLocation'] = $Attributes['OfficeLocation'] }
+        if ($Attributes.ContainsKey('CompanyName')) { $payload['companyName'] = $Attributes['CompanyName'] }
+
+        if ($Attributes.ContainsKey('Enabled')) {
+            $payload['accountEnabled'] = [bool]$Attributes['Enabled']
+        }
+
+        $user = $this.Adapter.CreateUser($payload, $accessToken)
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'CreateIdentity'
+            IdentityKey = $user.id
+            Changed     = $true
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name DeleteIdentity -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        if (-not $this.AllowDelete) {
+            throw "Delete capability is not enabled. Set AllowDelete = `$true when creating the provider."
+        }
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+
+        try {
+            $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+            $this.Adapter.DeleteUser($user.id, $accessToken)
+
+            return [pscustomobject]@{
+                PSTypeName  = 'IdLE.ProviderResult'
+                Operation   = 'DeleteIdentity'
+                IdentityKey = $user.id
+                Changed     = $true
+            }
+        }
+        catch {
+            # Idempotency: if not found, treat as success
+            if ($_.Exception.Message -match '404|not found|does not exist') {
+                return [pscustomobject]@{
+                    PSTypeName  = 'IdLE.ProviderResult'
+                    Operation   = 'DeleteIdentity'
+                    IdentityKey = $IdentityKey
+                    Changed     = $false
+                }
+            }
+            throw
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Name,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $Value,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        # Map IdLE attribute names to Graph API property names
+        $graphPropertyName = switch ($Name) {
+            'GivenName' { 'givenName' }
+            'Surname' { 'surname' }
+            'DisplayName' { 'displayName' }
+            'UserPrincipalName' { 'userPrincipalName' }
+            'Mail' { 'mail' }
+            'Department' { 'department' }
+            'JobTitle' { 'jobTitle' }
+            'OfficeLocation' { 'officeLocation' }
+            'CompanyName' { 'companyName' }
+            default { $Name.Substring(0, 1).ToLower() + $Name.Substring(1) }
+        }
+
+        $currentValue = $null
+        if ($user.PSObject.Properties.Name -contains $graphPropertyName) {
+            $currentValue = $user.$graphPropertyName
+        }
+
+        $changed = $false
+        if ($currentValue -ne $Value) {
+            $payload = @{
+                $graphPropertyName = $Value
+            }
+            $this.Adapter.PatchUser($user.id, $payload, $accessToken)
+            $changed = $true
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'EnsureAttribute'
+            IdentityKey = $user.id
+            Changed     = $changed
+            Name        = $Name
+            Value       = $Value
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name DisableIdentity -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        $changed = $false
+        if ($user.accountEnabled -ne $false) {
+            $payload = @{ accountEnabled = $false }
+            $this.Adapter.PatchUser($user.id, $payload, $accessToken)
+            $changed = $true
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'DisableIdentity'
+            IdentityKey = $user.id
+            Changed     = $changed
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name EnableIdentity -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        $changed = $false
+        if ($user.accountEnabled -ne $true) {
+            $payload = @{ accountEnabled = $true }
+            $this.Adapter.PatchUser($user.id, $payload, $accessToken)
+            $changed = $true
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'EnableIdentity'
+            IdentityKey = $user.id
+            Changed     = $changed
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        $groups = $this.Adapter.ListUserGroups($user.id, $accessToken)
+
+        $result = @()
+        foreach ($group in $groups) {
+            $result += [pscustomobject]@{
+                PSTypeName  = 'IdLE.Entitlement'
+                Kind        = 'Group'
+                Id          = $group.id
+                DisplayName = $group.displayName
+                Mail        = $group.mail
+            }
+        }
+
+        return $result
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name GrantEntitlement -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Entitlement,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $normalized = $this.ConvertToEntitlement($Entitlement)
+
+        if ($normalized.Kind -ne 'Group') {
+            throw "Entitlement kind '$($normalized.Kind)' is not supported. Only 'Group' is supported."
+        }
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+        $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+
+        # Check if already a member (idempotency)
+        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
+        $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
+
+        $changed = $false
+        if (@($existing).Count -eq 0) {
+            $this.Adapter.AddGroupMember($groupObjectId, $user.id, $accessToken)
+            $changed = $true
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'GrantEntitlement'
+            IdentityKey = $user.id
+            Changed     = $changed
+            Entitlement = $normalized
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name RevokeEntitlement -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Entitlement,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $normalized = $this.ConvertToEntitlement($Entitlement)
+
+        if ($normalized.Kind -ne 'Group') {
+            throw "Entitlement kind '$($normalized.Kind)' is not supported. Only 'Group' is supported."
+        }
+
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+        $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+
+        # Check if currently a member (idempotency)
+        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
+        $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
+
+        $changed = $false
+        if (@($existing).Count -gt 0) {
+            $this.Adapter.RemoveGroupMember($groupObjectId, $user.id, $accessToken)
+            $changed = $true
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'RevokeEntitlement'
+            IdentityKey = $user.id
+            Changed     = $changed
+            Entitlement = $normalized
+        }
+    } -Force
+
+    return $provider
+}
