@@ -731,12 +731,31 @@ function New-IdleEntraIDIdentityProvider {
 
         $result = @()
         foreach ($group in $groups) {
+            # Handle both hashtables and PSCustomObjects
+            $groupId = if ($group -is [System.Collections.IDictionary]) {
+                $group['id']
+            } else {
+                $group.id
+            }
+            
+            $displayName = if ($group -is [System.Collections.IDictionary]) {
+                if ($group.ContainsKey('displayName')) { $group['displayName'] } else { $null }
+            } else {
+                if ($group.PSObject.Properties.Name -contains 'displayName') { $group.displayName } else { $null }
+            }
+            
+            $mail = if ($group -is [System.Collections.IDictionary]) {
+                if ($group.ContainsKey('mail')) { $group['mail'] } else { $null }
+            } else {
+                if ($group.PSObject.Properties.Name -contains 'mail') { $group.mail } else { $null }
+            }
+            
             $result += [pscustomobject]@{
                 PSTypeName  = 'IdLE.Entitlement'
                 Kind        = 'Group'
-                Id          = $group.id
-                DisplayName = $group.displayName
-                Mail        = $group.mail
+                Id          = $groupId
+                DisplayName = $displayName
+                Mail        = $mail
             }
         }
 
@@ -763,6 +782,8 @@ function New-IdleEntraIDIdentityProvider {
 
         # Note: For contract tests, accept any Kind and treat as Group
         # In production workflows, Kind should be 'Group'
+        # Normalize Kind to 'Group' for consistency
+        $normalized.Kind = 'Group'
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
         $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
@@ -809,6 +830,8 @@ function New-IdleEntraIDIdentityProvider {
 
         # Note: For contract tests, accept any Kind and treat as Group
         # In production workflows, Kind should be 'Group'
+        # Normalize Kind to 'Group' for consistency
+        $normalized.Kind = 'Group'
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
         $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
