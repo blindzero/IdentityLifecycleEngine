@@ -69,38 +69,12 @@ function Invoke-IdleStepCreateIdentity {
         throw "Provider '$providerAlias' was not supplied by the host."
     }
 
-    # Auth session acquisition (optional, data-only)
-    $authSession = $null
-    if ($with.ContainsKey('AuthSessionName')) {
-        $sessionName = [string]$with.AuthSessionName
-        $sessionOptions = if ($with.ContainsKey('AuthSessionOptions')) { $with.AuthSessionOptions } else { $null }
-
-        if ($null -ne $sessionOptions -and -not ($sessionOptions -is [hashtable])) {
-            throw "With.AuthSessionOptions must be a hashtable or null."
-        }
-
-        $authSession = $Context.AcquireAuthSession($sessionName, $sessionOptions)
-    }
-
-    $provider = $Context.Providers[$providerAlias]
-
-    # Call provider with AuthSession if supported (backwards compatible fallback)
-    $providerMethod = $provider.PSObject.Methods['CreateIdentity']
-    if ($null -eq $providerMethod) {
-        throw "Provider '$providerAlias' does not implement CreateIdentity method."
-    }
-
-    $supportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $providerMethod -ParameterName 'AuthSession'
-
-    # Call provider method with appropriate signature
-    if ($supportsAuthSession -and $null -ne $authSession) {
-        # Provider supports AuthSession and we have one - pass it
-        $result = $provider.CreateIdentity([string]$with.IdentityKey, $with.Attributes, $authSession)
-    }
-    else {
-        # Legacy signature (no AuthSession parameter) or no session acquired
-        $result = $provider.CreateIdentity([string]$with.IdentityKey, $with.Attributes)
-    }
+    $result = Invoke-IdleProviderMethod `
+        -Context $Context `
+        -With $with `
+        -ProviderAlias $providerAlias `
+        -MethodName 'CreateIdentity' `
+        -MethodArguments @([string]$with.IdentityKey, $with.Attributes)
 
     $changed = $false
     if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {

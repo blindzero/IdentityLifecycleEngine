@@ -18,7 +18,8 @@
         'New-IdleLifecycleRequest',
         'New-IdlePlan',
         'Invoke-IdlePlan',
-        'Export-IdlePlan'
+        'Export-IdlePlan',
+        'New-IdleAuthSessionBroker'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()

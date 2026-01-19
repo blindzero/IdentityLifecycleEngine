@@ -101,43 +101,38 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
 
 Use an AuthSessionBroker to manage authentication centrally and enable multi-role scenarios.
 
-The broker is a simple object with an `AcquireAuthSession(Name, Options)` method. The `Options` parameter is a hashtable you define - its keys and structure are completely up to you. Common patterns:
-
-- `@{ Role = 'Tier0' }` - select by role/privilege level
-- `@{ Domain = 'SourceAD' }` - select by AD domain
-- `@{ Environment = 'Production' }` - select by environment
-
-**Example: Simple broker with role-based selection**
+**Simple approach with New-IdleAuthSessionBroker:**
 
 ```powershell
 # Create provider
 $provider = New-IdleADIdentityProvider
 
-# Simple broker factory function
-function New-ADAuthBroker {
-    param(
-        [PSCredential]$Tier0Credential,
-        [PSCredential]$AdminCredential
-    )
-    
-    $broker = [pscustomobject]@{}
-    $broker | Add-Member -MemberType ScriptProperty -Name Tier0Cred -Value { $Tier0Credential }
-    $broker | Add-Member -MemberType ScriptProperty -Name AdminCred -Value { $AdminCredential }
-    $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-        param($Name, $Options)
-        if ($Options.Role -eq 'Tier0') {
-            return $this.Tier0Cred
-        }
-        return $this.AdminCred
-    }
-    return $broker
-}
+# Create broker with role-based credential mapping
+$broker = New-IdleAuthSessionBroker -SessionMap @{
+    @{ Role = 'Tier0' } = $tier0Credential
+    @{ Role = 'Admin' } = $adminCredential
+} -DefaultCredential $adminCredential
 
-# Use the broker
-$broker = New-ADAuthBroker -Tier0Credential $tier0Cred -AdminCredential $adminCred
+# Use provider with broker
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
     Identity = $provider
     AuthSessionBroker = $broker
+}
+```
+
+**Custom broker for advanced scenarios:**
+
+For advanced scenarios (vault integration, MFA, dynamic credential retrieval), implement a custom broker:
+
+```powershell
+$broker = [pscustomobject]@{}
+$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+    param($Name, $Options)
+    # Custom logic: retrieve from vault, prompt for MFA, etc.
+    if ($Options.Role -eq 'Tier0') {
+        return Get-SecretFromVault -Name 'AD-Tier0'
+    }
+    return Get-SecretFromVault -Name 'AD-Admin'
 }
 ```
 
@@ -192,18 +187,10 @@ For scenarios with multiple AD forests or domains, use provider aliases with the
 $sourceAD = New-IdleADIdentityProvider
 $targetAD = New-IdleADIdentityProvider -AllowDelete
 
-# Define broker that routes credentials based on provider
-$broker = [pscustomobject]@{}
-$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-    param($Name, $Options)
-    $domain = $Options.Domain
-    if ($domain -eq 'Source') {
-        return [PSCredential]::new('SOURCE\Admin', $sourceSecurePassword)
-    }
-    elseif ($domain -eq 'Target') {
-        return [PSCredential]::new('TARGET\Admin', $targetSecurePassword)
-    }
-    throw "Unknown domain: $domain"
+# Use New-IdleAuthSessionBroker for domain-based credential routing
+$broker = New-IdleAuthSessionBroker -SessionMap @{
+    @{ Domain = 'Source' } = $sourceCred
+    @{ Domain = 'Target' } = $targetCred
 }
 
 $plan = New-IdlePlan -WorkflowPath './migration.psd1' -Request $request -Providers @{

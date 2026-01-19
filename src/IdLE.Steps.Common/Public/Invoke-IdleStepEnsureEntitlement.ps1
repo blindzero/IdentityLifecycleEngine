@@ -185,10 +185,29 @@ function Invoke-IdleStepEnsureEntitlement {
         }
     }
 
+    # Helper to check AuthSession support for a provider method
+    $checkAuthSessionSupport = {
+        param($Method)
+        if ($Method.MemberType -eq 'ScriptMethod') {
+            $scriptBlock = $Method.Script
+            if ($null -ne $scriptBlock -and $null -ne $scriptBlock.Ast -and $null -ne $scriptBlock.Ast.ParamBlock) {
+                $params = $scriptBlock.Ast.ParamBlock.Parameters
+                if ($null -ne $params) {
+                    foreach ($param in $params) {
+                        if ($null -ne $param.Name -and $null -ne $param.Name.VariablePath -and $param.Name.VariablePath.UserPath -eq 'AuthSession') {
+                            return $true
+                        }
+                    }
+                }
+            }
+        }
+        return $false
+    }
+
     # Check AuthSession support for each method
-    $listSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'AuthSession'
-    $grantSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['GrantEntitlement'] -ParameterName 'AuthSession'
-    $revokeSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['RevokeEntitlement'] -ParameterName 'AuthSession'
+    $listSupportsAuthSession = & $checkAuthSessionSupport $provider.PSObject.Methods['ListEntitlements']
+    $grantSupportsAuthSession = & $checkAuthSessionSupport $provider.PSObject.Methods['GrantEntitlement']
+    $revokeSupportsAuthSession = & $checkAuthSessionSupport $provider.PSObject.Methods['RevokeEntitlement']
 
     if ($listSupportsAuthSession -and $null -ne $authSession) {
         $current = @($provider.ListEntitlements($identityKey, $authSession))
