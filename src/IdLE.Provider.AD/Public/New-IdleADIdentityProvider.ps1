@@ -385,7 +385,6 @@ function New-IdleADIdentityProvider {
             }
         }
         catch {
-            $this.Adapter = $originalAdapter
             # Check if identity doesn't exist (idempotent delete)
             # Use exception type if available, otherwise fall back to message check
             $isNotFound = $false
@@ -405,6 +404,9 @@ function New-IdleADIdentityProvider {
                 }
             }
             throw
+        }
+        finally {
+            $this.Adapter = $originalAdapter
         }
     } -Force
 
@@ -646,7 +648,7 @@ function New-IdleADIdentityProvider {
             $this.Adapter = $originalAdapter
         }
 
-        $currentGroups = $this.ListEntitlements($IdentityKey)
+        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
         $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
 
         $changed = $false
@@ -694,7 +696,7 @@ function New-IdleADIdentityProvider {
             $this.Adapter = $originalAdapter
         }
 
-        $currentGroups = $this.ListEntitlements($IdentityKey)
+        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
         $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
 
         $changed = $false

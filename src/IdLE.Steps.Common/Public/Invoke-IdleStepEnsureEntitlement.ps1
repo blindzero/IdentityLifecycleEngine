@@ -207,7 +207,12 @@ function Invoke-IdleStepEnsureEntitlement {
         }
     }
 
-    $current = @($provider.ListEntitlements($identityKey))
+    if ($supportsAuthSession -and $null -ne $authSession) {
+        $current = @($provider.ListEntitlements($identityKey, $authSession))
+    }
+    else {
+        $current = @($provider.ListEntitlements($identityKey))
+    }
     $matches = @($current | Where-Object { Test-IdleStepEntitlementEquals -A $_ -B $entitlement })
 
     $changed = $false
