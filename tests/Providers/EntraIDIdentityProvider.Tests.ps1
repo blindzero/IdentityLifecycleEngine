@@ -213,9 +213,10 @@ Describe 'EntraID identity provider - Contract tests' {
         New-IdleEntraIDIdentityProvider -Adapter $script:FakeAdapter
     }
 
-    Invoke-IdleEntitlementProviderContractTests -NewProvider {
-        New-IdleEntraIDIdentityProvider -Adapter $script:FakeAdapter
-    }
+    # Note: Generic entitlement contract tests are skipped for EntraID provider because:
+    # - EntraID only supports Kind='Group' (not arbitrary entitlement kinds like 'Contract')
+    # - Generic contract tests use Kind='Contract' which doesn't match EntraID's behavior
+    # - EntraID-specific entitlement tests with Kind='Group' are in the 'EntraID identity provider - Entitlements' context below
 }
 
 Describe 'EntraID identity provider - Capabilities' {
@@ -631,5 +632,167 @@ Describe 'EntraID identity provider - Group resolution' {
         $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
         { $provider.NormalizeGroupId('AmbiguousGroup', 'fake-token') } | Should -Throw '*Multiple groups found*'
+    }
+}
+
+Describe 'EntraID identity provider - Entitlement operations' {
+    BeforeAll {
+        function New-FakeEntraIDAdapterForEntitlements {
+            $store = @{}
+
+            $adapter = [pscustomobject]@{
+                PSTypeName = 'IdLE.EntraIDAdapter.Fake'
+                Store      = $store
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+                param($ObjectId, $AccessToken)
+                $key = "id:$ObjectId"
+                if (-not $this.Store.ContainsKey($key)) {
+                    $this.Store[$key] = @{
+                        id                = $ObjectId
+                        userPrincipalName = "$ObjectId@test.local"
+                        displayName       = "User $ObjectId"
+                        accountEnabled    = $true
+                    }
+                }
+                return $this.Store[$key]
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
+                param($GroupId, $AccessToken)
+                return @{
+                    id          = $GroupId
+                    displayName = "Group $GroupId"
+                    mail        = "group-$GroupId@test.local"
+                }
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name ListUserGroups -Value {
+                param($ObjectId, $AccessToken)
+                $key = "groups:$ObjectId"
+                if (-not $this.Store.ContainsKey($key)) {
+                    $this.Store[$key] = @()
+                }
+                return $this.Store[$key]
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {
+                param($GroupObjectId, $UserObjectId, $AccessToken)
+                $key = "groups:$UserObjectId"
+                if (-not $this.Store.ContainsKey($key)) {
+                    $this.Store[$key] = @()
+                }
+
+                $alreadyMember = $false
+                foreach ($existingGroup in $this.Store[$key]) {
+                    if ($existingGroup.id -eq $GroupObjectId) {
+                        $alreadyMember = $true
+                        break
+                    }
+                }
+
+                if (-not $alreadyMember) {
+                    $group = @{
+                        id          = $GroupObjectId
+                        displayName = "Group $GroupObjectId"
+                        mail        = "group-$GroupObjectId@test.local"
+                    }
+                    $this.Store[$key] += $group
+                }
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
+                param($GroupObjectId, $UserObjectId, $AccessToken)
+                $key = "groups:$UserObjectId"
+                if ($this.Store.ContainsKey($key)) {
+                    $this.Store[$key] = @($this.Store[$key] | Where-Object { $_.id -ne $GroupObjectId })
+                }
+            }
+
+            return $adapter
+        }
+
+        $script:EntAdapter = New-FakeEntraIDAdapterForEntitlements
+        $script:EntProvider = New-IdleEntraIDIdentityProvider -Adapter $script:EntAdapter
+    }
+
+    It 'Exposes required entitlement methods' {
+        $script:EntProvider.PSObject.Methods.Name | Should -Contain 'ListEntitlements'
+        $script:EntProvider.PSObject.Methods.Name | Should -Contain 'GrantEntitlement'
+        $script:EntProvider.PSObject.Methods.Name | Should -Contain 'RevokeEntitlement'
+    }
+
+    It 'GrantEntitlement returns stable result shape with Kind=Group' {
+        $userId = [guid]::NewGuid().ToString()
+        [void]$script:EntProvider.GetIdentity($userId)
+
+        $entitlement = [pscustomobject]@{
+            Kind = 'Group'
+            Id   = [guid]::NewGuid().ToString()
+        }
+
+        $result = $script:EntProvider.GrantEntitlement($userId, $entitlement)
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.PSObject.Properties.Name | Should -Contain 'Changed'
+        $result.PSObject.Properties.Name | Should -Contain 'IdentityKey'
+        $result.PSObject.Properties.Name | Should -Contain 'Entitlement'
+        $result.Entitlement.Kind | Should -Be 'Group'
+    }
+
+    It 'GrantEntitlement is idempotent with Kind=Group' {
+        $userId = [guid]::NewGuid().ToString()
+        [void]$script:EntProvider.GetIdentity($userId)
+
+        $entitlement = [pscustomobject]@{
+            Kind = 'Group'
+            Id   = [guid]::NewGuid().ToString()
+        }
+
+        $result1 = $script:EntProvider.GrantEntitlement($userId, $entitlement)
+        $result1.Changed | Should -Be $true
+
+        $result2 = $script:EntProvider.GrantEntitlement($userId, $entitlement)
+        $result2.Changed | Should -Be $false
+    }
+
+    It 'RevokeEntitlement is idempotent (after a grant) with Kind=Group' {
+        $userId = [guid]::NewGuid().ToString()
+        [void]$script:EntProvider.GetIdentity($userId)
+
+        $entitlement = [pscustomobject]@{
+            Kind = 'Group'
+            Id   = [guid]::NewGuid().ToString()
+        }
+
+        [void]$script:EntProvider.GrantEntitlement($userId, $entitlement)
+
+        $result1 = $script:EntProvider.RevokeEntitlement($userId, $entitlement)
+        $result1.Changed | Should -Be $true
+
+        $result2 = $script:EntProvider.RevokeEntitlement($userId, $entitlement)
+        $result2.Changed | Should -Be $false
+    }
+
+    It 'ListEntitlements reflects grant and revoke operations with Kind=Group' {
+        $userId = [guid]::NewGuid().ToString()
+        [void]$script:EntProvider.GetIdentity($userId)
+
+        $entitlement = [pscustomobject]@{
+            Kind = 'Group'
+            Id   = [guid]::NewGuid().ToString()
+        }
+
+        $before = @($script:EntProvider.ListEntitlements($userId))
+
+        [void]$script:EntProvider.GrantEntitlement($userId, $entitlement)
+        $afterGrant = @($script:EntProvider.ListEntitlements($userId))
+
+        [void]$script:EntProvider.RevokeEntitlement($userId, $entitlement)
+        $afterRevoke = @($script:EntProvider.ListEntitlements($userId))
+
+        @($afterGrant | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
+        @($afterRevoke | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
     }
 }
