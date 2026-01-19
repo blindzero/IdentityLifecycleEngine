@@ -146,14 +146,20 @@ function New-IdleADIdentityProvider {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $IdentityKey
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
+
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
 
         # Try GUID format first (most deterministic)
         $guid = [System.Guid]::Empty
         if ([System.Guid]::TryParse($IdentityKey, [ref]$guid)) {
             try {
-                $user = $this.Adapter.GetUserByGuid($guid.ToString())
+                $user = $adapter.GetUserByGuid($guid.ToString())
             }
             catch [System.Management.Automation.MethodException] {
                 Write-Verbose "GetUserByGuid failed for GUID '$IdentityKey': $_"
@@ -168,7 +174,7 @@ function New-IdleADIdentityProvider {
 
         # Try UPN format (contains @)
         if ($IdentityKey -match '@') {
-            $user = $this.Adapter.GetUserByUpn($IdentityKey)
+            $user = $adapter.GetUserByUpn($IdentityKey)
             if ($null -ne $user) {
                 return $user
             }
@@ -176,7 +182,7 @@ function New-IdleADIdentityProvider {
         }
 
         # Fallback to sAMAccountName
-        $user = $this.Adapter.GetUserBySam($IdentityKey)
+        $user = $adapter.GetUserBySam($IdentityKey)
         if ($null -ne $user) {
             return $user
         }
@@ -187,10 +193,16 @@ function New-IdleADIdentityProvider {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $GroupId
+            [string] $GroupId,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
         )
 
-        $group = $this.Adapter.GetGroupById($GroupId)
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+
+        $group = $adapter.GetGroupById($GroupId)
         if ($null -eq $group) {
             throw "Group '$GroupId' not found."
         }
@@ -272,15 +284,7 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
-        try {
-            $user = $this.ResolveIdentity($IdentityKey)
-        }
-        finally {
-            $this.Adapter = $originalAdapter
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $attributes = @{}
         if ($null -ne $user.GivenName) { $attributes['GivenName'] = $user.GivenName }
@@ -339,11 +343,8 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
         try {
-            $existing = $this.ResolveIdentity($IdentityKey)
+            $existing = $this.ResolveIdentity($IdentityKey, $AuthSession)
             if ($null -ne $existing) {
                 return [pscustomobject]@{
                     PSTypeName  = 'IdLE.ProviderResult'
@@ -356,9 +357,6 @@ function New-IdleADIdentityProvider {
         catch {
             # Identity does not exist, proceed with creation (expected for idempotent create)
             Write-Verbose "Identity '$IdentityKey' does not exist, proceeding with creation"
-        }
-        finally {
-            $this.Adapter = $originalAdapter
         }
 
         $enabled = $true
@@ -393,11 +391,8 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
         try {
-            $user = $this.ResolveIdentity($IdentityKey)
+            $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
             $adapter.DeleteUser($user.DistinguishedName)
             return [pscustomobject]@{
                 PSTypeName  = 'IdLE.ProviderResult'
@@ -427,9 +422,6 @@ function New-IdleADIdentityProvider {
             }
             throw
         }
-        finally {
-            $this.Adapter = $originalAdapter
-        }
     } -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
@@ -453,15 +445,7 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
-        try {
-            $user = $this.ResolveIdentity($IdentityKey)
-        }
-        finally {
-            $this.Adapter = $originalAdapter
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $currentValue = $null
         if ($user.PSObject.Properties.Name -contains $Name) {
@@ -501,15 +485,7 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
-        try {
-            $user = $this.ResolveIdentity($IdentityKey)
-        }
-        finally {
-            $this.Adapter = $originalAdapter
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $currentOu = $user.DistinguishedName -replace '^CN=[^,]+,', ''
 
@@ -541,15 +517,7 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
-        try {
-            $user = $this.ResolveIdentity($IdentityKey)
-        }
-        finally {
-            $this.Adapter = $originalAdapter
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $changed = $false
         if ($user.Enabled -ne $false) {
@@ -578,15 +546,7 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
-        try {
-            $user = $this.ResolveIdentity($IdentityKey)
-        }
-        finally {
-            $this.Adapter = $originalAdapter
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $changed = $false
         if ($user.Enabled -ne $true) {
@@ -615,15 +575,7 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
-        try {
-            $user = $this.ResolveIdentity($IdentityKey)
-        }
-        finally {
-            $this.Adapter = $originalAdapter
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         $groups = $adapter.GetUserGroups($user.DistinguishedName)
 
@@ -659,16 +611,8 @@ function New-IdleADIdentityProvider {
 
         $normalized = $this.ConvertToEntitlement($Entitlement)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
-        try {
-            $user = $this.ResolveIdentity($IdentityKey)
-            $groupDn = $this.NormalizeGroupId($normalized.Id)
-        }
-        finally {
-            $this.Adapter = $originalAdapter
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+        $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
 
         $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
         $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
@@ -707,16 +651,8 @@ function New-IdleADIdentityProvider {
 
         $normalized = $this.ConvertToEntitlement($Entitlement)
 
-        # Temporarily use the effective adapter for identity resolution
-        $originalAdapter = $this.Adapter
-        $this.Adapter = $adapter
-        try {
-            $user = $this.ResolveIdentity($IdentityKey)
-            $groupDn = $this.NormalizeGroupId($normalized.Id)
-        }
-        finally {
-            $this.Adapter = $originalAdapter
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+        $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
 
         $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
         $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
