@@ -229,9 +229,11 @@ function New-IdleEntraIDIdentityProvider {
         $guid = [System.Guid]::Empty
         $isGuid = [System.Guid]::TryParse($IdentityKey, [ref]$guid)
 
-        # Also check for N-format GUID (32 hex digits, no hyphens) as a standalone value
-        if (-not $isGuid -and $IdentityKey -match '^[0-9A-Fa-f]{32}$') {
-            $isGuid = [System.Guid]::TryParseExact($IdentityKey, 'N', [ref]$guid)
+        # Also check for N-format GUID (32 hex digits, no hyphens)
+        # This handles standalone GUIDs and GUIDs with prefixes (e.g., contract test keys like "contract-<guid>")
+        if (-not $isGuid -and $IdentityKey -match '([0-9a-fA-F]{32})') {
+            $hexPart = $Matches[1]
+            $isGuid = [System.Guid]::TryParseExact($hexPart, 'N', [ref]$guid)
         }
         
         if ($isGuid) {
