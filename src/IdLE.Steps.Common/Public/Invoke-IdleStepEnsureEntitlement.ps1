@@ -185,29 +185,35 @@ function Invoke-IdleStepEnsureEntitlement {
         }
     }
 
-    # Check if GrantEntitlement/RevokeEntitlement support AuthSession parameter
-    $targetMethodName = if ($state -eq 'present') { 'GrantEntitlement' } else { 'RevokeEntitlement' }
-    $providerMethod = $provider.PSObject.Methods[$targetMethodName]
-    $supportsAuthSession = $false
-    if ($providerMethod.MemberType -eq 'ScriptMethod') {
-        $scriptBlock = $providerMethod.Script
-        if ($null -ne $scriptBlock -and $null -ne $scriptBlock.Ast -and $null -ne $scriptBlock.Ast.ParamBlock) {
-            $params = $scriptBlock.Ast.ParamBlock.Parameters
-            if ($null -ne $params) {
-                foreach ($param in $params) {
-                    if ($null -ne $param.Name -and $null -ne $param.Name.VariablePath) {
-                        $paramName = $param.Name.VariablePath.UserPath
-                        if ($paramName -eq 'AuthSession') {
-                            $supportsAuthSession = $true
-                            break
+    # Helper function to check if a provider method supports AuthSession parameter
+    $testMethodSupportsAuthSession = {
+        param([string]$MethodName)
+        $method = $provider.PSObject.Methods[$MethodName]
+        if ($method.MemberType -eq 'ScriptMethod') {
+            $scriptBlock = $method.Script
+            if ($null -ne $scriptBlock -and $null -ne $scriptBlock.Ast -and $null -ne $scriptBlock.Ast.ParamBlock) {
+                $params = $scriptBlock.Ast.ParamBlock.Parameters
+                if ($null -ne $params) {
+                    foreach ($param in $params) {
+                        if ($null -ne $param.Name -and $null -ne $param.Name.VariablePath) {
+                            $paramName = $param.Name.VariablePath.UserPath
+                            if ($paramName -eq 'AuthSession') {
+                                return $true
+                            }
                         }
                     }
                 }
             }
         }
+        return $false
     }
 
-    if ($supportsAuthSession -and $null -ne $authSession) {
+    # Check AuthSession support for each method
+    $listSupportsAuthSession = & $testMethodSupportsAuthSession -MethodName 'ListEntitlements'
+    $grantSupportsAuthSession = & $testMethodSupportsAuthSession -MethodName 'GrantEntitlement'
+    $revokeSupportsAuthSession = & $testMethodSupportsAuthSession -MethodName 'RevokeEntitlement'
+
+    if ($listSupportsAuthSession -and $null -ne $authSession) {
         $current = @($provider.ListEntitlements($identityKey, $authSession))
     }
     else {
@@ -219,7 +225,7 @@ function Invoke-IdleStepEnsureEntitlement {
 
     if ($state -eq 'present') {
         if (@($matches).Count -eq 0) {
-            if ($supportsAuthSession -and $null -ne $authSession) {
+            if ($grantSupportsAuthSession -and $null -ne $authSession) {
                 $result = $provider.GrantEntitlement($identityKey, $entitlement, $authSession)
             }
             else {
@@ -235,7 +241,7 @@ function Invoke-IdleStepEnsureEntitlement {
     }
     else {
         if (@($matches).Count -gt 0) {
-            if ($supportsAuthSession -and $null -ne $authSession) {
+            if ($revokeSupportsAuthSession -and $null -ne $authSession) {
                 $result = $provider.RevokeEntitlement($identityKey, $entitlement, $authSession)
             }
             else {
