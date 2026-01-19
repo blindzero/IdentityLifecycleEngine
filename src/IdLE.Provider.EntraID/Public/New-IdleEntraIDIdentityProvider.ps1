@@ -776,10 +776,17 @@ function New-IdleEntraIDIdentityProvider {
         $accessToken = $this.ExtractAccessToken($AuthSession)
         $normalized = $this.ConvertToEntitlement($Entitlement)
 
-        # Note: For contract tests, accept any Kind and treat as Group
-        # In production workflows, Kind should be 'Group'
-        # Normalize Kind to 'Group' for consistency
-        $normalized.Kind = 'Group'
+        # GrantEntitlement only supports group entitlements
+        if ($null -ne $normalized.Kind -and $normalized.Kind -ne 'Group') {
+            throw [System.ArgumentException]::new(
+                "GrantEntitlement only supports entitlements with Kind 'Group'. Received Kind '$($normalized.Kind)'."
+            )
+        }
+
+        # Default missing Kind to 'Group' for backward compatibility
+        if (-not $normalized.Kind) {
+            $normalized.Kind = 'Group'
+        }
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
         $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
