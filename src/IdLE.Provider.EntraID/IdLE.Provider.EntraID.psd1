@@ -1,0 +1,22 @@
+@{
+    RootModule        = 'IdLE.Provider.EntraID.psm1'
+    ModuleVersion     = '0.8.0'
+    GUID              = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e'
+    Author            = 'Matthias Fleschuetz'
+    Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
+    Description       = 'Microsoft Entra ID (Azure AD) provider implementation for IdLE using Microsoft Graph API.'
+    PowerShellVersion = '7.0'
+
+    FunctionsToExport = @(
+        'New-IdleEntraIDIdentityProvider'
+    )
+
+    PrivateData       = @{
+        PSData = @{
+            Tags         = @('IdentityLifecycleEngine', 'IdLE', 'Provider', 'EntraID', 'AzureAD', 'MicrosoftGraph')
+            LicenseUri   = 'https://www.apache.org/licenses/LICENSE-2.0'
+            ProjectUri   = 'https://github.com/blindzero/IdentityLifecycleEngine'
+            ContactEmail = '13959569+blindzero@users.noreply.github.com'
+        }
+    }
+}
