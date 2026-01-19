@@ -41,16 +41,14 @@ function New-IdleADIdentityProvider {
     }
 
     .EXAMPLE
-    # Multi-role scenario with AuthSessionBroker
-    # Broker returns different credentials based on With.AuthSessionOptions
-    $broker = [pscustomobject]@{}
-    $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-        param($Name, $Options)
-        if ($Options.Role -eq 'Tier0') {
-            return [PSCredential]::new('DOMAIN\Tier0Admin', $tier0SecurePassword)
-        }
-        return [PSCredential]::new('DOMAIN\Admin', $adminSecurePassword)
-    }
+    # Multi-role scenario with New-IdleAuthSessionBroker (recommended)
+    $tier0Credential = Get-Credential -Message "Enter Tier0 admin credentials"
+    $adminCredential = Get-Credential -Message "Enter regular admin credentials"
+
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ Role = 'Tier0' } = $tier0Credential
+        @{ Role = 'Admin' } = $adminCredential
+    } -DefaultCredential $adminCredential
 
     $provider = New-IdleADIdentityProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
@@ -61,6 +59,23 @@ function New-IdleADIdentityProvider {
     # Workflow steps can specify different auth contexts:
     # With.AuthSessionName = 'ActiveDirectory'
     # With.AuthSessionOptions = @{ Role = 'Tier0' }
+
+    .EXAMPLE
+    # Custom broker for advanced scenarios (vault integration, MFA)
+    $broker = [pscustomobject]@{}
+    $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+        param($Name, $Options)
+        if ($Options.Role -eq 'Tier0') {
+            return Get-SecretFromVault -Name 'AD-Tier0'
+        }
+        return Get-SecretFromVault -Name 'AD-Admin'
+    }
+
+    $provider = New-IdleADIdentityProvider
+    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+        Identity = $provider
+        AuthSessionBroker = $broker
+    }
     #>
     [CmdletBinding()]
     param(
