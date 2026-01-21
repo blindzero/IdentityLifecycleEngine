@@ -35,12 +35,12 @@ function Get-IdleStepMetadataCatalog {
 
     # IdLE.Step.DisableIdentity - requires identity disable capability
     $catalog['IdLE.Step.DisableIdentity'] = @{
-        RequiredCapabilities = @('IdLE.Identity.Disable', 'IdLE.Identity.Read')
+        RequiredCapabilities = @('IdLE.Identity.Disable')
     }
 
     # IdLE.Step.EnableIdentity - requires identity enable capability
     $catalog['IdLE.Step.EnableIdentity'] = @{
-        RequiredCapabilities = @('IdLE.Identity.Enable', 'IdLE.Identity.Read')
+        RequiredCapabilities = @('IdLE.Identity.Enable')
     }
 
     # IdLE.Step.DeleteIdentity - requires identity delete capability

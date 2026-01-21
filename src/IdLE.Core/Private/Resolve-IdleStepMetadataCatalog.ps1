@@ -32,20 +32,18 @@ function Resolve-IdleStepMetadataCatalog {
             [string] $ModuleName
         )
 
-        # 1) Global discovery (optional; supports hosts that import modules globally)
+        # 1) Module-scoped discovery (prefer the specified module to avoid name shadowing)
+        $module = Get-Module -Name $ModuleName -All | Select-Object -First 1
+        if ($null -ne $module -and
+            $null -ne $module.ExportedCommands -and
+            $module.ExportedCommands.ContainsKey($FunctionName)) {
+            return $module.ExportedCommands[$FunctionName]
+        }
+
+        # 2) Global discovery (fallback; supports hosts that import modules globally)
         $cmd = Get-Command -Name $FunctionName -ErrorAction SilentlyContinue
         if ($null -ne $cmd) {
             return $cmd
-        }
-
-        # 2) Module-scoped discovery (supports nested modules that are not globally exported)
-        $module = Get-Module -Name $ModuleName -All | Select-Object -First 1
-        if ($null -eq $module) {
-            return $null
-        }
-
-        if ($null -ne $module.ExportedCommands -and $module.ExportedCommands.ContainsKey($FunctionName)) {
-            return $module.ExportedCommands[$FunctionName]
         }
 
         return $null
@@ -102,11 +100,28 @@ function Resolve-IdleStepMetadataCatalog {
             return
         }
 
-        if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        # Explicitly reject dictionary/hashtable values; they are not valid capability lists.
+        if ($Value -is [System.Collections.IDictionary] -or $Value -is [hashtable]) {
+            throw [System.ArgumentException]::new(
+                "$SourceName entry for step type '$StepType' has invalid RequiredCapabilities value. Expected string or string array.",
+                'Providers'
+            )
+        }
+
+        if ($Value -is [System.Collections.IEnumerable]) {
             foreach ($c in $Value) {
-                if ($null -ne $c) {
-                    Test-IdleCapabilityIdentifier -Capability ([string]$c) -StepType $StepType -SourceName $SourceName
+                if ($null -eq $c) {
+                    continue
                 }
+
+                if ($c -isnot [string]) {
+                    throw [System.ArgumentException]::new(
+                        "$SourceName entry for step type '$StepType' has invalid RequiredCapabilities value. Expected string or string array.",
+                        'Providers'
+                    )
+                }
+
+                Test-IdleCapabilityIdentifier -Capability $c -StepType $StepType -SourceName $SourceName
             }
             return
         }
@@ -147,15 +162,47 @@ function Resolve-IdleStepMetadataCatalog {
             }
 
             # Validate metadata shape (data-only, no ScriptBlocks).
-            foreach ($metaKey in $value.Keys) {
-                $metaValue = $value[$metaKey]
-
-                if ($metaValue -is [scriptblock]) {
+            # Recursively check for ScriptBlocks in the entire metadata tree.
+            function Test-IdleMetadataForScriptBlocks {
+                param(
+                    [Parameter(Mandatory)]
+                    [AllowNull()]
+                    [object] $Value,
+                    
+                    [Parameter(Mandatory)]
+                    [string] $Path
+                )
+                
+                if ($null -eq $Value) {
+                    return
+                }
+                
+                if ($Value -is [scriptblock]) {
                     throw [System.ArgumentException]::new(
-                        "$SourceName entry for step type '$key' contains a ScriptBlock in metadata key '$metaKey'. ScriptBlocks are not allowed (data-only boundary).",
+                        "$SourceName entry for step type '$key' contains a ScriptBlock at '$Path'. ScriptBlocks are not allowed (data-only boundary).",
                         'Providers'
                     )
                 }
+                
+                if ($Value -is [hashtable] -or $Value -is [System.Collections.IDictionary]) {
+                    foreach ($k in $Value.Keys) {
+                        Test-IdleMetadataForScriptBlocks -Value $Value[$k] -Path "$Path.$k"
+                    }
+                }
+                elseif ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+                    $index = 0
+                    foreach ($item in $Value) {
+                        Test-IdleMetadataForScriptBlocks -Value $item -Path "$Path[$index]"
+                        $index++
+                    }
+                }
+            }
+            
+            foreach ($metaKey in $value.Keys) {
+                $metaValue = $value[$metaKey]
+
+                # Recursively validate no ScriptBlocks anywhere in metadata
+                Test-IdleMetadataForScriptBlocks -Value $metaValue -Path $metaKey
 
                 if ($metaKey -eq 'RequiredCapabilities') {
                     Test-IdleRequiredCapabilities -Value $metaValue -StepType $key -SourceName $SourceName

@@ -35,7 +35,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-            return @('IdLE.Identity.Disable', 'IdLE.Identity.Read')
+            return @('IdLE.Identity.Disable')
         } -Force
 
         $providers = @{
@@ -47,7 +47,6 @@ Describe 'New-IdlePlan - required provider capabilities' {
         $plan | Should -Not -BeNullOrEmpty
         $plan.Steps.Count | Should -Be 1
         $plan.Steps[0].RequiresCapabilities | Should -Contain 'IdLE.Identity.Disable'
-        $plan.Steps[0].RequiresCapabilities | Should -Contain 'IdLE.Identity.Read'
     }
 
     It 'fails fast when required capabilities are missing' {
@@ -99,7 +98,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-            return @('IdLE.Identity.Disable', 'IdLE.Identity.Read')
+            return @('IdLE.Identity.Disable')
         } -Force
 
         $providers = @{
@@ -111,7 +110,6 @@ Describe 'New-IdlePlan - required provider capabilities' {
         $plan | Should -Not -BeNullOrEmpty
         $plan.OnFailureSteps.Count | Should -Be 1
         $plan.OnFailureSteps[0].RequiresCapabilities | Should -Contain 'IdLE.Identity.Disable'
-        $plan.OnFailureSteps[0].RequiresCapabilities | Should -Contain 'IdLE.Identity.Read'
     }
 
     It 'validates entitlement capabilities from metadata' {

@@ -500,7 +500,7 @@ function New-IdlePlanObject {
                 }
             }
             else {
-                # Step.Type exists in StepRegistry but has no metadata entry - fail fast.
+                # Workflow references a Step.Type for which no StepMetadata entry is available - fail fast.
                 throw [System.ArgumentException]::new(
                     ("Workflow step '{0}' references Step.Type '{1}' which has no StepMetadata entry. " +
                      "Host must provide Providers.StepMetadata['{1}'] = @{{ RequiredCapabilities = ... }}." -f $stepName, $stepType),
