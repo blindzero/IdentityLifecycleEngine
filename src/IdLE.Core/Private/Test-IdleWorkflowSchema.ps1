@@ -8,6 +8,32 @@ function Test-IdleWorkflowSchema {
     # Strict validation: collect all schema violations and return them as a list.
     $errors = [System.Collections.Generic.List[string]]::new()
 
+    # Helper: Validate step keys and detect disallowed keys.
+    function Test-IdleWorkflowStepKeys {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [hashtable] $Step,
+
+            [Parameter(Mandatory)]
+            [string] $StepPath,
+
+            [Parameter(Mandatory)]
+            [AllowEmptyCollection()]
+            [System.Collections.Generic.List[string]] $ErrorList
+        )
+
+        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description')
+        foreach ($k in $Step.Keys) {
+            if ($k -eq 'RequiresCapabilities') {
+                $ErrorList.Add("$StepPath contains 'RequiresCapabilities' which is not allowed. Step capabilities are declared in step metadata.")
+            }
+            elseif ($allowedStepKeys -notcontains $k) {
+                $ErrorList.Add("Unknown key '$k' in $StepPath. Allowed keys: $($allowedStepKeys -join ', ').")
+            }
+        }
+    }
+
     $allowedRootKeys = @('Name', 'LifecycleEvent', 'Steps', 'OnFailureSteps', 'Description')
     foreach ($key in $Workflow.Keys) {
         if ($allowedRootKeys -notcontains $key) {
@@ -42,15 +68,7 @@ function Test-IdleWorkflowSchema {
                 continue
             }
 
-            $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description')
-            foreach ($k in $step.Keys) {
-                if ($k -eq 'RequiresCapabilities') {
-                    $errors.Add("$stepPath contains 'RequiresCapabilities' which is no longer supported. Step capabilities are now declared in step metadata. Remove 'RequiresCapabilities' from the workflow definition.")
-                }
-                elseif ($allowedStepKeys -notcontains $k) {
-                    $errors.Add("Unknown key '$k' in $stepPath. Allowed keys: $($allowedStepKeys -join ', ').")
-                }
-            }
+            Test-IdleWorkflowStepKeys -Step $step -StepPath $stepPath -ErrorList $errors
 
             if (-not $step.ContainsKey('Name') -or [string]::IsNullOrWhiteSpace([string]$step.Name)) {
                 $errors.Add("Missing or empty required key '$stepPath.Name'.")
@@ -98,15 +116,7 @@ function Test-IdleWorkflowSchema {
                     continue
                 }
 
-                $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description')
-                foreach ($k in $step.Keys) {
-                    if ($k -eq 'RequiresCapabilities') {
-                        $errors.Add("$stepPath contains 'RequiresCapabilities' which is no longer supported. Step capabilities are now declared in step metadata. Remove 'RequiresCapabilities' from the workflow definition.")
-                    }
-                    elseif ($allowedStepKeys -notcontains $k) {
-                        $errors.Add("Unknown key '$k' in $stepPath. Allowed keys: $($allowedStepKeys -join ', ').")
-                    }
-                }
+                Test-IdleWorkflowStepKeys -Step $step -StepPath $stepPath -ErrorList $errors
 
                 if (-not $step.ContainsKey('Name') -or [string]::IsNullOrWhiteSpace([string]$step.Name)) {
                     $errors.Add("Missing or empty required key '$stepPath.Name'.")

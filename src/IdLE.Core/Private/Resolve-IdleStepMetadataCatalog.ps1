@@ -51,6 +51,72 @@ function Resolve-IdleStepMetadataCatalog {
         return $null
     }
 
+    # Helper: Validate a single capability identifier format.
+    function Test-IdleCapabilityIdentifier {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [string] $Capability,
+
+            [Parameter(Mandatory)]
+            [string] $StepType,
+
+            [Parameter(Mandatory)]
+            [string] $SourceName
+        )
+
+        $cap = $Capability.Trim()
+        if ([string]::IsNullOrWhiteSpace($cap)) {
+            return
+        }
+
+        if ($cap -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
+            throw [System.ArgumentException]::new(
+                "$SourceName entry for step type '$StepType' declares invalid capability '$cap'. Expected dot-separated segments like 'IdLE.Identity.Read'.",
+                'Providers'
+            )
+        }
+    }
+
+    # Helper: Validate RequiredCapabilities value.
+    function Test-IdleRequiredCapabilities {
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Value,
+
+            [Parameter(Mandatory)]
+            [string] $StepType,
+
+            [Parameter(Mandatory)]
+            [string] $SourceName
+        )
+
+        if ($null -eq $Value) {
+            return
+        }
+
+        if ($Value -is [string]) {
+            Test-IdleCapabilityIdentifier -Capability $Value -StepType $StepType -SourceName $SourceName
+            return
+        }
+
+        if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+            foreach ($c in $Value) {
+                if ($null -ne $c) {
+                    Test-IdleCapabilityIdentifier -Capability ([string]$c) -StepType $StepType -SourceName $SourceName
+                }
+            }
+            return
+        }
+
+        throw [System.ArgumentException]::new(
+            "$SourceName entry for step type '$StepType' has invalid RequiredCapabilities value. Expected string or string array.",
+            'Providers'
+        )
+    }
+
     # Helper: Validate and merge metadata from a hashtable source.
     function Merge-IdleStepMetadata {
         [CmdletBinding()]
@@ -91,40 +157,8 @@ function Resolve-IdleStepMetadataCatalog {
                     )
                 }
 
-                # Validate RequiredCapabilities if present.
                 if ($metaKey -eq 'RequiredCapabilities') {
-                    if ($null -ne $metaValue) {
-                        if ($metaValue -is [string]) {
-                            # Single capability - validate format.
-                            $cap = ([string]$metaValue).Trim()
-                            if (-not [string]::IsNullOrWhiteSpace($cap) -and $cap -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
-                                throw [System.ArgumentException]::new(
-                                    "$SourceName entry for step type '$key' declares invalid capability '$cap'. Expected dot-separated segments like 'IdLE.Identity.Read'.",
-                                    'Providers'
-                                )
-                            }
-                        }
-                        elseif ($metaValue -is [System.Collections.IEnumerable] -and $metaValue -isnot [string]) {
-                            # Array of capabilities - validate each.
-                            foreach ($c in $metaValue) {
-                                if ($null -ne $c) {
-                                    $cap = ([string]$c).Trim()
-                                    if (-not [string]::IsNullOrWhiteSpace($cap) -and $cap -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
-                                        throw [System.ArgumentException]::new(
-                                            "$SourceName entry for step type '$key' declares invalid capability '$cap'. Expected dot-separated segments like 'IdLE.Identity.Read'.",
-                                            'Providers'
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        else {
-                            throw [System.ArgumentException]::new(
-                                "$SourceName entry for step type '$key' has invalid RequiredCapabilities value. Expected string or string array.",
-                                'Providers'
-                            )
-                        }
-                    }
+                    Test-IdleRequiredCapabilities -Value $metaValue -StepType $key -SourceName $SourceName
                 }
             }
 
@@ -133,18 +167,35 @@ function Resolve-IdleStepMetadataCatalog {
         }
     }
 
-    # 1) Register built-in step metadata if available.
-    #
-    # Built-in step metadata comes from first-party step packs (e.g. IdLE.Steps.Common).
-    # They may be loaded as nested modules by the IdLE meta module.
-    $builtInFunction = Resolve-IdleModuleFunction -FunctionName 'Get-IdleStepMetadataCatalog' -ModuleName 'IdLE.Steps.Common'
-    if ($null -ne $builtInFunction) {
-        # Ensure we're calling the function from IdLE.Steps.Common, not recursing into ourselves.
-        # Check both ModuleName and Source properties as they may vary.
-        $functionModule = $builtInFunction.ModuleName
-        if ($null -eq $functionModule) {
-            $functionModule = $builtInFunction.Source
+    # Helper: Get host-provided StepMetadata if available.
+    function Get-IdleHostStepMetadata {
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Providers
+        )
+
+        if ($null -eq $Providers) {
+            return $null
         }
+
+        if ($Providers -is [hashtable] -and $Providers.ContainsKey('StepMetadata')) {
+            return $Providers['StepMetadata']
+        }
+
+        if ($Providers.PSObject.Properties.Name -contains 'StepMetadata') {
+            return $Providers.StepMetadata
+        }
+
+        return $null
+    }
+
+    # 1) Register built-in step metadata if available.
+    $builtInFunction = Resolve-IdleModuleFunction -FunctionName 'Get-IdleStepMetadataCatalog' -ModuleName 'IdLE.Steps.Common'
+    
+    if ($null -ne $builtInFunction) {
+        $functionModule = $builtInFunction.ModuleName ?? $builtInFunction.Source
         
         if ($functionModule -eq 'IdLE.Steps.Common') {
             $builtInMetadata = & $builtInFunction
@@ -154,20 +205,8 @@ function Resolve-IdleStepMetadataCatalog {
         }
     }
 
-    # 2) Copy host-provided StepMetadata (optional) - this overrides built-in.
-    # We support two shapes for compatibility:
-    # - Providers.StepMetadata (hashtable)
-    # - Providers['StepMetadata'] (hashtable)
-    $hostMetadata = $null
-
-    if ($null -ne $Providers) {
-        if ($Providers -is [hashtable] -and $Providers.ContainsKey('StepMetadata')) {
-            $hostMetadata = $Providers['StepMetadata']
-        }
-        elseif ($Providers.PSObject.Properties.Name -contains 'StepMetadata') {
-            $hostMetadata = $Providers.StepMetadata
-        }
-    }
+    # 2) Merge host-provided StepMetadata (optional) - this overrides built-in.
+    $hostMetadata = Get-IdleHostStepMetadata -Providers $Providers
 
     if ($null -ne $hostMetadata) {
         if ($hostMetadata -isnot [hashtable]) {
