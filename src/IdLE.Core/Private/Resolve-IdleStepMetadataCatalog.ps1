@@ -1,4 +1,4 @@
-function Get-IdleStepMetadataCatalog {
+function Resolve-IdleStepMetadataCatalog {
     [CmdletBinding()]
     param(
         [Parameter()]
@@ -133,7 +133,28 @@ function Get-IdleStepMetadataCatalog {
         }
     }
 
-    # 1) Copy host-provided StepMetadata (optional).
+    # 1) Register built-in step metadata if available.
+    #
+    # Built-in step metadata comes from first-party step packs (e.g. IdLE.Steps.Common).
+    # They may be loaded as nested modules by the IdLE meta module.
+    $builtInFunction = Resolve-IdleModuleFunction -FunctionName 'Get-IdleStepMetadataCatalog' -ModuleName 'IdLE.Steps.Common'
+    if ($null -ne $builtInFunction) {
+        # Ensure we're calling the function from IdLE.Steps.Common, not recursing into ourselves.
+        # Check both ModuleName and Source properties as they may vary.
+        $functionModule = $builtInFunction.ModuleName
+        if ($null -eq $functionModule) {
+            $functionModule = $builtInFunction.Source
+        }
+        
+        if ($functionModule -eq 'IdLE.Steps.Common') {
+            $builtInMetadata = & $builtInFunction
+            if ($null -ne $builtInMetadata -and $builtInMetadata -is [hashtable]) {
+                Merge-IdleStepMetadata -Target $catalog -Source $builtInMetadata -SourceName 'Built-in StepMetadata'
+            }
+        }
+    }
+
+    # 2) Copy host-provided StepMetadata (optional) - this overrides built-in.
     # We support two shapes for compatibility:
     # - Providers.StepMetadata (hashtable)
     # - Providers['StepMetadata'] (hashtable)
@@ -154,27 +175,6 @@ function Get-IdleStepMetadataCatalog {
         }
 
         Merge-IdleStepMetadata -Target $catalog -Source $hostMetadata -SourceName 'Providers.StepMetadata'
-    }
-
-    # 2) Register built-in step metadata if available.
-    #
-    # Built-in step metadata comes from first-party step packs (e.g. IdLE.Steps.Common).
-    # They may be loaded as nested modules by the IdLE meta module.
-    $builtInFunction = Resolve-IdleModuleFunction -FunctionName 'Get-IdleStepMetadataCatalog' -ModuleName 'IdLE.Steps.Common'
-    if ($null -ne $builtInFunction) {
-        $builtInMetadata = & $builtInFunction
-        if ($null -ne $builtInMetadata -and $builtInMetadata -is [hashtable]) {
-            # Built-in metadata is loaded first, then host metadata overrides it.
-            $tempCatalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
-            Merge-IdleStepMetadata -Target $tempCatalog -Source $builtInMetadata -SourceName 'Built-in StepMetadata'
-
-            # Now apply host overrides.
-            foreach ($key in $tempCatalog.Keys) {
-                if (-not $catalog.ContainsKey($key)) {
-                    $catalog[$key] = $tempCatalog[$key]
-                }
-            }
-        }
     }
 
     return $catalog
