@@ -14,8 +14,8 @@ function Get-IdleStepMetadataCatalog {
     Hashtable (case-insensitive) mapping Step.Type (string) to metadata (hashtable).
 
     .EXAMPLE
-    $metadata = Get-IdleStepMetadataCatalog
-    $metadata['IdLE.Step.TriggerDirectorySync'].RequiredCapabilities
+    $catalog = Get-IdleStepMetadataCatalog
+    $catalog['IdLE.Step.TriggerDirectorySync'].RequiredCapabilities
     # Returns: @('IdLE.DirectorySync.Trigger', 'IdLE.DirectorySync.Status')
     #>
     [CmdletBinding()]
