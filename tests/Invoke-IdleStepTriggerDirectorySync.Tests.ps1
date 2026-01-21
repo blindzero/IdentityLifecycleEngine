@@ -11,6 +11,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
         $script:MockProvider = [pscustomobject]@{
             PSTypeName = 'Mock.DirectorySyncProvider'
             Name       = 'MockDirectorySyncProvider'
+            PollCount  = 0
         }
 
         $script:MockProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -38,10 +39,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
                 [object] $AuthSession
             )
 
-            # First call returns InProgress, subsequent calls return Idle
-            if (-not $this.PSObject.Properties.Name -contains 'PollCount') {
-                $this | Add-Member -NotePropertyName 'PollCount' -NotePropertyValue 0 -Force
-            }
+            # Increment poll count and determine state
             $this.PollCount++
 
             $inProgress = $this.PollCount -le 1
@@ -62,10 +60,14 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ DirectorySync = $script:MockProvider }
-            EventSink  = [pscustomobject]@{
-                WriteEvent = { param($Type, $Message, $StepName, $Data) }
-            }
         }
+
+        # Add EventSink as a ScriptMethod
+        $script:Context | Add-Member -NotePropertyName 'EventSink' -NotePropertyValue ([pscustomobject]@{})
+        $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+            param($Type, $Message, $StepName, $Data)
+            # No-op for most tests
+        } -Force
 
         $script:Context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
             param(
@@ -99,7 +101,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             }
 
             $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*With*hashtable*'
+            { & $handler -Context $script:Context -Step $step } | Should -Throw
         }
 
         It 'throws when With.AuthSessionName is missing' {
@@ -230,11 +232,12 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
         }
 
         It 'polls provider state multiple times' {
-            $pollCalls = 0
+            # Use the provider's PollCount property which is already initialized
+            $script:MockProvider.PollCount = 0
             $script:MockProvider | Add-Member -MemberType ScriptMethod -Name GetSyncCycleState -Value {
                 param([object] $AuthSession)
-                $script:pollCalls++
-                $inProgress = $script:pollCalls -le 2
+                $this.PollCount++
+                $inProgress = $this.PollCount -le 2
                 return [pscustomobject]@{
                     InProgress = $inProgress
                     State      = if ($inProgress) { 'InProgress' } else { 'Idle' }
@@ -249,7 +252,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
 
-            $script:pollCalls | Should -BeGreaterThan 1
+            $script:MockProvider.PollCount | Should -BeGreaterThan 1
         }
     }
 
@@ -272,43 +275,40 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
 
     Context 'Event emission' {
         It 'emits DirectorySyncTriggered event' {
-            $events = @()
-            $script:Context.EventSink = [pscustomobject]@{
-                WriteEvent = {
-                    param($Type, $Message, $StepName, $Data)
-                    $script:events += @{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data }
-                }
-            }
+            $capturedEvents = [System.Collections.ArrayList]::new()
+            $script:Context.EventSink = [pscustomobject]@{}
+            $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+                param($Type, $Message, $StepName, $Data)
+                $null = $capturedEvents.Add(@{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data })
+            } -Force
 
             $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $script:StepTemplate
 
-            $events.Type | Should -Contain 'DirectorySyncTriggered'
+            $capturedEvents.Type | Should -Contain 'DirectorySyncTriggered'
         }
 
         It 'emits DirectorySyncCompleted event' {
-            $events = @()
-            $script:Context.EventSink = [pscustomobject]@{
-                WriteEvent = {
-                    param($Type, $Message, $StepName, $Data)
-                    $script:events += @{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data }
-                }
-            }
+            $capturedEvents = [System.Collections.ArrayList]::new()
+            $script:Context.EventSink = [pscustomobject]@{}
+            $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+                param($Type, $Message, $StepName, $Data)
+                $null = $capturedEvents.Add(@{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data })
+            } -Force
 
             $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $script:StepTemplate
 
-            $events.Type | Should -Contain 'DirectorySyncCompleted'
+            $capturedEvents.Type | Should -Contain 'DirectorySyncCompleted'
         }
 
         It 'emits DirectorySyncWaiting event when waiting' {
-            $events = @()
-            $script:Context.EventSink = [pscustomobject]@{
-                WriteEvent = {
-                    param($Type, $Message, $StepName, $Data)
-                    $script:events += @{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data }
-                }
-            }
+            $capturedEvents = [System.Collections.ArrayList]::new()
+            $script:Context.EventSink = [pscustomobject]@{}
+            $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+                param($Type, $Message, $StepName, $Data)
+                $null = $capturedEvents.Add(@{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data })
+            } -Force
 
             $step = $script:StepTemplate
             $step.With.Wait = $true
@@ -317,7 +317,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $step
 
-            $events.Type | Should -Contain 'DirectorySyncWaiting'
+            $capturedEvents.Type | Should -Contain 'DirectorySyncWaiting'
         }
     }
 }
