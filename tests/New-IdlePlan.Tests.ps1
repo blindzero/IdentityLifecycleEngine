@@ -19,7 +19,15 @@ Describe 'New-IdlePlan' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ Dummy = $true }
+        $providers = @{
+            Dummy        = $true
+            StepRegistry = @{
+                'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
+                'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
+            }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity', 'IdLE.Step.EnsureAttributes')
+        }
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $plan | Should -Not -BeNullOrEmpty
         $plan.PSTypeNames | Should -Contain 'IdLE.Plan'
@@ -69,7 +77,16 @@ Describe 'New-IdlePlan' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ Dummy = $true }
+        $providers = @{
+            Dummy        = $true
+            StepRegistry = @{
+                'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
+                'IdLE.Step.Containment'     = 'Invoke-IdleTestNoopStep'
+                'IdLE.Step.NeverApplicable' = 'Invoke-IdleTestNoopStep'
+            }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity', 'IdLE.Step.Containment', 'IdLE.Step.NeverApplicable')
+        }
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $plan | Should -Not -BeNullOrEmpty
         $plan.PSObject.Properties.Name | Should -Contain 'OnFailureSteps'
