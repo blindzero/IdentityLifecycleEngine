@@ -38,7 +38,15 @@ Describe 'Export-IdlePlan' {
                 -IdentityKeys   ([ordered]@{ userId = 'jdoe' }) `
                 -DesiredState   ([ordered]@{ department = 'IT' })
 
-            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ Dummy = $true }
+            $providers = @{
+                Dummy        = $true
+                StepRegistry = @{
+                    'EnsureMailbox' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('EnsureMailbox')
+            }
+            
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
             $expectedPath = Join-Path $PSScriptRoot 'fixtures/plan-export/expected/plan-export.json'
             $expectedJson = Get-Content -Path $expectedPath -Raw -Encoding utf8

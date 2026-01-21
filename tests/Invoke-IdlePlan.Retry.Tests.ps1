@@ -4,6 +4,9 @@ BeforeDiscovery {
 }
 
 BeforeAll {
+    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    Import-IdleTestModule
+    
     # Create a dedicated, ephemeral test module that exports the step handlers.
     # This avoids global scope pollution while ensuring the engine can resolve
     # handler names deterministically via module-qualified command names.
@@ -108,13 +111,15 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         $providers = @{
             StepRegistry = @{
                 'IdLE.Step.Transient' = "$script:RetryTestModuleName\Invoke-IdleRetryTestTransientStep"
             }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Transient')
         }
+        
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
@@ -142,13 +147,15 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         $providers = @{
             StepRegistry = @{
                 'IdLE.Step.NonTransient' = "$script:RetryTestModuleName\Invoke-IdleRetryTestNonTransientStep"
             }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.NonTransient')
         }
+        
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 

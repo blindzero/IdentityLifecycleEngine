@@ -82,14 +82,16 @@ Describe 'Module manifests and public surface' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         $providers = @{
             StepRegistry = @{
                 'IdLE.Step.Primary'     = 'Invoke-IdleSurfaceTestNoopStep'
                 'IdLE.Step.Containment' = 'Invoke-IdleSurfaceTestNoopStep'
             }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Primary', 'IdLE.Step.Containment')
         }
+        
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 

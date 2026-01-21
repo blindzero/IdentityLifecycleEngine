@@ -162,14 +162,16 @@ Describe 'Invoke-IdlePlan' {
 '@
 
       $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
       $providers = @{
           StepRegistry = @{
               'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
               'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
           }
+          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity', 'IdLE.Step.EnsureAttributes')
       }
+      
+      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
       $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
@@ -211,13 +213,15 @@ Describe 'Invoke-IdlePlan' {
 '@
 
       $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
       $providers = @{
           StepRegistry = @{
               'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
           }
+          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
       }
+      
+      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
       $sinkEvents = [System.Collections.Generic.List[object]]::new()
       $sinkObject = [pscustomobject]@{}
@@ -247,13 +251,15 @@ Describe 'Invoke-IdlePlan' {
 '@
 
       $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
       $providers = @{
           StepRegistry = @{
               'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
           }
+          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
       }
+      
+      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
       $sink = { param($e) }
       { Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sink } | Should -Throw
@@ -272,13 +278,15 @@ Describe 'Invoke-IdlePlan' {
 '@
 
       $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
       $providers = @{
           StepRegistry = @{
               'IdLE.Step.ResolveIdentity' = { param($Context, $Step) }
           }
+          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
       }
+      
+      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
       { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw
     }
@@ -302,6 +310,7 @@ Describe 'Invoke-IdlePlan' {
           StepRegistry = @{
               'IdLE.Step.EmitEvent' = 'Invoke-IdleTestEmitStep'
           }
+          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.EmitEvent')
       }
 
       $result = Invoke-IdlePlan -Plan $plan -Providers $providers
@@ -328,7 +337,6 @@ Describe 'Invoke-IdlePlan' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         $providers = @{
             StepRegistry = @{
@@ -336,7 +344,10 @@ Describe 'Invoke-IdlePlan' {
                 'IdLE.Step.NeverRuns'   = 'Invoke-IdleTestNoopStep'
                 'IdLE.Step.OnFailure1'  = 'Invoke-IdleTestEmitStep'
             }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailPrimary', 'IdLE.Step.NeverRuns', 'IdLE.Step.OnFailure1')
         }
+        
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
@@ -376,7 +387,6 @@ Describe 'Invoke-IdlePlan' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         $providers = @{
             StepRegistry = @{
@@ -384,7 +394,10 @@ Describe 'Invoke-IdlePlan' {
                 'IdLE.Step.OnFailureFail' = 'Invoke-IdleTestFailStep'
                 'IdLE.Step.OnFailureOk'   = 'Invoke-IdleTestEmitStep'
             }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailPrimary', 'IdLE.Step.OnFailureFail', 'IdLE.Step.OnFailureOk')
         }
+        
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
@@ -415,14 +428,16 @@ Describe 'Invoke-IdlePlan' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         $providers = @{
             StepRegistry = @{
                 'IdLE.Step.Ok'         = 'Invoke-IdleTestNoopStep'
                 'IdLE.Step.OnFailure1' = 'Invoke-IdleTestEmitStep'
             }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Ok', 'IdLE.Step.OnFailure1')
         }
+        
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
@@ -525,6 +540,7 @@ Describe 'Invoke-IdlePlan' {
             StepRegistry = @{
                 'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
             }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
         }
 
         { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*AuthSessionBroker*'
@@ -557,6 +573,7 @@ Describe 'Invoke-IdlePlan' {
                 'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
                 'IdLE.Step.Noop'               = 'Invoke-IdleTestNoopStep'
             }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession', 'IdLE.Step.Noop')
         }
 
         # Should not throw because the AcquireAuthSession step is NotApplicable
@@ -604,6 +621,7 @@ Describe 'Invoke-IdlePlan' {
             StepRegistry      = @{
                 'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
             }
+            StepMetadata      = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
             AuthSessionBroker = $broker
         }
 
@@ -654,6 +672,7 @@ Describe 'Invoke-IdlePlan' {
             StepRegistry      = @{
                 'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
             }
+            StepMetadata      = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
             AuthSessionBroker = $broker
         }
 
@@ -703,6 +722,7 @@ Describe 'Invoke-IdlePlan' {
             StepRegistry      = @{
                 'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
             }
+            StepMetadata      = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
             AuthSessionBroker = $broker
         }
 
@@ -728,13 +748,15 @@ Describe 'Invoke-IdlePlan' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         $providers = @{
             StepRegistry = @{
                 'IdLE.Step.Legacy' = 'Invoke-IdleTestLegacyStep'
             }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Legacy')
         }
+        
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
