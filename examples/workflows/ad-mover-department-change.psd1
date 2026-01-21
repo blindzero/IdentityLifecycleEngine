@@ -3,9 +3,9 @@
     LifecycleEvent = 'Mover'
     Steps          = @(
         @{
-            Name                 = 'Update Department'
-            Type                 = 'IdLE.Step.EnsureAttribute'
-            With                 = @{
+            Name = 'Update Department'
+            Type = 'IdLE.Step.EnsureAttribute'
+            With = @{
                 IdentityKey = 'existinguser@contoso.local'
                 Name        = 'Department'
                 Value       = 'Sales'
@@ -13,23 +13,21 @@
                 # Examples: 'Identity', 'SourceAD', 'TargetAD', 'SystemX', etc.
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Identity.Attribute.Ensure')
         },
         @{
-            Name                 = 'Update Title'
-            Type                 = 'IdLE.Step.EnsureAttribute'
-            With                 = @{
+            Name = 'Update Title'
+            Type = 'IdLE.Step.EnsureAttribute'
+            With = @{
                 IdentityKey = 'existinguser@contoso.local'
                 Name        = 'Title'
                 Value       = 'Sales Manager'
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Identity.Attribute.Ensure')
         },
         @{
-            Name                 = 'Revoke old IT department group'
-            Type                 = 'IdLE.Step.EnsureEntitlement'
-            With                 = @{
+            Name = 'Revoke old IT department group'
+            Type = 'IdLE.Step.EnsureEntitlement'
+            With = @{
                 IdentityKey = 'existinguser@contoso.local'
                 Entitlement = @{
                     Kind        = 'Group'
@@ -39,12 +37,11 @@
                 State       = 'Absent'
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Revoke')
         },
         @{
-            Name                 = 'Grant Sales department group'
-            Type                 = 'IdLE.Step.EnsureEntitlement'
-            With                 = @{
+            Name = 'Grant Sales department group'
+            Type = 'IdLE.Step.EnsureEntitlement'
+            With = @{
                 IdentityKey = 'existinguser@contoso.local'
                 Entitlement = @{
                     Kind        = 'Group'
@@ -54,17 +51,15 @@
                 State       = 'Present'
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant')
         },
         @{
-            Name                 = 'Move to Sales OU'
-            Type                 = 'IdLE.Step.MoveIdentity'
-            With                 = @{
+            Name = 'Move to Sales OU'
+            Type = 'IdLE.Step.MoveIdentity'
+            With = @{
                 IdentityKey     = 'existinguser@contoso.local'
                 TargetContainer = 'OU=Sales,OU=Users,DC=contoso,DC=local'
                 Provider        = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Identity.Move')
         }
     )
 }

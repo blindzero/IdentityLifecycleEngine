@@ -10,20 +10,19 @@
             With = @{ Message = 'Starting Joiner workflow with OnFailure handling' }
         }
         @{
-            Name                 = 'Ensure Department'
-            Type                 = 'IdLE.Step.EnsureAttribute'
-            With                 = @{ 
+            Name = 'Ensure Department'
+            Type = 'IdLE.Step.EnsureAttribute'
+            With = @{ 
                 IdentityKey = 'user1'
                 Name        = 'Department'
                 Value       = 'IT'
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = 'IdLE.Identity.Attribute.Ensure'
         }
         @{
-            Name                 = 'Assign demo group'
-            Type                 = 'IdLE.Step.EnsureEntitlement'
-            With                 = @{ 
+            Name = 'Assign demo group'
+            Type = 'IdLE.Step.EnsureEntitlement'
+            With = @{ 
                 IdentityKey  = 'user1'
                 Entitlement  = @{ 
                     Kind        = 'Group'
@@ -33,7 +32,6 @@
                 State        = 'Present'
                 Provider     = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant')
         }
     )
 

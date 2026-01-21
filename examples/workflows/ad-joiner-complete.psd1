@@ -3,9 +3,9 @@
     LifecycleEvent = 'Joiner'
     Steps          = @(
         @{
-            Name                 = 'Create AD user account'
-            Type                 = 'IdLE.Step.CreateIdentity'
-            With                 = @{
+            Name = 'Create AD user account'
+            Type = 'IdLE.Step.CreateIdentity'
+            With = @{
                 IdentityKey = 'newuser'
                 Attributes  = @{
                     SamAccountName    = 'newuser'
@@ -21,34 +21,31 @@
                 # If omitted, defaults to 'Identity'.
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Identity.Create')
         },
         @{
-            Name                 = 'Set Department'
-            Type                 = 'IdLE.Step.EnsureAttribute'
-            With                 = @{
+            Name = 'Set Department'
+            Type = 'IdLE.Step.EnsureAttribute'
+            With = @{
                 IdentityKey = 'newuser@contoso.local'
                 Name        = 'Department'
                 Value       = 'IT'
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Identity.Attribute.Ensure')
         },
         @{
-            Name                 = 'Set Title'
-            Type                 = 'IdLE.Step.EnsureAttribute'
-            With                 = @{
+            Name = 'Set Title'
+            Type = 'IdLE.Step.EnsureAttribute'
+            With = @{
                 IdentityKey = 'newuser@contoso.local'
                 Name        = 'Title'
                 Value       = 'Software Engineer'
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Identity.Attribute.Ensure')
         },
         @{
-            Name                 = 'Grant base access group'
-            Type                 = 'IdLE.Step.EnsureEntitlement'
-            With                 = @{
+            Name = 'Grant base access group'
+            Type = 'IdLE.Step.EnsureEntitlement'
+            With = @{
                 IdentityKey = 'newuser@contoso.local'
                 Entitlement = @{
                     Kind        = 'Group'
@@ -58,12 +55,11 @@
                 State       = 'Present'
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant')
         },
         @{
-            Name                 = 'Grant IT department group'
-            Type                 = 'IdLE.Step.EnsureEntitlement'
-            With                 = @{
+            Name = 'Grant IT department group'
+            Type = 'IdLE.Step.EnsureEntitlement'
+            With = @{
                 IdentityKey = 'newuser@contoso.local'
                 Entitlement = @{
                     Kind        = 'Group'
@@ -73,17 +69,15 @@
                 State       = 'Present'
                 Provider    = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant')
         },
         @{
-            Name                 = 'Move to active users OU'
-            Type                 = 'IdLE.Step.MoveIdentity'
-            With                 = @{
+            Name = 'Move to active users OU'
+            Type = 'IdLE.Step.MoveIdentity'
+            With = @{
                 IdentityKey     = 'newuser@contoso.local'
                 TargetContainer = 'OU=Active,OU=Users,DC=contoso,DC=local'
                 Provider        = 'Identity'
             }
-            RequiresCapabilities = @('IdLE.Identity.Move')
         }
     )
 }

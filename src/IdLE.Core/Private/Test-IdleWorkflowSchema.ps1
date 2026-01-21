@@ -42,9 +42,12 @@ function Test-IdleWorkflowSchema {
                 continue
             }
 
-            $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RequiresCapabilities')
+            $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description')
             foreach ($k in $step.Keys) {
-                if ($allowedStepKeys -notcontains $k) {
+                if ($k -eq 'RequiresCapabilities') {
+                    $errors.Add("$stepPath contains 'RequiresCapabilities' which is no longer supported. Step capabilities are now declared in step metadata. Remove 'RequiresCapabilities' from the workflow definition.")
+                }
+                elseif ($allowedStepKeys -notcontains $k) {
                     $errors.Add("Unknown key '$k' in $stepPath. Allowed keys: $($allowedStepKeys -join ', ').")
                 }
             }
@@ -95,9 +98,12 @@ function Test-IdleWorkflowSchema {
                     continue
                 }
 
-                $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RequiresCapabilities')
+                $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description')
                 foreach ($k in $step.Keys) {
-                    if ($allowedStepKeys -notcontains $k) {
+                    if ($k -eq 'RequiresCapabilities') {
+                        $errors.Add("$stepPath contains 'RequiresCapabilities' which is no longer supported. Step capabilities are now declared in step metadata. Remove 'RequiresCapabilities' from the workflow definition.")
+                    }
+                    elseif ($allowedStepKeys -notcontains $k) {
                         $errors.Add("Unknown key '$k' in $stepPath. Allowed keys: $($allowedStepKeys -join ', ').")
                     }
                 }

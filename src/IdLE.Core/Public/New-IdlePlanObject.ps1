@@ -425,7 +425,11 @@ function New-IdlePlanObject {
 
             [Parameter(Mandatory)]
             [ValidateNotNull()]
-            [object] $PlanningContext
+            [object] $PlanningContext,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [hashtable] $StepMetadataCatalog
         )
 
         if ($null -eq $WorkflowSteps -or @($WorkflowSteps).Count -eq 0) {
@@ -487,9 +491,21 @@ function New-IdlePlanObject {
                 }
             }
 
+            # Derive RequiresCapabilities from StepMetadataCatalog instead of workflow.
             $requiresCaps = @()
-            if (Test-IdleWorkflowStepKey -Step $s -Key 'RequiresCapabilities') {
-                $requiresCaps = ConvertTo-IdleRequiredCapabilities -Value (Get-IdleWorkflowStepValue -Step $s -Key 'RequiresCapabilities') -StepName $stepName
+            if ($StepMetadataCatalog.ContainsKey($stepType)) {
+                $metadata = $StepMetadataCatalog[$stepType]
+                if ($null -ne $metadata -and $metadata -is [hashtable] -and $metadata.ContainsKey('RequiredCapabilities')) {
+                    $requiresCaps = ConvertTo-IdleRequiredCapabilities -Value $metadata['RequiredCapabilities'] -StepName $stepName
+                }
+            }
+            else {
+                # Step.Type exists in StepRegistry but has no metadata entry - fail fast.
+                throw [System.ArgumentException]::new(
+                    ("Workflow step '{0}' references Step.Type '{1}' which has no StepMetadata entry. " +
+                     "Host must provide Providers.StepMetadata['{1}'] = @{{ RequiredCapabilities = ... }}." -f $stepName, $stepType),
+                    'Providers'
+                )
             }
 
             $description = if (Test-IdleWorkflowStepKey -Step $s -Key 'Description') {
@@ -572,13 +588,16 @@ function New-IdlePlanObject {
         Workflow = $workflow
     }
 
+    # Load StepMetadataCatalog (trusted extension point).
+    $stepMetadataCatalog = Get-IdleStepMetadataCatalog -Providers $Providers
+
     $workflowOnFailureSteps = Get-IdleOptionalPropertyValue -Object $workflow -Name 'OnFailureSteps'
 
     # Normalize primary and OnFailure steps.
     # IMPORTANT:
     # ConvertTo-IdleWorkflowSteps may return an empty array that would otherwise collapse to $null on assignment.
-    $plan.Steps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflow.Steps -PlanningContext $planningContext)
-    $plan.OnFailureSteps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflowOnFailureSteps -PlanningContext $planningContext)
+    $plan.Steps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflow.Steps -PlanningContext $planningContext -StepMetadataCatalog $stepMetadataCatalog)
+    $plan.OnFailureSteps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflowOnFailureSteps -PlanningContext $planningContext -StepMetadataCatalog $stepMetadataCatalog)
 
     # Fail-fast capability validation (includes OnFailureSteps).
     $allStepsForCapabilities = @()
