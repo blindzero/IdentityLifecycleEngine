@@ -8,6 +8,7 @@
     PowerShellVersion = '7.0'
 
     FunctionsToExport = @(
+        'Get-IdleStepMetadataCatalog',
         'Invoke-IdleStepEmitEvent',
         'Invoke-IdleStepEnsureAttribute',
         'Invoke-IdleStepEnsureEntitlement',
