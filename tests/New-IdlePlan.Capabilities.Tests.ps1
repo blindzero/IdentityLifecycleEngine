@@ -30,7 +30,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
         }
         catch {
             $_.Exception.Message | Should -Match 'RequiresCapabilities'
-            $_.Exception.Message | Should -Match 'no longer supported'
+            $_.Exception.Message | Should -Match 'not allowed'
         }
     }
 
