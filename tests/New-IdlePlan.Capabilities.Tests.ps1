@@ -1,54 +1,13 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '_testHelpers.ps1')
     Import-IdleTestModule
+    $fixturesPath = Join-Path $PSScriptRoot 'fixtures/workflows'
 }
 
 Describe 'New-IdlePlan - required provider capabilities' {
 
-    It 'rejects workflows containing RequiresCapabilities' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-legacy.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Legacy Workflow'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name                 = 'Disable identity'
-      Type                 = 'IdLE.Step.DisableIdentity'
-      RequiresCapabilities = @('IdLE.Identity.Disable')
-    }
-  )
-}
-'@
-
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-
-        try {
-            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{} | Out-Null
-            throw 'Expected an exception but none was thrown.'
-        }
-        catch {
-            $_.Exception.Message | Should -Match 'RequiresCapabilities'
-            $_.Exception.Message | Should -Match 'not allowed'
-        }
-    }
-
     It 'fails fast when a step type has no metadata entry' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-no-metadata.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Missing Metadata'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Unknown step'
-      Type = 'Custom.Step.Unknown'
-    }
-  )
-}
-'@
+        $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-no-metadata.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
@@ -70,20 +29,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     }
 
     It 'derives capabilities from built-in step metadata' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-builtin.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Built-in Metadata'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Disable identity'
-      Type = 'IdLE.Step.DisableIdentity'
-    }
-  )
-}
-'@
+        $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-builtin.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
@@ -105,20 +51,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     }
 
     It 'fails fast when required capabilities are missing' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-missing-caps.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Missing Capabilities'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Disable identity'
-      Type = 'IdLE.Step.DisableIdentity'
-    }
-  )
-}
-'@
+        $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-missing-caps.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
@@ -134,20 +67,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     }
 
     It 'allows host metadata to override built-in metadata' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-override.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Override Metadata'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Disable identity'
-      Type = 'IdLE.Step.DisableIdentity'
-    }
-  )
-}
-'@
+        $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-override.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
@@ -173,27 +93,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     }
 
     It 'validates OnFailureSteps capabilities from metadata' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-onfailure.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - OnFailure Metadata'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Primary step'
-      Type = 'IdLE.Step.EmitEvent'
-      With = @{ Message = 'Primary' }
-    }
-  )
-  OnFailureSteps = @(
-    @{
-      Name = 'Containment'
-      Type = 'IdLE.Step.DisableIdentity'
-    }
-  )
-}
-'@
+        $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-onfailure.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
@@ -215,21 +115,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     }
 
     It 'validates entitlement capabilities from metadata' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-entitlements.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Entitlement Metadata'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Ensure group membership'
-      Type = 'IdLE.Step.EnsureEntitlement'
-      With = @{ IdentityKey = 'user1'; Entitlement = @{ Kind = 'Group'; Id = 'demo-group' }; State = 'Present' }
-    }
-  )
-}
-'@
+        $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-entitlements.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
@@ -259,20 +145,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     }
 
     It 'rejects metadata with ScriptBlock values' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-scriptblock.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - ScriptBlock Test'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Test step'
-      Type = 'Custom.Step.Test'
-    }
-  )
-}
-'@
+        $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-scriptblock.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
@@ -297,20 +170,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     }
 
     It 'rejects invalid metadata shapes' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-invalid.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Invalid Metadata'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Test step'
-      Type = 'Custom.Step.Test'
-    }
-  )
-}
-'@
+        $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-invalid.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
@@ -333,20 +193,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     }
 
     It 'rejects invalid capability identifiers' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-invalid-cap.psd1'
-
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Invalid Capability'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Test step'
-      Type = 'Custom.Step.Test'
-    }
-  )
-}
-'@
+        $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-invalid-cap.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 

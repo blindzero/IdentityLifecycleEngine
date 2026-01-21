@@ -25,10 +25,7 @@ function Test-IdleWorkflowSchema {
 
         $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description')
         foreach ($k in $Step.Keys) {
-            if ($k -eq 'RequiresCapabilities') {
-                $ErrorList.Add("$StepPath contains 'RequiresCapabilities' which is not allowed. Step capabilities are declared in step metadata.")
-            }
-            elseif ($allowedStepKeys -notcontains $k) {
+            if ($allowedStepKeys -notcontains $k) {
                 $ErrorList.Add("Unknown key '$k' in $StepPath. Allowed keys: $($allowedStepKeys -join ', ').")
             }
         }
