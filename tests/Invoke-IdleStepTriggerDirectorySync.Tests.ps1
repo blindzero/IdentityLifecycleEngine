@@ -100,7 +100,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
                 Type = 'IdLE.Step.TriggerDirectorySync'
             }
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             { & $handler -Context $script:Context -Step $step } | Should -Throw
         }
 
@@ -108,7 +108,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step = $script:StepTemplate
             $step.With.Remove('AuthSessionName')
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*AuthSessionName*'
         }
 
@@ -116,7 +116,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step = $script:StepTemplate
             $step.With.Remove('PolicyType')
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*PolicyType*'
         }
 
@@ -124,7 +124,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step = $script:StepTemplate
             $step.With.PolicyType = 'Invalid'
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*PolicyType*'
         }
 
@@ -132,7 +132,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step = $script:StepTemplate
             $step.With.PolicyType = 'Delta'
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
@@ -142,7 +142,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step = $script:StepTemplate
             $step.With.PolicyType = 'Initial'
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
@@ -152,7 +152,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step = $script:StepTemplate
             $step.With.Remove('Provider')
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
@@ -162,7 +162,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step = $script:StepTemplate
             $step.With.TimeoutSeconds = -1
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*TimeoutSeconds*'
         }
 
@@ -170,7 +170,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step = $script:StepTemplate
             $step.With.PollIntervalSeconds = 0
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*PollIntervalSeconds*'
         }
     }
@@ -180,7 +180,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step = $script:StepTemplate
             $step.With.Wait = $false
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
@@ -191,7 +191,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
         It 'defaults to not waiting when Wait is not specified' {
             $step = $script:StepTemplate
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
@@ -204,7 +204,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step.With.Wait = $true
             $step.With.PollIntervalSeconds = 1
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
@@ -227,7 +227,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step.With.TimeoutSeconds = 2
             $step.With.PollIntervalSeconds = 1
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*Timeout*'
         }
 
@@ -249,7 +249,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step.With.Wait = $true
             $step.With.PollIntervalSeconds = 1
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
 
             $script:MockProvider.PollCount | Should -BeGreaterThan 1
@@ -260,7 +260,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
         It 'throws when provider is missing' {
             $script:Context.Providers.Clear()
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId * -ExpectedMessage '*Provider*'
         }
 
@@ -268,7 +268,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $badProvider = [pscustomobject]@{ Name = 'BadProvider' }
             $script:Context.Providers['DirectorySync'] = $badProvider
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId * -ExpectedMessage '*StartSyncCycle*'
         }
     }
@@ -282,7 +282,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
                 $null = $capturedEvents.Add(@{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data })
             } -Force
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $script:StepTemplate
 
             $capturedEvents.Type | Should -Contain 'DirectorySyncTriggered'
@@ -296,7 +296,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
                 $null = $capturedEvents.Add(@{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data })
             } -Force
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $script:StepTemplate
 
             $capturedEvents.Type | Should -Contain 'DirectorySyncCompleted'
@@ -314,7 +314,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $step.With.Wait = $true
             $step.With.PollIntervalSeconds = 1
 
-            $handler = 'IdLE.Steps.DirectorySync.EntraConnect\Invoke-IdleStepTriggerDirectorySync'
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $step
 
             $capturedEvents.Type | Should -Contain 'DirectorySyncWaiting'

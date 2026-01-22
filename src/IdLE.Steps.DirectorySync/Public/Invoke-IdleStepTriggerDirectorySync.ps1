@@ -1,7 +1,7 @@
 function Invoke-IdleStepTriggerDirectorySync {
     <#
     .SYNOPSIS
-    Triggers an Entra Connect directory sync cycle and optionally waits for completion.
+    Triggers a directory sync cycle and optionally waits for completion.
 
     .DESCRIPTION
     This is a provider-agnostic step. The host must supply a provider instance via
@@ -35,10 +35,10 @@ function Invoke-IdleStepTriggerDirectorySync {
 
     .EXAMPLE
     $step = @{
-        Name = 'Trigger Entra Connect sync'
+        Name = 'Trigger directory sync'
         Type = 'IdLE.Step.TriggerDirectorySync'
         With = @{
-            AuthSessionName = 'EntraConnect'
+            AuthSessionName = 'DirectorySync'
             PolicyType = 'Delta'
             Wait = $true
         }
