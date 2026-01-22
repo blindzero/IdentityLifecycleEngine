@@ -14,6 +14,10 @@ function New-IdleEntraConnectDirectorySyncProvider {
     No interactive prompts are made; elevation and authentication are the host's responsibility
     via the AuthSessionBroker.
 
+    .OUTPUTS
+    PSCustomObject
+    Provider instance with methods: GetCapabilities(), StartSyncCycle(PolicyType, AuthSession), GetSyncCycleState(AuthSession)
+
     .EXAMPLE
     $provider = New-IdleEntraConnectDirectorySyncProvider
     $provider.GetCapabilities()

@@ -7,8 +7,11 @@
     Description       = 'Entra Connect directory sync steps for IdLE.'
     PowerShellVersion = '7.0'
 
+    RequiredModules   = @(
+        '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
+    )
+
     FunctionsToExport = @(
-        'Get-IdleStepMetadataCatalog',
         'Invoke-IdleStepTriggerDirectorySync'
     )
 
