@@ -11,6 +11,7 @@
         '..\IdLE.Core\IdLE.Core.psd1',
         '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1',
         '..\IdLE.Steps.DirectorySync.EntraConnect\IdLE.Steps.DirectorySync.EntraConnect.psd1',
+        '..\IdLE.Provider.DirectorySync.EntraConnect\IdLE.Provider.DirectorySync.EntraConnect.psd1',
         '..\IdLE.Provider.AD\IdLE.Provider.AD.psd1'
     )
 
