@@ -32,13 +32,14 @@
       }
     }
     @{
-      Name = 'Assign Entra ID licenses'
+      Name = 'Assign Entra ID group membership'
       Type = 'IdLE.Step.EnsureEntitlement'
       With = @{
         IdentityKey    = '{{ Request.Username }}'
         Entitlement    = @{
-          Kind = 'License'
-          Id   = 'O365_E5'
+          Kind        = 'Group'
+          Id          = 'EntraID-Users-Group'
+          DisplayName = 'Entra ID Users'
         }
         State          = 'Present'
         AuthSessionName = 'EntraID'
