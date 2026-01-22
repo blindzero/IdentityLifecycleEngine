@@ -17,19 +17,26 @@ function Test-IdleProviderMethodParameter {
     # For ScriptMethod, inspect the AST
     if ($ProviderMethod.MemberType -eq 'ScriptMethod') {
         $scriptBlock = $ProviderMethod.Script
-        if ($null -ne $scriptBlock -and $null -ne $scriptBlock.Ast -and $null -ne $scriptBlock.Ast.ParamBlock) {
-            $params = $scriptBlock.Ast.ParamBlock.Parameters
-            if ($null -ne $params) {
-                foreach ($param in $params) {
-                    if ($null -ne $param.Name -and $null -ne $param.Name.VariablePath) {
-                        $paramName = $param.Name.VariablePath.UserPath
-                        if ($paramName -eq $ParameterName) {
-                            return $true
-                        }
-                    }
-                }
+        
+        # Early exit if required objects are missing
+        if ($null -eq $scriptBlock) { return $false }
+        if ($null -eq $scriptBlock.Ast) { return $false }
+        if ($null -eq $scriptBlock.Ast.ParamBlock) { return $false }
+        
+        $params = $scriptBlock.Ast.ParamBlock.Parameters
+        if ($null -eq $params) { return $false }
+        
+        # Check each parameter for a match
+        foreach ($param in $params) {
+            if ($null -eq $param.Name) { continue }
+            if ($null -eq $param.Name.VariablePath) { continue }
+            
+            $paramName = $param.Name.VariablePath.UserPath
+            if ($paramName -eq $ParameterName) {
+                return $true
             }
         }
+        
         return $false
     }
 

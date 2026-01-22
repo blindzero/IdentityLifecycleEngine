@@ -13,7 +13,7 @@ param(
     # Restrict which step modules are scanned.
     [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string[]] $StepModules = @('IdLE.Steps.Common'),
+    [string[]] $StepModules = @('IdLE.Steps.Common', 'IdLE.Steps.DirectorySync.EntraConnect'),
 
     # Optional: Step function names to exclude (exact command names).
     [Parameter()]
