@@ -1,27 +1,18 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '_testHelpers.ps1')
     Import-IdleTestModule
+    
+    # Helper to get fixture workflow path
+    function Get-TemplateTestFixture {
+        param([string]$Name)
+        return Join-Path $PSScriptRoot "fixtures/workflows/template-tests/$Name.psd1"
+    }
 }
 
 Describe 'Template Substitution' {
     Context 'Single placeholder substitution' {
         It 'resolves a simple Request.Input placeholder' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-simple.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Simple'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        UserName = '{{Request.Input.UserPrincipalName}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-simple'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
                 UserPrincipalName = 'jdoe@example.com'
