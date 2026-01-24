@@ -90,16 +90,16 @@ function New-IdleEntraConnectDirectorySyncProvider {
 
         # Validate AuthSession contract
         if ($null -eq $AuthSession.PSObject.Methods['InvokeCommand']) {
-            throw "AuthSession must implement InvokeCommand(CommandName, Parameters) method. " +
-                  "The host must provide an elevated remote session via AuthSessionBroker."
+            throw "AuthSession must implement InvokeCommand(CommandName, Parameters) method. " + `
+                "The host must provide an elevated remote session via AuthSessionBroker."
         }
 
         try {
             # Execute Start-ADSyncSyncCycle remotely
             # The remote session should already have ADSync module available or will import it
-            $result = $AuthSession.InvokeCommand('Start-ADSyncSyncCycle', @{
-                PolicyType = $PolicyType
-            })
+            $AuthSession.InvokeCommand('Start-ADSyncSyncCycle', @{
+                    PolicyType = $PolicyType
+                }) | Out-Null
 
             # Start-ADSyncSyncCycle returns a result object or throws on error
             # Success case: return Started = true
@@ -113,8 +113,8 @@ function New-IdleEntraConnectDirectorySyncProvider {
             $errorMessage = $_.Exception.Message
 
             if ($errorMessage -match 'access.*denied|permission|privilege|elevation|administrator|unauthorized') {
-                throw "Failed to start sync cycle. Missing privileges or elevation. " +
-                      "The AuthSession must provide an elevated execution context. Original error: $errorMessage"
+                throw "Failed to start sync cycle. Missing privileges or elevation. " + `
+                    "The AuthSession must provide an elevated execution context. Original error: $errorMessage"
             }
 
             # Re-throw other errors
@@ -149,8 +149,8 @@ function New-IdleEntraConnectDirectorySyncProvider {
 
         # Validate AuthSession contract
         if ($null -eq $AuthSession.PSObject.Methods['InvokeCommand']) {
-            throw "AuthSession must implement InvokeCommand(CommandName, Parameters) method. " +
-                  "The host must provide an elevated remote session via AuthSessionBroker."
+            throw "AuthSession must implement InvokeCommand(CommandName, Parameters) method. " + `
+                "The host must provide an elevated remote session via AuthSessionBroker."
         }
 
         try {
@@ -189,8 +189,8 @@ function New-IdleEntraConnectDirectorySyncProvider {
             $errorMessage = $_.Exception.Message
 
             if ($errorMessage -match 'access.*denied|permission|privilege|elevation|administrator|unauthorized') {
-                throw "Failed to get sync cycle state. Missing privileges or elevation. " +
-                      "The AuthSession must provide an elevated execution context. Original error: $errorMessage"
+                throw "Failed to get sync cycle state. Missing privileges or elevation. " + `
+                    "The AuthSession must provide an elevated execution context. Original error: $errorMessage"
             }
 
             throw "Failed to get sync cycle state: $errorMessage"

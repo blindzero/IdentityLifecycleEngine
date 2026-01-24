@@ -76,6 +76,10 @@ function New-IdleAuthSessionBroker {
             [hashtable] $Options
         )
 
+        # $Name is part of the broker contract but not used in this simple implementation
+        # This broker routes based on Options only; custom brokers may use Name for additional routing
+        $null = $Name
+
         # If no options provided, return default
         if ($null -eq $Options -or $Options.Count -eq 0) {
             if ($null -ne $this.DefaultCredential) {
