@@ -1,5 +1,13 @@
 # Invokes a provider method with optional AuthSession support.
 # Handles auth session acquisition, parameter detection, and backwards-compatible fallback.
+#
+# NOTE: This is a copy of the function from IdLE.Steps.Common/Private/Invoke-IdleProviderMethod.ps1
+# The duplication is necessary because:
+# 1. The function is Private in IdLE.Steps.Common and not exported
+# 2. RequiredModules does not make Private functions available to dependent modules
+# 3. Making it Public would expose implementation details that should remain internal
+# This is the same pattern used by IdLE.Steps.DirectorySync which calls this function
+# via the Common module's internal scope when RequiredModules is declared.
 
 function Invoke-IdleProviderMethod {
     [CmdletBinding()]

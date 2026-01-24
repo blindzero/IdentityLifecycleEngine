@@ -336,9 +336,11 @@ function New-IdleExchangeOnlineProvider {
         }
         elseif ($mode -eq 'Scheduled') {
             # Compare dates (allow small tolerance for serialization differences)
+            # Tolerance: 60 seconds to account for rounding during serialization/deserialization
+            $dateComparisonToleranceSeconds = 60
             $startDiff = [Math]::Abs(($currentConfig.Start - [DateTime]$Config['Start']).TotalSeconds)
             $endDiff = [Math]::Abs(($currentConfig.End - [DateTime]$Config['End']).TotalSeconds)
-            if ($startDiff -gt 60 -or $endDiff -gt 60) {
+            if ($startDiff -gt $dateComparisonToleranceSeconds -or $endDiff -gt $dateComparisonToleranceSeconds) {
                 $changed = $true
             }
         }

@@ -1,5 +1,8 @@
 # Tests whether a provider method supports a given parameter.
 # Supports ScriptMethod (AST inspection) and compiled methods (reflection).
+#
+# NOTE: This is a copy of the function from IdLE.Steps.Common/Private/Test-IdleProviderMethodParameter.ps1
+# See Invoke-IdleProviderMethod.ps1 in this directory for explanation of why duplication is necessary.
 
 function Test-IdleProviderMethodParameter {
     [CmdletBinding()]
