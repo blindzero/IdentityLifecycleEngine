@@ -363,5 +363,34 @@ Describe 'ExchangeOnline provider - Unit tests' {
             { $provider.EnsureOutOfOffice('user10@contoso.com', $badConfig, $null) } |
                 Should -Throw -ExpectedMessage "*must be 'Disabled', 'Enabled', or 'Scheduled'*"
         }
+
+        It 'detects changes to ExternalAudience and updates accordingly' {
+            Add-TestMailbox -PrimarySmtpAddress 'user11@contoso.com'
+            
+            # Set initial OOF with ExternalAudience = 'Known'
+            $initialConfig = @{
+                Mode             = 'Enabled'
+                InternalMessage  = 'Out of office'
+                ExternalMessage  = 'Currently unavailable'
+                ExternalAudience = 'Known'
+            }
+            $provider.EnsureOutOfOffice('user11@contoso.com', $initialConfig, $null) | Out-Null
+            
+            # Change only ExternalAudience to 'All', keep messages the same
+            $updatedConfig = @{
+                Mode             = 'Enabled'
+                InternalMessage  = 'Out of office'
+                ExternalMessage  = 'Currently unavailable'
+                ExternalAudience = 'All'
+            }
+            $result = $provider.EnsureOutOfOffice('user11@contoso.com', $updatedConfig, $null)
+            
+            # Should detect the change and update
+            $result.Changed | Should -Be $true
+            
+            # Verify ExternalAudience was actually updated
+            $oofConfig = $provider.GetOutOfOffice('user11@contoso.com', $null)
+            $oofConfig.ExternalAudience | Should -Be 'All'
+        }
     }
 }

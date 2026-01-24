@@ -334,6 +334,9 @@ function New-IdleExchangeOnlineProvider {
         elseif ($Config.ContainsKey('ExternalMessage') -and $currentConfig.ExternalMessage -ne $Config['ExternalMessage']) {
             $changed = $true
         }
+        elseif ($Config.ContainsKey('ExternalAudience') -and $currentConfig.ExternalAudience -ne $Config['ExternalAudience']) {
+            $changed = $true
+        }
         elseif ($mode -eq 'Scheduled') {
             # Compare dates (allow small tolerance for serialization differences)
             # Tolerance: 60 seconds to account for rounding during serialization/deserialization
