@@ -1,4 +1,4 @@
-function Invoke-IdleStepMailboxReport {
+function Invoke-IdleStepMailboxGetInfo {
     <#
     .SYNOPSIS
     Retrieves mailbox details and returns a structured report.
@@ -29,8 +29,8 @@ function Invoke-IdleStepMailboxReport {
     .EXAMPLE
     # In workflow definition:
     @{
-        Name = 'Report user mailbox'
-        Type = 'IdLE.Step.Mailbox.Report'
+        Name = 'Get mailbox info'
+        Type = 'IdLE.Step.Mailbox.GetInfo'
         With = @{
             Provider      = 'ExchangeOnline'
             IdentityKey   = 'user@contoso.com'
@@ -50,11 +50,11 @@ function Invoke-IdleStepMailboxReport {
 
     $with = $Step.With
     if ($null -eq $with -or -not ($with -is [hashtable])) {
-        throw "Mailbox.Report requires 'With' to be a hashtable."
+        throw "Mailbox.GetInfo requires 'With' to be a hashtable."
     }
 
     if (-not $with.ContainsKey('IdentityKey')) {
-        throw "Mailbox.Report requires With.IdentityKey."
+        throw "Mailbox.GetInfo requires With.IdentityKey."
     }
 
     $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'ExchangeOnline' }

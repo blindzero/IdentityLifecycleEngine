@@ -11,7 +11,7 @@
 
     FunctionsToExport = @(
         'Get-IdleStepMetadataCatalog',
-        'Invoke-IdleStepMailboxReport',
+        'Invoke-IdleStepMailboxGetInfo',
         'Invoke-IdleStepMailboxTypeEnsure',
         'Invoke-IdleStepMailboxOutOfOfficeEnsure'
     )

@@ -18,7 +18,7 @@ function Get-IdleStepMetadataCatalog {
 
     .EXAMPLE
     $metadata = Get-IdleStepMetadataCatalog
-    $metadata['IdLE.Step.Mailbox.Report'].RequiredCapabilities
+    $metadata['IdLE.Step.Mailbox.GetInfo'].RequiredCapabilities
     # Returns: @('IdLE.Mailbox.Read')
     #>
     [CmdletBinding()]
@@ -26,8 +26,8 @@ function Get-IdleStepMetadataCatalog {
 
     $catalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    # IdLE.Step.Mailbox.Report - read mailbox details
-    $catalog['IdLE.Step.Mailbox.Report'] = @{
+    # IdLE.Step.Mailbox.GetInfo - read mailbox details
+    $catalog['IdLE.Step.Mailbox.GetInfo'] = @{
         RequiredCapabilities = @('IdLE.Mailbox.Read')
     }
 

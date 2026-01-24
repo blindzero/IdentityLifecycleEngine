@@ -4,8 +4,8 @@
     Description    = 'Converts mailbox to shared, enables Out of Office, and optionally delegates access for offboarding users.'
     Steps          = @(
         @{
-            Name = 'ReportMailboxStatus'
-            Type = 'IdLE.Step.Mailbox.Report'
+            Name = 'GetMailboxInfo'
+            Type = 'IdLE.Step.Mailbox.GetInfo'
             With = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = '{{Request.Input.UserPrincipalName}}'

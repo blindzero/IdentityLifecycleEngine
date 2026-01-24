@@ -4,8 +4,8 @@
     Description    = 'Complete offboarding workflow: disables EntraID account, converts mailbox to shared, and enables Out of Office.'
     Steps          = @(
         @{
-            Name = 'ReportMailboxStatus'
-            Type = 'IdLE.Step.Mailbox.Report'
+            Name = 'GetMailboxInfo'
+            Type = 'IdLE.Step.Mailbox.GetInfo'
             With = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = '{{Request.Input.UserPrincipalName}}'

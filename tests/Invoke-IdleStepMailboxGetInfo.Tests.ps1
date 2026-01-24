@@ -13,7 +13,7 @@ BeforeAll {
     }
 }
 
-Describe 'Invoke-IdleStepMailboxReport' {
+Describe 'Invoke-IdleStepMailboxGetInfo' {
     BeforeEach {
         # Create mock ExchangeOnline provider
         $script:Provider = [pscustomobject]@{
@@ -58,8 +58,8 @@ Describe 'Invoke-IdleStepMailboxReport' {
         } -Force
         
         $script:StepTemplate = [pscustomobject]@{
-            Name = 'Report mailbox'
-            Type = 'IdLE.Step.Mailbox.Report'
+            Name = 'Get mailbox info'
+            Type = 'IdLE.Step.Mailbox.GetInfo'
             With = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = 'user@contoso.com'
@@ -68,7 +68,7 @@ Describe 'Invoke-IdleStepMailboxReport' {
     }
     
     It 'retrieves mailbox and returns data in State' {
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxReport'
+        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
         $result = & $handler -Context $script:Context -Step $script:StepTemplate
         
         $result.Status | Should -Be 'Completed'
@@ -84,7 +84,7 @@ Describe 'Invoke-IdleStepMailboxReport' {
         $step = $script:StepTemplate
         $step.With.Remove('AuthSessionName')
         
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxReport'
+        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
         $result = & $handler -Context $script:Context -Step $step
         
         $result.Status | Should -Be 'Completed'
@@ -95,7 +95,7 @@ Describe 'Invoke-IdleStepMailboxReport' {
     It 'throws when provider is missing' {
         $script:Context.Providers.Clear()
         
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxReport'
+        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
         { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
     }
     
@@ -103,7 +103,7 @@ Describe 'Invoke-IdleStepMailboxReport' {
         $step = $script:StepTemplate
         $step.With.Remove('IdentityKey')
         
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxReport'
+        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
         { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
     }
 }
