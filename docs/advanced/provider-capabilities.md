@@ -48,12 +48,18 @@ Workflow Definition (PSD1)
         v
 Plan Builder (New-IdlePlan / New-IdlePlanObject)
         |
-        |-- normalizes steps (Name/Type/With/Condition/RequiresCapabilities)
+        |-- loads step metadata catalog:
+        |      - discovers loaded IdLE.Steps.* modules
+        |      - merges their Get-IdleStepMetadataCatalog outputs
+        |      - applies host supplements (Providers.StepMetadata)
         |
-        |-- NEW: capability validation (fail fast)
-        |      - collect required capabilities from steps
-        |      - discover available capabilities from providers
-        |      - compare and throw on missing capabilities
+        |-- normalizes steps (Name/Type/With/Condition)
+        |      - derives RequiresCapabilities from metadata catalog
+        |
+        |-- capability validation (fail fast)
+        |      - collects required capabilities from all steps
+        |      - discovers available capabilities from providers
+        |      - compares and throws on missing capabilities
         |
         v
 Plan artifact (IdLE.Plan) is created
@@ -98,36 +104,93 @@ IdLE includes a reusable Pester contract to enforce this.
 
 ## Step requirements
 
-Steps can declare required capabilities in workflow definitions using the optional key:
+Steps declare required capabilities via **step metadata catalogs** owned by step packs.
 
-- `RequiresCapabilities`
+### Step pack ownership
 
-Supported shapes:
+Step packs (`IdLE.Steps.*` modules) own metadata for their step types via the `Get-IdleStepMetadataCatalog` function.
 
-- missing / `$null` -> no requirements
-- string -> single capability
-- string array -> multiple capabilities
+Each step pack exports a case-insensitive hashtable mapping:
+- **Key**: `StepType` (string, e.g., `IdLE.Step.DisableIdentity`)
+- **Value**: metadata hashtable containing at least:
+  - `RequiredCapabilities`: string or string[] (normalized to string[] by Core)
 
-Example:
+Example from `IdLE.Steps.Common`:
 
 ```powershell
-@{
-  Name                 = 'Disable identity'
-  Type                 = 'DisableIdentity'
-  RequiresCapabilities = @('IdLE.Identity.Read', 'IdLE.Identity.Disable')
+function Get-IdleStepMetadataCatalog {
+    $catalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    $catalog['IdLE.Step.DisableIdentity'] = @{
+        RequiredCapabilities = @('IdLE.Identity.Disable')
+    }
+
+    $catalog['IdLE.Step.EnsureAttribute'] = @{
+        RequiredCapabilities = @('IdLE.Identity.Attribute.Ensure')
+    }
+
+    return $catalog
 }
 ```
 
-During planning, IdLE normalizes this into a stable, sorted, unique string array on each plan step.
+### Discovery and merge
+
+During plan building, `IdLE.Core`:
+
+1. Discovers all loaded modules matching `IdLE.Steps.*` that export `Get-IdleStepMetadataCatalog`
+2. Calls each function and merges the returned catalogs deterministically (by module name ascending)
+3. Fails fast with `DuplicateStepTypeMetadata` if the same step type appears in multiple step packs
+
+### Host supplements (custom step types only)
+
+Hosts may provide metadata for **new, host-defined** step types via `Providers.StepMetadata`:
+
+```powershell
+$providers = @{
+    StepMetadata = @{
+        'Custom.Step.SpecialAction' = @{
+            RequiredCapabilities = @('Custom.Capability.SpecialAction')
+        }
+    }
+}
+```
+
+**Important**: Host metadata is **supplement-only**. Hosts cannot override step pack metadata. Attempting to provide metadata for a step type already owned by a loaded step pack will result in `DuplicateStepTypeMetadata`.
+
+### Breaking change (pre-1.0)
+
+Workflow definitions must **not** declare `RequiredCapabilities` or `RequiresCapabilities` on individual steps.
+
+Capabilities are derived from step metadata catalogs during plan building.
+
+**Before** (deprecated):
+```powershell
+@{
+  Name                 = 'Disable identity'
+  Type                 = 'IdLE.Step.DisableIdentity'
+  RequiresCapabilities = @('IdLE.Identity.Disable')  # DEPRECATED
+}
+```
+
+**After** (correct):
+```powershell
+@{
+  Name = 'Disable identity'
+  Type = 'IdLE.Step.DisableIdentity'
+  # Capabilities are derived from IdLE.Steps.Common metadata catalog
+}
+```
 
 ## Capability validation
 
 Capability validation is performed during plan build:
 
-1. Collect required capabilities from all steps (`RequiresCapabilities`)
-2. Discover available capabilities from all provider instances passed via `-Providers`
-3. Compare required vs. available
-4. Throw a deterministic error if any required capabilities are missing
+1. Load step metadata catalog (from step packs and host supplements)
+2. Normalize steps and derive `RequiresCapabilities` from metadata
+3. Collect required capabilities from all steps (including `OnFailureSteps`)
+4. Discover available capabilities from all provider instances passed via `-Providers`
+5. Compare required vs. available
+6. Throw a deterministic error if any required capabilities are missing
 
 The thrown error message includes:
 
@@ -136,6 +199,20 @@ The thrown error message includes:
 - `AvailableCapabilities: ...`
 
 This is designed for good UX and for automated diagnostics in CI logs.
+
+### Error: MissingStepTypeMetadata
+
+If a workflow references a step type that has no metadata entry, plan building fails with `MissingStepTypeMetadata`.
+
+Remediation:
+1. Import/load the step pack module (`IdLE.Steps.*`) that owns the step type, OR
+2. For custom/host-defined step types only, provide `Providers.StepMetadata`
+
+### Error: DuplicateStepTypeMetadata
+
+If the same step type appears in multiple step packs, or if a host attempts to override step pack metadata, plan building fails with `DuplicateStepTypeMetadata`.
+
+This ensures clear ownership and prevents ambiguous behavior.
 
 ## Provider discovery from `-Providers`
 
