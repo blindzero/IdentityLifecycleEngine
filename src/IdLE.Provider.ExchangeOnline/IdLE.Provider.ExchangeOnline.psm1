@@ -1,18 +1,26 @@
 #requires -Version 7.0
 Set-StrictMode -Version Latest
 
-$script:ModuleRoot = $PSScriptRoot
+$PrivatePath = Join-Path -Path $PSScriptRoot -ChildPath 'Private'
+if (Test-Path -Path $PrivatePath) {
 
-# Dot-source Public functions
-$PublicScripts = Get-ChildItem -Path (Join-Path $script:ModuleRoot 'Public') -Filter '*.ps1' -ErrorAction SilentlyContinue
-foreach ($script in ($PublicScripts | Sort-Object Name)) {
-    . $script.FullName
+    # Materialize first to avoid enumeration issues during import.
+    $privateScripts = @(Get-ChildItem -Path $PrivatePath -Filter '*.ps1' -File | Sort-Object -Property FullName)
+
+    foreach ($script in $privateScripts) {
+        . $script.FullName
+    }
 }
 
-# Dot-source Private functions
-$PrivateScripts = Get-ChildItem -Path (Join-Path $script:ModuleRoot 'Private') -Filter '*.ps1' -ErrorAction SilentlyContinue
-foreach ($script in ($PrivateScripts | Sort-Object Name)) {
-    . $script.FullName
+$PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
+if (Test-Path -Path $PublicPath) {
+
+    # Materialize first to avoid enumeration issues during import.
+    $publicScripts = @(Get-ChildItem -Path $PublicPath -Filter '*.ps1' -File | Sort-Object -Property FullName)
+
+    foreach ($script in $publicScripts) {
+        . $script.FullName
+    }
 }
 
 # Export Public functions - explicit list for deterministic behavior

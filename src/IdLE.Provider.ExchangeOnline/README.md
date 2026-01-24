@@ -5,8 +5,8 @@ Exchange Online mailbox provider for IdLE.
 ## Quick Start
 
 ```powershell
-# Automatically imported when you import IdLE
-Import-Module IdLE
+# Import the provider
+Import-Module IdLE.Provider.ExchangeOnline
 
 # Host establishes Exchange Online session (delegated or app-only)
 Connect-ExchangeOnline -UserPrincipalName admin@contoso.com
@@ -30,7 +30,7 @@ $plan = New-IdlePlan -WorkflowPath '.\leaver.psd1' -Request $request -Providers 
 
 ## Documentation
 
-See **[Complete Provider Documentation](../../docs/reference/providers/provider-exchangeonline.md)** for:
+See the main IdLE documentation for:
 - Full usage guide and examples
 - Capabilities and mailbox steps
 - Authentication patterns (delegated + app-only)

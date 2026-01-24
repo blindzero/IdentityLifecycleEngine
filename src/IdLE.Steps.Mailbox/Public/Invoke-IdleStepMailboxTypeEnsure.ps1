@@ -85,17 +85,20 @@ function Invoke-IdleStepMailboxTypeEnsure {
         throw "Provider '$providerAlias' was not supplied by the host."
     }
 
+    # Create execution-local copy of With to avoid mutating the plan
+    $effectiveWith = if ($with -is [hashtable]) { $with.Clone() } else { @{} + $with }
+
     # Apply AuthSessionName convention: default to Provider if not specified
-    if (-not $with.ContainsKey('AuthSessionName')) {
-        $with['AuthSessionName'] = $providerAlias
+    if (-not $effectiveWith.ContainsKey('AuthSessionName')) {
+        $effectiveWith['AuthSessionName'] = $providerAlias
     }
 
     $result = Invoke-IdleProviderMethod `
         -Context $Context `
-        -With $with `
+        -With $effectiveWith `
         -ProviderAlias $providerAlias `
         -MethodName 'EnsureMailboxType' `
-        -MethodArguments @([string]$with.IdentityKey, [string]$with.MailboxType)
+        -MethodArguments @([string]$effectiveWith.IdentityKey, [string]$effectiveWith.MailboxType)
 
     $changed = $false
     if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {

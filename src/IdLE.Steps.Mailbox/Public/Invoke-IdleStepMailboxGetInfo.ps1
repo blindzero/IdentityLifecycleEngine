@@ -69,17 +69,20 @@ function Invoke-IdleStepMailboxGetInfo {
         throw "Provider '$providerAlias' was not supplied by the host."
     }
 
+    # Create execution-local copy of With to avoid mutating the plan
+    $effectiveWith = if ($with -is [hashtable]) { $with.Clone() } else { @{} + $with }
+
     # Apply AuthSessionName convention: default to Provider if not specified
-    if (-not $with.ContainsKey('AuthSessionName')) {
-        $with['AuthSessionName'] = $providerAlias
+    if (-not $effectiveWith.ContainsKey('AuthSessionName')) {
+        $effectiveWith['AuthSessionName'] = $providerAlias
     }
 
     $result = Invoke-IdleProviderMethod `
         -Context $Context `
-        -With $with `
+        -With $effectiveWith `
         -ProviderAlias $providerAlias `
         -MethodName 'GetMailbox' `
-        -MethodArguments @([string]$with.IdentityKey)
+        -MethodArguments @([string]$effectiveWith.IdentityKey)
 
     # Store mailbox data in State for downstream steps
     $state = @{

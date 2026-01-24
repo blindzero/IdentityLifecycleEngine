@@ -8,7 +8,7 @@
             Type = 'IdLE.Step.Mailbox.GetInfo'
             With = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
             }
         }
         @{
@@ -16,7 +16,7 @@
             Type = 'IdLE.Step.Mailbox.Type.Ensure'
             With = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
                 MailboxType = 'Shared'
             }
         }
@@ -25,10 +25,10 @@
             Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
             With = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
                 Config      = @{
                     Mode            = 'Enabled'
-                    InternalMessage = '{{Request.Input.DisplayName}} is no longer with the organization. For assistance, please contact {{Request.Input.ManagerEmail}}.'
+                    InternalMessage = 'This person is no longer with the organization. For assistance, please contact their manager or the main office.'
                     ExternalMessage = 'This person is no longer with the organization. Please contact the main office for assistance.'
                     ExternalAudience = 'All'
                 }
@@ -41,7 +41,7 @@
                 Provider           = 'Identity'
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
+                IdentityKey        = @{ ValueFrom = 'Request.Input.UserObjectId' }
                 Desired            = @()
             }
         }
@@ -52,7 +52,7 @@
                 Provider           = 'Identity'
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
+                IdentityKey        = @{ ValueFrom = 'Request.Input.UserObjectId' }
                 Name               = 'Manager'
                 Value              = $null
             }
@@ -64,14 +64,14 @@
                 Provider           = 'Identity'
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
+                IdentityKey        = @{ ValueFrom = 'Request.Input.UserObjectId' }
             }
         }
         @{
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'Complete offboarding finished for {{Request.Input.UserPrincipalName}}: Mailbox converted to Shared, OOF enabled, EntraID account disabled.'
+                Message = 'Complete offboarding finished: Mailbox converted to Shared, OOF enabled, EntraID account disabled.'
             }
         }
     )

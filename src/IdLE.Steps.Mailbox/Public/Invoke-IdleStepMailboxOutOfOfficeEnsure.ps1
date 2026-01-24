@@ -53,25 +53,21 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     }
 
     .EXAMPLE
-    # In workflow definition (with template substitution for dynamic values):
+    # In workflow definition (with ValueFrom for dynamic values):
     @{
         Name = 'Enable Out of Office for Leaver'
         Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
         With = @{
             Provider        = 'ExchangeOnline'
-            IdentityKey     = '{{Request.Input.UserPrincipalName}}'
+            IdentityKey     = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
             Config          = @{
                 Mode            = 'Enabled'
-                InternalMessage = '{{Request.Input.DisplayName}} is no longer with the organization. For assistance, please contact {{Request.Input.ManagerEmail}}.'
+                InternalMessage = 'This person is no longer with the organization. For assistance, please contact their manager or the main office.'
                 ExternalMessage = 'This person is no longer with the organization. Please contact the main office for assistance.'
                 ExternalAudience = 'All'
             }
         }
     }
-    # Note: Template substitution ({{...}}) happens during plan building.
-    # Request.Input parameters are provided by the host when creating the lifecycle request.
-    # Multi-line messages with line breaks are not currently supported in workflow configs
-    # due to the data-only constraint. For complex formatting, consider external templates.
 
     .EXAMPLE
     # In workflow definition (scheduled OOF):
@@ -170,17 +166,20 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
         throw "Provider '$providerAlias' was not supplied by the host."
     }
 
+    # Create execution-local copy of With to avoid mutating the plan
+    $effectiveWith = if ($with -is [hashtable]) { $with.Clone() } else { @{} + $with }
+
     # Apply AuthSessionName convention: default to Provider if not specified
-    if (-not $with.ContainsKey('AuthSessionName')) {
-        $with['AuthSessionName'] = $providerAlias
+    if (-not $effectiveWith.ContainsKey('AuthSessionName')) {
+        $effectiveWith['AuthSessionName'] = $providerAlias
     }
 
     $result = Invoke-IdleProviderMethod `
         -Context $Context `
-        -With $with `
+        -With $effectiveWith `
         -ProviderAlias $providerAlias `
         -MethodName 'EnsureOutOfOffice' `
-        -MethodArguments @([string]$with.IdentityKey, $config)
+        -MethodArguments @([string]$effectiveWith.IdentityKey, $config)
 
     $changed = $false
     if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {

@@ -88,8 +88,9 @@ Describe 'Invoke-IdleStepMailboxGetInfo' {
         $result = & $handler -Context $script:Context -Step $step
         
         $result.Status | Should -Be 'Completed'
-        # AuthSessionName should have been set to 'ExchangeOnline'
-        $step.With.AuthSessionName | Should -Be 'ExchangeOnline'
+        # Step should complete successfully using default AuthSessionName
+        # (Plan object should remain unmodified - AuthSessionName still absent)
+        $step.With.ContainsKey('AuthSessionName') | Should -Be $false
     }
     
     It 'throws when provider is missing' {
