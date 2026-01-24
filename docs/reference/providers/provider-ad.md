@@ -311,7 +311,7 @@ The following built-in steps in `IdLE.Steps.Common` work with the AD provider:
 - **IdLE.Step.EnsureAttribute** - Set/update user attributes
 - **IdLE.Step.EnsureEntitlement** - Manage group memberships
 
-All steps declare `RequiresCapabilities` for plan-time validation.
+Step metadata (including required capabilities) is provided by step pack modules (`IdLE.Steps.Common`) and used for plan-time validation.
 
 ---
 
