@@ -115,7 +115,9 @@ The demo shows:
 
 - creating a lifecycle request
 - building a deterministic plan from a workflow definition (`.psd1`)
-- executing the plan using built-in steps (and optionally a host-provided step registry for extensions)
+- executing the plan using built-in steps and a mock provider
+
+By default, the demo runs **Mock workflows** that work out-of-the-box without external systems. The examples folder also includes **Live workflows** that demonstrate real-world scenarios with Active Directory and Entra ID, but these require the corresponding infrastructure and provider modules.
 
 The execution result buffers all emitted events in `result.Events`. Hosts can optionally stream events live
 by providing `-EventSink` as an object implementing `WriteEvent(event)`.
@@ -123,7 +125,7 @@ by providing `-EventSink` as an object implementing `WriteEvent(event)`.
 Next steps:
 
 - Documentation entry point: `docs/index.md`
-- Workflow samples: `examples/workflows/`
+- Workflow samples: `examples/workflows/` (organized by category: mock, live, templates)
 - Repository demo: `examples/Invoke-IdleDemo.ps1`
 - Pester tests: `tests/`
 

@@ -11,6 +11,11 @@ param(
     [Parameter(ParameterSetName = 'Run')]
     [switch]$All,
 
+    [Parameter(ParameterSetName = 'List')]
+    [Parameter(ParameterSetName = 'Run')]
+    [ValidateSet('Mock', 'Live', 'Templates', 'All')]
+    [string]$Category = 'Mock',
+
     [Parameter(ParameterSetName = 'Run')]
     [ValidateRange(1, 50)]
     [int]$Repeat = 1,
@@ -125,21 +130,41 @@ function Get-IdleLifecycleEventFromWorkflowName {
 }
 
 function Get-DemoWorkflows {
+    param(
+        [Parameter()]
+        [ValidateSet('Mock', 'Live', 'Templates', 'All')]
+        [string]$Category = 'Mock'
+    )
+
     $workflowDir = Join-Path -Path $PSScriptRoot -ChildPath 'workflows'
 
     if (-not (Test-Path -Path $workflowDir)) {
         throw "Workflow directory not found: $workflowDir"
     }
 
-    Get-ChildItem -Path $workflowDir -Filter '*.psd1' -File |
-        Sort-Object Name |
-        ForEach-Object {
-            [pscustomobject]@{
-                Name = $_.BaseName
-                Path = $_.FullName
-                File = $_.Name
-            }
+    $categories = if ($Category -eq 'All') {
+        @('mock', 'live', 'templates')
+    } else {
+        @($Category.ToLowerInvariant())
+    }
+
+    $workflows = foreach ($cat in $categories) {
+        $catDir = Join-Path -Path $workflowDir -ChildPath $cat
+        if (Test-Path -Path $catDir) {
+            Get-ChildItem -Path $catDir -Filter '*.psd1' -File |
+                Sort-Object Name |
+                ForEach-Object {
+                    [pscustomobject]@{
+                        Name     = $_.BaseName
+                        Path     = $_.FullName
+                        File     = $_.Name
+                        Category = $cat
+                    }
+                }
         }
+    }
+
+    return $workflows
 }
 
 function Select-DemoWorkflows {
@@ -204,20 +229,23 @@ Import-Module (Join-Path $PSScriptRoot '..\src\IdLE\IdLE.psd1') -Force -ErrorAct
 Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Steps.Common\IdLE.Steps.Common.psd1') -Force -ErrorAction Stop
 Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1') -Force -ErrorAction Stop
 
-$available = @(Get-DemoWorkflows)
+$available = @(Get-DemoWorkflows -Category $Category)
 
 if ($available.Count -eq 0) {
-    throw "No workflows found in 'examples/workflows'."
+    throw "No workflows found in 'examples/workflows' for category '$Category'."
 }
 
 if ($List) {
-    Write-DemoHeader "IdLE Demo – Available Examples"
-    $available | Select-Object Name, File | Format-Table -AutoSize
+    Write-DemoHeader "IdLE Demo – Available Examples (Category: $Category)"
+    $available | Select-Object Name, Category, File | Format-Table -AutoSize
     return
 }
 
 $selected = @(Select-DemoWorkflows -AvailableWorkflows $available -ExampleNames $Example -AllWorkflows:$All)
 
+# Note: Mock workflows use New-IdleMockIdentityProvider which works out-of-the-box.
+# Live workflows require real providers and will fail if those providers are not available.
+# To run Live workflows, users should modify this script to provide the necessary providers.
 $providers = @{
     Identity = New-IdleMockIdentityProvider
 }

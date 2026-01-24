@@ -5,7 +5,7 @@ param()
 
 $repoRoot = Split-Path -Path $PSScriptRoot -Parent
 $idleManifest = Join-Path -Path $repoRoot -ChildPath 'src/IdLE/IdLE.psd1'
-$workflowGlob = Join-Path -Path $repoRoot -ChildPath 'examples/workflows/*.psd1'
+$workflowDir = Join-Path -Path $repoRoot -ChildPath 'examples/workflows'
 
 Remove-Module -Name IdLE, IdLE.Core -Force -ErrorAction SilentlyContinue
 
@@ -35,10 +35,10 @@ if ($missing) {
 
 Write-Host "IdLE public API is available." -ForegroundColor Green
 
-# Validate all example workflows strictly
-$workflowPaths = Get-ChildItem -Path $workflowGlob -File -ErrorAction Stop | Select-Object -ExpandProperty FullName
+# Validate all example workflows strictly (recursively search subdirectories)
+$workflowPaths = Get-ChildItem -Path $workflowDir -Filter '*.psd1' -File -Recurse -ErrorAction Stop | Select-Object -ExpandProperty FullName
 if (-not $workflowPaths) {
-    throw "No workflow definition files found at: $workflowGlob"
+    throw "No workflow definition files found in: $workflowDir"
 }
 
 foreach ($wf in $workflowPaths) {
