@@ -26,7 +26,7 @@ function Import-IdleTestModule {
     $stepsCommonManifestPath = Resolve-Path -Path (Join-Path (Get-RepoRootPath) 'src/IdLE.Steps.Common/IdLE.Steps.Common.psd1')
     Import-Module -Name $stepsCommonManifestPath -Force -ErrorAction Stop
 
-    $stepsDirectorySyncManifestPath = Resolve-Path -Path (Join-Path (Get-RepoRootPath) 'src/IdLE.Steps.DirectorySync.EntraConnect/IdLE.Steps.DirectorySync.EntraConnect.psd1')
+    $stepsDirectorySyncManifestPath = Resolve-Path -Path (Join-Path (Get-RepoRootPath) 'src/IdLE.Steps.DirectorySync/IdLE.Steps.DirectorySync.psd1')
     Import-Module -Name $stepsDirectorySyncManifestPath -Force -ErrorAction Stop
 
     $mockProviderManifestPath = Resolve-Path -Path (Join-Path (Get-RepoRootPath) 'src/IdLE.Provider.Mock/IdLE.Provider.Mock.psd1')

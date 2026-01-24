@@ -308,7 +308,7 @@ Authentication:
 
 **Synopsis**
 
-Triggers an Entra Connect directory sync cycle and optionally waits for completion.
+Triggers a directory sync cycle and optionally waits for completion.
 
 **Description**
 

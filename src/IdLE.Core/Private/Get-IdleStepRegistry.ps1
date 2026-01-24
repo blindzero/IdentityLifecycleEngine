@@ -163,5 +163,12 @@ function Get-IdleStepRegistry {
         }
     }
 
+    if (-not $registry.ContainsKey('IdLE.Step.TriggerDirectorySync')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepTriggerDirectorySync' -ModuleName 'IdLE.Steps.DirectorySync'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.TriggerDirectorySync'] = $handler
+        }
+    }
+
     return $registry
 }
