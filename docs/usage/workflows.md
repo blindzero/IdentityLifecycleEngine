@@ -106,6 +106,79 @@ If the condition is not met, the step is marked as `Skipped` and a skip event is
 
 ## References and inputs
 
+### Template substitution ({{...}})
+
+IdLE supports **template substitution** for embedding request values into workflow step configurations using `{{...}}` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
+
+**Syntax:**
+
+```powershell
+@{
+  Name = 'CreateUser'
+  Type = 'IdLE.Step.CreateIdentity'
+  With = @{
+    UserPrincipalName = '{{Request.Input.UserPrincipalName}}'
+    DisplayName       = '{{Request.Input.DisplayName}}'
+    Message           = 'Creating user {{Request.Input.DisplayName}} ({{Request.Input.UserPrincipalName}})'
+  }
+}
+```
+
+**Key features:**
+
+- **Concise syntax**: Use `{{Path}}` instead of verbose `@{ ValueFrom = 'Path' }` objects
+- **Multiple placeholders**: Place multiple templates in one string
+- **Nested structures**: Templates work in nested hashtables and arrays
+- **Planning-time resolution**: Templates are resolved during plan build, not execution
+- **Security boundary**: Only allowlisted request roots are accessible
+
+**Allowed roots:**
+
+For security, template resolution only allows accessing these request properties:
+
+- `Request.Input.*` (aliased to `Request.DesiredState.*` if Input does not exist)
+- `Request.DesiredState.*`
+- `Request.IdentityKeys.*`
+- `Request.Changes.*`
+- `Request.LifecycleEvent`
+- `Request.CorrelationId`
+- `Request.Actor`
+
+Attempting to access other roots (like `Plan.*`, `Providers.*`, or `Workflow.*`) will fail during planning with an actionable error.
+
+**Type handling:**
+
+Templates resolve scalar values (string, numeric, bool, datetime, guid) to strings. Non-scalar values (hashtables, arrays, objects) are rejected with an error. If you need to map complex objects, use explicit mapping steps or host-side pre-flattening.
+
+**Error handling:**
+
+Template resolution fails fast during planning if:
+
+- Path does not exist or resolves to `$null`
+- Path uses invalid characters or patterns
+- Braces are unbalanced (typo safety)
+- Root is not in the allowlist
+- Value is non-scalar
+
+These deterministic errors prevent silent substitution bugs (like empty UPNs).
+
+**Escaping:**
+
+Use `\{{` to include literal `{{` in a string:
+
+```powershell
+With = @{
+  Message = 'Literal \{{ braces here and template {{Request.Input.Name}}'
+}
+# Resolves to: 'Literal {{ braces here and template <actual name>'
+```
+
+**Request.Input alias:**
+
+Workflow authors can use `Request.Input.*` for consistency, even if the request object only provides `DesiredState`. IdLE automatically aliases `Request.Input.*` to `Request.DesiredState.*` when the `Input` property does not exist.
+
+### Legacy reference syntax (ValueFrom)
+
 Prefer explicit reference fields over implicit parsing:
 
 - `Value` for literals
@@ -113,6 +186,8 @@ Prefer explicit reference fields over implicit parsing:
 - `ValueDefault` for fallback literals
 
 This makes configurations safe and statically validatable.
+
+**Note:** Template substitution (`{{...}}`) is preferred for string fields. Use `ValueFrom` objects when you need non-string references or conditional defaults.
 
 ## Advanced Workflow Patterns
 
