@@ -78,7 +78,7 @@ function Resolve-IdleWorkflowTemplates {
 
     # PSCustomObject: recurse on properties
     $props = @($Value.PSObject.Properties | Where-Object MemberType -in @('NoteProperty', 'Property'))
-    if ($null -ne $props -and @($props).Count -gt 0) {
+    if (@($props).Count -gt 0) {
         $resolved = [ordered]@{}
         foreach ($prop in $props) {
             $resolved[$prop.Name] = Resolve-IdleWorkflowTemplates -Value $prop.Value -Request $Request -StepName $StepName

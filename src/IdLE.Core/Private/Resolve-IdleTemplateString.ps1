@@ -119,7 +119,7 @@ function Resolve-IdleTemplateString {
         if ($path.StartsWith('Request.Input.')) {
             # Check if Request has an Input property
             $hasInputProperty = $false
-            if ($Request.PSObject.Properties['Input'] -ne $null) {
+            if ($Request.PSObject.Properties['Input']) {
                 $hasInputProperty = $true
             }
             
@@ -131,7 +131,7 @@ function Resolve-IdleTemplateString {
         elseif ($path -eq 'Request.Input') {
             # Check if Request has an Input property
             $hasInputProperty = $false
-            if ($Request.PSObject.Properties['Input'] -ne $null) {
+            if ($Request.PSObject.Properties['Input']) {
                 $hasInputProperty = $true
             }
             
