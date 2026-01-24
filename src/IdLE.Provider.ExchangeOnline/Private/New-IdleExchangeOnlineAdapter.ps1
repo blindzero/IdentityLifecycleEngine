@@ -56,6 +56,7 @@ function New-IdleExchangeOnlineAdapter {
 
     # GetMailbox: Retrieve mailbox details by identity (UPN or SMTP address)
     $adapter | Add-Member -MemberType ScriptMethod -Name GetMailbox -Value {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'AccessToken', Justification = 'Reserved for future Graph API integration')]
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
@@ -99,6 +100,7 @@ function New-IdleExchangeOnlineAdapter {
 
     # SetMailboxType: Convert mailbox type (User <-> Shared)
     $adapter | Add-Member -MemberType ScriptMethod -Name SetMailboxType -Value {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'AccessToken', Justification = 'Reserved for future Graph API integration')]
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
@@ -139,6 +141,7 @@ function New-IdleExchangeOnlineAdapter {
 
     # GetMailboxAutoReplyConfiguration: Get Out of Office settings
     $adapter | Add-Member -MemberType ScriptMethod -Name GetMailboxAutoReplyConfiguration -Value {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'AccessToken', Justification = 'Reserved for future Graph API integration')]
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
@@ -185,6 +188,7 @@ function New-IdleExchangeOnlineAdapter {
 
     # SetMailboxAutoReplyConfiguration: Update Out of Office settings
     $adapter | Add-Member -MemberType ScriptMethod -Name SetMailboxAutoReplyConfiguration -Value {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'AccessToken', Justification = 'Reserved for future Graph API integration')]
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
