@@ -72,7 +72,10 @@ function Resolve-IdleTemplateString {
 
     # Check for unbalanced braces (typo safety)
     $openCount = ([regex]::Matches($stringValue, '(?<!\\)\{\{')).Count
-    $closeCount = ([regex]::Matches($stringValue, '\}\}')).Count
+    $rawCloseCount = ([regex]::Matches($stringValue, '\}\}')).Count
+    # Ignore closing braces that are part of an escaped literal sequence like '\{{foo}}'
+    $escapedCloseCount = ([regex]::Matches($stringValue, '\\\{\{[^}]*\}\}')).Count
+    $closeCount = $rawCloseCount - $escapedCloseCount
     if ($openCount -ne $closeCount) {
         throw [System.ArgumentException]::new(
             ("Template syntax error in step '{0}': Unbalanced braces in value '{1}'. Found {2} opening '{{{{' and {3} closing '}}}}'. Check for typos or missing braces." -f $StepName, $stringValue, $openCount, $closeCount),
