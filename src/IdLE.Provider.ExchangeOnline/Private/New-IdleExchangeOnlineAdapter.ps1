@@ -71,6 +71,9 @@ function New-IdleExchangeOnlineAdapter {
             [string] $AccessToken
         )
 
+        # AccessToken is reserved for future Graph API integration
+        $null = $AccessToken
+
         try {
             $params = @{
                 Identity    = $MailboxIdentity
@@ -119,6 +122,9 @@ function New-IdleExchangeOnlineAdapter {
             [string] $AccessToken
         )
 
+        # AccessToken is reserved for future Graph API integration
+        $null = $AccessToken
+
         $params = @{
             Identity    = $MailboxIdentity
             ErrorAction = 'Stop'
@@ -155,6 +161,9 @@ function New-IdleExchangeOnlineAdapter {
             [AllowNull()]
             [string] $AccessToken
         )
+
+        # AccessToken is reserved for future Graph API integration
+        $null = $AccessToken
 
         try {
             $params = @{
@@ -206,6 +215,9 @@ function New-IdleExchangeOnlineAdapter {
             [AllowNull()]
             [string] $AccessToken
         )
+
+        # AccessToken is reserved for future Graph API integration
+        $null = $AccessToken
 
         $params = @{
             Identity    = $MailboxIdentity

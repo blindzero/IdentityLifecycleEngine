@@ -297,7 +297,8 @@ function New-IdleADIdentityProvider {
             [object] $AuthSession
         )
 
-        $adapter = $this.GetEffectiveAdapter($AuthSession)
+        # Validate adapter is available
+        $this.GetEffectiveAdapter($AuthSession) | Out-Null
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 

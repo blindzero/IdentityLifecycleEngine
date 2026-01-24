@@ -503,7 +503,7 @@ function New-IdleEntraIDIdentityProvider {
             $payload['accountEnabled'] = [bool]$Attributes['Enabled']
         }
 
-        $user = $this.Adapter.CreateUser($payload, $accessToken)
+        $this.Adapter.CreateUser($payload, $accessToken) | Out-Null
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
