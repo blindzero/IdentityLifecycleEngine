@@ -102,6 +102,36 @@ function Resolve-IdleStepMetadataCatalog {
         )
     }
 
+    # Helper: Validate metadata contains no ScriptBlocks (wrapper around Assert-IdleNoScriptBlock).
+    function Assert-IdleStepMetadataNoScriptBlock {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [object] $Value,
+
+            [Parameter(Mandatory)]
+            [string] $Path,
+
+            [Parameter(Mandatory)]
+            [string] $StepType,
+
+            [Parameter(Mandatory)]
+            [string] $SourceName
+        )
+
+        try {
+            Assert-IdleNoScriptBlock -InputObject $Value -Path $Path
+        }
+        catch {
+            # Rethrow with metadata-specific error message
+            throw [System.ArgumentException]::new(
+                "$SourceName entry for step type '$StepType' contains a ScriptBlock at '$Path'. ScriptBlocks are not allowed (data-only boundary).",
+                'Providers'
+            )
+        }
+    }
+
     # Helper: Get host-provided StepMetadata if available.
     function Get-IdleHostStepMetadata {
         [CmdletBinding()]
@@ -180,46 +210,11 @@ function Resolve-IdleStepMetadataCatalog {
             }
 
             # Validate metadata shape (data-only, no ScriptBlocks).
-            function Test-IdleMetadataForScriptBlocks {
-                param(
-                    [Parameter(Mandatory)]
-                    [AllowNull()]
-                    [object] $Value,
-                    
-                    [Parameter(Mandatory)]
-                    [string] $Path
-                )
-                
-                if ($null -eq $Value) {
-                    return
-                }
-                
-                if ($Value -is [scriptblock]) {
-                    throw [System.ArgumentException]::new(
-                        "$SourceModuleName entry for step type '$key' contains a ScriptBlock at '$Path'. ScriptBlocks are not allowed (data-only boundary).",
-                        'Providers'
-                    )
-                }
-                
-                if ($Value -is [hashtable] -or $Value -is [System.Collections.IDictionary]) {
-                    foreach ($k in $Value.Keys) {
-                        Test-IdleMetadataForScriptBlocks -Value $Value[$k] -Path "$Path.$k"
-                    }
-                }
-                elseif ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
-                    $index = 0
-                    foreach ($item in $Value) {
-                        Test-IdleMetadataForScriptBlocks -Value $item -Path "$Path[$index]"
-                        $index++
-                    }
-                }
-            }
-            
             foreach ($metaKey in $value.Keys) {
                 $metaValue = $value[$metaKey]
 
                 # Recursively validate no ScriptBlocks anywhere in metadata
-                Test-IdleMetadataForScriptBlocks -Value $metaValue -Path $metaKey
+                Assert-IdleStepMetadataNoScriptBlock -Value $metaValue -Path $metaKey -StepType $key -SourceName $SourceModuleName
 
                 if ($metaKey -eq 'RequiredCapabilities') {
                     Test-IdleRequiredCapabilities -Value $metaValue -StepType $key -SourceName $SourceModuleName
@@ -285,46 +280,11 @@ function Resolve-IdleStepMetadataCatalog {
             }
 
             # Validate metadata shape (data-only, no ScriptBlocks).
-            function Test-IdleMetadataForScriptBlocks {
-                param(
-                    [Parameter(Mandatory)]
-                    [AllowNull()]
-                    [object] $Value,
-                    
-                    [Parameter(Mandatory)]
-                    [string] $Path
-                )
-                
-                if ($null -eq $Value) {
-                    return
-                }
-                
-                if ($Value -is [scriptblock]) {
-                    throw [System.ArgumentException]::new(
-                        "Providers.StepMetadata entry for step type '$key' contains a ScriptBlock at '$Path'. ScriptBlocks are not allowed (data-only boundary).",
-                        'Providers'
-                    )
-                }
-                
-                if ($Value -is [hashtable] -or $Value -is [System.Collections.IDictionary]) {
-                    foreach ($k in $Value.Keys) {
-                        Test-IdleMetadataForScriptBlocks -Value $Value[$k] -Path "$Path.$k"
-                    }
-                }
-                elseif ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
-                    $index = 0
-                    foreach ($item in $Value) {
-                        Test-IdleMetadataForScriptBlocks -Value $item -Path "$Path[$index]"
-                        $index++
-                    }
-                }
-            }
-            
             foreach ($metaKey in $value.Keys) {
                 $metaValue = $value[$metaKey]
 
                 # Recursively validate no ScriptBlocks anywhere in metadata
-                Test-IdleMetadataForScriptBlocks -Value $metaValue -Path $metaKey
+                Assert-IdleStepMetadataNoScriptBlock -Value $metaValue -Path $metaKey -StepType $key -SourceName 'Providers.StepMetadata'
 
                 if ($metaKey -eq 'RequiredCapabilities') {
                     Test-IdleRequiredCapabilities -Value $metaValue -StepType $key -SourceName 'Providers.StepMetadata'
