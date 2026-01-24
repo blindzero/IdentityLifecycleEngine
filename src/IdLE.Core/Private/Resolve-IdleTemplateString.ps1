@@ -71,14 +71,19 @@ function Resolve-IdleTemplateString {
     }
 
     # Check for unbalanced braces (typo safety)
+    # Count non-escaped opening braces
     $openCount = ([regex]::Matches($stringValue, '(?<!\\)\{\{')).Count
-    $rawCloseCount = ([regex]::Matches($stringValue, '\}\}')).Count
-    # Ignore closing braces that are part of an escaped literal sequence like '\{{foo}}'
-    $escapedCloseCount = ([regex]::Matches($stringValue, '\\\{\{[^}]*\}\}')).Count
-    $closeCount = $rawCloseCount - $escapedCloseCount
-    if ($openCount -ne $closeCount) {
+    # For closing braces, only count those that belong to templates (have a corresponding non-escaped opening)
+    # We can do this by counting matches of the full template pattern
+    $templatePattern = '(?<!\\)\{\{([^}]+)\}\}'
+    $templateCount = ([regex]::Matches($stringValue, $templatePattern)).Count
+    # Any }} that's part of a template is matched. Any other }} is unbalanced.
+    $allCloseCount = ([regex]::Matches($stringValue, '\}\}')).Count
+    
+    # The expected close count should equal template count (each template has one closing)
+    if ($openCount -ne $templateCount -or $allCloseCount -ne $templateCount) {
         throw [System.ArgumentException]::new(
-            ("Template syntax error in step '{0}': Unbalanced braces in value '{1}'. Found {2} opening '{{{{' and {3} closing '}}}}'. Check for typos or missing braces." -f $StepName, $stringValue, $openCount, $closeCount),
+            ("Template syntax error in step '{0}': Unbalanced braces in value '{1}'. Found {2} opening '{{{{' and {3} closing '}}}}'. Check for typos or missing braces." -f $StepName, $stringValue, $openCount, $allCloseCount),
             'Workflow'
         )
     }
@@ -119,25 +124,18 @@ function Resolve-IdleTemplateString {
 
         # Handle Request.Input.* alias to Request.DesiredState.*
         $resolvePath = $path
+        $hasInputProperty = $false
+        if ($Request.PSObject.Properties['Input']) {
+            $hasInputProperty = $true
+        }
+        
         if ($path.StartsWith('Request.Input.')) {
-            # Check if Request has an Input property
-            $hasInputProperty = $false
-            if ($Request.PSObject.Properties['Input']) {
-                $hasInputProperty = $true
-            }
-            
             if (-not $hasInputProperty) {
                 # Alias to DesiredState
                 $resolvePath = $path -replace '^Request\.Input\.', 'Request.DesiredState.'
             }
         }
         elseif ($path -eq 'Request.Input') {
-            # Check if Request has an Input property
-            $hasInputProperty = $false
-            if ($Request.PSObject.Properties['Input']) {
-                $hasInputProperty = $true
-            }
-            
             if (-not $hasInputProperty) {
                 $resolvePath = 'Request.DesiredState'
             }
@@ -185,7 +183,7 @@ function Resolve-IdleTemplateString {
         # Type validation: only scalar-ish types allowed
         if ($resolvedValue -is [hashtable] -or
             $resolvedValue -is [System.Collections.IDictionary] -or
-            ($resolvedValue -is [array] -and @($resolvedValue).Count -gt 0) -or
+            $resolvedValue -is [array] -or
             ($resolvedValue -is [System.Collections.IEnumerable] -and $resolvedValue -isnot [string])) {
             throw [System.ArgumentException]::new(
                 ("Template type error in step '{0}': Path '{1}' resolved to a non-scalar value (hashtable/array/object). Templates only support scalar values (string, number, bool, datetime, guid). Use an explicit mapping step or host-side pre-flattening." -f $StepName, $path),

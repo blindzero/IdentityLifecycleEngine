@@ -30,22 +30,7 @@ Describe 'Template Substitution' {
         }
 
         It 'resolves Request.DesiredState placeholder directly' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-desiredstate.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - DesiredState'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Department = '{{Request.DesiredState.Department}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-desiredstate'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
                 Department = 'Engineering'
@@ -65,22 +50,7 @@ Describe 'Template Substitution' {
 
     Context 'Multiple placeholders in one string' {
         It 'resolves multiple placeholders in a single string' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-multiple.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Multiple'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Message = 'User {{Request.Input.DisplayName}} ({{Request.Input.UserPrincipalName}}) is joining.'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-multiple'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
                 DisplayName       = 'John Doe'
@@ -101,25 +71,7 @@ Describe 'Template Substitution' {
 
     Context 'Nested hashtable and array substitution' {
         It 'resolves templates in nested hashtables' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-nested-hash.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Nested Hash'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        User = @{
-          Name  = '{{Request.Input.DisplayName}}'
-          Email = '{{Request.Input.Mail}}'
-        }
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-nested-hash'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
                 DisplayName = 'Jane Smith'
@@ -139,25 +91,7 @@ Describe 'Template Substitution' {
         }
 
         It 'resolves templates in arrays' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-array.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Array'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Emails = @(
-          '{{Request.Input.PrimaryEmail}}'
-          '{{Request.Input.SecondaryEmail}}'
-        )
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-array'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
                 PrimaryEmail   = 'primary@example.com'
@@ -179,22 +113,7 @@ Describe 'Template Substitution' {
 
     Context 'Invalid syntax handling' {
         It 'throws on unbalanced opening brace' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-unbalanced-open.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Unbalanced Open'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.Name'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-unbalanced-open'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
             $providers = @{
@@ -207,22 +126,7 @@ Describe 'Template Substitution' {
         }
 
         It 'throws on unbalanced closing brace' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-unbalanced-close.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Unbalanced Close'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = 'Request.Input.Name}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-unbalanced-close'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
             $providers = @{
@@ -237,22 +141,7 @@ Describe 'Template Substitution' {
 
     Context 'Invalid path patterns' {
         It 'throws on path with spaces' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-path-spaces.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Path Spaces'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.User Name}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-path-spaces'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ UserName = 'Test' }
             $providers = @{
@@ -265,22 +154,7 @@ Describe 'Template Substitution' {
         }
 
         It 'throws on path with special characters' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-path-special.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Path Special'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.User@Name}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-path-special'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ UserName = 'Test' }
             $providers = @{
@@ -295,22 +169,7 @@ Describe 'Template Substitution' {
 
     Context 'Missing path segments' {
         It 'throws when path does not exist' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-missing-path.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Missing Path'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.NonExistent}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-missing-path'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
             $providers = @{
@@ -325,22 +184,7 @@ Describe 'Template Substitution' {
 
     Context 'Null resolved values' {
         It 'throws when resolved value is null' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-null-value.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Null Value'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.NullField}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-null-value'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ NullField = $null }
             $providers = @{
@@ -355,22 +199,7 @@ Describe 'Template Substitution' {
 
     Context 'Disallowed root access' {
         It 'throws when accessing Plan root' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-plan-root.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Plan Root'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Plan.WorkflowName}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-plan-root'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
             $providers = @{
@@ -383,22 +212,7 @@ Describe 'Template Substitution' {
         }
 
         It 'throws when accessing Providers root' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-providers-root.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Providers Root'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Providers.AuthSessionBroker}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-providers-root'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
             $providers = @{
@@ -411,22 +225,7 @@ Describe 'Template Substitution' {
         }
 
         It 'throws when accessing Workflow root' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-workflow-root.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Workflow Root'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Workflow.Name}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-workflow-root'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
             $providers = @{
@@ -441,22 +240,7 @@ Describe 'Template Substitution' {
 
     Context 'Request.Input alias behavior' {
         It 'uses Request.Input when Input property exists' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-input-exists.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Input Exists'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.Name}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-input-exists'
 
             # Create a request with explicit Input property
             $req = [pscustomobject]@{
@@ -478,22 +262,7 @@ Describe 'Template Substitution' {
         }
 
         It 'aliases Request.Input to Request.DesiredState when Input does not exist' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-input-alias.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Input Alias'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.Name}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-input-alias'
 
             # Use standard request without explicit Input property
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
@@ -513,22 +282,7 @@ Describe 'Template Substitution' {
 
     Context 'Escaping' {
         It 'handles escaped opening braces' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-escaped.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Escaped'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = 'Literal \{{ braces here'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-escaped'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
             $providers = @{
@@ -542,22 +296,7 @@ Describe 'Template Substitution' {
         }
 
         It 'handles escaped braces mixed with templates' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-escaped-mixed.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Escaped Mixed'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = 'Literal \{{ and template {{Request.Input.Name}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-escaped-mixed'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'TestName' }
             $providers = @{
@@ -573,31 +312,7 @@ Describe 'Template Substitution' {
 
     Context 'OnFailureSteps template resolution' {
         It 'resolves templates in OnFailureSteps' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-onfailure.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - OnFailureSteps'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'MainStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.Name}}'
-      }
-    }
-  )
-  OnFailureSteps = @(
-    @{
-      Name = 'FailureHandler'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        ErrorMessage = 'Failed for user {{Request.Input.UserPrincipalName}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-onfailure'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
                 Name              = 'John Doe'
@@ -619,22 +334,7 @@ Describe 'Template Substitution' {
 
     Context 'Allowed roots' {
         It 'allows Request.LifecycleEvent' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-lifecycle-event.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - LifecycleEvent'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Event = '{{Request.LifecycleEvent}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-lifecycle-event'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
             $providers = @{
@@ -648,22 +348,7 @@ Describe 'Template Substitution' {
         }
 
         It 'allows Request.CorrelationId' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-correlation-id.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - CorrelationId'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Id = '{{Request.CorrelationId}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-correlation-id'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
             $providers = @{
@@ -677,22 +362,7 @@ Describe 'Template Substitution' {
         }
 
         It 'allows Request.Actor' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-actor.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Actor'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        ActorName = '{{Request.Actor}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-actor'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' } -Actor 'admin@example.com'
             $providers = @{
@@ -708,22 +378,7 @@ Describe 'Template Substitution' {
 
     Context 'Type handling' {
         It 'resolves numeric types to strings' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-numeric.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Numeric'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = 'ID: {{Request.Input.UserId}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-numeric'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ UserId = 12345 }
             $providers = @{
@@ -737,22 +392,7 @@ Describe 'Template Substitution' {
         }
 
         It 'resolves boolean types to strings' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-boolean.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Boolean'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = 'Enabled: {{Request.Input.IsEnabled}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-boolean'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ IsEnabled = $true }
             $providers = @{
@@ -766,22 +406,7 @@ Describe 'Template Substitution' {
         }
 
         It 'throws when resolving to a hashtable' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-hashtable.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Hashtable'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.UserData}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-hashtable'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
                 UserData = @{ Name = 'John'; Age = 30 }
@@ -796,22 +421,7 @@ Describe 'Template Substitution' {
         }
 
         It 'throws when resolving to an array' {
-            $wfPath = Join-Path -Path $TestDrive -ChildPath 'template-array-value.psd1'
-            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Template Test - Array Value'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
-      With = @{
-        Value = '{{Request.Input.Tags}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Get-TemplateTestFixture 'template-array-value'
 
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
                 Tags = @('tag1', 'tag2')
