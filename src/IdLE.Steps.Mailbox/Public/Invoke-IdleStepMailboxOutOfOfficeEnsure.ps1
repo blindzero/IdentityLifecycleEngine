@@ -53,6 +53,27 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     }
 
     .EXAMPLE
+    # In workflow definition (with template substitution for dynamic values):
+    @{
+        Name = 'Enable Out of Office for Leaver'
+        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        With = @{
+            Provider        = 'ExchangeOnline'
+            IdentityKey     = '{{Request.Input.UserPrincipalName}}'
+            Config          = @{
+                Mode            = 'Enabled'
+                InternalMessage = '{{Request.Input.DisplayName}} is no longer with the organization. For assistance, please contact {{Request.Input.ManagerEmail}}.'
+                ExternalMessage = 'This person is no longer with the organization. Please contact the main office for assistance.'
+                ExternalAudience = 'All'
+            }
+        }
+    }
+    # Note: Template substitution ({{...}}) happens during plan building.
+    # Request.Input parameters are provided by the host when creating the lifecycle request.
+    # Multi-line messages with line breaks are not currently supported in workflow configs
+    # due to the data-only constraint. For complex formatting, consider external templates.
+
+    .EXAMPLE
     # In workflow definition (scheduled OOF):
     @{
         Name = 'Schedule Out of Office'
