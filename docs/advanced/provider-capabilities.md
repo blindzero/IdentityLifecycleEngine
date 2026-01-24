@@ -157,20 +157,6 @@ $providers = @{
 
 **Important**: Host metadata is **supplement-only**. Hosts cannot override step pack metadata. Attempting to provide metadata for a step type already owned by a loaded step pack will result in `DuplicateStepTypeMetadata`.
 
-Workflow definitions must **not** declare `RequiredCapabilities` or `RequiresCapabilities` on individual steps. Capabilities are derived from step metadata catalogs during plan building.
-
-Example workflow step:
-```powershell
-@{
-  Name = 'Disable identity'
-  Type = 'IdLE.Step.DisableIdentity'
-  With = @{
-    IdentityKey = '{{ Request.Username }}'
-    Provider    = 'Identity'
-  }
-}
-```
-
 ## Capability validation
 
 Capability validation is performed during plan build:
