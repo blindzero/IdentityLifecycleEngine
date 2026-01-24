@@ -15,7 +15,6 @@ Describe 'Import-IdLE helper script' {
         # The script should find workflows in examples/workflows/mock, live, and templates subdirectories
         # This test validates that the script can discover workflows after the directory restructuring
         
-        $repoRoot = Get-RepoRootPath
         $workflowDir = Join-Path -Path $repoRoot -ChildPath 'examples/workflows'
         
         # Verify workflows exist in subdirectories
