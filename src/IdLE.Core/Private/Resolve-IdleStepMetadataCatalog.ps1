@@ -229,10 +229,9 @@ function Resolve-IdleStepMetadataCatalog {
             # Check for duplicates across step packs
             if ($StepTypeOwners.ContainsKey([string]$key)) {
                 $existingOwner = $StepTypeOwners[[string]$key]
-                throw [System.InvalidOperationException]::new(
-                    ("DuplicateStepTypeMetadata: Step type '{0}' is defined in both '{1}' and '{2}'. " +
-                     "Step packs must own unique step types." -f $key, $existingOwner, $SourceModuleName)
-                )
+                $errorMessage = "DuplicateStepTypeMetadata: Step type '$key' is defined in both '$existingOwner' and '$SourceModuleName'. " +
+                                "Step packs must own unique step types."
+                throw [System.InvalidOperationException]::new($errorMessage)
             }
 
             # Register ownership and add to catalog
@@ -271,10 +270,9 @@ function Resolve-IdleStepMetadataCatalog {
             # Check if this step type already exists in step pack catalog (no override allowed)
             if ($catalog.ContainsKey([string]$key)) {
                 $existingOwner = $stepTypeOwners[[string]$key]
-                throw [System.InvalidOperationException]::new(
-                    ("DuplicateStepTypeMetadata: Step type '{0}' is already defined in step pack '{1}'. " +
-                     "Host metadata (Providers.StepMetadata) can only supplement with new step types, not override existing ones." -f $key, $existingOwner)
-                )
+                $errorMessage = "DuplicateStepTypeMetadata: Step type '$key' is already defined in step pack '$existingOwner'. " +
+                                "Host metadata (Providers.StepMetadata) can only supplement with new step types, not override existing ones."
+                throw [System.InvalidOperationException]::new($errorMessage)
             }
 
             $value = $hostMetadata[$key]
