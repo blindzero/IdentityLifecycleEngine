@@ -114,6 +114,12 @@ Prefer explicit reference fields over implicit parsing:
 
 This makes configurations safe and statically validatable.
 
+## Advanced Workflow Patterns
+
+(Content for advanced patterns will be added in future updates)
+
+This approach keeps workflows data-only while allowing rich message formatting in the host code.
+
 ## Related
 
 - [Steps](steps.md)
