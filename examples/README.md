@@ -69,11 +69,14 @@ By default, the demo runs **Mock** workflows only (deterministic, no external de
 # Run specific Mock workflow by name
 .\examples\Invoke-IdleDemo.ps1 -Example joiner-minimal
 
-# Run all Mock workflows
+# Run all Mock workflows (default category)
 .\examples\Invoke-IdleDemo.ps1 -All
+
+# Run all workflows in a specific category
+.\examples\Invoke-IdleDemo.ps1 -All -Category Live
 ```
 
-**Note:** Only Mock workflows can be executed via the demo script. Live workflows require real providers and infrastructure, and cannot be run through this demo. Use `-List -Category Live` to view Live workflows for reference.
+**Note:** The demo script defaults to Mock workflows which work out-of-the-box. Live workflows can be executed via the demo script, but will fail if the required providers and infrastructure are not available. To run Live workflows, you must modify the demo script to provide the necessary real providers (see lines 246-248 in `Invoke-IdleDemo.ps1`).
 
 ### Interactive selection
 

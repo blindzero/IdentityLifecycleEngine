@@ -243,13 +243,9 @@ if ($List) {
 
 $selected = @(Select-DemoWorkflows -AvailableWorkflows $available -ExampleNames $Example -AllWorkflows:$All)
 
-# Validate that execution is only attempted with Mock workflows
-# Live and Templates workflows are for reference/validation only and require real providers
-if ($selected | Where-Object { $_.Category -ne 'mock' }) {
-    $nonMockWorkflows = $selected | Where-Object { $_.Category -ne 'mock' } | Select-Object -ExpandProperty Name
-    throw "Cannot execute non-Mock workflows: $($nonMockWorkflows -join ', '). Live and Templates workflows require real providers and infrastructure. Use '-Category Mock' (default) or '-List -Category Live' to view Live workflows without executing them."
-}
-
+# Note: Mock workflows use New-IdleMockIdentityProvider which works out-of-the-box.
+# Live workflows require real providers and will fail if those providers are not available.
+# To run Live workflows, users should modify this script to provide the necessary providers.
 $providers = @{
     Identity = New-IdleMockIdentityProvider
 }
