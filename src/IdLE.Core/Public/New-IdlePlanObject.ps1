@@ -521,6 +521,9 @@ function New-IdlePlanObject {
                 @{}
             }
 
+            # Resolve template placeholders in With (planning-time resolution)
+            $with = Resolve-IdleWorkflowTemplates -Value $with -Request $PlanningContext.Request -StepName $stepName
+
             $normalizedSteps += [pscustomobject]@{
                 PSTypeName           = 'IdLE.PlanStep'
                 Name                 = $stepName
