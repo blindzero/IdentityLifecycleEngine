@@ -1,14 +1,15 @@
 #requires -Version 7.0
 Set-StrictMode -Version Latest
 
-$PrivatePath = Join-Path -Path $PSScriptRoot -ChildPath 'Private'
-if (Test-Path -Path $PrivatePath) {
-
-    # Materialize first to avoid enumeration issues during import.
-    $privateScripts = @(Get-ChildItem -Path $PrivatePath -Filter '*.ps1' -File | Sort-Object -Property FullName)
-
-    foreach ($script in $privateScripts) {
-        . $script.FullName
+# Import private helper functions from IdLE.Steps.Common
+$commonModule = Get-Module -Name 'IdLE.Steps.Common'
+if ($null -ne $commonModule) {
+    $commonPrivatePath = Join-Path -Path $commonModule.ModuleBase -ChildPath 'Private'
+    if (Test-Path -Path $commonPrivatePath) {
+        $privateScripts = @(Get-ChildItem -Path $commonPrivatePath -Filter '*.ps1' -File | Sort-Object -Property FullName)
+        foreach ($script in $privateScripts) {
+            . $script.FullName
+        }
     }
 }
 
