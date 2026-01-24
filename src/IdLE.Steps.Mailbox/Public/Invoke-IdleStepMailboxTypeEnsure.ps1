@@ -6,7 +6,7 @@ function Invoke-IdleStepMailboxTypeEnsure {
     .DESCRIPTION
     This is a provider-agnostic step. The host must supply a provider instance via
     Context.Providers[<ProviderAlias>]. The provider must implement an EnsureMailboxType
-    method with the signature (IdentityKey, DesiredType, AuthSession) and return an object
+    method with the signature (IdentityKey, MailboxType, AuthSession) and return an object
     that contains a boolean property 'Changed'.
 
     The step is idempotent by design: it converges state to the desired type.
@@ -39,9 +39,9 @@ function Invoke-IdleStepMailboxTypeEnsure {
         Name = 'Convert to shared mailbox'
         Type = 'IdLE.Step.Mailbox.Type.Ensure'
         With = @{
-            Provider      = 'ExchangeOnline'
-            IdentityKey   = 'user@contoso.com'
-            DesiredType   = 'Shared'
+            Provider    = 'ExchangeOnline'
+            IdentityKey = 'user@contoso.com'
+            MailboxType = 'Shared'
         }
     }
     #>
@@ -61,16 +61,16 @@ function Invoke-IdleStepMailboxTypeEnsure {
         throw "Mailbox.Type.Ensure requires 'With' to be a hashtable."
     }
 
-    foreach ($key in @('IdentityKey', 'DesiredType')) {
+    foreach ($key in @('IdentityKey', 'MailboxType')) {
         if (-not $with.ContainsKey($key)) {
             throw "Mailbox.Type.Ensure requires With.$key."
         }
     }
 
-    # Validate DesiredType
+    # Validate MailboxType
     $validTypes = @('User', 'Shared', 'Room', 'Equipment')
-    if ($with.DesiredType -notin $validTypes) {
-        throw "Mailbox.Type.Ensure requires With.DesiredType to be one of: $($validTypes -join ', '). Got: $($with.DesiredType)"
+    if ($with.MailboxType -notin $validTypes) {
+        throw "Mailbox.Type.Ensure requires With.MailboxType to be one of: $($validTypes -join ', '). Got: $($with.MailboxType)"
     }
 
     $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'ExchangeOnline' }
@@ -95,7 +95,7 @@ function Invoke-IdleStepMailboxTypeEnsure {
         -With $with `
         -ProviderAlias $providerAlias `
         -MethodName 'EnsureMailboxType' `
-        -MethodArguments @([string]$with.IdentityKey, [string]$with.DesiredType)
+        -MethodArguments @([string]$with.IdentityKey, [string]$with.MailboxType)
 
     $changed = $false
     if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {

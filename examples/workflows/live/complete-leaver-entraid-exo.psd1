@@ -17,7 +17,7 @@
             With = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = '{{Request.Input.UserPrincipalName}}'
-                DesiredType = 'Shared'
+                MailboxType = 'Shared'
             }
         }
         @{

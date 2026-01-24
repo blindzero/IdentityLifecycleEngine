@@ -22,7 +22,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
         }
         
         $script:Provider | Add-Member -MemberType ScriptMethod -Name EnsureMailboxType -Value {
-            param($IdentityKey, $DesiredType, $AuthSession)
+            param($IdentityKey, $MailboxType, $AuthSession)
             
             if (-not $this.Store.ContainsKey($IdentityKey)) {
                 throw "Mailbox '$IdentityKey' not found."
@@ -30,10 +30,10 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
             
             $mailbox = $this.Store[$IdentityKey]
             $currentType = $mailbox['Type']
-            $changed = ($currentType -ne $DesiredType)
+            $changed = ($currentType -ne $MailboxType)
             
             if ($changed) {
-                $mailbox['Type'] = $DesiredType
+                $mailbox['Type'] = $MailboxType
             }
             
             return [pscustomobject]@{
@@ -41,7 +41,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
                 Operation   = 'EnsureMailboxType'
                 IdentityKey = $IdentityKey
                 Changed     = $changed
-                Type        = $DesiredType
+                Type        = $MailboxType
             }
         } -Force
         
@@ -70,7 +70,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
             With = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = 'user@contoso.com'
-                DesiredType = 'Shared'
+                MailboxType = 'Shared'
             }
         }
     }
@@ -97,13 +97,13 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
         $result.Changed | Should -Be $false
     }
     
-    It 'throws when DesiredType is invalid' {
+    It 'throws when MailboxType is invalid' {
         $step = $script:StepTemplate
-        $step.With.DesiredType = 'InvalidType'
+        $step.With.MailboxType = 'InvalidType'
         
         $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
         { & $handler -Context $script:Context -Step $step } |
-            Should -Throw "*DesiredType to be one of: User, Shared, Room, Equipment*"
+            Should -Throw "*MailboxType to be one of: User, Shared, Room, Equipment*"
     }
     
     It 'throws when provider is missing' {
@@ -121,12 +121,12 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
         { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
     }
     
-    It 'throws when DesiredType is missing' {
+    It 'throws when MailboxType is missing' {
         $step = $script:StepTemplate
-        $step.With.Remove('DesiredType')
+        $step.With.Remove('MailboxType')
         
         $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-        { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.DesiredType*"
+        { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.MailboxType*"
     }
     
     It 'supports all valid mailbox types' {
@@ -136,7 +136,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
             $script:Provider.Store['user@contoso.com']['Type'] = $startType
             
             $step = $script:StepTemplate
-            $step.With.DesiredType = $type
+            $step.With.MailboxType = $type
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
             $result = & $handler -Context $script:Context -Step $step
