@@ -18,9 +18,9 @@ function New-IdleExchangeOnlineAdapter {
         [switch] $UseRestApi
     )
 
-    # Regex patterns for sanitizing error messages (redact sensitive data)
-    $script:BearerTokenPattern = 'Bearer\s+[^\s]+'
-    $script:TokenAssignmentPattern = 'token[^\s]*\s*=\s*[^\s,;]+'
+    # Regex patterns for sanitizing error messages (captured by scriptblock closure)
+    $bearerTokenPattern = 'Bearer\s+[^\s]+'
+    $tokenAssignmentPattern = 'token[^\s]*\s*=\s*[^\s,;]+'
 
     $adapter = [pscustomobject]@{
         PSTypeName = 'IdLE.ExchangeOnlineAdapter'
@@ -46,8 +46,8 @@ function New-IdleExchangeOnlineAdapter {
             $errorMessage = "Exchange Online command '$CommandName' failed"
             if ($_.Exception.Message) {
                 # Sanitize error message to avoid leaking tokens/secrets
-                $sanitized = $_.Exception.Message -replace $script:BearerTokenPattern, 'Bearer <REDACTED>'
-                $sanitized = $sanitized -replace $script:TokenAssignmentPattern, 'token=<REDACTED>'
+                $sanitized = $_.Exception.Message -replace $bearerTokenPattern, 'Bearer <REDACTED>'
+                $sanitized = $sanitized -replace $tokenAssignmentPattern, 'token=<REDACTED>'
                 $errorMessage += " | $sanitized"
             }
 

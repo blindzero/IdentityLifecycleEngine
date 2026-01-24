@@ -66,7 +66,7 @@ function New-IdleExchangeOnlineProvider {
     - Exchange Administrator or Global Administrator role (delegated)
     - Required role: Mail Recipients (manage mailboxes)
 
-    See docs/reference/providers/provider-exchangeonline.md for detailed setup.
+    See the IdLE provider documentation for detailed setup.
     #>
     [CmdletBinding()]
     param(

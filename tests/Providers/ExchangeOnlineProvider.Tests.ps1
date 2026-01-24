@@ -230,7 +230,7 @@ Describe 'ExchangeOnline provider - Unit tests' {
 
         It 'supports all mailbox types' {
             foreach ($type in @('Shared', 'Room', 'Equipment', 'User')) {
-                $email = "test-$type@contoso.com".ToLower()
+                $email = "test-$type@contoso.com".ToLowerInvariant()
                 # Always start with UserMailbox, except for last iteration testing User type
                 $startType = if ($type -eq 'User') { 'SharedMailbox' } else { 'UserMailbox' }
                 Add-TestMailbox -PrimarySmtpAddress $email -RecipientTypeDetails $startType
