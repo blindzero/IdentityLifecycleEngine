@@ -19,36 +19,6 @@ function Resolve-IdleStepMetadataCatalog {
 
     $catalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    # Helper: Resolve a function from a module without requiring global command exports.
-    function Resolve-IdleModuleFunction {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $FunctionName,
-
-            [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $ModuleName
-        )
-
-        # 1) Module-scoped discovery (prefer the specified module to avoid name shadowing)
-        $module = Get-Module -Name $ModuleName -All | Select-Object -First 1
-        if ($null -ne $module -and
-            $null -ne $module.ExportedCommands -and
-            $module.ExportedCommands.ContainsKey($FunctionName)) {
-            return $module.ExportedCommands[$FunctionName]
-        }
-
-        # 2) Global discovery (fallback; supports hosts that import modules globally)
-        $cmd = Get-Command -Name $FunctionName -ErrorAction SilentlyContinue
-        if ($null -ne $cmd) {
-            return $cmd
-        }
-
-        return $null
-    }
-
     # Helper: Validate a single capability identifier format.
     function Test-IdleCapabilityIdentifier {
         [CmdletBinding()]
@@ -132,85 +102,33 @@ function Resolve-IdleStepMetadataCatalog {
         )
     }
 
-    # Helper: Validate and merge metadata from a hashtable source.
-    function Merge-IdleStepMetadata {
+    # Helper: Validate metadata contains no ScriptBlocks (wrapper around Assert-IdleNoScriptBlock).
+    function Assert-IdleStepMetadataNoScriptBlock {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
-            [hashtable] $Target,
+            [AllowNull()]
+            [object] $Value,
 
             [Parameter(Mandatory)]
-            [hashtable] $Source,
+            [string] $Path,
 
             [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
+            [string] $StepType,
+
+            [Parameter(Mandatory)]
             [string] $SourceName
         )
 
-        foreach ($key in $Source.Keys) {
-            if ($null -eq $key -or [string]::IsNullOrWhiteSpace([string]$key)) {
-                throw [System.ArgumentException]::new("$SourceName contains an empty step type key.", 'Providers')
-            }
-
-            $value = $Source[$key]
-
-            if ($value -isnot [hashtable]) {
-                throw [System.ArgumentException]::new(
-                    "$SourceName entry for step type '$key' must be a hashtable (metadata object).",
-                    'Providers'
-                )
-            }
-
-            # Validate metadata shape (data-only, no ScriptBlocks).
-            # Recursively check for ScriptBlocks in the entire metadata tree.
-            function Test-IdleMetadataForScriptBlocks {
-                param(
-                    [Parameter(Mandatory)]
-                    [AllowNull()]
-                    [object] $Value,
-                    
-                    [Parameter(Mandatory)]
-                    [string] $Path
-                )
-                
-                if ($null -eq $Value) {
-                    return
-                }
-                
-                if ($Value -is [scriptblock]) {
-                    throw [System.ArgumentException]::new(
-                        "$SourceName entry for step type '$key' contains a ScriptBlock at '$Path'. ScriptBlocks are not allowed (data-only boundary).",
-                        'Providers'
-                    )
-                }
-                
-                if ($Value -is [hashtable] -or $Value -is [System.Collections.IDictionary]) {
-                    foreach ($k in $Value.Keys) {
-                        Test-IdleMetadataForScriptBlocks -Value $Value[$k] -Path "$Path.$k"
-                    }
-                }
-                elseif ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
-                    $index = 0
-                    foreach ($item in $Value) {
-                        Test-IdleMetadataForScriptBlocks -Value $item -Path "$Path[$index]"
-                        $index++
-                    }
-                }
-            }
-            
-            foreach ($metaKey in $value.Keys) {
-                $metaValue = $value[$metaKey]
-
-                # Recursively validate no ScriptBlocks anywhere in metadata
-                Test-IdleMetadataForScriptBlocks -Value $metaValue -Path $metaKey
-
-                if ($metaKey -eq 'RequiredCapabilities') {
-                    Test-IdleRequiredCapabilities -Value $metaValue -StepType $key -SourceName $SourceName
-                }
-            }
-
-            # Merge (host metadata overrides built-in).
-            $Target[[string]$key] = $value
+        try {
+            Assert-IdleNoScriptBlock -InputObject $Value -Path $Path
+        }
+        catch {
+            # Rethrow with metadata-specific error message
+            throw [System.ArgumentException]::new(
+                "$SourceName entry for step type '$StepType' contains a ScriptBlock at '$Path'. ScriptBlocks are not allowed (data-only boundary).",
+                'Providers'
+            )
         }
     }
 
@@ -238,21 +156,100 @@ function Resolve-IdleStepMetadataCatalog {
         return $null
     }
 
-    # 1) Register built-in step metadata if available.
-    $builtInFunction = Resolve-IdleModuleFunction -FunctionName 'Get-IdleStepMetadataCatalog' -ModuleName 'IdLE.Steps.Common'
-    
-    if ($null -ne $builtInFunction) {
-        $functionModule = $builtInFunction.ModuleName ?? $builtInFunction.Source
-        
-        if ($functionModule -eq 'IdLE.Steps.Common') {
-            $builtInMetadata = & $builtInFunction
-            if ($null -ne $builtInMetadata -and $builtInMetadata -is [hashtable]) {
-                Merge-IdleStepMetadata -Target $catalog -Source $builtInMetadata -SourceName 'Built-in StepMetadata'
+    # Helper: Discover loaded step packs exporting Get-IdleStepMetadataCatalog.
+    function Get-IdleStepPackModules {
+        [CmdletBinding()]
+        param()
+
+        $loadedModules = Get-Module -Name 'IdLE.Steps.*' -All
+        if ($null -eq $loadedModules) {
+            return @()
+        }
+
+        $stepPackModules = @()
+        foreach ($m in @($loadedModules)) {
+            if ($null -ne $m.ExportedCommands -and $m.ExportedCommands.ContainsKey('Get-IdleStepMetadataCatalog')) {
+                $stepPackModules += $m
+            }
+        }
+
+        # Sort by module name for deterministic order
+        return @($stepPackModules | Sort-Object -Property Name)
+    }
+
+    # Helper: Merge step pack catalog with duplicate detection.
+    function Merge-IdleStepPackCatalog {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [hashtable] $Target,
+
+            [Parameter(Mandatory)]
+            [hashtable] $Source,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $SourceModuleName,
+
+            [Parameter(Mandatory)]
+            [hashtable] $StepTypeOwners
+        )
+
+        foreach ($key in $Source.Keys) {
+            if ($null -eq $key -or [string]::IsNullOrWhiteSpace([string]$key)) {
+                throw [System.ArgumentException]::new("$SourceModuleName contains an empty step type key.", 'Providers')
+            }
+
+            $value = $Source[$key]
+
+            if ($value -isnot [hashtable]) {
+                throw [System.ArgumentException]::new(
+                    "$SourceModuleName entry for step type '$key' must be a hashtable (metadata object).",
+                    'Providers'
+                )
+            }
+
+            # Validate metadata shape (data-only, no ScriptBlocks).
+            foreach ($metaKey in $value.Keys) {
+                $metaValue = $value[$metaKey]
+
+                # Recursively validate no ScriptBlocks anywhere in metadata
+                Assert-IdleStepMetadataNoScriptBlock -Value $metaValue -Path $metaKey -StepType $key -SourceName $SourceModuleName
+
+                if ($metaKey -eq 'RequiredCapabilities') {
+                    Test-IdleRequiredCapabilities -Value $metaValue -StepType $key -SourceName $SourceModuleName
+                }
+            }
+
+            # Check for duplicates across step packs
+            if ($StepTypeOwners.ContainsKey([string]$key)) {
+                $existingOwner = $StepTypeOwners[[string]$key]
+                $errorMessage = "DuplicateStepTypeMetadata: Step type '$key' is defined in both '$existingOwner' and '$SourceModuleName'. " +
+                                "Step packs must own unique step types."
+                throw [System.InvalidOperationException]::new($errorMessage)
+            }
+
+            # Register ownership and add to catalog
+            $StepTypeOwners[[string]$key] = $SourceModuleName
+            $Target[[string]$key] = $value
+        }
+    }
+
+    # 1) Discover and merge step pack catalogs (deterministic order).
+    $stepTypeOwners = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $stepPackModules = Get-IdleStepPackModules
+
+    foreach ($module in $stepPackModules) {
+        $catalogFunction = $module.ExportedCommands['Get-IdleStepMetadataCatalog']
+        if ($null -ne $catalogFunction) {
+            $stepPackCatalog = & $catalogFunction
+            if ($null -ne $stepPackCatalog -and $stepPackCatalog -is [hashtable]) {
+                Merge-IdleStepPackCatalog -Target $catalog -Source $stepPackCatalog -SourceModuleName $module.Name -StepTypeOwners $stepTypeOwners
             }
         }
     }
 
-    # 2) Merge host-provided StepMetadata (optional) - this overrides built-in.
+    # 2) Apply host-provided StepMetadata as supplement-only (no overrides).
     $hostMetadata = Get-IdleHostStepMetadata -Providers $Providers
 
     if ($null -ne $hostMetadata) {
@@ -260,7 +257,44 @@ function Resolve-IdleStepMetadataCatalog {
             throw [System.ArgumentException]::new('Providers.StepMetadata must be a hashtable that maps Step.Type to a metadata object (hashtable).', 'Providers')
         }
 
-        Merge-IdleStepMetadata -Target $catalog -Source $hostMetadata -SourceName 'Providers.StepMetadata'
+        foreach ($key in $hostMetadata.Keys) {
+            if ($null -eq $key -or [string]::IsNullOrWhiteSpace([string]$key)) {
+                throw [System.ArgumentException]::new('Providers.StepMetadata contains an empty step type key.', 'Providers')
+            }
+
+            # Check if this step type already exists in step pack catalog (no override allowed)
+            if ($catalog.ContainsKey([string]$key)) {
+                $existingOwner = $stepTypeOwners[[string]$key]
+                $errorMessage = "DuplicateStepTypeMetadata: Step type '$key' is already defined in step pack '$existingOwner'. " +
+                                "Host metadata (Providers.StepMetadata) can only supplement with new step types, not override existing ones."
+                throw [System.InvalidOperationException]::new($errorMessage)
+            }
+
+            $value = $hostMetadata[$key]
+
+            if ($value -isnot [hashtable]) {
+                throw [System.ArgumentException]::new(
+                    "Providers.StepMetadata entry for step type '$key' must be a hashtable (metadata object).",
+                    'Providers'
+                )
+            }
+
+            # Validate metadata shape (data-only, no ScriptBlocks).
+            foreach ($metaKey in $value.Keys) {
+                $metaValue = $value[$metaKey]
+
+                # Recursively validate no ScriptBlocks anywhere in metadata
+                Assert-IdleStepMetadataNoScriptBlock -Value $metaValue -Path $metaKey -StepType $key -SourceName 'Providers.StepMetadata'
+
+                if ($metaKey -eq 'RequiredCapabilities') {
+                    Test-IdleRequiredCapabilities -Value $metaValue -StepType $key -SourceName 'Providers.StepMetadata'
+                }
+            }
+
+            # Add host supplement
+            $catalog[[string]$key] = $value
+            $stepTypeOwners[[string]$key] = 'Host'
+        }
     }
 
     return $catalog

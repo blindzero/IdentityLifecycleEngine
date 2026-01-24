@@ -501,11 +501,10 @@ function New-IdlePlanObject {
             }
             else {
                 # Workflow references a Step.Type for which no StepMetadata entry is available - fail fast.
-                throw [System.ArgumentException]::new(
-                    ("Workflow step '{0}' references Step.Type '{1}' which has no StepMetadata entry. " +
-                     "Host must provide Providers.StepMetadata['{1}'] = @{{ RequiredCapabilities = ... }}." -f $stepName, $stepType),
-                    'Providers'
-                )
+                $errorMessage = "MissingStepTypeMetadata: Workflow step '$stepName' references step type '$stepType' which has no metadata entry. " +
+                                "To resolve this: (1) Import/load the step pack module (IdLE.Steps.*) that provides metadata for '$stepType' via Get-IdleStepMetadataCatalog, OR " +
+                                "(2) For host-defined/custom step types only, provide Providers.StepMetadata['$stepType'] = @{ RequiredCapabilities = @(...) }."
+                throw [System.InvalidOperationException]::new($errorMessage)
             }
 
             $description = if (Test-IdleWorkflowStepKey -Step $s -Key 'Description') {

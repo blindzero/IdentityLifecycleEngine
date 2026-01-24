@@ -6,7 +6,7 @@ BeforeAll {
 
 Describe 'New-IdlePlan - required provider capabilities' {
 
-    It 'fails fast when a step type has no metadata entry' {
+    It 'fails fast when a step type has no metadata entry (MissingStepTypeMetadata)' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-no-metadata.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
@@ -23,7 +23,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
             throw 'Expected an exception but none was thrown.'
         }
         catch {
-            $_.Exception.Message | Should -Match 'no StepMetadata entry'
+            $_.Exception.Message | Should -Match 'MissingStepTypeMetadata'
             $_.Exception.Message | Should -Match 'Custom.Step.Unknown'
         }
     }
@@ -65,7 +65,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
         }
     }
 
-    It 'allows host metadata to override built-in metadata' {
+    It 'rejects host override attempt of step pack metadata (DuplicateStepTypeMetadata)' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-override.psd1'
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
@@ -84,11 +84,14 @@ Describe 'New-IdlePlan - required provider capabilities' {
             }
         }
 
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
-
-        $plan | Should -Not -BeNullOrEmpty
-        $plan.Steps.Count | Should -Be 1
-        $plan.Steps[0].RequiresCapabilities | Should -Be @('Custom.Capability.Override')
+        try {
+            New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers | Out-Null
+            throw 'Expected an exception but none was thrown.'
+        }
+        catch {
+            $_.Exception.Message | Should -Match 'DuplicateStepTypeMetadata'
+            $_.Exception.Message | Should -Match 'IdLE.Step.DisableIdentity'
+        }
     }
 
     It 'validates OnFailureSteps capabilities from metadata' {
