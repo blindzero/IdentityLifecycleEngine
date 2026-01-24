@@ -71,10 +71,9 @@ By default, the demo runs **Mock** workflows only (deterministic, no external de
 
 # Run all Mock workflows
 .\examples\Invoke-IdleDemo.ps1 -All
-
-# Run all Live workflows (requires infrastructure)
-.\examples\Invoke-IdleDemo.ps1 -All -Category Live
 ```
+
+**Note:** Only Mock workflows can be executed via the demo script. Live workflows require real providers and infrastructure, and cannot be run through this demo. Use `-List -Category Live` to view Live workflows for reference.
 
 ### Interactive selection
 
