@@ -157,27 +157,17 @@ $providers = @{
 
 **Important**: Host metadata is **supplement-only**. Hosts cannot override step pack metadata. Attempting to provide metadata for a step type already owned by a loaded step pack will result in `DuplicateStepTypeMetadata`.
 
-### Breaking change (pre-1.0)
+Workflow definitions must **not** declare `RequiredCapabilities` or `RequiresCapabilities` on individual steps. Capabilities are derived from step metadata catalogs during plan building.
 
-Workflow definitions must **not** declare `RequiredCapabilities` or `RequiresCapabilities` on individual steps.
-
-Capabilities are derived from step metadata catalogs during plan building.
-
-**Before** (deprecated):
-```powershell
-@{
-  Name                 = 'Disable identity'
-  Type                 = 'IdLE.Step.DisableIdentity'
-  RequiresCapabilities = @('IdLE.Identity.Disable')  # DEPRECATED
-}
-```
-
-**After** (correct):
+Example workflow step:
 ```powershell
 @{
   Name = 'Disable identity'
   Type = 'IdLE.Step.DisableIdentity'
-  # Capabilities are derived from IdLE.Steps.Common metadata catalog
+  With = @{
+    IdentityKey = '{{ Request.Username }}'
+    Provider    = 'Identity'
+  }
 }
 ```
 

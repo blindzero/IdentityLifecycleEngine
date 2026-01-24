@@ -161,7 +161,7 @@ function Resolve-IdleStepMetadataCatalog {
         [CmdletBinding()]
         param()
 
-        $loadedModules = Get-Module -Name 'IdLE.Steps.*'
+        $loadedModules = Get-Module -Name 'IdLE.Steps.*' -All
         if ($null -eq $loadedModules) {
             return @()
         }
