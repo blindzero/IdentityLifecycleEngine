@@ -110,19 +110,49 @@ If the condition is not met, the step is marked as `Skipped` and a skip event is
 
 IdLE supports **template substitution** for embedding request values into workflow step configurations using `{{...}}` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
 
-**Syntax:**
+**How it works:**
+
+When you create a lifecycle request, you provide data in the request object (via `DesiredState`, `IdentityKeys`, etc.). Templates in workflow configurations reference these values using dot-notation paths. During plan building, IdLE resolves the templates by looking up the paths in the request object and substituting the actual values.
+
+**Creating a request with values:**
+
+```powershell
+$req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+    UserPrincipalName = 'jdoe@example.com'
+    DisplayName       = 'John Doe'
+    GivenName         = 'John'
+    Surname           = 'Doe'
+    Department        = 'Engineering'
+}
+```
+
+The values in `DesiredState` are accessible via `Request.Input.*` (or `Request.DesiredState.*`) in templates.
+
+**Using templates in workflows:**
 
 ```powershell
 @{
   Name = 'CreateUser'
   Type = 'IdLE.Step.CreateIdentity'
   With = @{
-    UserPrincipalName = '{{Request.Input.UserPrincipalName}}'
-    DisplayName       = '{{Request.Input.DisplayName}}'
-    Message           = 'Creating user {{Request.Input.DisplayName}} ({{Request.Input.UserPrincipalName}})'
+    Attributes = @{
+      UserPrincipalName = '{{Request.Input.UserPrincipalName}}'
+      DisplayName       = '{{Request.Input.DisplayName}}'
+    }
+  }
+}
+@{
+  Name = 'EmitEvent'
+  Type = 'IdLE.Step.EmitEvent'
+  With = @{
+    Message = 'Creating user {{Request.Input.DisplayName}} ({{Request.Input.UserPrincipalName}})'
   }
 }
 ```
+
+When the plan is built, templates are resolved to the actual values from the request:
+- `{{Request.Input.UserPrincipalName}}` → `'jdoe@example.com'`
+- `{{Request.Input.DisplayName}}` → `'John Doe'`
 
 **Key features:**
 
