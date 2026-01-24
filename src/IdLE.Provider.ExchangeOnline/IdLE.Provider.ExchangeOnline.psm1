@@ -15,5 +15,7 @@ foreach ($script in ($PrivateScripts | Sort-Object Name)) {
     . $script.FullName
 }
 
-# Export Public functions
-Export-ModuleMember -Function $PublicScripts.BaseName
+# Export Public functions - explicit list for deterministic behavior
+Export-ModuleMember -Function @(
+    'New-IdleExchangeOnlineProvider'
+)

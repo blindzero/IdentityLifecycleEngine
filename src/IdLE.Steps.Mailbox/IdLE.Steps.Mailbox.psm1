@@ -15,5 +15,10 @@ foreach ($script in ($PublicScripts | Sort-Object Name)) {
     . $script.FullName
 }
 
-# Export Public functions
-Export-ModuleMember -Function $PublicScripts.BaseName
+# Export Public functions - explicit list for deterministic behavior
+Export-ModuleMember -Function @(
+    'Get-IdleStepMetadataCatalog',
+    'Invoke-IdleStepMailboxGetInfo',
+    'Invoke-IdleStepMailboxTypeEnsure',
+    'Invoke-IdleStepMailboxOutOfOfficeEnsure'
+)
