@@ -12,6 +12,7 @@
     )
 
     FunctionsToExport = @(
+        'Get-IdleStepMetadataCatalog',
         'Invoke-IdleStepTriggerDirectorySync'
     )
 

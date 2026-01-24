@@ -63,11 +63,5 @@ function Get-IdleStepMetadataCatalog {
         RequiredCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant', 'IdLE.Entitlement.Revoke')
     }
 
-    # IdLE.Step.TriggerDirectorySync - requires trigger and status capabilities
-    # Note: Even when With.Wait = $false, we advertise Status capability to keep planning deterministic
-    $catalog['IdLE.Step.TriggerDirectorySync'] = @{
-        RequiredCapabilities = @('IdLE.DirectorySync.Trigger', 'IdLE.DirectorySync.Status')
-    }
-
     return $catalog
 }
