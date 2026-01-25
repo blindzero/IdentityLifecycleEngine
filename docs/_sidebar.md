@@ -41,7 +41,6 @@
 #### Advanced
 
 - [Architecture](advanced/architecture.md)
-- [Compatibility](advanced/compatibility.md)
 - [Security](advanced/security.md)
 - [Extensibility](advanced/extensibility.md)
 - [Provider Capabilities](advanced/provider-capabilities.md)
