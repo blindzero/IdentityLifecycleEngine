@@ -7,6 +7,10 @@
     Description       = 'IdentityLifecycleEngine (IdLE) meta-module. Imports IdLE.Core and optional packs.'
     PowerShellVersion = '7.0'
 
+    # ScriptsToProcess runs BEFORE NestedModules are loaded
+    # This allows us to set environment variables to suppress internal module warnings
+    ScriptsToProcess = @('IdLE.Init.ps1')
+
     NestedModules = @(
         '..\IdLE.Core\IdLE.Core.psd1',
         '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
@@ -18,7 +22,7 @@
         'New-IdlePlan',
         'Invoke-IdlePlan',
         'Export-IdlePlan',
-        'New-IdleAuthSessionBroker'
+        'New-IdleAuthSession'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()

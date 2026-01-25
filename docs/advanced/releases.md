@@ -29,6 +29,54 @@ These checks prevent "broken" releases (e.g., tagging the wrong commit or forget
 
 ## Versioning policy
 
+IdLE follows [Semantic Versioning](https://semver.org/):
+
+- **MAJOR** (breaking): Incompatible API changes
+- **MINOR** (feature): Backward-compatible functionality additions
+- **PATCH** (fix): Backward-compatible bug fixes
+
+### What Constitutes a Breaking Change
+
+The following are **breaking changes** and require a new major version:
+
+- Removing a supported command
+- Renaming a supported command
+- Removing a parameter
+- Renaming a parameter
+- Changing a parameter from optional to mandatory
+- Changing a parameter's type in an incompatible way
+- Removing fields from workflow/request/plan contracts
+- Renaming fields in workflow/request/plan contracts
+
+The following are **non-breaking** (allowed in minor/patch versions):
+
+- Adding a new command
+- Adding a new parameter (must be optional with a sensible default)
+- Changing exact error message strings
+- Adding new output properties (output types are coarse-grained)
+- Internal implementation changes
+
+### Deprecation Mechanism
+
+Deprecated supported cmdlets/parameters **MUST** emit a `Write-Warning` on use:
+
+**Format**:
+```
+DEPRECATED: <Item> is deprecated in <version> and will be removed in <major_version>.
+Use <replacement> instead.
+```
+
+**Example**:
+```powershell
+Write-Warning "DEPRECATED: Parameter 'OldName' is deprecated in v1.2 and will be removed in v2.0. Use 'NewName' instead."
+```
+
+**Timeline**: Deprecated features will be supported for **at least one minor version** before removal in the next major version.
+
+**Example timeline**:
+- Deprecated in v1.2 → Removed in v2.0
+- Deprecated in v1.8 → Removed in v2.0
+
 ### Stable tags
 
 Stable releases use tags in the form:

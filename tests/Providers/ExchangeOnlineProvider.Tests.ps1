@@ -172,7 +172,7 @@ Describe 'ExchangeOnline provider - Unit tests' {
     Context 'GetCapabilities' {
         It 'returns mailbox-specific capabilities' {
             $caps = $provider.GetCapabilities()
-            $caps | Should -Contain 'IdLE.Mailbox.Read'
+            $caps | Should -Contain 'IdLE.Mailbox.Info.Read'
             $caps | Should -Contain 'IdLE.Mailbox.Type.Ensure'
             $caps | Should -Contain 'IdLE.Mailbox.OutOfOffice.Ensure'
         }

@@ -101,7 +101,7 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
 
 Use an AuthSessionBroker to manage authentication centrally and enable multi-role scenarios.
 
-**Simple approach with New-IdleAuthSessionBroker:**
+**Simple approach with New-IdleAuthSession:**
 
 ```powershell
 # Assuming you have credentials available (e.g., from a secure vault or credential manager)
@@ -112,7 +112,7 @@ $adminCredential = Get-Credential -Message "Enter regular admin credentials"
 $provider = New-IdleADIdentityProvider
 
 # Create broker with role-based credential mapping
-$broker = New-IdleAuthSessionBroker -SessionMap @{
+$broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
     @{ Role = 'Admin' } = $adminCredential
 } -DefaultCredential $adminCredential
@@ -195,8 +195,8 @@ $targetCred = Get-Credential -Message "Enter Target AD admin credentials"
 $sourceAD = New-IdleADIdentityProvider
 $targetAD = New-IdleADIdentityProvider -AllowDelete
 
-# Use New-IdleAuthSessionBroker for domain-based credential routing
-$broker = New-IdleAuthSessionBroker -SessionMap @{
+# Use New-IdleAuthSession for domain-based credential routing
+$broker = New-IdleAuthSession -SessionMap @{
     @{ Domain = 'Source' } = $sourceCred
     @{ Domain = 'Target' } = $targetCred
 }

@@ -150,7 +150,7 @@ function New-IdleExchangeOnlineProvider {
 
     $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
         $caps = @(
-            'IdLE.Mailbox.Read'
+            'IdLE.Mailbox.Info.Read'
             'IdLE.Mailbox.Type.Ensure'
             'IdLE.Mailbox.OutOfOffice.Ensure'
         )

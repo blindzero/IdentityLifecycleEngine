@@ -53,6 +53,7 @@ Describe 'Module manifests and public surface' {
 
         $expected = @(
             'Invoke-IdlePlan'
+            'New-IdleAuthSession'
             'New-IdleLifecycleRequest'
             'New-IdlePlan'
             'Test-IdleWorkflow'
@@ -203,5 +204,93 @@ Describe 'Module manifests and public surface' {
         Import-Module $providerMockPsd1 -Force -ErrorAction Stop
 
         (Get-Command -Module IdLE.Provider.Mock).Name | Should -Contain 'New-IdleMockIdentityProvider'
+    }
+
+    Context 'Internal module import warnings' {
+        It 'IdLE.Core emits warning when imported directly' {
+            $existingModule = Get-Module -Name IdLE.Core
+            if ($existingModule) {
+                Set-ItResult -Skipped -Because "IdLE.Core is already loaded; cannot test direct import warning"
+                return
+            }
+            
+            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
+            try {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
+                
+                # Import and capture warning output
+                $output = Import-Module $corePsd1 -Force 3>&1 | Out-String
+                
+                $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
+                $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
+                $output | Should -Match '\$env:IDLE_ALLOW_INTERNAL_IMPORT' -Because "Warning should show correct PowerShell syntax for bypass"
+            }
+            finally {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
+                Remove-Module IdLE.Core -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'IdLE.Core does not emit warning when IDLE_ALLOW_INTERNAL_IMPORT is set' {
+            $existingModule = Get-Module -Name IdLE.Core
+            if ($existingModule) {
+                Set-ItResult -Skipped -Because "IdLE.Core is already loaded; cannot test bypass"
+                return
+            }
+            
+            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
+            try {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = '1'
+                
+                # Import and capture warning output
+                $output = Import-Module $corePsd1 -Force 3>&1 | Out-String
+                
+                $output | Should -BeNullOrEmpty -Because "Internal module should not emit warning when bypass is set"
+            }
+            finally {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
+                Remove-Module IdLE.Core -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'IdLE.Steps.Common emits warning when imported directly' {
+            $existingModule = Get-Module -Name IdLE.Steps.Common
+            if ($existingModule) {
+                Set-ItResult -Skipped -Because "IdLE.Steps.Common is already loaded; cannot test direct import warning"
+                return
+            }
+            
+            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
+            try {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
+                
+                # Import and capture warning output
+                $output = Import-Module $stepsPsd1 -Force 3>&1 | Out-String
+                
+                $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
+                $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
+                $output | Should -Match '\$env:IDLE_ALLOW_INTERNAL_IMPORT' -Because "Warning should show correct PowerShell syntax for bypass"
+            }
+            finally {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
+                Remove-Module IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
+            }
+        }
+        
+        It 'IdLE meta-module does not emit internal module warnings' {
+            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
+            try {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
+                
+                # Import and capture warning output
+                $output = Import-Module $idlePsd1 -Force 3>&1 | Out-String
+                
+                $output | Should -BeNullOrEmpty -Because "IdLE meta-module should suppress internal module warnings via ScriptsToProcess"
+            }
+            finally {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
+                Remove-Module IdLE -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
 }
