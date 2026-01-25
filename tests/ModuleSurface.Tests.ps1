@@ -223,6 +223,7 @@ Describe 'Module manifests and public surface' {
                 
                 $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
                 $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
+                $output | Should -Match '\$env:IDLE_ALLOW_INTERNAL_IMPORT' -Because "Warning should show correct PowerShell syntax for bypass"
             }
             finally {
                 $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
@@ -268,6 +269,7 @@ Describe 'Module manifests and public surface' {
                 
                 $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
                 $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
+                $output | Should -Match '\$env:IDLE_ALLOW_INTERNAL_IMPORT' -Because "Warning should show correct PowerShell syntax for bypass"
             }
             finally {
                 $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
