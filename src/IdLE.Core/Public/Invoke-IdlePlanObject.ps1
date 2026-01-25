@@ -19,6 +19,10 @@ function Invoke-IdlePlanObject {
     .PARAMETER EventSink
     Optional external event sink object. Must provide a WriteEvent(event) method.
 
+    .PARAMETER ExecutionOptions
+    Optional host-owned execution options. Supports retry profile configuration.
+    Must be a hashtable with optional keys: RetryProfiles, DefaultRetryProfile.
+
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.ExecutionResult)
     #>
@@ -34,7 +38,11 @@ function Invoke-IdlePlanObject {
 
         [Parameter()]
         [AllowNull()]
-        [object] $EventSink
+        [object] $EventSink,
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $ExecutionOptions
     )
 
     function Get-IdleCommandParameterNames {
@@ -231,6 +239,9 @@ function Invoke-IdlePlanObject {
 
     Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
     Assert-IdleNoScriptBlock -InputObject $Providers -Path 'Providers'
+
+    # Validate ExecutionOptions
+    Assert-IdleExecutionOptions -ExecutionOptions $ExecutionOptions
 
     # StepRegistry is constructed via helper to ensure built-in steps and host-provided steps can co-exist.
     $stepRegistry = Get-IdleStepRegistry -Providers $Providers
@@ -438,8 +449,20 @@ function Invoke-IdlePlanObject {
             # Safe-by-default transient retries:
             # - Only retries if the thrown exception is explicitly marked transient.
             # - Emits 'StepRetrying' events and uses deterministic jitter/backoff.
+            # - Retry parameters resolved from ExecutionOptions if provided.
             $retrySeed = "$corr|$stepType|$stepName|$i"
-            $retry = Invoke-IdleWithRetry -Operation { & $impl @invokeParams } -EventSink $context.EventSink -StepName $stepName -OperationName 'StepExecution' -DeterministicSeed $retrySeed
+            $retryParams = Resolve-IdleStepRetryParameters -Step $step -ExecutionOptions $ExecutionOptions
+            $retry = Invoke-IdleWithRetry `
+                -Operation { & $impl @invokeParams } `
+                -MaxAttempts $retryParams.MaxAttempts `
+                -InitialDelayMilliseconds $retryParams.InitialDelayMilliseconds `
+                -BackoffFactor $retryParams.BackoffFactor `
+                -MaxDelayMilliseconds $retryParams.MaxDelayMilliseconds `
+                -JitterRatio $retryParams.JitterRatio `
+                -EventSink $context.EventSink `
+                -StepName $stepName `
+                -OperationName 'StepExecution' `
+                -DeterministicSeed $retrySeed
 
             $result = $retry.Value
             $attempts = [int]$retry.Attempts
@@ -617,8 +640,20 @@ function Invoke-IdlePlanObject {
                 }
 
                 # Reuse safe-by-default transient retries for OnFailure steps.
+                # - Retry parameters resolved from ExecutionOptions if provided.
                 $retrySeed = "$corr|OnFailure|$ofType|$ofName|$j"
-                $retry = Invoke-IdleWithRetry -Operation { & $impl @invokeParams } -EventSink $context.EventSink -StepName $ofName -OperationName 'OnFailureStepExecution' -DeterministicSeed $retrySeed
+                $retryParams = Resolve-IdleStepRetryParameters -Step $ofStep -ExecutionOptions $ExecutionOptions
+                $retry = Invoke-IdleWithRetry `
+                    -Operation { & $impl @invokeParams } `
+                    -MaxAttempts $retryParams.MaxAttempts `
+                    -InitialDelayMilliseconds $retryParams.InitialDelayMilliseconds `
+                    -BackoffFactor $retryParams.BackoffFactor `
+                    -MaxDelayMilliseconds $retryParams.MaxDelayMilliseconds `
+                    -JitterRatio $retryParams.JitterRatio `
+                    -EventSink $context.EventSink `
+                    -StepName $ofName `
+                    -OperationName 'OnFailureStepExecution' `
+                    -DeterministicSeed $retrySeed
 
                 $result = $retry.Value
                 $attempts = [int]$retry.Attempts

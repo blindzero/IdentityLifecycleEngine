@@ -82,7 +82,7 @@ function Invoke-IdleWithRetry {
         [scriptblock] $Operation,
 
         [Parameter()]
-        [ValidateRange(1, 50)]
+        [ValidateRange(0, 50)]
         [int] $MaxAttempts = 3,
 
         [Parameter()]
@@ -117,6 +117,16 @@ function Invoke-IdleWithRetry {
         [AllowEmptyString()]
         [string] $DeterministicSeed = ''
     )
+
+    # Handle MaxAttempts = 0 (no retry): run once and propagate any error
+    if ($MaxAttempts -eq 0) {
+        $value = & $Operation
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.RetryResult'
+            Value      = $value
+            Attempts   = 1
+        }
+    }
 
     $attempt = 0
 
