@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 
 BeforeAll {
-    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     $repoRoot = Get-RepoRootPath
     $importScript = Join-Path -Path $repoRoot -ChildPath 'tools/import-idle.ps1'
 }

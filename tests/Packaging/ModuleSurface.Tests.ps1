@@ -5,7 +5,7 @@ BeforeAll {
     $stepsPsd1 = Join-Path $repoRoot 'src\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
     $providerMockPsd1 = Join-Path $repoRoot 'src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1'
 
-    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
 
     # The engine invokes step handlers by function name (string).

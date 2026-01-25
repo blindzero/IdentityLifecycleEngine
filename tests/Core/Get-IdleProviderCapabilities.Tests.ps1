@@ -1,7 +1,7 @@
 Set-StrictMode -Version Latest
 
 BeforeDiscovery {
-    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
 }
 

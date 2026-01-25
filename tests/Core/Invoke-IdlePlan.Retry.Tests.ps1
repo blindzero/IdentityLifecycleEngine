@@ -1,10 +1,10 @@
 BeforeDiscovery {
-    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
 }
 
 BeforeAll {
-    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
     
     # Create a dedicated, ephemeral test module that exports the step handlers.

@@ -2,7 +2,7 @@
 Set-StrictMode -Version Latest
 
 BeforeAll {
-    . (Join-Path $PSScriptRoot '_testHelpers.ps1')
+    . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
 
     $script:RepoRoot = Get-RepoRootPath
     $script:ReleaseScriptPath = Join-Path $script:RepoRoot 'tools/New-IdleReleaseArtifact.ps1'
