@@ -1,5 +1,10 @@
 # Resolves effective retry parameters for a step based on ExecutionOptions and step's RetryProfile.
 
+# Retry parameter limits (hard constraints to prevent misconfiguration)
+$script:IDLE_RETRY_MAX_ATTEMPTS_LIMIT = 10
+$script:IDLE_RETRY_INITIAL_DELAY_MS_LIMIT = 60000
+$script:IDLE_RETRY_MAX_DELAY_MS_LIMIT = 300000
+
 function Resolve-IdleStepRetryParameters {
     [CmdletBinding()]
     param(
@@ -11,6 +16,33 @@ function Resolve-IdleStepRetryParameters {
         [AllowNull()]
         [object] $ExecutionOptions
     )
+
+    function Get-StepPropertyValue {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Step,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $PropertyName
+        )
+
+        if ($Step -is [System.Collections.IDictionary]) {
+            if ($Step.Contains($PropertyName)) {
+                return $Step[$PropertyName]
+            }
+            return $null
+        }
+
+        $propNames = @($Step.PSObject.Properties.Name)
+        if ($propNames -contains $PropertyName) {
+            return $Step.$PropertyName
+        }
+
+        return $null
+    }
 
     # Default retry parameters (engine defaults)
     $effectiveParams = @{
@@ -37,37 +69,11 @@ function Resolve-IdleStepRetryParameters {
     }
 
     # Determine which profile to use
-    $profileKey = $null
-
-    # Check if step has a RetryProfile property
-    if ($Step -is [System.Collections.IDictionary]) {
-        if ($Step.Contains('RetryProfile')) {
-            $profileKey = [string]$Step['RetryProfile']
-        }
-    }
-    else {
-        $stepPropNames = @($Step.PSObject.Properties.Name)
-        if ($stepPropNames -contains 'RetryProfile') {
-            $profileKey = [string]$Step.RetryProfile
-        }
-    }
+    $profileKey = [string](Get-StepPropertyValue -Step $Step -PropertyName 'RetryProfile')
 
     # If step specifies a RetryProfile but no profiles are configured, fail
     if (-not [string]::IsNullOrWhiteSpace($profileKey) -and ($null -eq $retryProfiles -or $retryProfiles -isnot [System.Collections.IDictionary])) {
-        $stepName = ''
-        if ($Step -is [System.Collections.IDictionary]) {
-            if ($Step.Contains('Name')) {
-                $stepName = [string]$Step['Name']
-            }
-        }
-        else {
-            if ($null -eq $stepPropNames) {
-                $stepPropNames = @($Step.PSObject.Properties.Name)
-            }
-            if ($stepPropNames -contains 'Name') {
-                $stepName = [string]$Step.Name
-            }
-        }
+        $stepName = [string](Get-StepPropertyValue -Step $Step -PropertyName 'Name')
 
         throw [System.ArgumentException]::new(
             "Step '$stepName' references RetryProfile '$profileKey' but ExecutionOptions.RetryProfiles is not configured.",
@@ -95,18 +101,7 @@ function Resolve-IdleStepRetryParameters {
     # Look up the profile
     if (-not $retryProfiles.Contains($profileKey)) {
         # Fail-fast: Unknown RetryProfile key
-        $stepName = ''
-        if ($Step -is [System.Collections.IDictionary]) {
-            if ($Step.Contains('Name')) {
-                $stepName = [string]$Step['Name']
-            }
-        }
-        else {
-            $stepPropNames = @($Step.PSObject.Properties.Name)
-            if ($stepPropNames -contains 'Name') {
-                $stepName = [string]$Step.Name
-            }
-        }
+        $stepName = [string](Get-StepPropertyValue -Step $Step -PropertyName 'Name')
 
         throw [System.ArgumentException]::new(
             "Step '$stepName' references unknown RetryProfile '$profileKey'. Available profiles: $([string]::Join(', ', $retryProfiles.Keys))",

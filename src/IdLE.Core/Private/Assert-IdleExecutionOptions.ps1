@@ -1,6 +1,11 @@
 # Asserts that ExecutionOptions is valid and rejects ScriptBlocks.
 # Validates the structure and constraints for retry profiles.
 
+# Retry parameter limits (hard constraints to prevent misconfiguration)
+$script:IDLE_RETRY_MAX_ATTEMPTS_LIMIT = 10
+$script:IDLE_RETRY_INITIAL_DELAY_MS_LIMIT = 60000
+$script:IDLE_RETRY_MAX_DELAY_MS_LIMIT = 300000
+
 function Assert-IdleExecutionOptions {
     [CmdletBinding()]
     param(
@@ -106,9 +111,9 @@ function Assert-IdleRetryProfile {
     # Validate MaxAttempts (0..10)
     if ($Profile.Contains('MaxAttempts')) {
         $maxAttempts = $Profile['MaxAttempts']
-        if ($maxAttempts -isnot [int] -or $maxAttempts -lt 0 -or $maxAttempts -gt 10) {
+        if ($maxAttempts -isnot [int] -or $maxAttempts -lt 0 -or $maxAttempts -gt $script:IDLE_RETRY_MAX_ATTEMPTS_LIMIT) {
             throw [System.ArgumentException]::new(
-                "RetryProfile '$ProfileKey': MaxAttempts must be an integer between 0 and 10 (inclusive).",
+                "RetryProfile '$ProfileKey': MaxAttempts must be an integer between 0 and $script:IDLE_RETRY_MAX_ATTEMPTS_LIMIT (inclusive).",
                 'ExecutionOptions'
             )
         }
@@ -117,9 +122,9 @@ function Assert-IdleRetryProfile {
     # Validate InitialDelayMilliseconds (0..60000)
     if ($Profile.Contains('InitialDelayMilliseconds')) {
         $initialDelay = $Profile['InitialDelayMilliseconds']
-        if ($initialDelay -isnot [int] -or $initialDelay -lt 0 -or $initialDelay -gt 60000) {
+        if ($initialDelay -isnot [int] -or $initialDelay -lt 0 -or $initialDelay -gt $script:IDLE_RETRY_INITIAL_DELAY_MS_LIMIT) {
             throw [System.ArgumentException]::new(
-                "RetryProfile '$ProfileKey': InitialDelayMilliseconds must be an integer between 0 and 60000 (inclusive).",
+                "RetryProfile '$ProfileKey': InitialDelayMilliseconds must be an integer between 0 and $script:IDLE_RETRY_INITIAL_DELAY_MS_LIMIT (inclusive).",
                 'ExecutionOptions'
             )
         }
@@ -140,9 +145,9 @@ function Assert-IdleRetryProfile {
     # Validate MaxDelayMilliseconds (0..300000 and >= InitialDelayMilliseconds)
     if ($Profile.Contains('MaxDelayMilliseconds')) {
         $maxDelay = $Profile['MaxDelayMilliseconds']
-        if ($maxDelay -isnot [int] -or $maxDelay -lt 0 -or $maxDelay -gt 300000) {
+        if ($maxDelay -isnot [int] -or $maxDelay -lt 0 -or $maxDelay -gt $script:IDLE_RETRY_MAX_DELAY_MS_LIMIT) {
             throw [System.ArgumentException]::new(
-                "RetryProfile '$ProfileKey': MaxDelayMilliseconds must be an integer between 0 and 300000 (inclusive).",
+                "RetryProfile '$ProfileKey': MaxDelayMilliseconds must be an integer between 0 and $script:IDLE_RETRY_MAX_DELAY_MS_LIMIT (inclusive).",
                 'ExecutionOptions'
             )
         }
