@@ -1,6 +1,11 @@
 #requires -Version 7.0
 Set-StrictMode -Version Latest
 
+# Internal module warning: discourage direct import unless explicitly allowed
+if (-not $env:IDLE_ALLOW_INTERNAL_IMPORT) {
+    Write-Warning "IdLE.Steps.Common is an internal/unsupported module. Import 'IdLE' instead for the supported public API. To bypass this warning, set IDLE_ALLOW_INTERNAL_IMPORT=1."
+}
+
 $PrivatePath = Join-Path -Path $PSScriptRoot -ChildPath 'Private'
 if (Test-Path -Path $PrivatePath) {
 

@@ -169,7 +169,8 @@ function New-IdlePlanObject {
                 )
             }
 
-            $normalized += $s
+            # Normalize deprecated capabilities
+            $normalized += ConvertTo-IdleNormalizedCapability -Capability $s
         }
 
         return @($normalized | Sort-Object -Unique)
@@ -217,6 +218,45 @@ function New-IdlePlanObject {
         return @($Providers)
     }
 
+    function ConvertTo-IdleNormalizedCapability {
+        <#
+        .SYNOPSIS
+        Normalizes capability identifiers and maps deprecated IDs to current ones.
+
+        .DESCRIPTION
+        Handles capability ID migrations and deprecation warnings during planning.
+        Pre-1.0 deprecated capability IDs are mapped to their replacements and emit a warning.
+
+        .PARAMETER Capability
+        The raw capability identifier to normalize.
+
+        .OUTPUTS
+        Normalized capability identifier (string).
+        #>
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Capability
+        )
+
+        # Deprecated capability ID mappings (pre-1.0)
+        # Format: @{ 'OldID' = 'NewID' }
+        $deprecatedMappings = @{
+            'IdLE.Mailbox.Read' = 'IdLE.Mailbox.Info.Read'
+        }
+
+        $normalized = $Capability.Trim()
+
+        if ($deprecatedMappings.ContainsKey($normalized)) {
+            $newId = $deprecatedMappings[$normalized]
+            Write-Warning "DEPRECATED: Capability '$normalized' is deprecated and will be removed in a future major version. Use '$newId' instead."
+            return $newId
+        }
+
+        return $normalized
+    }
+
     function Get-IdleProviderCapabilities {
         <#
         .SYNOPSIS
@@ -242,7 +282,18 @@ function New-IdlePlanObject {
             if ($null -eq $caps) {
                 return @()
             }
-            return @($caps | Where-Object { $null -ne $_ } | ForEach-Object { ([string]$_).Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+            return @(
+                $caps |
+                Where-Object { $null -ne $_ } |
+                ForEach-Object { 
+                    $rawCap = ([string]$_).Trim()
+                    if (-not [string]::IsNullOrWhiteSpace($rawCap)) {
+                        ConvertTo-IdleNormalizedCapability -Capability $rawCap
+                    }
+                } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                Sort-Object -Unique
+            )
         }
 
         return @()
