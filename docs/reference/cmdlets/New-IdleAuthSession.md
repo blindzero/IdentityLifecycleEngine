@@ -88,7 +88,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## OUTPUTS
 
 ### PSCustomObject with AcquireAuthSession method
-
 ## NOTES
 For detailed documentation, see: Get-Help IdLE.Core\New-IdleAuthSessionBroker -Full
 
