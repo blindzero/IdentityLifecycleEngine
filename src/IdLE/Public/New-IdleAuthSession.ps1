@@ -1,5 +1,7 @@
 # Re-export New-IdleAuthSessionBroker from IdLE.Core.
-# This avoids filename collision while keeping the wrapper minimal.
+# This wrapper is necessary because PowerShell's Export-ModuleMember can only export
+# functions defined in the current module's scope. The wrapper creates the function
+# in IdLE's scope, allowing it to be exported.
 
 function New-IdleAuthSessionBroker {
     <#
