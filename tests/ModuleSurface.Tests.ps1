@@ -157,6 +157,8 @@ Describe 'Module manifests and public surface' {
     }
 
     It 'IdLE auto-imports only baseline modules (Core and Steps.Common), not optional modules' {
+        # Explicitly remove known modules to ensure clean test state.
+        # This list is intentionally explicit (not pattern-based) to document exactly which modules we're testing.
         Remove-Module IdLE, IdLE.Core, IdLE.Steps.Common, IdLE.Steps.DirectorySync, IdLE.Provider.AD, IdLE.Provider.Mock -Force -ErrorAction SilentlyContinue
         Import-Module $idlePsd1 -Force -ErrorAction Stop
 

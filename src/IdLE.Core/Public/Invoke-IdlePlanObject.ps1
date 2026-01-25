@@ -131,9 +131,12 @@ function Invoke-IdlePlanObject {
                 $moduleName = $parts[0]
                 $commandName = $parts[1]
 
-                $module = Get-Module -Name $moduleName -All | Select-Object -First 1
-                if ($null -ne $module -and $null -ne $module.ExportedCommands) {
-                    if ($module.ExportedCommands.ContainsKey($commandName)) {
+                # Get-Module -All returns loaded modules (including nested/hidden modules)
+                # We use -All to find modules that are loaded but not in the global session state
+                $modules = @(Get-Module -Name $moduleName -All)
+                if ($modules.Count -gt 0) {
+                    $module = $modules[0]
+                    if ($null -ne $module.ExportedCommands -and $module.ExportedCommands.ContainsKey($commandName)) {
                         $cmd = $module.ExportedCommands[$commandName]
                     }
                 }
