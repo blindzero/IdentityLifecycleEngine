@@ -153,14 +153,18 @@ function Assert-IdleRetryProfile {
         }
 
         # Check that MaxDelayMilliseconds >= InitialDelayMilliseconds
-        if ($Profile.Contains('InitialDelayMilliseconds')) {
-            $initialDelay = $Profile['InitialDelayMilliseconds']
-            if ($maxDelay -lt $initialDelay) {
-                throw [System.ArgumentException]::new(
-                    "RetryProfile '$ProfileKey': MaxDelayMilliseconds ($maxDelay) must be >= InitialDelayMilliseconds ($initialDelay).",
-                    'ExecutionOptions'
-                )
-            }
+        # Use the profile's InitialDelayMilliseconds if present, otherwise use engine default (250ms)
+        $initialDelay = if ($Profile.Contains('InitialDelayMilliseconds')) {
+            $Profile['InitialDelayMilliseconds']
+        } else {
+            250  # Engine default
+        }
+        
+        if ($maxDelay -lt $initialDelay) {
+            throw [System.ArgumentException]::new(
+                "RetryProfile '$ProfileKey': MaxDelayMilliseconds ($maxDelay) must be >= InitialDelayMilliseconds ($initialDelay).",
+                'ExecutionOptions'
+            )
         }
     }
 

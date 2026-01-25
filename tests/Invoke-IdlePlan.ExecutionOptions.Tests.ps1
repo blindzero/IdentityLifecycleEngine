@@ -192,6 +192,30 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 
         { Invoke-IdlePlan -Plan $plan -ExecutionOptions $opts } | Should -Throw -ExpectedMessage '*does not exist*'
     }
+
+    It 'rejects MaxDelayMilliseconds less than engine default InitialDelayMilliseconds' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'test.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Test Workflow'
+  LifecycleEvent = 'Joiner'
+  Steps          = @()
+}
+'@
+
+        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+
+        $opts = @{
+            RetryProfiles = @{
+                Invalid = @{
+                    MaxDelayMilliseconds = 100  # Less than engine default InitialDelayMilliseconds (250)
+                }
+            }
+        }
+
+        { Invoke-IdlePlan -Plan $plan -ExecutionOptions $opts } | Should -Throw -ExpectedMessage '*MaxDelayMilliseconds*must be >= InitialDelayMilliseconds*'
+    }
 }
 
 Describe 'Invoke-IdlePlan - ExecutionOptions with RetryProfiles' {
@@ -345,6 +369,50 @@ Describe 'Invoke-IdlePlan - ExecutionOptions with RetryProfiles' {
         $result.Status | Should -Be 'Failed'
         $result.Steps[0].Status | Should -Be 'Failed'
         $result.Steps[0].Error | Should -Match 'unknown RetryProfile.*Unknown'
+    }
+
+    It 'supports MaxAttempts = 0 (no retry)' {
+        Mock -ModuleName IdLE.Core -CommandName Start-Sleep -MockWith { }
+
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'no-retry.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Test Workflow'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'Step1'; Type = 'Test.TransientStep'; RetryProfile = 'NoRetry' }
+  )
+}
+'@
+
+        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+
+        $providers = @{
+            StepRegistry = @{
+                'Test.TransientStep' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTransientStep"
+            }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.TransientStep')
+        }
+
+        $opts = @{
+            RetryProfiles = @{
+                NoRetry = @{
+                    MaxAttempts = 0
+                }
+            }
+        }
+
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+        $result = Invoke-IdlePlan -Plan $plan -Providers $providers -ExecutionOptions $opts
+
+        # With MaxAttempts = 0, the step runs once and fails without retry
+        $result.Status | Should -Be 'Failed'
+        $result.Steps[0].Status | Should -Be 'Failed'
+        $result.Steps[0].Attempts | Should -Be 1
+
+        # No retry event should be emitted
+        @($result.Events | Where-Object Type -eq 'StepRetrying').Count | Should -Be 0
+        Should -Invoke -ModuleName IdLE.Core -CommandName Start-Sleep -Times 0
     }
 
     It 'applies RetryProfile to OnFailureSteps' {
