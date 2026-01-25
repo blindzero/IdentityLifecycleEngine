@@ -56,6 +56,7 @@ For contributors, extenders, and maintainers:
 ### Advanced Topics
 
 - [Architecture](advanced/architecture.md) — Design principles and decisions
+- [Compatibility](advanced/compatibility.md) — v1.0 API surface, contracts, and compatibility guarantees
 - [Security](advanced/security.md) — Trust boundaries and threat model
 - [Extensibility](advanced/extensibility.md) — Add steps and providers
 - [Provider Capabilities](advanced/provider-capabilities.md) — Capability system and validation
