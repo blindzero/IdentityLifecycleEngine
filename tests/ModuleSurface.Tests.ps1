@@ -156,6 +156,26 @@ Describe 'Module manifests and public surface' {
         ($idle.NestedModules | Where-Object Name -eq 'IdLE.Steps.Common') | Should -Not -BeNullOrEmpty
     }
 
+    It 'IdLE auto-imports only baseline modules (Core and Steps.Common), not optional modules' {
+        Remove-Module IdLE, IdLE.Core, IdLE.Steps.Common, IdLE.Steps.DirectorySync, IdLE.Provider.AD, IdLE.Provider.Mock -Force -ErrorAction SilentlyContinue
+        Import-Module $idlePsd1 -Force -ErrorAction Stop
+
+        $idle = Get-Module IdLE
+        $idle | Should -Not -BeNullOrEmpty
+
+        # Baseline modules should be auto-imported
+        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Core') | Should -Not -BeNullOrEmpty
+        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Steps.Common') | Should -Not -BeNullOrEmpty
+
+        # Optional modules should NOT be auto-imported
+        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Steps.DirectorySync') | Should -BeNullOrEmpty
+        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.AD') | Should -BeNullOrEmpty
+        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.Mock') | Should -BeNullOrEmpty
+        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.DirectorySync.EntraConnect') | Should -BeNullOrEmpty
+        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.EntraID') | Should -BeNullOrEmpty
+        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.ExchangeOnline') | Should -BeNullOrEmpty
+    }
+
     It 'Steps module exports the intended step functions' {
         Remove-Module IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
         Import-Module $stepsPsd1 -Force -ErrorAction Stop
