@@ -1,9 +1,6 @@
 # Resolves effective retry parameters for a step based on ExecutionOptions and step's RetryProfile.
 
-# Retry parameter limits (hard constraints to prevent misconfiguration)
-$script:IDLE_RETRY_MAX_ATTEMPTS_LIMIT = 10
-$script:IDLE_RETRY_INITIAL_DELAY_MS_LIMIT = 60000
-$script:IDLE_RETRY_MAX_DELAY_MS_LIMIT = 300000
+# Retry parameter limits are defined centrally (e.g., in Assert-IdleExecutionOptions.ps1)
 
 function Resolve-IdleStepRetryParameters {
     [CmdletBinding()]

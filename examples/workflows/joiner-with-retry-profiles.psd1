@@ -11,9 +11,13 @@
     Steps = @(
         @{
             Name        = 'Resolve identity from HR system'
-            Type        = 'IdLE.Step.ResolveIdentity'
+            Type        = 'IdLE.Step.EmitEvent'
             Description = 'Lookup user in HR database'
-            # Uses default retry profile (or no retry if not configured)
+            # In a real deployment, this would be a system-specific "resolve from HR" step.
+            # Here we emit an event as a simple example, using the default retry profile.
+            With        = @{
+                Message = 'Resolve identity for HR record {{Request.Data.HrEmployeeId}}'
+            }
         }
 
         @{
