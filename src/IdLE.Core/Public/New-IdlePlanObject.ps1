@@ -250,7 +250,7 @@ function New-IdlePlanObject {
 
         if ($deprecatedMappings.ContainsKey($normalized)) {
             $newId = $deprecatedMappings[$normalized]
-            Write-Warning "DEPRECATED: Capability '$normalized' is deprecated and will be removed in a future major version. Use '$newId' instead."
+            Write-Warning "DEPRECATED: Capability '$normalized' is deprecated in v1.0 and will be removed in v2.0. Use '$newId' instead."
             return $newId
         }
 
