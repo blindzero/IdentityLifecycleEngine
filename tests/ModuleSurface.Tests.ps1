@@ -157,19 +157,24 @@ Describe 'Module manifests and public surface' {
     }
 
     It 'IdLE auto-imports only baseline modules (Core and Steps.Common), not optional modules' {
-        # Clean test state for specific test-related modules only
+        # Clean test state - remove baseline modules to ensure fresh import
+        # We don't remove optional modules to maintain test isolation (other tests may have them loaded)
         Remove-Module IdLE, IdLE.Core, IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
         Import-Module $idlePsd1 -Force -ErrorAction Stop
 
         $idle = Get-Module IdLE
         $idle | Should -Not -BeNullOrEmpty
 
+        # Define expected baseline modules in one place
+        $baselineModules = @('IdLE.Core', 'IdLE.Steps.Common')
+
         # Baseline modules should be auto-imported (explicit positive check)
-        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Core') | Should -Not -BeNullOrEmpty
-        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Steps.Common') | Should -Not -BeNullOrEmpty
+        foreach ($moduleName in $baselineModules) {
+            ($idle.NestedModules | Where-Object Name -eq $moduleName) | Should -Not -BeNullOrEmpty -Because "$moduleName should be auto-imported"
+        }
 
         # Only baseline modules should be nested (count check ensures no extras)
-        @($idle.NestedModules).Count | Should -Be 2
+        @($idle.NestedModules).Count | Should -Be $baselineModules.Count
 
         # Verify no optional modules are nested (generalized negative check using pattern)
         # This pattern matches: IdLE.Provider.* or IdLE.Steps.* (except Steps.Common)
