@@ -12,25 +12,6 @@ the engine portable, testable, and host-agnostic.
 
 ---
 
-## Scope
-
-This document covers:
-
-- The role of providers in IdLE
-- The meaning of contracts and why they exist
-- Responsibility boundaries between engine, steps, providers, and host
-- Conceptual provider categories
-- Recommended usage patterns
-
-Out of scope:
-
-- Detailed API or method reference
-- Provider configuration schema
-- Step-specific provider requirements
-- Implementation details of concrete providers
-
----
-
 ## Concept
 
 ### Providers as infrastructure adapters
@@ -39,7 +20,7 @@ A provider is an **adapter to an external system**.
 
 Examples include:
 
-- identity directories
+- identity directories (Active Directory, Entra ID)
 - account stores
 - entitlement systems
 - mock or file-based systems used for testing
@@ -83,7 +64,7 @@ conventions rather than strict type systems.
 
 IdLE favors implicit contracts because they:
 
-- align with PowerShell’s object-based pipeline model
+- align with PowerShell's object-based pipeline model
 - avoid rigid inheritance hierarchies
 - keep providers easy to mock and test
 - allow gradual evolution without breaking existing implementations
@@ -95,6 +76,8 @@ The contract is expressed through:
 - consistent naming and semantics
 
 ---
+
+## Responsibilities
 
 ### Separation of responsibilities
 
@@ -115,6 +98,10 @@ Clear separation is essential for maintainability:
   - Implement infrastructure-specific behavior
   - Fulfill contracts expected by steps
   - Encapsulate external system details
+  - Authenticate and manage sessions
+  - Translate generic operations to system APIs
+  - Are mockable for tests
+  - Avoid global state
 
 - **Host**
   - Selects and configures providers
@@ -123,11 +110,77 @@ Clear separation is essential for maintainability:
 
 This separation keeps the core engine free of environmental assumptions.
 
+**Important:** Steps should not handle authentication. Authentication is a provider responsibility via AuthSessionBroker.
+
 ---
 
 ## Usage
 
-### Typical provider categories
+### Provider Aliases
+
+When you supply providers to IdLE, you use a **hashtable** that maps **alias names** to **provider instances**:
+
+```powershell
+$providers = @{
+    Identity = $adProvider
+}
+```
+
+#### Alias Naming
+
+The alias name (hashtable key) is **completely flexible** and chosen by you (the host):
+
+- It can be any valid PowerShell hashtable key
+- Common patterns:
+  - **Role-based**: `Identity`, `Entitlement`, `Messaging` (when you have one provider per role)
+  - **Instance-based**: `SourceAD`, `TargetEntra`, `ProdForest`, `DevSystem` (when you have multiple providers)
+- The built-in steps default to `'Identity'` if no `Provider` is specified in the step's `With` block
+
+#### How Workflows Reference Providers
+
+Workflow steps can specify which provider to use via the `Provider` key in the `With` block:
+
+```powershell
+@{
+    Name = 'Create user in source'
+    Type = 'IdLE.Step.CreateIdentity'
+    With = @{
+        IdentityKey = 'newuser'
+        Attributes  = @{ ... }
+        Provider    = 'SourceAD'  # References the alias from the provider hashtable
+    }
+}
+```
+
+If `Provider` is not specified, it defaults to `'Identity'`:
+
+```powershell
+# These are equivalent when Provider is not specified:
+With = @{ IdentityKey = 'user1'; Name = 'Department'; Value = 'IT' }
+With = @{ IdentityKey = 'user1'; Name = 'Department'; Value = 'IT'; Provider = 'Identity' }
+```
+
+#### Multiple Provider Example
+
+```powershell
+# Create provider instances
+$sourceAD = New-IdleADIdentityProvider -Credential $sourceCred
+$targetEntra = New-IdleEntraIDIdentityProvider -Credential $targetCred
+
+# Map to custom aliases
+$providers = @{
+    SourceAD    = $sourceAD
+    TargetEntra = $targetEntra
+}
+
+# Workflow steps reference the aliases
+# Step 1: With = @{ Provider = 'SourceAD'; ... }
+# Step 2: With = @{ Provider = 'TargetEntra'; ... }
+```
+
+---
+
+### Provider Categories
 
 While IdLE does not enforce provider categories, common conceptual groupings exist:
 
@@ -226,6 +279,26 @@ Guidance:
 - New step handlers should accept `Context` to access providers, event sink, and auth session acquisition.
 - Existing handlers without `Context` continue to work unchanged.
 
+---
+
+## Testing providers
+
+Providers should have contract tests that verify behavior against a mock or test harness.
+Unit tests must not call live systems.
+
+For testing guidance, see [Testing](../advanced/testing.md).
+
+---
+
+## Trust and security
+
+Providers and the step registry are host-controlled extension points and should be treated as trusted code.
+Workflows and lifecycle requests are data-only and must not contain executable objects.
+
+For details, see [Security](../advanced/security.md).
+
+---
+
 ## Common pitfalls
 
 ### Treating providers as part of the engine
@@ -264,7 +337,8 @@ should be clarified or refined.
 
 ## Related documentation
 
-- [Steps](../usage/steps.md)
-- [Providers](../usage/providers.md)
 - [Workflows](../usage/workflows.md)
+- [Steps](../usage/steps.md)
 - [Architecture](../advanced/architecture.md)
+- [Extensibility](../advanced/extensibility.md)
+- [Provider Capabilities](../advanced/provider-capabilities.md)

@@ -15,7 +15,7 @@
 It helps you standardize identity lifecycle processes across environments by separating:
 
 - **what** should happen (workflow definition)
-- from **how** it happens (providers/adapters)
+- from **how** it happens (providers)
 
 ---
 
@@ -33,73 +33,31 @@ IdLE aims to be:
 - **modular** (steps + providers are swappable)
 - **testable** (Pester-friendly; mock providers)
 - **configuration-driven** (workflows as data)
+- **extensible** (add custom steps and providers)
+
+For a complete overview of concepts and architecture, see **[Overview: Concept](docs/overview/concept.md)**.
 
 ---
 
-## Features
+## Key Features
 
-- **Joiner / Mover / Leaver** orchestration (and custom life cycle events)
 - **Plan → Execute** flow (preview actions before applying them)
-- **Plugin step model** (`Test` / `Invoke`, optional `Rollback` later)
-- **Provider/Adapter pattern** (directory, SaaS, REST, file/mock…)
+- **Joiner / Mover / Leaver** orchestration (and custom lifecycle events)
+- **Plugin step model** (idempotent, provider-agnostic)
 - **Structured events** for audit/progress (CorrelationId, Actor, step results)
-- **Idempotent execution** (steps can be written to converge state)
-
----
-
-## Requirements
-
-- PowerShell **7.x** (`pwsh`)
-- Pester **5.7.1** (for tests)
-- PSScriptAnalyzer **1.24.0** (for tests)
 
 ---
 
 ## Installation
 
-### Install from PowerShell Gallery (recommended)
+**Quick install:**
 
 ```powershell
 Install-Module -Name IdLE -Scope CurrentUser
 Import-Module IdLE
 ```
 
-> The `IdLE` meta-module loads the bundled nested modules (engine, built-in steps, and the mock provider used by examples)
-> from within the installed package.
-
-### Install from source (contributors / development)
-
-```powershell
-git clone https://github.com/blindzero/IdentityLifecycleEngine
-cd IdentityLifecycleEngine
-
-# Import meta module
-Import-Module ./src/IdLE/IdLE.psd1 -Force
-```
-
-#### What gets loaded when you import `IdLE`
-
-`IdLE` is the **batteries-included** entrypoint. Importing it loads:
-
-- `IdLE.Core` — the workflow engine (step-agnostic)
-- `IdLE.Steps.Common` — first-party built-in steps (e.g. `IdLE.Step.EmitEvent`, `IdLE.Step.EnsureAttribute`)
-
-Built-in steps are **available to the engine by default**, but are intentionally **not exported into the global session state**.
-This keeps your PowerShell session clean while still allowing workflows to reference built-in steps by `Step.Type`.
-
-If you want to call step functions directly (e.g. `Invoke-IdleStepEmitEvent`) you can explicitly import the step pack:
-
-```powershell
-Import-Module ./src/IdLE.Steps.Common/IdLE.Steps.Common.psd1 -Force
-```
-
-#### Engine-only import
-
-Advanced hosts can import the engine without any step packs:
-
-```powershell
-Import-Module ./src/IdLE.Core/IdLE.Core.psd1 -Force
-```
+For detailed installation instructions, requirements, and import options, see **[Installation Guide](docs/getting-started/installation.md)**.
 
 ---
 
