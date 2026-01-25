@@ -165,7 +165,7 @@ With = @{ IdentityKey = 'user1'; Name = 'Department'; Value = 'IT'; Provider = '
 ```powershell
 # Create provider instances
 $sourceAD = New-IdleADIdentityProvider -Credential $sourceCred
-$targetEntra = New-IdleEntraIdentityProvider -Credential $targetCred
+$targetEntra = New-IdleEntraIDIdentityProvider -Credential $targetCred
 
 # Map to custom aliases
 $providers = @{
