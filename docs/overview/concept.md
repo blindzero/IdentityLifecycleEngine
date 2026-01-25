@@ -1,11 +1,15 @@
 # Overview
 
+**This is the single source of truth for what IdLE is and why it exists.**
+
 IdLE (IdentityLifecycleEngine) is a **generic orchestration framework** for identity lifecycle automation.
 
 The key idea is to **separate intent from implementation**:
 
 - **What** should happen is defined in a **workflow** (data-only configuration).
 - **How** it happens is implemented by **steps** and **providers** (pluggable modules).
+
+---
 
 ## Why IdLE exists
 
@@ -21,6 +25,19 @@ IdLE aims to be:
 - **modular** (steps and providers are swappable)
 - **testable** (Pester-friendly, mock providers)
 - **configuration-driven** (workflows as data)
+
+---
+
+## Key Features
+
+- **Joiner / Mover / Leaver** orchestration (and custom lifecycle events)
+- **Plan → Execute** flow (preview actions before applying them)
+- **Plugin step model** (`Test` / `Invoke`, optional `Rollback` later)
+- **Provider/Adapter pattern** (directory, SaaS, REST, file/mock…)
+- **Structured events** for audit/progress (CorrelationId, Actor, step results)
+- **Idempotent execution** (steps can be written to converge state)
+
+---
 
 ## Core concepts
 
@@ -47,6 +64,8 @@ Execution runs **only the plan** (no re-planning). This supports:
 - repeatability
 - deterministic audits
 
+---
+
 ## Non-goals (V1)
 
 IdLE.Core stays headless and avoids responsibilities that belong to a host application:
@@ -55,3 +74,12 @@ IdLE.Core stays headless and avoids responsibilities that belong to a host appli
 - no interactive prompts
 - no authentication flows inside steps
 - no dynamic code execution from configuration
+
+---
+
+## Next Steps
+
+- [Installation](../getting-started/installation.md) — Install and import guide
+- [Quickstart](../getting-started/quickstart.md) — Run the demo
+- [Architecture](../advanced/architecture.md) — Design principles and decisions
+- [Workflows](../usage/workflows.md) — Define lifecycle workflows
