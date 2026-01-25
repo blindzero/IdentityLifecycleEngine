@@ -207,70 +207,87 @@ Describe 'Module manifests and public surface' {
     }
 
     Context 'Internal module import warnings' {
-        It 'IdLE.Core does not emit warning by default (avoid false positives during nested load)' {
-            $existingModule = Get-Module -Name IdLE.Core
-            if ($existingModule) {
-                Set-ItResult -Skipped -Because "IdLE.Core is already loaded; cannot test direct import behavior"
-                return
-            }
-            
-            $originalValue = $env:IDLE_WARN_INTERNAL_IMPORT
-            try {
-                $env:IDLE_WARN_INTERNAL_IMPORT = $null
-                
-                # Import and capture warning output
-                $output = Import-Module $corePsd1 -Force 3>&1 | Out-String
-                
-                $output | Should -BeNullOrEmpty -Because "Internal modules should not warn by default to avoid false positives when correctly loaded via IdLE"
-            }
-            finally {
-                $env:IDLE_WARN_INTERNAL_IMPORT = $originalValue
-                Remove-Module IdLE.Core -Force -ErrorAction SilentlyContinue
-            }
-        }
-
-        It 'IdLE.Core emits warning when IDLE_WARN_INTERNAL_IMPORT is set' {
+        It 'IdLE.Core emits warning when imported directly' {
             $existingModule = Get-Module -Name IdLE.Core
             if ($existingModule) {
                 Set-ItResult -Skipped -Because "IdLE.Core is already loaded; cannot test direct import warning"
                 return
             }
             
-            $originalValue = $env:IDLE_WARN_INTERNAL_IMPORT
+            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
             try {
-                $env:IDLE_WARN_INTERNAL_IMPORT = '1'
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
                 
                 # Import and capture warning output
                 $output = Import-Module $corePsd1 -Force 3>&1 | Out-String
                 
-                $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning when explicitly requested"
+                $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
                 $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
             }
             finally {
-                $env:IDLE_WARN_INTERNAL_IMPORT = $originalValue
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
                 Remove-Module IdLE.Core -Force -ErrorAction SilentlyContinue
             }
         }
 
-        It 'IdLE.Steps.Common does not emit warning by default' {
-            $existingModule = Get-Module -Name IdLE.Steps.Common
+        It 'IdLE.Core does not emit warning when IDLE_ALLOW_INTERNAL_IMPORT is set' {
+            $existingModule = Get-Module -Name IdLE.Core
             if ($existingModule) {
-                Set-ItResult -Skipped -Because "IdLE.Steps.Common is already loaded; cannot test direct import behavior"
+                Set-ItResult -Skipped -Because "IdLE.Core is already loaded; cannot test bypass"
                 return
             }
             
-            $originalValue = $env:IDLE_WARN_INTERNAL_IMPORT
+            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
             try {
-                $env:IDLE_WARN_INTERNAL_IMPORT = $null
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = '1'
+                
+                # Import and capture warning output
+                $output = Import-Module $corePsd1 -Force 3>&1 | Out-String
+                
+                $output | Should -BeNullOrEmpty -Because "Internal module should not emit warning when bypass is set"
+            }
+            finally {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
+                Remove-Module IdLE.Core -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'IdLE.Steps.Common emits warning when imported directly' {
+            $existingModule = Get-Module -Name IdLE.Steps.Common
+            if ($existingModule) {
+                Set-ItResult -Skipped -Because "IdLE.Steps.Common is already loaded; cannot test direct import warning"
+                return
+            }
+            
+            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
+            try {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
                 
                 # Import and capture warning output
                 $output = Import-Module $stepsPsd1 -Force 3>&1 | Out-String
                 
-                $output | Should -BeNullOrEmpty -Because "Internal modules should not warn by default"
+                $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
+                $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
             }
             finally {
-                $env:IDLE_WARN_INTERNAL_IMPORT = $originalValue
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
                 Remove-Module IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
+            }
+        }
+        
+        It 'IdLE meta-module does not emit internal module warnings' {
+            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
+            try {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
+                
+                # Import and capture warning output
+                $output = Import-Module $idlePsd1 -Force 3>&1 | Out-String
+                
+                $output | Should -BeNullOrEmpty -Because "IdLE meta-module should suppress internal module warnings via ScriptsToProcess"
+            }
+            finally {
+                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
+                Remove-Module IdLE -Force -ErrorAction SilentlyContinue
             }
         }
     }

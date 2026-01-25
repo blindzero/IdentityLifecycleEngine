@@ -2,11 +2,10 @@
 Set-StrictMode -Version Latest
 
 # Internal module warning: discourage direct import unless explicitly allowed
-# Note: Warning is suppressed when loaded as a nested module of IdLE to avoid
-# false positives in correct usage scenarios. Direct imports outside the IdLE
-# ecosystem will not trigger a warning, but are unsupported per documentation.
-if ($env:IDLE_WARN_INTERNAL_IMPORT -eq '1') {
-    Write-Warning "IdLE.Steps.Common is an internal/unsupported module. Import 'IdLE' instead for the supported public API."
+# Suppress warning if IDLE_ALLOW_INTERNAL_IMPORT is set
+# (IdLE meta-module sets this automatically; users can also set it for advanced scenarios)
+if (-not $env:IDLE_ALLOW_INTERNAL_IMPORT) {
+    Write-Warning "IdLE.Steps.Common is an internal/unsupported module. Import 'IdLE' instead for the supported public API. To bypass: set IDLE_ALLOW_INTERNAL_IMPORT=1."
 }
 
 $PrivatePath = Join-Path -Path $PSScriptRoot -ChildPath 'Private'
