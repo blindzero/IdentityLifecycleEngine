@@ -1,9 +1,5 @@
 # Providers and Contracts
 
-**This is the single source of truth for provider concepts, contracts, and usage.**
-
----
-
 ## Purpose
 
 Providers in IdLE are responsible for interacting with external systems such as

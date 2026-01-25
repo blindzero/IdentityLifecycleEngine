@@ -1,7 +1,5 @@
 # Installation
 
-This is the **single source of truth** for installing and importing IdLE.
-
 IdLE can be consumed either from the **PowerShell Gallery** (recommended for most users) or directly from the
 repository source (useful for contributors and development scenarios).
 
@@ -72,16 +70,6 @@ This keeps your PowerShell session clean while still allowing workflows to refer
 
 **When to use:** Most users and production scenarios.
 
-### Advanced: Import built-in steps explicitly
-
-If you want to call step functions directly (e.g. `Invoke-IdleStepEmitEvent`) you can explicitly import the step pack:
-
-```powershell
-Import-Module ./src/IdLE.Steps.Common/IdLE.Steps.Common.psd1 -Force
-```
-
-**When to use:** Advanced testing, debugging, or building custom step compositions.
-
 ### Advanced: Engine-only import
 
 Advanced hosts can import the engine without any step packs:
@@ -96,23 +84,16 @@ Import-Module ./src/IdLE.Core/IdLE.Core.psd1 -Force
 
 ## Provider modules (optional)
 
-The core engine is provider-agnostic. To use provider implementations, install or import the provider modules you need:
+The core engine is provider-agnostic. Provider modules are **packaged with IdLE** but must be **imported separately** when needed.
 
-### Active Directory Provider
+Example:
 
 ```powershell
 # From source
 Import-Module ./src/IdLE.Provider.AD/IdLE.Provider.AD.psd1 -Force
 ```
 
-### Entra ID Provider
-
-```powershell
-# From source
-Import-Module ./src/IdLE.Provider.EntraID/IdLE.Provider.EntraID.psd1 -Force
-```
-
-Provider modules are **not** included in the IdLE meta-module and must be imported separately when needed.
+For a complete list of available providers and usage details, see **[Providers](../usage/providers.md)**.
 
 ---
 

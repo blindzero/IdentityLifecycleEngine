@@ -1,7 +1,5 @@
 # Overview
 
-**This is the single source of truth for what IdLE is and why it exists.**
-
 IdLE (IdentityLifecycleEngine) is a **generic orchestration framework** for identity lifecycle automation.
 
 The key idea is to **separate intent from implementation**:
@@ -63,6 +61,30 @@ Execution runs **only the plan** (no re-planning). This supports:
 - approvals
 - repeatability
 - deterministic audits
+
+---
+
+## Building Blocks
+
+### Steps
+
+**Steps** are reusable plugins that define convergence logic. They:
+
+- Operate idempotently (converge towards desired state)
+- Are provider-agnostic (use contracts, not direct system calls)
+- Emit structured events for audit and progress
+
+Learn more: [Steps](../usage/steps.md) | [Step Catalog](../reference/steps.md)
+
+### Providers
+
+**Providers** are system-specific adapters that connect workflows to external systems. They:
+
+- Authenticate and manage sessions
+- Translate generic operations to system APIs
+- Are mockable for tests
+
+Learn more: [Providers](../usage/providers.md) | [Providers and Contracts](../reference/providers-and-contracts.md)
 
 ---
 

@@ -15,19 +15,36 @@
 It helps you standardize identity lifecycle processes across environments by separating:
 
 - **what** should happen (workflow definition)
-- from **how** it happens (providers/adapters)
+- from **how** it happens (providers)
 
-For a complete overview of concepts, architecture, and why IdLE exists, see **[Overview: Concept](docs/overview/concept.md)**.
+---
+
+## Why IdLE?
+
+Identity lifecycle automation tends to become:
+
+- tightly coupled to one system or one environment
+- hard to test
+- hard to change (logic baked into scripts)
+
+IdLE aims to be:
+
+- **portable** (run anywhere PowerShell 7 runs)
+- **modular** (steps + providers are swappable)
+- **testable** (Pester-friendly; mock providers)
+- **configuration-driven** (workflows as data)
+- **extensible** (add custom steps and providers)
+
+For a complete overview of concepts and architecture, see **[Overview: Concept](docs/overview/concept.md)**.
 
 ---
 
 ## Key Features
 
 - **Plan → Execute** flow (preview actions before applying them)
-- **Configuration-driven** (workflows as data, no code in config)
-- **Modular** (steps + providers are swappable)
-- **Portable** (PowerShell 7+, runs anywhere)
-- **Testable** (Pester-friendly; mock providers)
+- **Joiner / Mover / Leaver** orchestration (and custom lifecycle events)
+- **Plugin step model** (idempotent, provider-agnostic)
+- **Structured events** for audit/progress (CorrelationId, Actor, step results)
 
 ---
 

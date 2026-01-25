@@ -33,9 +33,22 @@ A new provider typically involves:
 3. Auth session acquisition via host execution context (AuthSessionBroker)
 4. Contract tests and unit tests
 
-For detailed provider contracts, responsibilities, and auth session acquisition patterns, see:
+### Auth session acquisition
 
-**→ [Providers and Contracts](../reference/providers-and-contracts.md)** — Provider concepts and AuthSessionBroker contract
+IdLE keeps authentication out of the core engine. Providers acquire sessions through the execution context:
+
+- `Context.AcquireAuthSession(Name, Options)`
+
+Key points:
+
+- Hosts provide an AuthSessionBroker via `Providers.AuthSessionBroker`
+- Providers request sessions by name (e.g., `MicrosoftGraph`, `ActiveDirectory`)
+- Options are data-only (ScriptBlocks rejected)
+- The broker handles caching, interactive auth policy, and secret management
+
+For detailed contract specifications and usage patterns, see:
+
+**→ [Providers and Contracts](../reference/providers-and-contracts.md)** — Complete provider contracts and AuthSessionBroker details
 
 ### Capability Advertisement
 
