@@ -156,6 +156,34 @@ Describe 'Module manifests and public surface' {
         ($idle.NestedModules | Where-Object Name -eq 'IdLE.Steps.Common') | Should -Not -BeNullOrEmpty
     }
 
+    It 'IdLE auto-imports only baseline modules (Core and Steps.Common), not optional modules' {
+        # Clean test state - remove baseline modules to ensure fresh import
+        # We don't remove optional modules to maintain test isolation (other tests may have them loaded)
+        Remove-Module IdLE, IdLE.Core, IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
+        Import-Module $idlePsd1 -Force -ErrorAction Stop
+
+        $idle = Get-Module IdLE
+        $idle | Should -Not -BeNullOrEmpty
+
+        # Define expected baseline modules in one place
+        $baselineModules = @('IdLE.Core', 'IdLE.Steps.Common')
+
+        # Baseline modules should be auto-imported (explicit positive check)
+        foreach ($moduleName in $baselineModules) {
+            ($idle.NestedModules | Where-Object Name -eq $moduleName) | Should -Not -BeNullOrEmpty -Because "$moduleName should be auto-imported"
+        }
+
+        # Only baseline modules should be nested (count check ensures no extras)
+        @($idle.NestedModules).Count | Should -Be $baselineModules.Count
+
+        # Verify no optional modules are nested (generalized negative check using pattern)
+        # This pattern matches: IdLE.Provider.* or IdLE.Steps.* (except Steps.Common)
+        $nestedNames = @($idle.NestedModules | Select-Object -ExpandProperty Name)
+        $optionalModulePattern = '^IdLE\.(Provider\.|Steps\.(?!Common$))'
+        $unexpectedModules = $nestedNames | Where-Object { $_ -match $optionalModulePattern }
+        $unexpectedModules | Should -BeNullOrEmpty -Because "Optional modules should not be auto-imported"
+    }
+
     It 'Steps module exports the intended step functions' {
         Remove-Module IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
         Import-Module $stepsPsd1 -Force -ErrorAction Stop
