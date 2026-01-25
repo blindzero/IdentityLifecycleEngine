@@ -22,6 +22,9 @@ Install-Module -Name IdLE -Scope CurrentUser
 Import-Module IdLE
 ```
 
+> Note: The `IdLE` meta-module loads the bundled nested modules (e.g. `IdLE.Core`, built-in steps, and the mock provider
+> used by examples) from within the installed package.
+
 ### Verify installation
 
 ```powershell
