@@ -23,7 +23,7 @@ function Test-IdleWorkflowSchema {
             [System.Collections.Generic.List[string]] $ErrorList
         )
 
-        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description')
+        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RetryProfile')
         foreach ($k in $Step.Keys) {
             if ($allowedStepKeys -notcontains $k) {
                 $ErrorList.Add("Unknown key '$k' in $StepPath. Allowed keys: $($allowedStepKeys -join ', ').")
@@ -91,6 +91,17 @@ function Test-IdleWorkflowSchema {
                 $errors.Add("'$stepPath.With' must be a hashtable (step parameters).")
             }
 
+            # 'RetryProfile' must be a string matching the pattern ^[A-Za-z0-9_.-]{1,64}$
+            if ($step.ContainsKey('RetryProfile') -and $null -ne $step.RetryProfile) {
+                $retryProfile = [string]$step.RetryProfile
+                if ([string]::IsNullOrWhiteSpace($retryProfile)) {
+                    $errors.Add("'$stepPath.RetryProfile' must not be an empty string.")
+                }
+                elseif ($retryProfile -notmatch '^[A-Za-z0-9_.-]{1,64}$') {
+                    $errors.Add("'$stepPath.RetryProfile' value '$retryProfile' is invalid. Must match pattern: ^[A-Za-z0-9_.-]{1,64}$")
+                }
+            }
+
             $i++
         }
     }
@@ -137,6 +148,17 @@ function Test-IdleWorkflowSchema {
                 # 'With' is step parameter bag (data-only). Detailed validation comes with step metadata later.
                 if ($step.ContainsKey('With') -and $null -ne $step.With -and $step.With -isnot [hashtable]) {
                     $errors.Add("'$stepPath.With' must be a hashtable (step parameters).")
+                }
+
+                # 'RetryProfile' must be a string matching the pattern ^[A-Za-z0-9_.-]{1,64}$
+                if ($step.ContainsKey('RetryProfile') -and $null -ne $step.RetryProfile) {
+                    $retryProfile = [string]$step.RetryProfile
+                    if ([string]::IsNullOrWhiteSpace($retryProfile)) {
+                        $errors.Add("'$stepPath.RetryProfile' must not be an empty string.")
+                    }
+                    elseif ($retryProfile -notmatch '^[A-Za-z0-9_.-]{1,64}$') {
+                        $errors.Add("'$stepPath.RetryProfile' value '$retryProfile' is invalid. Must match pattern: ^[A-Za-z0-9_.-]{1,64}$")
+                    }
                 }
 
                 $i++
