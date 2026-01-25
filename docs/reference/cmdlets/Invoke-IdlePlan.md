@@ -14,7 +14,8 @@ Executes an IdLE plan.
 
 ```
 Invoke-IdlePlan [-Plan] <Object> [[-Providers] <Hashtable>] [[-EventSink] <Object>]
- [[-ExecutionOptions] <Hashtable>] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
+ [[-ExecutionOptions] <Hashtable>] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -30,17 +31,15 @@ Invoke-IdlePlan -Plan $plan -Providers $providers
 
 ### EXAMPLE 2
 ```
-$executionOptions = @{
+$execOptions = @{
     RetryProfiles = @{
-        Default = @{ MaxAttempts = 3; InitialDelayMilliseconds = 200; BackoffFactor = 2.0; MaxDelayMilliseconds = 5000; JitterRatio = 0.2 }
-        ExchangeOnline = @{ MaxAttempts = 6; InitialDelayMilliseconds = 500; BackoffFactor = 2.0; MaxDelayMilliseconds = 30000; JitterRatio = 0.3 }
+        Default = @{ MaxAttempts = 3; InitialDelayMilliseconds = 200 }
+        ExchangeOnline = @{ MaxAttempts = 6; InitialDelayMilliseconds = 500 }
     }
     DefaultRetryProfile = 'Default'
 }
-Invoke-IdlePlan -Plan $plan -Providers $providers -ExecutionOptions $executionOptions
+Invoke-IdlePlan -Plan $plan -Providers $providers -ExecutionOptions $execOptions
 ```
-
-Executes the plan with custom retry profiles for different target systems.
 
 ## PARAMETERS
 
