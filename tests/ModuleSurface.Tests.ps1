@@ -157,25 +157,26 @@ Describe 'Module manifests and public surface' {
     }
 
     It 'IdLE auto-imports only baseline modules (Core and Steps.Common), not optional modules' {
-        # Explicitly remove known modules to ensure clean test state.
-        # This list is intentionally explicit (not pattern-based) to document exactly which modules we're testing.
-        Remove-Module IdLE, IdLE.Core, IdLE.Steps.Common, IdLE.Steps.DirectorySync, IdLE.Provider.AD, IdLE.Provider.Mock -Force -ErrorAction SilentlyContinue
+        # Clean test state for specific test-related modules only
+        Remove-Module IdLE, IdLE.Core, IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
         Import-Module $idlePsd1 -Force -ErrorAction Stop
 
         $idle = Get-Module IdLE
         $idle | Should -Not -BeNullOrEmpty
 
-        # Baseline modules should be auto-imported
+        # Baseline modules should be auto-imported (explicit positive check)
         ($idle.NestedModules | Where-Object Name -eq 'IdLE.Core') | Should -Not -BeNullOrEmpty
         ($idle.NestedModules | Where-Object Name -eq 'IdLE.Steps.Common') | Should -Not -BeNullOrEmpty
 
-        # Optional modules should NOT be auto-imported
-        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Steps.DirectorySync') | Should -BeNullOrEmpty
-        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.AD') | Should -BeNullOrEmpty
-        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.Mock') | Should -BeNullOrEmpty
-        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.DirectorySync.EntraConnect') | Should -BeNullOrEmpty
-        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.EntraID') | Should -BeNullOrEmpty
-        ($idle.NestedModules | Where-Object Name -eq 'IdLE.Provider.ExchangeOnline') | Should -BeNullOrEmpty
+        # Only baseline modules should be nested (count check ensures no extras)
+        @($idle.NestedModules).Count | Should -Be 2
+
+        # Verify no optional modules are nested (generalized negative check using pattern)
+        # This pattern matches: IdLE.Provider.* or IdLE.Steps.* (except Steps.Common)
+        $nestedNames = @($idle.NestedModules | Select-Object -ExpandProperty Name)
+        $optionalModulePattern = '^IdLE\.(Provider\.|Steps\.(?!Common$))'
+        $unexpectedModules = $nestedNames | Where-Object { $_ -match $optionalModulePattern }
+        $unexpectedModules | Should -BeNullOrEmpty -Because "Optional modules should not be auto-imported"
     }
 
     It 'Steps module exports the intended step functions' {
