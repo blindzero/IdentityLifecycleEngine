@@ -94,5 +94,5 @@ Export-ModuleMember -Function @(
     'New-IdlePlan',
     'Invoke-IdlePlan',
     'Export-IdlePlan',
-    'New-IdleAuthSessionBroker'
+    'New-IdleAuthSession'
 )

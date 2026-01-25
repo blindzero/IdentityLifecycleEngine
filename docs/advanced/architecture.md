@@ -116,7 +116,7 @@ The **supported public API** for v1.0 consists of the following commands exporte
 - `New-IdlePlan`
 - `Invoke-IdlePlan`
 - `Export-IdlePlan`
-- `New-IdleAuthSessionBroker`
+- `New-IdleAuthSession`
 
 **Source of truth**: `src/IdLE/IdLE.psd1` → `FunctionsToExport`
 

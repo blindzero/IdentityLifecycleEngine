@@ -1,12 +1,12 @@
-# Re-export New-IdleAuthSessionBroker from IdLE.Core.
+# Re-export authentication session broker functionality from IdLE.Core.
 # This wrapper is necessary because PowerShell's Export-ModuleMember can only export
 # functions defined in the current module's scope. The wrapper creates the function
 # in IdLE's scope, allowing it to be exported.
 #
-# The filename is New-IdleAuthSession.ps1 to avoid collision with the Core implementation,
-# but the function name remains New-IdleAuthSessionBroker for v1.0 public API compatibility.
+# The function is named New-IdleAuthSession to provide a clean public API name,
+# while the Core implementation remains as New-IdleAuthSessionBroker.
 
-function New-IdleAuthSessionBroker {
+function New-IdleAuthSession {
     <#
     .SYNOPSIS
     Creates a simple AuthSessionBroker for use with IdLE providers.
@@ -25,7 +25,7 @@ function New-IdleAuthSessionBroker {
     Optional default credential to return when no session options are provided.
 
     .EXAMPLE
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
+    $broker = New-IdleAuthSession -SessionMap @{
         @{ Role = 'Tier0' } = $tier0Credential
     }
 

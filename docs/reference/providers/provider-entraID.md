@@ -45,7 +45,7 @@ Connect-AzAccount
 $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
 
 # Create broker
-$broker = New-IdleAuthSessionBroker -SessionMap @{
+$broker = New-IdleAuthSession -SessionMap @{
     @{} = $token
 } -DefaultCredential $token
 
@@ -71,7 +71,7 @@ $tenantId = "your-tenant-id"
 $token = Get-GraphAppOnlyToken -ClientId $clientId -ClientSecret $clientSecret -TenantId $tenantId
 
 # Create broker
-$broker = New-IdleAuthSessionBroker -SessionMap @{
+$broker = New-IdleAuthSession -SessionMap @{
     @{} = $token
 } -DefaultCredential $token
 
@@ -84,7 +84,7 @@ $broker = New-IdleAuthSessionBroker -SessionMap @{
 $tier0Token = Get-GraphToken -Role 'Tier0'
 $adminToken = Get-GraphToken -Role 'Admin'
 
-$broker = New-IdleAuthSessionBroker -SessionMap @{
+$broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Token
     @{ Role = 'Admin' } = $adminToken
 } -DefaultCredential $adminToken

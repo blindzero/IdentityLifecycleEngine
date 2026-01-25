@@ -53,7 +53,7 @@ Describe 'Module manifests and public surface' {
 
         $expected = @(
             'Invoke-IdlePlan'
-            'New-IdleAuthSessionBroker'
+            'New-IdleAuthSession'
             'New-IdleLifecycleRequest'
             'New-IdlePlan'
             'Test-IdleWorkflow'
