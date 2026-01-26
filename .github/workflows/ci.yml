@@ -73,9 +73,9 @@ jobs:
           if (Test-Path $coverageXml) {
             [xml]$coverage = Get-Content $coverageXml
             
-            # Get the report element and its direct counter children (JaCoCo XML format)
-            $reportElement = $coverage.SelectSingleNode('//report')
-            if ($reportElement) {
+            # Get the report element (root) and its direct counter children (JaCoCo XML format)
+            $reportElement = $coverage.DocumentElement
+            if ($reportElement -and $reportElement.LocalName -eq 'report') {
               $counters = $reportElement.ChildNodes | Where-Object { $_.Name -eq 'counter' }
               $lineCounter = $counters | Where-Object { $_.type -eq 'LINE' } | Select-Object -First 1
               
@@ -86,7 +86,15 @@ jobs:
                 
                 if ($total -gt 0) {
                   $percentage = [math]::Round(($covered / $total) * 100, 2)
-                  $summary = "## Code Coverage Summary`n`n- **Coverage:** $percentage%`n- **Lines Covered:** $covered / $total"
+                  
+                  # Build summary using array and join for better readability
+                  $summaryLines = @(
+                    '## Code Coverage Summary'
+                    ''
+                    "- **Coverage:** $percentage%"
+                    "- **Lines Covered:** $covered / $total"
+                  )
+                  $summary = $summaryLines -join "`n"
                   $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
                 }
               }
