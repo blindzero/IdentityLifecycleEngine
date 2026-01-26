@@ -7,7 +7,7 @@ This script is the canonical entry point for running Pester in the IdLE reposito
 
 It is designed to be:
 - deterministic (fixed artifact paths under repo root)
-- CI-friendly (NUnitXml results + coverage output on demand)
+- CI-friendly (JUnitXml results + coverage output on demand)
 - robust against different working directories (resolves paths relative to repo root)
 
 The script ensures Pester is available and imports it before running tests.
@@ -17,11 +17,11 @@ Path to the tests folder. Defaults to 'tests' relative to the repository root.
 
 .PARAMETER CI
 Enables CI mode:
-- Writes NUnitXml test results to -TestResultsPath
+- Writes JUnitXml test results to -TestResultsPath
 - Enables code coverage and writes a coverage report to -CoverageOutputPath
 
 .PARAMETER TestResultsPath
-Path to the NUnitXml test results file. Defaults to 'artifacts/test-results.xml'
+Path to the JUnitXml test results file. Defaults to 'artifacts/test-results.xml'
 relative to the repository root.
 
 .PARAMETER EnableCoverage
@@ -214,7 +214,7 @@ $config.Output.Verbosity = 'Detailed'
 
 if ($emitTestResults -and $resolvedTestResultsPath) {
     $config.TestResult.Enabled = $true
-    $config.TestResult.OutputFormat = 'NUnitXml'
+    $config.TestResult.OutputFormat = 'JUnitXml'
     $config.TestResult.OutputPath = $resolvedTestResultsPath
 }
 

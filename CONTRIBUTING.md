@@ -148,8 +148,10 @@ To generate CI-like artifacts (test results + coverage) under `artifacts/`:
 
 Outputs:
 
-- `artifacts/test-results.xml` (NUnitXml)
+- `artifacts/test-results.xml` (JUnitXml)
 - `artifacts/coverage.xml` (coverage report)
+
+> **Note:** In CI, these artifacts are automatically published in GitHub's UI as checks and PR comments, so reviewers don't need to download artifacts to see test results or coverage.
 
 ### Run static analysis (PSScriptAnalyzer)
 

@@ -66,8 +66,16 @@ The CI pipeline produces test artifacts under the `artifacts/` folder and upload
 
 Expected outputs:
 
-- `artifacts/test-results.xml` (NUnitXml test results)
+- `artifacts/test-results.xml` (JUnitXml test results)
 - `artifacts/coverage.xml` (code coverage report; format depends on configuration)
+
+In addition to uploading these artifacts, CI automatically publishes:
+
+- **Test results** as a GitHub Check (visible in PR checks and workflow runs)
+- **Code coverage** as a GitHub Check with inline PR comments
+- **Coverage summary** in the workflow run summary
+
+This allows reviewers to see test failures and coverage directly in GitHub's UI without downloading artifacts.
 
 ## Static analysis
 
