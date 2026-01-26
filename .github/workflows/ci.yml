@@ -80,7 +80,7 @@ jobs:
               # Get the report element (root) and its direct counter children (JaCoCo XML format)
               $reportElement = $coverage.DocumentElement
               if ($reportElement -and $reportElement.LocalName -eq 'report') {
-                $counters = $reportElement.ChildNodes | Where-Object { $_.Name -eq 'counter' }
+                $counters = $reportElement.ChildNodes | Where-Object { $_.LocalName -eq 'counter' }
                 $lineCounter = $counters | Where-Object { $_.type -eq 'LINE' } | Select-Object -First 1
                 
                 if ($lineCounter -and
