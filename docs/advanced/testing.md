@@ -66,7 +66,7 @@ The CI pipeline produces test artifacts under the `artifacts/` folder and upload
 
 Expected outputs:
 
-- `artifacts/test-results.xml` (NUnitXml test results)
+- `artifacts/test-results.xml` (JUnitXml test results)
 - `artifacts/coverage.xml` (code coverage report; format depends on configuration)
 
 In addition to uploading these artifacts, CI automatically publishes:
