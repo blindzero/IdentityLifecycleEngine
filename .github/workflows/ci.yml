@@ -69,35 +69,50 @@ jobs:
         if: always() && matrix.os == 'ubuntu-latest'
         shell: pwsh
         run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          
           $coverageXml = 'artifacts/coverage.xml'
           if (Test-Path $coverageXml) {
-            [xml]$coverage = Get-Content $coverageXml
-            
-            # Get the report element (root) and its direct counter children (JaCoCo XML format)
-            $reportElement = $coverage.DocumentElement
-            if ($reportElement -and $reportElement.LocalName -eq 'report') {
-              $counters = $reportElement.ChildNodes | Where-Object { $_.Name -eq 'counter' }
-              $lineCounter = $counters | Where-Object { $_.type -eq 'LINE' } | Select-Object -First 1
+            try {
+              [xml]$coverage = Get-Content $coverageXml
               
-              if ($lineCounter) {
-                $covered = [int]$lineCounter.covered
-                $missed = [int]$lineCounter.missed
-                $total = $covered + $missed
+              # Get the report element (root) and its direct counter children (JaCoCo XML format)
+              $reportElement = $coverage.DocumentElement
+              if ($reportElement -and $reportElement.LocalName -eq 'report') {
+                $counters = $reportElement.ChildNodes | Where-Object { $_.Name -eq 'counter' }
+                $lineCounter = $counters | Where-Object { $_.type -eq 'LINE' } | Select-Object -First 1
                 
-                if ($total -gt 0) {
-                  $percentage = [math]::Round(($covered / $total) * 100, 2)
-                  
-                  # Build summary using array and join for better readability
-                  $summaryLines = @(
-                    '## Code Coverage Summary'
-                    ''
-                    "- **Coverage:** $percentage%"
-                    "- **Lines Covered:** $covered / $total"
-                  )
-                  $summary = $summaryLines -join "`n"
-                  $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+                if ($lineCounter -and
+                    $lineCounter.PSObject.Properties['covered'] -and
+                    $lineCounter.PSObject.Properties['missed']) {
+                  try {
+                    $covered = [int]$lineCounter.covered
+                    $missed = [int]$lineCounter.missed
+                    $total = $covered + $missed
+                    
+                    if ($total -gt 0) {
+                      $percentage = [math]::Round(($covered / $total) * 100, 2)
+                      
+                      # Build summary using array and join for better readability
+                      $summaryLines = @(
+                        '## Code Coverage Summary'
+                        ''
+                        "- **Coverage:** $percentage%"
+                        "- **Lines Covered:** $covered / $total"
+                      )
+                      $summary = $summaryLines -join "`n"
+                      $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+                    }
+                  }
+                  catch {
+                    Write-Host 'Skipping coverage summary due to invalid or malformed coverage data.'
+                  }
                 }
               }
+            }
+            catch {
+              Write-Host 'Skipping coverage summary due to error reading coverage file.'
             }
           }
 
