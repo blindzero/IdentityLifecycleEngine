@@ -96,6 +96,17 @@ function New-IdleEntraIDIdentityProvider {
         [object] $Adapter
     )
 
+    # Check prerequisites and emit warnings if required components are missing
+    $prereqs = Test-IdleEntraIDPrerequisites
+    if (-not $prereqs.IsHealthy) {
+        foreach ($missing in $prereqs.MissingRequired) {
+            Write-Warning "EntraID provider prerequisite check: Required component '$missing' is not available."
+        }
+        foreach ($note in $prereqs.Notes) {
+            Write-Warning "EntraID provider prerequisite check: $note"
+        }
+    }
+
     if ($null -eq $Adapter) {
         $Adapter = New-IdleEntraIDAdapter
     }
@@ -108,49 +119,7 @@ function New-IdleEntraIDIdentityProvider {
             [object] $Value
         )
 
-        $kind = $null
-        $id = $null
-        $displayName = $null
-        $mail = $null
-
-        if ($Value -is [System.Collections.IDictionary]) {
-            $kind = $Value['Kind']
-            $id = $Value['Id']
-            if ($Value.Contains('DisplayName')) { $displayName = $Value['DisplayName'] }
-            if ($Value.Contains('Mail')) { $mail = $Value['Mail'] }
-        }
-        else {
-            $props = $Value.PSObject.Properties
-            if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
-            if ($props.Name -contains 'Id') { $id = $Value.Id }
-            if ($props.Name -contains 'DisplayName') { $displayName = $Value.DisplayName }
-            if ($props.Name -contains 'Mail') { $mail = $Value.Mail }
-        }
-
-        if ([string]::IsNullOrWhiteSpace([string]$kind)) {
-            throw "Entitlement.Kind must not be empty."
-        }
-        if ([string]::IsNullOrWhiteSpace([string]$id)) {
-            throw "Entitlement.Id must not be empty."
-        }
-
-        return [pscustomobject]@{
-            PSTypeName  = 'IdLE.Entitlement'
-            Kind        = [string]$kind
-            Id          = [string]$id
-            DisplayName = if ($null -eq $displayName -or [string]::IsNullOrWhiteSpace([string]$displayName)) {
-                $null
-            }
-            else {
-                [string]$displayName
-            }
-            Mail        = if ($null -eq $mail -or [string]::IsNullOrWhiteSpace([string]$mail)) {
-                $null
-            }
-            else {
-                [string]$mail
-            }
-        }
+        return ConvertTo-IdleEntraIDEntitlement -Value $Value
     }
 
     $testEntitlementEquals = {
@@ -182,6 +151,23 @@ function New-IdleEntraIDIdentityProvider {
             [object] $AuthSession
         )
 
+        # Validate prerequisites only when using the real (default) adapter
+        # Skip validation if a fake adapter is injected for tests
+        # Check TypeNames collection (PSTypeName in hashtable adds to TypeNames, not as a property)
+        $isRealAdapter = ($this.Adapter.PSObject.TypeNames -contains 'IdLE.EntraIDAdapter')
+        
+        if ($isRealAdapter) {
+            $prereqCheck = Test-IdleEntraIDPrerequisites
+            if (-not $prereqCheck.IsHealthy) {
+                $missingList = $prereqCheck.MissingRequired -join ', '
+                $errorMsg = "EntraID provider operation cannot proceed. Required prerequisite(s) missing: $missingList"
+                if ($prereqCheck.Notes.Count -gt 0) {
+                    $errorMsg += "`n" + ($prereqCheck.Notes -join "`n")
+                }
+                throw $errorMsg
+            }
+        }
+
         if ($null -eq $AuthSession) {
             # For tests/development, allow null but it will fail when hitting real Graph API
             # Real usage will fail with proper error from Graph API
@@ -193,19 +179,19 @@ function New-IdleEntraIDIdentityProvider {
             return $AuthSession
         }
 
+        # PSCredential with token in password field
+        if ($AuthSession -is [PSCredential]) {
+            return $AuthSession.GetNetworkCredential().Password
+        }
+
         # Object with GetAccessToken() method
-        if ($AuthSession.PSObject.Methods.Name -contains 'GetAccessToken') {
+        if (@($AuthSession.PSObject.Methods.Name) -contains 'GetAccessToken') {
             return $AuthSession.GetAccessToken()
         }
 
         # Object with AccessToken property
-        if ($AuthSession.PSObject.Properties.Name -contains 'AccessToken') {
+        if (@($AuthSession.PSObject.Properties.Name) -contains 'AccessToken') {
             return $AuthSession.AccessToken
-        }
-
-        # PSCredential with token in password field
-        if ($AuthSession -is [PSCredential]) {
-            return $AuthSession.GetNetworkCredential().Password
         }
 
         throw "AuthSession format not recognized. Expected: string token, object with AccessToken property, object with GetAccessToken() method, or PSCredential."
