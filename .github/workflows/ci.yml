@@ -50,7 +50,7 @@ jobs:
         with:
           name: Pester Tests (${{ matrix.os }})
           path: artifacts/test-results.xml
-          reporter: dotnet-nunit
+          reporter: java-junit
           fail-on-error: false
 
       - name: Publish coverage report
