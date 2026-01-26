@@ -1,5 +1,5 @@
 BeforeAll {
-    $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+    $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
     $idlePsd1 = Join-Path $repoRoot 'src\IdLE\IdLE.psd1'
     $corePsd1 = Join-Path $repoRoot 'src\IdLE.Core\IdLE.Core.psd1'
     $stepsPsd1 = Join-Path $repoRoot 'src\IdLE.Steps.Common\IdLE.Steps.Common.psd1'

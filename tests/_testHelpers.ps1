@@ -38,6 +38,9 @@ function Import-IdleTestModule {
 
     $directorySyncProviderManifestPath = Resolve-Path -Path (Join-Path (Get-RepoRootPath) 'src/IdLE.Provider.DirectorySync.EntraConnect/IdLE.Provider.DirectorySync.EntraConnect.psd1')
     Import-Module -Name $directorySyncProviderManifestPath -Force -ErrorAction Stop
+
+    $stepsMailboxManifestPath = Resolve-Path -Path (Join-Path (Get-RepoRootPath) 'src/IdLE.Steps.Mailbox/IdLE.Steps.Mailbox.psd1')
+    Import-Module -Name $stepsMailboxManifestPath -Force -ErrorAction Stop
 }
 
 function Get-ModuleManifestPaths {

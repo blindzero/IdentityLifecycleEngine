@@ -3,9 +3,9 @@
 Describe 'IdLE.Steps - Auth Session Routing' {
 
     BeforeAll {
-        Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '../src/IdLE/IdLE.psd1') -Force
-        Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '../src/IdLE.Core/IdLE.Core.psd1') -Force
-        Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '../src/IdLE.Steps.Common/IdLE.Steps.Common.psd1') -Force
+        Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '../../src/IdLE/IdLE.psd1') -Force
+        Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '../../src/IdLE.Core/IdLE.Core.psd1') -Force
+        Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '../../src/IdLE.Steps.Common/IdLE.Steps.Common.psd1') -Force
     }
 
     Context 'EnsureAttribute - Auth Session Acquisition' {
