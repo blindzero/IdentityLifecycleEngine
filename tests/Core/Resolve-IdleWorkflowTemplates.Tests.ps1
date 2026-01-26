@@ -5,7 +5,7 @@ BeforeAll {
     # Helper to get fixture workflow path
     function Get-TemplateTestFixture {
         param([string]$Name)
-        return Join-Path $PSScriptRoot "fixtures/workflows/template-tests/$Name.psd1"
+        return Join-Path $PSScriptRoot ".." "fixtures/workflows/template-tests/$Name.psd1"
     }
 }
 

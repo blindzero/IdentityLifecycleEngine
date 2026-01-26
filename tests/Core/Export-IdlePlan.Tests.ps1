@@ -48,7 +48,7 @@ Describe 'Export-IdlePlan' {
             
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
-            $expectedPath = Join-Path $PSScriptRoot 'fixtures/plan-export/expected/plan-export.json'
+            $expectedPath = Join-Path $PSScriptRoot '..' 'fixtures/plan-export/expected/plan-export.json'
             $expectedJson = Get-Content -Path $expectedPath -Raw -Encoding utf8
 
             # Act

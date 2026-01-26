@@ -1,7 +1,7 @@
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
-    $fixturesPath = Join-Path $PSScriptRoot 'fixtures/workflows'
+    $fixturesPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows'
 }
 
 Describe 'New-IdlePlan - required provider capabilities' {
