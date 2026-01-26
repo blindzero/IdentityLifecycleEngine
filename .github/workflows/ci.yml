@@ -72,25 +72,23 @@ jobs:
           $coverageXml = 'artifacts/coverage.xml'
           if (Test-Path $coverageXml) {
             [xml]$coverage = Get-Content $coverageXml
-            $report = $coverage.report
             
-            # JaCoCo XML structure: counter elements with type and covered/missed attributes
-            $lineCounter = $report.counter | Where-Object { $_.type -eq 'LINE' } | Select-Object -First 1
-            
-            if ($lineCounter) {
-              $covered = [int]$lineCounter.covered
-              $missed = [int]$lineCounter.missed
-              $total = $covered + $missed
+            # Get the report element and its direct counter children (JaCoCo XML format)
+            $reportElement = $coverage.SelectSingleNode('//report')
+            if ($reportElement) {
+              $counters = $reportElement.ChildNodes | Where-Object { $_.Name -eq 'counter' }
+              $lineCounter = $counters | Where-Object { $_.type -eq 'LINE' } | Select-Object -First 1
               
-              if ($total -gt 0) {
-                $percentage = [math]::Round(($covered / $total) * 100, 2)
-                $summary = @"
-          ## Code Coverage Summary
-          
-          - **Coverage:** $percentage%
-          - **Lines Covered:** $covered / $total
-          "@
-                $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+              if ($lineCounter) {
+                $covered = [int]$lineCounter.covered
+                $missed = [int]$lineCounter.missed
+                $total = $covered + $missed
+                
+                if ($total -gt 0) {
+                  $percentage = [math]::Round(($covered / $total) * 100, 2)
+                  $summary = "## Code Coverage Summary`n`n- **Coverage:** $percentage%`n- **Lines Covered:** $covered / $total"
+                  $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+                }
               }
             }
           }
