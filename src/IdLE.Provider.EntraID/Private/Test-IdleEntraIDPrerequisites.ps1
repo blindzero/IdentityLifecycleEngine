@@ -52,7 +52,7 @@ function Test-IdleEntraIDPrerequisites {
 
     $isHealthy = ($missingRequired.Count -eq 0)
 
-    if ($isHealthy) {
+    if (-not $isHealthy) {
         $notes += 'The Entra ID provider requires valid Graph API authentication at runtime via AuthSessionBroker.'
         $notes += 'Ensure the host provides access tokens with required permissions: User.Read.All, User.ReadWrite.All, Group.Read.All, GroupMember.ReadWrite.All'
     }
