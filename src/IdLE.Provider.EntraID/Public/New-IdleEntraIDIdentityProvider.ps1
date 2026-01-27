@@ -179,19 +179,21 @@ function New-IdleEntraIDIdentityProvider {
             return $AuthSession
         }
 
-        # PSCredential with token in password field
-        if ($AuthSession -is [PSCredential]) {
-            return $AuthSession.GetNetworkCredential().Password
+        # Object with AccessToken property
+        $hasAccessTokenProperty = $null -ne ($AuthSession.PSObject.Properties | Where-Object { $_.Name -eq 'AccessToken' })
+        if ($hasAccessTokenProperty) {
+            return $AuthSession.AccessToken
         }
 
         # Object with GetAccessToken() method
-        if (@($AuthSession.PSObject.Methods.Name) -contains 'GetAccessToken') {
+        $hasGetAccessTokenMethod = $null -ne ($AuthSession.PSObject.Methods | Where-Object { $_.Name -eq 'GetAccessToken' })
+        if ($hasGetAccessTokenMethod) {
             return $AuthSession.GetAccessToken()
         }
 
-        # Object with AccessToken property
-        if (@($AuthSession.PSObject.Properties.Name) -contains 'AccessToken') {
-            return $AuthSession.AccessToken
+        # PSCredential with token in password field
+        if ($AuthSession -is [PSCredential]) {
+            return $AuthSession.GetNetworkCredential().Password
         }
 
         throw "AuthSession format not recognized. Expected: string token, object with AccessToken property, object with GetAccessToken() method, or PSCredential."

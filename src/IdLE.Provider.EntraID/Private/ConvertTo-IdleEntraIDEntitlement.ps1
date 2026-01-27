@@ -1,3 +1,5 @@
+Set-StrictMode -Version Latest
+
 function ConvertTo-IdleEntraIDEntitlement {
     <#
     .SYNOPSIS

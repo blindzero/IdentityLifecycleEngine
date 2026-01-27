@@ -124,20 +124,22 @@ function New-IdleExchangeOnlineProvider {
             return $AuthSession
         }
 
+        # Object with AccessToken property
+        $hasAccessTokenProperty = $null -ne ($AuthSession.PSObject.Properties | Where-Object { $_.Name -eq 'AccessToken' })
+        if ($hasAccessTokenProperty) {
+            return $AuthSession.AccessToken
+        }
+
+        # Object with GetAccessToken() method
+        $hasGetAccessTokenMethod = $null -ne ($AuthSession.PSObject.Methods | Where-Object { $_.Name -eq 'GetAccessToken' })
+        if ($hasGetAccessTokenMethod) {
+            return $AuthSession.GetAccessToken()
+        }
+
         # PSCredential (for certificate-based auth)
         if ($AuthSession -is [PSCredential]) {
             # Certificate thumbprint might be in password field
             return $AuthSession.GetNetworkCredential().Password
-        }
-
-        # Object with GetAccessToken() method
-        if (@($AuthSession.PSObject.Methods.Name) -contains 'GetAccessToken') {
-            return $AuthSession.GetAccessToken()
-        }
-
-        # Object with AccessToken property
-        if (@($AuthSession.PSObject.Properties.Name) -contains 'AccessToken') {
-            return $AuthSession.AccessToken
         }
 
         # Default: allow null for existing session-based commands
