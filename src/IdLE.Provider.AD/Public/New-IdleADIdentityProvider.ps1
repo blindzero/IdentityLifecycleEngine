@@ -87,6 +87,17 @@ function New-IdleADIdentityProvider {
         [object] $Adapter
     )
 
+    # Check prerequisites and emit warnings if required components are missing
+    $prereqs = Test-IdleADPrerequisites
+    if (-not $prereqs.IsHealthy) {
+        foreach ($missing in $prereqs.MissingRequired) {
+            Write-Warning "AD provider prerequisite check: Required component '$missing' is not available."
+        }
+        foreach ($note in $prereqs.Notes) {
+            Write-Warning "AD provider prerequisite check: $note"
+        }
+    }
+
     if ($null -eq $Adapter) {
         $Adapter = New-IdleADAdapter
     }
@@ -99,40 +110,7 @@ function New-IdleADIdentityProvider {
             [object] $Value
         )
 
-        $kind = $null
-        $id = $null
-        $displayName = $null
-
-        if ($Value -is [System.Collections.IDictionary]) {
-            $kind = $Value['Kind']
-            $id = $Value['Id']
-            if ($Value.Contains('DisplayName')) { $displayName = $Value['DisplayName'] }
-        }
-        else {
-            $props = $Value.PSObject.Properties
-            if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
-            if ($props.Name -contains 'Id') { $id = $Value.Id }
-            if ($props.Name -contains 'DisplayName') { $displayName = $Value.DisplayName }
-        }
-
-        if ([string]::IsNullOrWhiteSpace([string]$kind)) {
-            throw "Entitlement.Kind must not be empty."
-        }
-        if ([string]::IsNullOrWhiteSpace([string]$id)) {
-            throw "Entitlement.Id must not be empty."
-        }
-
-        return [pscustomobject]@{
-            PSTypeName  = 'IdLE.Entitlement'
-            Kind        = [string]$kind
-            Id          = [string]$id
-            DisplayName = if ($null -eq $displayName -or [string]::IsNullOrWhiteSpace([string]$displayName)) {
-                $null
-            }
-            else {
-                [string]$displayName
-            }
-        }
+        return ConvertTo-IdleADEntitlement -Value $Value
     }
 
     $testEntitlementEquals = {
@@ -240,7 +218,23 @@ function New-IdleADIdentityProvider {
             [object] $AuthSession
         )
 
+        # If no AuthSession, return the default adapter
+        # Only validate prerequisites for the default adapter if it's the real one (not injected for tests)
+        # Check TypeNames collection (PSTypeName in hashtable adds to TypeNames, not as a property)
         if ($null -eq $AuthSession) {
+            $isRealAdapter = ($this.Adapter.PSObject.TypeNames -contains 'IdLE.ADAdapter')
+            
+            if ($isRealAdapter) {
+                $prereqCheck = Test-IdleADPrerequisites
+                if (-not $prereqCheck.IsHealthy) {
+                    $missingList = $prereqCheck.MissingRequired -join ', '
+                    $errorMsg = "AD provider operation cannot proceed. Required prerequisite(s) missing: $missingList"
+                    if ($prereqCheck.Notes.Count -gt 0) {
+                        $errorMsg += "`n" + ($prereqCheck.Notes -join "`n")
+                    }
+                    throw $errorMsg
+                }
+            }
             return $this.Adapter
         }
 
@@ -253,6 +247,16 @@ function New-IdleADIdentityProvider {
         }
 
         if ($null -ne $credential) {
+            # Creating new adapter with credential - validate prerequisites
+            $prereqCheck = Test-IdleADPrerequisites
+            if (-not $prereqCheck.IsHealthy) {
+                $missingList = $prereqCheck.MissingRequired -join ', '
+                $errorMsg = "AD provider operation cannot proceed. Required prerequisite(s) missing: $missingList"
+                if ($prereqCheck.Notes.Count -gt 0) {
+                    $errorMsg += "`n" + ($prereqCheck.Notes -join "`n")
+                }
+                throw $errorMsg
+            }
             return New-IdleADAdapter -Credential $credential
         }
 

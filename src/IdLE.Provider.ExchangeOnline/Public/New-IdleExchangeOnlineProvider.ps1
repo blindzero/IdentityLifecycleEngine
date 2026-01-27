@@ -75,13 +75,18 @@ function New-IdleExchangeOnlineProvider {
         [object] $Adapter
     )
 
-    if ($null -eq $Adapter) {
-        # Verify ExchangeOnlineManagement module is available
-        $module = Get-Module -Name 'ExchangeOnlineManagement' -ListAvailable -ErrorAction SilentlyContinue
-        if ($null -eq $module) {
-            throw "ExchangeOnlineManagement module is not installed. Install it with: Install-Module -Name ExchangeOnlineManagement -Scope CurrentUser"
+    # Check prerequisites and emit warnings if required components are missing
+    $prereqs = Test-IdleExchangeOnlinePrerequisites
+    if (-not $prereqs.IsHealthy) {
+        foreach ($missing in $prereqs.MissingRequired) {
+            Write-Warning "ExchangeOnline provider prerequisite check: Required component '$missing' is not available."
         }
+        foreach ($note in $prereqs.Notes) {
+            Write-Warning "ExchangeOnline provider prerequisite check: $note"
+        }
+    }
 
+    if ($null -eq $Adapter) {
         $Adapter = New-IdleExchangeOnlineAdapter
     }
 
@@ -91,6 +96,23 @@ function New-IdleExchangeOnlineProvider {
             [AllowNull()]
             [object] $AuthSession
         )
+
+        # Validate prerequisites only when using the real (default) adapter
+        # Skip validation if a fake adapter is injected for tests
+        # Check TypeNames collection (PSTypeName in hashtable adds to TypeNames, not as a property)
+        $isRealAdapter = ($this.Adapter.PSObject.TypeNames -contains 'IdLE.ExchangeOnlineAdapter')
+        
+        if ($isRealAdapter) {
+            $prereqCheck = Test-IdleExchangeOnlinePrerequisites
+            if (-not $prereqCheck.IsHealthy) {
+                $missingList = $prereqCheck.MissingRequired -join ', '
+                $errorMsg = "ExchangeOnline provider operation cannot proceed. Required prerequisite(s) missing: $missingList"
+                if ($prereqCheck.Notes.Count -gt 0) {
+                    $errorMsg += "`n" + ($prereqCheck.Notes -join "`n")
+                }
+                throw $errorMsg
+            }
+        }
 
         if ($null -eq $AuthSession) {
             # For tests/development, allow null but commands will use existing session
@@ -102,14 +124,16 @@ function New-IdleExchangeOnlineProvider {
             return $AuthSession
         }
 
-        # Object with GetAccessToken() method
-        if ($AuthSession.PSObject.Methods.Name -contains 'GetAccessToken') {
-            return $AuthSession.GetAccessToken()
+        # Object with AccessToken property
+        $hasAccessTokenProperty = $null -ne ($AuthSession.PSObject.Properties | Where-Object { $_.Name -eq 'AccessToken' })
+        if ($hasAccessTokenProperty) {
+            return $AuthSession.AccessToken
         }
 
-        # Object with AccessToken property
-        if ($AuthSession.PSObject.Properties.Name -contains 'AccessToken') {
-            return $AuthSession.AccessToken
+        # Object with GetAccessToken() method
+        $hasGetAccessTokenMethod = $null -ne ($AuthSession.PSObject.Methods | Where-Object { $_.Name -eq 'GetAccessToken' })
+        if ($hasGetAccessTokenMethod) {
+            return $AuthSession.GetAccessToken()
         }
 
         # PSCredential (for certificate-based auth)
