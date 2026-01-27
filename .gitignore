@@ -78,6 +78,7 @@ artifacts/
 
 # Docusaurus cache and generated files
 .docusaurus
+.cache-loader
 
 # Yarn Integrity file
 .yarn-integrity
