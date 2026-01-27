@@ -16,7 +16,7 @@ npm install
 npm start
 ```
 
-Cached changes may require local cache removal and manual restart.
+Cached changes (e.g. changes in docusaurus.conf.js or plugins usually require local cache removal and manual restart.
 
 ```powershell
 cd <repo>\website
