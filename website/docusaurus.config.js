@@ -98,8 +98,8 @@ const config = {
 
       footer: {
         style: 'dark',
+        /*
         links: [
-          /*
           {
             title: 'Docs',
             items: [
@@ -114,8 +114,8 @@ const config = {
               { label: 'Releases', href: `https://github.com/${repoOwner}/${repoName}/releases` },
             ],
           },
-          */
         ],
+        */
         copyright: `Copyright © ${new Date().getFullYear()} IdLE Project, Built with Docusaurus.`,
       },
 
