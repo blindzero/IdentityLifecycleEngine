@@ -106,9 +106,9 @@ If the condition is not met, the step is marked as `Skipped` and a skip event is
 
 ## References and inputs
 
-### Template substitution ({{...}})
+### Template substitution (``{{...}}``)
 
-IdLE supports **template substitution** for embedding request values into workflow step configurations using `{{...}}` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
+IdLE supports **template substitution** for embedding request values into workflow step configurations using ``{{...}}`` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
 
 **How it works:**
 
@@ -136,8 +136,8 @@ The values in `DesiredState` are accessible via `Request.Input.*` (or `Request.D
   Type = 'IdLE.Step.CreateIdentity'
   With = @{
     Attributes = @{
-      UserPrincipalName = '{{Request.Input.UserPrincipalName}}'
-      DisplayName       = '{{Request.Input.DisplayName}}'
+      UserPrincipalName = '`{{Request.Input.UserPrincipalName}}`'
+      DisplayName       = '`{{Request.Input.DisplayName}}`'
     }
   }
 }
@@ -145,18 +145,18 @@ The values in `DesiredState` are accessible via `Request.Input.*` (or `Request.D
   Name = 'EmitEvent'
   Type = 'IdLE.Step.EmitEvent'
   With = @{
-    Message = 'Creating user {{Request.Input.DisplayName}} ({{Request.Input.UserPrincipalName}})'
+    Message = 'Creating user `{{Request.Input.DisplayName}}` (`{{Request.Input.UserPrincipalName}}`)'
   }
 }
 ```
 
 When the plan is built, templates are resolved to the actual values from the request:
-- `{{Request.Input.UserPrincipalName}}` → `'jdoe@example.com'`
-- `{{Request.Input.DisplayName}}` → `'John Doe'`
+- ``{{Request.Input.UserPrincipalName}}`` → `'jdoe@example.com'`
+- ``{{Request.Input.DisplayName}}`` → `'John Doe'`
 
 **Key features:**
 
-- **Concise syntax**: Use `{{Path}}` instead of verbose `@{ ValueFrom = 'Path' }` objects
+- **Concise syntax**: Use ``{{Path}}`` instead of verbose `@{ ValueFrom = 'Path' }` objects
 - **Multiple placeholders**: Place multiple templates in one string
 - **Nested structures**: Templates work in nested hashtables and arrays
 - **Planning-time resolution**: Templates are resolved during plan build, not execution
@@ -198,9 +198,9 @@ Use `\{{` to include literal `{{` in a string:
 
 ```powershell
 With = @{
-  Message = 'Literal \{{ braces here and template {{Request.Input.Name}}'
+  Message = 'Literal \`{{ braces here and template `{{Request.Input.Name}}`'
 }
-# Resolves to: 'Literal {{ braces here and template <actual name>'
+# Resolves to: 'Literal `{{ braces here and template <actual name>'
 ```
 
 **Request.Input alias:**
@@ -217,7 +217,7 @@ Prefer explicit reference fields over implicit parsing:
 
 This makes configurations safe and statically validatable.
 
-**Note:** Template substitution (`{{...}}`) is preferred for string fields. Use `ValueFrom` objects when you need non-string references or conditional defaults.
+**Note:** Template substitution (``{{...}}``) is preferred for string fields. Use `ValueFrom` objects when you need non-string references or conditional defaults.
 
 ## Advanced Workflow Patterns
 
