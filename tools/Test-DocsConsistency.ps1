@@ -155,38 +155,29 @@ function Get-DocusaurusDocsExcludeGlobs {
     # Pass the path as an argument to Node (process.argv),
     # do NOT interpolate Windows paths into JS string literals.
     $script = @"
-const path = require('path');
-const cfgPath = process.argv[1];
-const cfg = require(path.resolve(cfgPath));
+const fs = require('fs');
 
-function collectDocsExclude(config) {
-  const globs = [];
-  if (Array.isArray(config.presets)) {
-    for (const p of config.presets) {
-      if (!Array.isArray(p) || p.length < 2) continue;
-      const name = p[0];
-      const opts = p[1] || {};
-      if (name === 'classic' || name === '@docusaurus/preset-classic') {
-        if (opts.docs && Array.isArray(opts.docs.exclude)) {
-          globs.push(...opts.docs.exclude);
-        }
-      }
-    }
-  }
-  if (Array.isArray(config.plugins)) {
-    for (const pl of config.plugins) {
-      if (!Array.isArray(pl) || pl.length < 2) continue;
-      const name = pl[0];
-      const opts = pl[1] || {};
-      if (name === '@docusaurus/plugin-content-docs' && Array.isArray(opts.exclude)) {
-        globs.push(...opts.exclude);
-      }
-    }
-  }
-  return globs;
+const cfgPath = process.argv[1];
+const text = fs.readFileSync(cfgPath, 'utf8');
+
+// Heuristic: find "docs: { ... exclude: [ ... ] ... }"
+const m = text.match(/docs\s*:\s*\{[\s\S]*?exclude\s*:\s*\[([\s\S]*?)\]/m);
+if (!m) {
+  console.log('[]');
+  process.exit(0);
 }
 
-console.log(JSON.stringify(collectDocsExclude(cfg)));
+const arrBody = m[1];
+
+// Extract quoted strings inside the exclude array
+const globs = [];
+const re = /['"`]([^'"`]+)['"`]/g;
+let match;
+while ((match = re.exec(arrBody)) !== null) {
+  globs.push(match[1]);
+}
+
+console.log(JSON.stringify(globs));
 "@
 
     $json = & $node -e $script $configPath
