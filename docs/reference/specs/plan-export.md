@@ -2,12 +2,18 @@
 
 Schema-Version: 1.0  
 
-## Purpose
-
-This document defines the **canonical, machine-readable JSON representation**
-of a LifecyclePlan exported by IdentityLifecycleEngine (IdLE).
+## Overview
+This document specifies the canonical, machine-readable representation of an IdLE plan export.
+It defines structure, required fields, and normative rules for producers and consumers.
 
 The exported plan is a **contract artifact**, not an internal object dump.
+
+## Scope
+This specification focuses on format and semantics.
+Operational guidance is documented separately in the User Guide.
+
+## Format
+The export is a JSON document encoded in UTF-8.
 
 ---
 
@@ -142,6 +148,7 @@ The request object captures *why* a plan was created, independent of *how* it wi
 ---
 
 ## Step Object
+
 
 Each step is an **atomic, independent unit**.
 
