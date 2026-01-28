@@ -24,6 +24,7 @@ jobs:
     permissions:
       contents: read
       actions: write
+      checks: write
 
     strategy:
       fail-fast: false
@@ -46,6 +47,78 @@ jobs:
           path: |
             artifacts/test-results.xml
             artifacts/coverage.xml
+
+      - name: Publish test results
+        if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: dorny/test-reporter@v1
+        with:
+          name: Pester Tests (${{ matrix.os }})
+          path: artifacts/test-results.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Publish coverage report
+        if: always() && matrix.os == 'ubuntu-latest' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: madrapps/jacoco-report@v1.7.1
+        with:
+          paths: artifacts/coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 0
+          min-coverage-changed-files: 0
+          title: Code Coverage Report
+          update-comment: true
+          skip-if-no-changes: false
+
+      - name: Add coverage to job summary
+        if: always() && matrix.os == 'ubuntu-latest'
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          
+          $coverageXml = 'artifacts/coverage.xml'
+          if (Test-Path $coverageXml) {
+            try {
+              [xml]$coverage = Get-Content $coverageXml
+              
+              # Get the report element (root) and its direct counter children (JaCoCo XML format)
+              $reportElement = $coverage.DocumentElement
+              if ($reportElement -and $reportElement.LocalName -eq 'report') {
+                $counters = $reportElement.ChildNodes | Where-Object { $_.LocalName -eq 'counter' }
+                $lineCounter = $counters | Where-Object { $_.type -eq 'LINE' } | Select-Object -First 1
+                
+                if ($lineCounter -and
+                    $lineCounter.PSObject.Properties['covered'] -and
+                    $lineCounter.PSObject.Properties['missed']) {
+                  try {
+                    $covered = [int]$lineCounter.covered
+                    $missed = [int]$lineCounter.missed
+                    $total = $covered + $missed
+                    
+                    if ($total -gt 0) {
+                      $percentage = [math]::Round(($covered / $total) * 100, 2)
+                      
+                      # Build summary using array and join for better readability
+                      $summaryLines = @(
+                        '## Code Coverage Summary'
+                        ''
+                        "- **Coverage:** $percentage%"
+                        "- **Lines Covered:** $covered / $total"
+                      )
+                      $summary = $summaryLines -join "`n"
+                      $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+                    }
+                  }
+                  catch {
+                    Write-Host 'Skipping coverage summary due to invalid or malformed coverage data.'
+                  }
+                }
+              }
+            }
+            catch {
+              Write-Host 'Skipping coverage summary due to error reading coverage file.'
+            }
+          }
 
   lint:
     name: PSScriptAnalyzer

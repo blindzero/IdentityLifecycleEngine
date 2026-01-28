@@ -13,8 +13,9 @@ Executes an IdLE plan.
 ## SYNTAX
 
 ```
-Invoke-IdlePlan [-Plan] &lt;Object&gt; [[-Providers] &lt;Hashtable&gt;] [[-EventSink] &lt;Object&gt;]
- [-ProgressAction &lt;ActionPreference&gt;] [-WhatIf] [-Confirm] [&lt;CommonParameters&gt;]
+Invoke-IdlePlan [-Plan] <Object> [[-Providers] <Hashtable>] [[-EventSink] <Object>]
+ [[-ExecutionOptions] <Hashtable>] [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm]
+ [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -26,6 +27,18 @@ Delegates execution to IdLE.Core.
 ### EXAMPLE 1
 ```
 Invoke-IdlePlan -Plan $plan -Providers $providers
+```
+
+### EXAMPLE 2
+```
+$execOptions = @{
+    RetryProfiles = @{
+        Default = @{ MaxAttempts = 3; InitialDelayMilliseconds = 200 }
+        ExchangeOnline = @{ MaxAttempts = 6; InitialDelayMilliseconds = 500 }
+    }
+    DefaultRetryProfile = 'Default'
+}
+Invoke-IdlePlan -Plan $plan -Providers $providers -ExecutionOptions $execOptions
 ```
 
 ## PARAMETERS
@@ -71,6 +84,23 @@ Aliases:
 
 Required: False
 Position: 3
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -ExecutionOptions
+Optional host-owned execution options.
+Supports retry profile configuration.
+Must be a hashtable with optional keys: RetryProfiles, DefaultRetryProfile.
+
+```yaml
+Type: Hashtable
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: 4
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False

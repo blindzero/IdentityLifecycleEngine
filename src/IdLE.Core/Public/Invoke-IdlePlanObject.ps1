@@ -19,6 +19,10 @@ function Invoke-IdlePlanObject {
     .PARAMETER EventSink
     Optional external event sink object. Must provide a WriteEvent(event) method.
 
+    .PARAMETER ExecutionOptions
+    Optional host-owned execution options. Supports retry profile configuration.
+    Must be a hashtable with optional keys: RetryProfiles, DefaultRetryProfile.
+
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.ExecutionResult)
     #>
@@ -34,150 +38,12 @@ function Invoke-IdlePlanObject {
 
         [Parameter()]
         [AllowNull()]
-        [object] $EventSink
+        [object] $EventSink,
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $ExecutionOptions
     )
-
-    function Get-IdleCommandParameterNames {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Handler
-        )
-
-        # Returns a HashSet[string] of parameter names supported by the handler.
-        $set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-
-        if ($Handler -is [scriptblock]) {
-
-            $paramBlock = $Handler.Ast.ParamBlock
-            if ($null -eq $paramBlock) {
-                return $set
-            }
-
-            foreach ($p in $paramBlock.Parameters) {
-                # Parameter name is stored without the leading '$'
-                $null = $set.Add([string]$p.Name.VariablePath.UserPath)
-            }
-
-            return $set
-        }
-
-        if ($Handler -is [System.Management.Automation.CommandInfo]) {
-            foreach ($n in $Handler.Parameters.Keys) {
-                $null = $set.Add([string]$n)
-            }
-            return $set
-        }
-
-        # Unknown handler shape: return an empty set.
-        return $set
-    }
-
-    function Resolve-IdleStepHandler {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $StepType,
-
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $StepRegistry
-        )
-
-        $handlerName = $null
-
-        if ($StepRegistry -is [System.Collections.IDictionary]) {
-            if ($StepRegistry.Contains($StepType)) {
-                $handlerName = $StepRegistry[$StepType]
-            }
-        }
-        else {
-            if ($StepRegistry.PSObject.Properties.Name -contains $StepType) {
-                $handlerName = $StepRegistry.$StepType
-            }
-        }
-
-        if ($null -eq $handlerName -or [string]::IsNullOrWhiteSpace([string]$handlerName)) {
-            throw [System.ArgumentException]::new("No step handler registered for step type '$StepType'.", 'Providers')
-        }
-
-        # Reject ScriptBlock handlers (secure default).
-        if ($handlerName -is [scriptblock]) {
-            throw [System.ArgumentException]::new(
-                "Step registry handler for '$StepType' must be a function name (string), not a ScriptBlock.",
-                'Providers'
-            )
-        }
-
-        # Resolve the handler command.
-        # The handler name can be:
-        # 1) A simple function name (e.g. "Invoke-IdleStepEmitEvent") - globally available
-        # 2) A module-qualified name (e.g. "IdLE.Steps.Common\Invoke-IdleStepEmitEvent") - from a nested module
-        #
-        # Module-qualified names are used for built-in steps that are loaded as nested modules
-        # and not exported globally to keep the session clean.
-
-        $cmd = $null
-
-        # Try simple lookup first (globally available commands)
-        $cmd = Get-Command -Name ([string]$handlerName) -CommandType Function -ErrorAction SilentlyContinue
-
-        # If not found and name contains backslash, try module-qualified lookup
-        if ($null -eq $cmd -and ([string]$handlerName).Contains('\')) {
-            $parts = ([string]$handlerName).Split('\', 2)
-            if ($parts.Count -eq 2) {
-                $moduleName = $parts[0]
-                $commandName = $parts[1]
-
-                # Get-Module -All returns loaded modules (including nested/hidden modules)
-                # We use -All to find modules that are loaded but not in the global session state
-                $modules = @(Get-Module -Name $moduleName -All)
-                if ($modules.Count -gt 0) {
-                    $module = $modules[0]
-                    if ($null -ne $module.ExportedCommands -and $module.ExportedCommands.ContainsKey($commandName)) {
-                        $cmd = $module.ExportedCommands[$commandName]
-                    }
-                }
-            }
-        }
-
-        if ($null -eq $cmd) {
-            throw [System.ArgumentException]::new("Step handler '$handlerName' for step type '$StepType' could not be resolved to a valid command.", 'Providers')
-        }
-
-        return $cmd
-    }
-
-    function Get-IdleStepField {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [AllowNull()]
-            [object] $Step,
-
-            [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $Name
-        )
-
-        if ($null -eq $Step) { return $null }
-
-        if ($Step -is [System.Collections.IDictionary]) {
-            if ($Step.Contains($Name)) {
-                return $Step[$Name]
-            }
-            return $null
-        }
-
-        $propNames = @($Step.PSObject.Properties.Name)
-        if ($propNames -contains $Name) {
-            return $Step.$Name
-        }
-
-        return $null
-    }
 
     $planPropNames = @($Plan.PSObject.Properties.Name)
 
@@ -231,6 +97,9 @@ function Invoke-IdlePlanObject {
 
     Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
     Assert-IdleNoScriptBlock -InputObject $Providers -Path 'Providers'
+
+    # Validate ExecutionOptions
+    Assert-IdleExecutionOptions -ExecutionOptions $ExecutionOptions
 
     # StepRegistry is constructed via helper to ensure built-in steps and host-provided steps can co-exist.
     $stepRegistry = Get-IdleStepRegistry -Providers $Providers
@@ -438,8 +307,20 @@ function Invoke-IdlePlanObject {
             # Safe-by-default transient retries:
             # - Only retries if the thrown exception is explicitly marked transient.
             # - Emits 'StepRetrying' events and uses deterministic jitter/backoff.
+            # - Retry parameters resolved from ExecutionOptions if provided.
             $retrySeed = "$corr|$stepType|$stepName|$i"
-            $retry = Invoke-IdleWithRetry -Operation { & $impl @invokeParams } -EventSink $context.EventSink -StepName $stepName -OperationName 'StepExecution' -DeterministicSeed $retrySeed
+            $retryParams = Resolve-IdleStepRetryParameters -Step $step -ExecutionOptions $ExecutionOptions
+            $retry = Invoke-IdleWithRetry `
+                -Operation { & $impl @invokeParams } `
+                -MaxAttempts $retryParams.MaxAttempts `
+                -InitialDelayMilliseconds $retryParams.InitialDelayMilliseconds `
+                -BackoffFactor $retryParams.BackoffFactor `
+                -MaxDelayMilliseconds $retryParams.MaxDelayMilliseconds `
+                -JitterRatio $retryParams.JitterRatio `
+                -EventSink $context.EventSink `
+                -StepName $stepName `
+                -OperationName 'StepExecution' `
+                -DeterministicSeed $retrySeed
 
             $result = $retry.Value
             $attempts = [int]$retry.Attempts
@@ -617,8 +498,20 @@ function Invoke-IdlePlanObject {
                 }
 
                 # Reuse safe-by-default transient retries for OnFailure steps.
+                # - Retry parameters resolved from ExecutionOptions if provided.
                 $retrySeed = "$corr|OnFailure|$ofType|$ofName|$j"
-                $retry = Invoke-IdleWithRetry -Operation { & $impl @invokeParams } -EventSink $context.EventSink -StepName $ofName -OperationName 'OnFailureStepExecution' -DeterministicSeed $retrySeed
+                $retryParams = Resolve-IdleStepRetryParameters -Step $ofStep -ExecutionOptions $ExecutionOptions
+                $retry = Invoke-IdleWithRetry `
+                    -Operation { & $impl @invokeParams } `
+                    -MaxAttempts $retryParams.MaxAttempts `
+                    -InitialDelayMilliseconds $retryParams.InitialDelayMilliseconds `
+                    -BackoffFactor $retryParams.BackoffFactor `
+                    -MaxDelayMilliseconds $retryParams.MaxDelayMilliseconds `
+                    -JitterRatio $retryParams.JitterRatio `
+                    -EventSink $context.EventSink `
+                    -StepName $ofName `
+                    -OperationName 'OnFailureStepExecution' `
+                    -DeterministicSeed $retrySeed
 
                 $result = $retry.Value
                 $attempts = [int]$retry.Attempts

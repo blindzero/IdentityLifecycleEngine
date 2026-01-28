@@ -16,8 +16,22 @@ function Invoke-IdlePlan {
     .PARAMETER EventSink
     Optional external event sink for streaming. Must be an object with a WriteEvent(event) method.
 
+    .PARAMETER ExecutionOptions
+    Optional host-owned execution options. Supports retry profile configuration.
+    Must be a hashtable with optional keys: RetryProfiles, DefaultRetryProfile.
+
     .EXAMPLE
     Invoke-IdlePlan -Plan $plan -Providers $providers
+
+    .EXAMPLE
+    $execOptions = @{
+        RetryProfiles = @{
+            Default = @{ MaxAttempts = 3; InitialDelayMilliseconds = 200 }
+            ExchangeOnline = @{ MaxAttempts = 6; InitialDelayMilliseconds = 500 }
+        }
+        DefaultRetryProfile = 'Default'
+    }
+    Invoke-IdlePlan -Plan $plan -Providers $providers -ExecutionOptions $execOptions
 
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.ExecutionResult)
@@ -34,7 +48,11 @@ function Invoke-IdlePlan {
 
         [Parameter()]
         [AllowNull()]
-        [object] $EventSink
+        [object] $EventSink,
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $ExecutionOptions
     )
 
     process {
@@ -71,6 +89,6 @@ function Invoke-IdlePlan {
             }
         }
 
-        return Invoke-IdlePlanObject -Plan $Plan -Providers $Providers -EventSink $EventSink
+        return Invoke-IdlePlanObject -Plan $Plan -Providers $Providers -EventSink $EventSink -ExecutionOptions $ExecutionOptions
     }
 }
