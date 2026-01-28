@@ -35,6 +35,11 @@ in a simple static pattern).
 Important:
 - Do not edit the generated file by hand. Update step help/source and regenerate.
 
+MDX compatibility:
+- Step help text may contain angle tokens like <identifier> which MDX can interpret as JSX.
+- Step help text may contain braces like @{ ... } or {Name} which MDX can interpret as expressions.
+- This generator sanitizes help-derived text to be MDX-safe.
+
 .PARAMETER ModuleManifestPath
 Path to the IdLE module manifest (IdLE.psd1). Defaults to ./src/IdLE/IdLE.psd1 relative to this script.
 
@@ -78,6 +83,36 @@ function ConvertTo-IdleMarkdownSafeText {
 
     $normalized = $Text -replace "`r`n", "`n" -replace "`r", "`n"
     return $normalized.Trim()
+}
+
+function ConvertTo-IdleMdxSafeText {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Text
+    )
+
+    # NOTE:
+    # We intentionally sanitize ONLY help-derived text (synopsis/description),
+    # not the full generated Markdown structure.
+    #
+    # 1) Replace simple angle tokens (<object>) that MDX might interpret as JSX.
+    # 2) Escape braces so MDX does not treat them as expressions.
+    #
+    # Backslashes will not show up in rendered Markdown; they merely escape characters.
+
+    $t = $Text -replace "`r`n", "`n" -replace "`r", "`n"
+
+    # Replace <token> with HTML entities.
+    $t = $t -replace '<(?<tok>[A-Za-z][A-Za-z0-9_-]*)>', '&lt;${tok}&gt;'
+
+    # Escape braces to avoid MDX expression parsing, e.g. @{ ... } or {Name}.
+    # We escape single braces as well as any brace characters in the text.
+    $t = $t -replace '\{', '\{'
+    $t = $t -replace '\}', '\}'
+
+    return $t.Trim()
 }
 
 function Get-IdleStepTypeFromCommandName {
@@ -184,9 +219,11 @@ function ConvertTo-IdleStepMarkdownSection {
     if ($null -ne $help) {
         if ($help.Synopsis) {
             $synopsis = ConvertTo-IdleMarkdownSafeText -Text ($help.Synopsis | Out-String)
+            $synopsis = ConvertTo-IdleMdxSafeText -Text $synopsis
         }
         if ($help.Description -and $help.Description.Text) {
             $description = ConvertTo-IdleMarkdownSafeText -Text (($help.Description.Text -join "`n") | Out-String)
+            $description = ConvertTo-IdleMdxSafeText -Text $description
         }
     }
 
@@ -195,6 +232,7 @@ function ConvertTo-IdleStepMarkdownSection {
     }
 
     $requiredWithKeys = @(Get-IdleRequiredWithKeysFromSource -CommandInfo $CommandInfo)
+
     $idempotent = 'Unknown'
     if ($description -match '(?i)\bidempotent\b') {
         $idempotent = 'Yes'
@@ -262,6 +300,7 @@ if (-not (Test-Path -Path $outDir)) {
 
 # Import IdLE from working tree.
 Remove-Module -Name 'IdLE*' -Force -ErrorAction SilentlyContinue
+
 # Ensure step modules are loaded (Import-Module by name does NOT load nested step modules automatically).
 foreach ($m in $StepModules) {
     if (Get-Module -Name $m) {
