@@ -1,7 +1,8 @@
 param(
     [string]$DocsPath = ".\docs",
     [string]$WebsitePath = ".\website",
-    [int]$LongPageLineThreshold = 350
+    [int]$LongPageLineThreshold = 350,
+    [string]$resultPath = "$PSScriptRoot\..\artifacts\docs-audit.json"
 )
 
 Set-StrictMode -Version Latest
@@ -197,8 +198,8 @@ $result = [pscustomobject]@{
     LongPages         = $longPages | Sort-Object Lines -Descending
 }
 
-$result | ConvertTo-Json -Depth 6 | Set-Content -Encoding UTF8 ".\docs-audit.json"
-Write-Host "Wrote docs-audit.json"
+$result | ConvertTo-Json -Depth 6 | Set-Content -Encoding UTF8 $resultPath
+Write-Host "Wrote $resultPath"
 Write-Host ("Orphans: " + $orphans.Count)
 Write-Host ("Link issues: " + $linkIssues.Count)
 Write-Host ("MDX risks: " + $mdxRisks.Count)
