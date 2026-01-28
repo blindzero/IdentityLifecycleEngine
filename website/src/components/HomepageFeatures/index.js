@@ -5,7 +5,7 @@ import styles from './styles.module.css';
 const FeatureList = [
   {
     title: 'Workflow Oriented',
-    Svg: require('@site/static/img/idle_feature_workflow-oriented.png').default,
+    Image: require('@site/static/assets/img/idle_feature_workflow-oriented.png').default,
     description: (
       <>
         Manage the lifecycle of identities seamlessly as they join, move within, or leave your organization.
@@ -14,7 +14,7 @@ const FeatureList = [
   },
   {
     title: 'Provider Agnostic',
-    Svg: require('@site/static/img/idle_feature_provider-agnostic.png').default,
+    Image: require('@site/static/assets/img/idle_feature_provider-agnostic.png').default,
     description: (
       <>
         Integrate with a wide range of identity providers and services, ensuring flexibility, adaptability and extensibility to your existing infrastructure.
@@ -23,7 +23,7 @@ const FeatureList = [
   },
   {
     title: 'Built for Automation',
-    Svg: require('@site/static/img/idle_feature_built-for-automation.png').default,
+    Image: require('@site/static/assets/img/idle_feature_built-for-automation.png').default,
     description: (
       <>
         Designed to automate identity management tasks, reducing manual effort and minimizing errors.
@@ -32,11 +32,11 @@ const FeatureList = [
   },
 ];
 
-function Feature({Svg, title, description}) {
+function Feature({Image, title, description}) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
+        <img className={styles.featureImg} src={Image} alt={title} />
       </div>
       <div className="text--center padding-horiz--md">
         <Heading as="h3">{title}</Heading>

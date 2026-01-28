@@ -7,13 +7,20 @@
 
 :root {
   /* Primary (IdLE Blue) */
-  --ifm-color-primary: #1990ed;
+  /*--ifm-color-primary: #1990ed;
   --ifm-color-primary-dark: #1682d6;
   --ifm-color-primary-darker: #147acb;
   --ifm-color-primary-darkest: #1064a7;
   --ifm-color-primary-light: #2a99ef;
   --ifm-color-primary-lighter: #35a0f1;
-  --ifm-color-primary-lightest: #5cb3f4;
+  --ifm-color-primary-lightest: #5cb3f4;*/
+  --ifm-color-primary: #3ad1cb;
+  --ifm-color-primary-dark: #2fbdb7;
+  --ifm-color-primary-darker: #2cb2ad;
+  --ifm-color-primary-darkest: #24928e;
+  --ifm-color-primary-light: #52d7d2;
+  --ifm-color-primary-lighter: #5ed9d5;
+  --ifm-color-primary-lightest: #86e3e0;
 
   /* Neutral text/background (keep defaults-ish, but explicit) */
   --ifm-font-color-base: #1c1e21;

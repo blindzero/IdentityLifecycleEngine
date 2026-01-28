@@ -5,7 +5,18 @@
   width: 100%;
 }
 
-.featureSvg {
-  height: 200px;
-  width: 200px;
+.featureImg {
+  height: 180px;        /* good match for ~250px source height */
+  width: auto;          /* preserve aspect ratio */
+  max-width: 280px;     /* prevents overly wide cards */
+  object-fit: contain;  /* safety net */
+  display: block;
+  margin: 0 auto;
+}
+
+@media (max-width: 996px) {
+  .featureSvg {
+    height: 160px;
+    max-width: 240px;
+  }
 }
