@@ -3,76 +3,150 @@ title: Quick Start
 sidebar_label: Quick Start
 ---
 
-# QuickStart
+# Quick Start
 
-This quickstart walks through the IdLE flow:
+This page gets you from **zero → first successful run** as fast as possible.
 
-1. Create a request
-2. Build a plan from a workflow
-3. Execute the plan with host-provided providers
+IdLE is an orchestration engine. That means:
 
-## If you installed IdLE from PowerShell Gallery
+- **Planning** builds a deterministic plan (safe, no external changes)
+- **Execution** runs that plan using **provider implementations** (system adapters) supplied by the host
 
-IdLE is an orchestration engine. To **execute** a plan you must provide provider implementations (for example: identity store,
-entitlement store, messaging, etc.). If you only want a runnable end-to-end demo, follow the repository demo section below.
+If you just want a runnable end-to-end first run, start with **Repository demo**.
+If you want to use IdLE as a library from the PowerShell Gallery package, follow **Install from PowerShell Gallery**.
 
-Next steps for library usage:
+---
 
-- Install IdLE: see [Installation](installation.md)
-- Learn the concepts: [Concept](../about/concepts.md)
-- Cmdlets reference: [Cmdlets](../reference/cmdlets.md)
-- Providers and contracts: [Providers](providers.md)
+## 1) Repository demo (recommended first run)
 
-## Run the repository demo (recommended first run)
-
-The repository includes a demo runner that showcases the full IdLE flow using predefined example workflows.
+The repository contains a demo runner that showcases the full **Plan → Execute** flow using predefined example workflows.
 
 1. Clone the repository (or download the source archive from a GitHub release).
 2. Run the demo script:
 
 ```powershell
-.\examples\Invoke-IdleDemo.ps1
+pwsh -File .\examples\Invoke-IdleDemo.ps1
 ```
 
-You can also list and run specific examples:
+List available examples:
 
 ```powershell
-.\examples\Invoke-IdleDemo.ps1 -List
-.\examples\Invoke-IdleDemo.ps1 -Example <example-name-without-suffix>
+pwsh -File .\examples\Invoke-IdleDemo.ps1 -List
 ```
 
-...or simply run all
+Run a specific example:
 
 ```powershell
-.\examples\Invoke-IdleDemo.ps1 -All
+pwsh -File .\examples\Invoke-IdleDemo.ps1 -Example <example-name-without-suffix>
 ```
 
-## The manual example runs
-
-For understanding how IdLE is used programmatically, you can execute a workflow manually without the demo runner.
+Run all examples:
 
 ```powershell
-$workflowPath = Join-Path (Get-Location) 'examples\workflows\<example-file>'
+pwsh -File .\examples\Invoke-IdleDemo.ps1 -All
+```
+
+What you should see:
+
+- a lifecycle request is created
+- a plan is built from a workflow definition (`.psd1`)
+- the plan is executed with demo/mock providers
+- the result contains step results and buffered events
+
+---
+
+## 2) Install from PowerShell Gallery
+
+Install and import the meta module:
+
+```powershell
+Install-Module -Name IdLE -Scope CurrentUser
+Import-Module IdLE
+```
+
+> IdLE does not ship a “live system host”. A host (your script, CI job, or service) must provide provider instances
+> for execution. For a safe first run, IdLE ships mock providers that are sufficient to execute example workflows.
+
+---
+
+## 3) First run from an installed package (mock providers + example workflow)
+
+This is the smallest runnable program that demonstrates the full flow:
+
+1. Create a request
+2. Build a plan from a workflow
+3. Execute with providers (mock)
+4. Inspect result + events
+
+### Use an example workflow from the repository
+
+Workflows are data files (`.psd1`). The quickest path is to reuse one of the repository examples:
+
+- clone the repository, then reference a workflow file from `examples/workflows`
+- or copy a single example workflow file into your working directory
+
+Example (workflow from repo checkout):
+
+```powershell
+# 0) Point to an example workflow file
+$workflowPath = Join-Path 'C:\path\to\IdentityLifecycleEngine' 'examples\workflows\<example-file>.psd1'
+
+# 1) Create the request (your input intent)
 $request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-$plan    = New-IdlePlan -WorkflowPath $workflowPath -Request $request
 
+# 2) Build the plan (deterministic, data-only)
+$plan = New-IdlePlan -WorkflowPath $workflowPath -Request $request
+
+# 3) Provide providers (mock providers are included for first runs)
 $providers = @{
     Identity = New-IdleMockIdentityProvider
 }
+
+# 4) Execute the plan
 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-```
 
-When executing plans programmatically, IdLE returns a result object containing step results and buffered events.
-
-```powershell
+# 5) Inspect result + events
 $result.Status
 $result.Steps
 $result.Events | Select-Object Type, StepName, Message
 ```
 
+Notes:
+
+- If your workflow contains steps that require additional provider roles (e.g. `Messaging`, `Entitlement`),
+  you must add them to `$providers`.
+- Many steps default to the provider alias `'Identity'` unless a step explicitly sets `With.Provider`.
+
+---
+
+## 4) Using real providers (host integration)
+
+To execute against real systems, you supply provider implementations that:
+
+- implement the required provider contract methods for the steps you use
+- advertise capabilities via `GetCapabilities()` (used for planning-time validation)
+
+Example structure:
+
+```powershell
+$providers = @{
+    Identity = $myIdentityProvider
+    # Entitlement = $myEntitlementProvider
+    # Messaging  = $myMessagingProvider
+
+    # Optional (recommended): host-provided auth session broker
+    # AuthSessionBroker = $myAuthSessionBroker
+}
+```
+
+During planning, IdLE validates prerequisites and fails early if required capabilities are missing.
+
+---
+
 ## Next steps
 
-- [Workflows](workflows.md)
-- [Steps](steps.md)
-- [Providers](providers.md)
-- [Architecture](../about/architecture.md)
+- Learn the [Concepts](../about/concepts.md)
+- Read about [Workflows](../use/workflows.md)
+- Explore [Steps](../use/steps.md)
+- Review available [Providers](../use/providers.md)
+- See [Architecture](../about/architecture.md)
