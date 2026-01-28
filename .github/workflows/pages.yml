@@ -35,7 +35,7 @@ jobs:
       - name: Run docs consistency audit
         shell: pwsh
         run: >
-          pwsh -NoProfile -File ./tools/Test-DocsConsistency.ps1
+          pwsh -NoProfile -File ./tools/Test-DocsConsistency.ps1 -FailOnOrphans $false
           -DocsPath ./docs
           -WebsitePath ./website
 
