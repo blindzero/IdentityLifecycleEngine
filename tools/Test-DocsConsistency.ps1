@@ -255,9 +255,9 @@ function Get-DocIdFromPath {
     $root = (Resolve-Path $DocsRoot).Path
     $full = (Resolve-Path $FilePath).Path
 
-    $rel = $full.Substring($root.Length).TrimStart('\','/')
-    $rel = $rel -replace '\.mdx?$',''
-    return ($rel -replace '\\','/')
+    $rel = $full.Substring($root.Length).TrimStart('\', '/')
+    $rel = $rel -replace '\.mdx?$', ''
+    return ($rel -replace '\\', '/')
 }
 
 function Get-MarkdownLinks {
@@ -419,11 +419,11 @@ function Convert-ToRepoRelativePath {
         [string] $FullPath
     )
 
-    $root = (Resolve-Path $RepoRoot).Path.TrimEnd('\','/')
+    $root = (Resolve-Path $RepoRoot).Path.TrimEnd('\', '/')
     $full = (Resolve-Path $FullPath).Path
 
     if ($full.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
-        $rel = $full.Substring($root.Length).TrimStart('\','/')
+        $rel = $full.Substring($root.Length).TrimStart('\', '/')
         return ($rel -replace '\\', '/')
     }
 
@@ -540,7 +540,7 @@ function Write-DocsAuditReport {
         [switch] $FailOnLongPages
     )
 
-    function Normalize-Array {
+    function ConvertTo-NormalizedArray {
         [CmdletBinding()]
         param(
             [Parameter()]
@@ -580,7 +580,7 @@ function Write-DocsAuditReport {
         }
         catch {
             # Fallback: treat the value as a single item (do NOT attempt to enumerate again).
-            return ,$Value
+            return , $Value
         }
     }
 
@@ -632,16 +632,16 @@ function Write-DocsAuditReport {
     Write-Log -Message ("Report JSON:   " + (Convert-ToRepoRelativePath -RepoRoot $RepoRoot -FullPath $OutputJsonPath)) -Color Gray
 
     # Normalize everything to arrays and remove null/empty entries early.
-    $orphanIdsRaw = Normalize-Array -Value $Result.OrphanDocIds
+    $orphanIdsRaw = ConvertTo-NormalizedArray -Value $Result.OrphanDocIds
     $orphanIds = @($orphanIdsRaw | Where-Object { $null -ne $_ -and (-not [string]::IsNullOrWhiteSpace([string]$_)) })
 
-    $linkIssuesRaw = Normalize-Array -Value $Result.LinkIssues
+    $linkIssuesRaw = ConvertTo-NormalizedArray -Value $Result.LinkIssues
     $linkIssues = @($linkIssuesRaw | Where-Object { $null -ne $_ })
 
-    $mdxRisksRaw = Normalize-Array -Value $Result.MdxRisks
+    $mdxRisksRaw = ConvertTo-NormalizedArray -Value $Result.MdxRisks
     $mdxRisks = @($mdxRisksRaw | Where-Object { $null -ne $_ })
 
-    $longPagesRaw = Normalize-Array -Value $Result.LongPages
+    $longPagesRaw = ConvertTo-NormalizedArray -Value $Result.LongPages
     $longPages = @($longPagesRaw | Where-Object { $null -ne $_ })
 
     $orphansCount = [int]$orphanIds.Count
@@ -802,8 +802,8 @@ $docsFiles = New-Object System.Collections.Generic.List[object]
 $excludedFiles = New-Object System.Collections.Generic.List[object]
 
 foreach ($f in $allFiles) {
-    $rel = $f.FullName.Substring($docsRoot.Length).TrimStart('\','/')
-    $relNorm = ($rel -replace '\\','/')
+    $rel = $f.FullName.Substring($docsRoot.Length).TrimStart('\', '/')
+    $relNorm = ($rel -replace '\\', '/')
 
     $isExcluded = $false
     if ($excludeGlobs.Count -gt 0) {
@@ -867,12 +867,14 @@ foreach ($df in $docsFiles) {
     }
 
     foreach ($r in Find-MdxRisks -Lines @($lines)) {
-        $mdxRisks.Add([pscustomobject]@{
-            File    = $df.FullName
-            Line    = $r.Line
-            Type    = $r.Type
-            Snippet = $r.Snippet
-        })
+        $mdxRisks.Add(
+            [pscustomobject]@{
+                File    = $df.FullName
+                Line    = $r.Line
+                Type    = $r.Type
+                Snippet = $r.Snippet
+            }
+        )
     }
 }
 
