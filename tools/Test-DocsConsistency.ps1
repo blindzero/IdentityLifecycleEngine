@@ -65,14 +65,22 @@ function Convert-GlobToRegex {
         [string] $Glob
     )
 
-    # Very small glob-to-regex converter:
-    # - ** matches any path segment(s)
-    # - * matches any chars except path separator
-    # - ? matches single char except separator
+    # Normalize to forward slashes like minimatch does
     $g = $Glob -replace '\\', '/'
+
+    # Docusaurus/minimatch semantics:
+    # A leading "**/" should also match the root (i.e. it is optional).
+    # Example: "**/develop/**" must match "develop/x.md" AND "a/develop/x.md"
+    $leadingGlobStarSlash = $false
+    if ($g.StartsWith('**/')) {
+        $leadingGlobStarSlash = $true
+        $g = $g.Substring(3) # remove "**/"
+    }
+
+    # Escape everything, then re-expand glob tokens
     $g = [regex]::Escape($g)
 
-    # Restore glob tokens (escaped) to regex:
+    # Restore glob tokens (escaped) to regex
     $g = $g -replace '\\\*\\\*', '___GLOBSTAR___'
     $g = $g -replace '\\\*', '___STAR___'
     $g = $g -replace '\\\?', '___Q___'
@@ -80,6 +88,11 @@ function Convert-GlobToRegex {
     $g = $g -replace '___GLOBSTAR___', '.*'
     $g = $g -replace '___STAR___', '[^/]*'
     $g = $g -replace '___Q___', '[^/]'
+
+    if ($leadingGlobStarSlash) {
+        # Optional leading path segments
+        return "^(?:.*/)?$g$"
+    }
 
     return "^$g$"
 }
