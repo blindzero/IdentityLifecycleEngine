@@ -291,7 +291,7 @@ Guidance:
 Providers should have contract tests that verify behavior against a mock or test harness.
 Unit tests must not call live systems.
 
-For testing guidance, see [Testing](../develop/testing.md).
+For testing guidance, see **Testing** (comes later).
 
 ---
 

@@ -113,4 +113,3 @@ supports it.
 - [Providers and Contracts](../extend/providers.md) — Provider extension guidance
 - [Provider Capabilities](../reference/capabilities.md) — Capability system
 - [Architecture](../about/architecture.md) — Design principles
-- [Testing](../develop/testing.md) — Test strategy
