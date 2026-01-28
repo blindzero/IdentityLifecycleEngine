@@ -1,6 +1,6 @@
 ---
 title: Use IdLE
-sidebar_label: Intro
+sidebar_label: Use IdLE
 ---
 
 This section explains how to **use IdLE** in day-to-day operations.
@@ -19,9 +19,12 @@ with one or more providers.
 ## Where to continue?
 
 1. [Installation](installation.md)
-2. [Quickstart](quickstart.md)
-3. [Workflows](workflows.md)
-4. [Plan Export](plan-export.md)
+2. [Quick Start](quickstart.md)
+3. [Configuration](configuration.md)
+4. [Workflows](workflows.md)
+5. [Steps](steps.md)
+6. [Providers](providers.md)
+7. [Plan Export](plan-export.md)
 
 ## Not the right section?
 

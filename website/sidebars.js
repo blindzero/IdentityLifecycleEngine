@@ -33,8 +33,8 @@ const sidebars = {
       collapsed: false,
       items: [
         'use/intro',
-        'use/quickstart',
         'use/installation',
+        'use/quickstart',
         'use/configuration',
         'use/workflows',
         'use/steps',

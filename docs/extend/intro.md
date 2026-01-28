@@ -1,6 +1,6 @@
 ---
 title: Extend IdLE
-sidebar_label: Intro
+sidebar_label: Extend IdLE
 ---
 
 This section explains how to **extend IdLE**.
@@ -27,6 +27,7 @@ It is written for people who want to add or customize functionality, for example
 1. [Extensibility](extensibility.md)
 2. [Providers](providers.md)
 3. [Steps](steps.md)
+4. [Events](events.md)
 
 ## Not the right section?
 
