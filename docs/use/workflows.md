@@ -141,8 +141,8 @@ The values in `DesiredState` are accessible via `Request.Input.*` (or `Request.D
   Type = 'IdLE.Step.CreateIdentity'
   With = @{
     Attributes = @{
-      UserPrincipalName = '`{{Request.Input.UserPrincipalName}}`'
-      DisplayName       = '`{{Request.Input.DisplayName}}`'
+      UserPrincipalName = '`\{\{Request.Input.UserPrincipalName\}\}`'
+      DisplayName       = '`\{\{Request.Input.DisplayName\}\}`'
     }
   }
 }
@@ -150,18 +150,18 @@ The values in `DesiredState` are accessible via `Request.Input.*` (or `Request.D
   Name = 'EmitEvent'
   Type = 'IdLE.Step.EmitEvent'
   With = @{
-    Message = 'Creating user `{{Request.Input.DisplayName}}` (`{{Request.Input.UserPrincipalName}}`)'
+    Message = 'Creating user `\{\{Request.Input.DisplayName\}\}` (`\{\{Request.Input.UserPrincipalName\}\}`)'
   }
 }
 ```
 
 When the plan is built, templates are resolved to the actual values from the request:
-- ``{{Request.Input.UserPrincipalName}}`` → `'jdoe@example.com'`
-- ``{{Request.Input.DisplayName}}`` → `'John Doe'`
+- ``\{\{Request.Input.UserPrincipalName\}\}`` → `'jdoe@example.com'`
+- ``\{\{Request.Input.DisplayName\}\}`` → `'John Doe'`
 
 **Key features:**
 
-- **Concise syntax**: Use ``{{Path}}`` instead of verbose `@{ ValueFrom = 'Path' }` objects
+- **Concise syntax**: Use ``\{\{Path\}\}`` instead of verbose `@{ ValueFrom = 'Path' }` objects
 - **Multiple placeholders**: Place multiple templates in one string
 - **Nested structures**: Templates work in nested hashtables and arrays
 - **Planning-time resolution**: Templates are resolved during plan build, not execution
