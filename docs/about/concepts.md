@@ -3,53 +3,14 @@ title: Concepts
 sidebar_label: Concepts
 ---
 
-# Overview
+# IdLE Concepts
 
-IdLE (IdentityLifecycleEngine) is a **generic orchestration framework** for identity lifecycle automation.
-
-The key idea is to **separate intent from implementation**:
-
-- **What** should happen is defined in a **workflow** (data-only configuration).
-- **How** it happens is implemented by **steps** and **providers** (pluggable modules).
-
----
-
-## Why IdLE exists
-
-Identity lifecycle automation often turns into long scripts that are:
-
-- tightly coupled to one environment
-- hard to test
-- hard to change safely
-
-IdLE aims to be:
-
-- **portable** (PowerShell 7 runs on many platforms)
-- **modular** (steps and providers are swappable)
-- **testable** (Pester-friendly, mock providers)
-- **configuration-driven** (workflows as data)
-
----
-
-## Key Features
-
-- **Joiner / Mover / Leaver** orchestration (and custom lifecycle events)
-- **Plan → Execute** flow (preview actions before applying them)
-- **Plugin step model** (`Test` / `Invoke`, optional `Rollback` later)
-- **Provider/Adapter pattern** (directory, SaaS, REST, file/mock…)
-- **Structured events** for audit/progress (CorrelationId, Actor, step results)
-- **Idempotent execution** (steps can be written to converge state)
-
----
-
-## Core concepts
-
-### Request
+## Request
 
 A **LifecycleRequest** represents the business intent (for example: Joiner, Mover, Leaver).
 It is the input to planning.
 
-### Plan
+## Plan
 
 A **LifecyclePlan** is created deterministically from:
 
@@ -59,7 +20,7 @@ A **LifecyclePlan** is created deterministically from:
 
 The plan is previewable and auditable.
 
-### Execute
+## Execute
 
 Execution runs **only the plan** (no re-planning). This supports:
 
