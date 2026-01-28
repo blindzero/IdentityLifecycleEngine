@@ -57,6 +57,10 @@ const config = {
 
           // Edit links point to repo root, not /website
           editUrl: `https://github.com/${repoOwner}/${repoName}/edit/main/`,
+          exclude: [
+            '**/develop/**',
+            '**/index.md',
+            'index.md'], 
         },
         
         blog: false, // Disable blog plugin - maybe enable later
