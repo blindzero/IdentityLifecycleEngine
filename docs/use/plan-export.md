@@ -1,3 +1,8 @@
+---
+title: Plan Export
+sidebar_label: Plan Export
+---
+
 # Plan Export (User Guide)
 
 ## Why export a plan?

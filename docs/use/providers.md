@@ -1,3 +1,8 @@
+---
+title: Providers
+sidebar_label: Provider
+---
+
 # Providers
 
 Providers are the system-specific adapters (for example: Active Directory, Entra ID, Exchange Online) that connect

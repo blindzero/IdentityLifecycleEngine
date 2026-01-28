@@ -1,3 +1,8 @@
+---
+title: Events
+sidebar_label: Events
+---
+
 # Events and Observability
 
 ## Purpose

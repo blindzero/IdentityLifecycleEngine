@@ -1,3 +1,8 @@
+---
+title: Providers
+sidebar_label: Providers
+---
+
 # Providers and Contracts
 
 ## Purpose

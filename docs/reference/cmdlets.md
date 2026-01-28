@@ -1,3 +1,8 @@
+---
+title: Cmdlets
+sidebar_label: Cmdlets
+---
+
 # Cmdlet Reference
 
 > Generated file. Do not edit by hand.

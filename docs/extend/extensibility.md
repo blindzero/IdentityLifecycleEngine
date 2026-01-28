@@ -1,3 +1,8 @@
+---
+title: Extensibility
+sidebar_label: Extensibility
+---
+
 # Extensibility
 
 IdLE is designed for change through modules instead of forks.

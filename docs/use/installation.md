@@ -1,3 +1,8 @@
+---
+title: Installation
+sidebar_label: Installation
+---
+
 # Installation
 
 IdLE can be consumed either from the **PowerShell Gallery** (recommended for most users) or directly from the

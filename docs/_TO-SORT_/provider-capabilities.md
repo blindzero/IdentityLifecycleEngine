@@ -1,5 +1,6 @@
 ---
 title: Provider capabilities
+sidebar_label: Provider capabilities
 ---
 
 IdLE uses **capabilities** as the contract boundary between:

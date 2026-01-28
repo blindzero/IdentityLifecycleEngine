@@ -1,3 +1,8 @@
+---
+title: Steps
+sidebar_label: Steps
+---
+
 # Steps
 
 Steps are reusable plugins that define how IdLE should converge state.

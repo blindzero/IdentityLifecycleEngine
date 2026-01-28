@@ -1,3 +1,8 @@
+---
+title: Step Catalog
+sidebar_label: Step Catalog
+---
+
 # Step Catalog
 
 > Generated file. Do not edit by hand.

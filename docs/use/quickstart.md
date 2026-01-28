@@ -1,3 +1,8 @@
+---
+title: Quick Start
+sidebar_label: Quick Start
+---
+
 # QuickStart
 
 This quickstart walks through the IdLE flow:

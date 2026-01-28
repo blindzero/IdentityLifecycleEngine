@@ -1,3 +1,8 @@
+---
+title: Concepts
+sidebar_label: Concepts
+---
+
 # Overview
 
 IdLE (IdentityLifecycleEngine) is a **generic orchestration framework** for identity lifecycle automation.
