@@ -13,8 +13,8 @@ Exports an IdLE LifecyclePlan as a canonical JSON artifact.
 ## SYNTAX
 
 ```
-Export-IdlePlan [-Plan] <Object> [[-Path] <String>] [-PassThru] [-ProgressAction <ActionPreference>]
- [<CommonParameters>]
+Export-IdlePlan [-Plan] &lt;Object&gt; [[-Path] &lt;String&gt;] [-PassThru] [-ProgressAction &lt;ActionPreference&gt;]
+ [&lt;CommonParameters&gt;]
 ```
 
 ## DESCRIPTION
@@ -104,7 +104,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-`{{ Fill ProgressAction Description }}`
+TODO: ProgressAction Description
 
 ```yaml
 Type: ActionPreference

@@ -13,8 +13,8 @@ Creates a deterministic plan from a lifecycle request and a workflow definition.
 ## SYNTAX
 
 ```
-New-IdlePlan [-WorkflowPath] <String> [-Request] <Object> [[-Providers] <Object>]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+New-IdlePlan [-WorkflowPath] &lt;String&gt; [-Request] &lt;Object&gt; [[-Providers] &lt;Object&gt;]
+ [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
 
 ## DESCRIPTION
@@ -77,7 +77,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-`{{ Fill ProgressAction Description }}`
+TODO: ProgressAction Description
 
 ```yaml
 Type: ActionPreference

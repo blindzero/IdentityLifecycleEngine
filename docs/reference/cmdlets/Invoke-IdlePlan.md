@@ -13,8 +13,8 @@ Executes an IdLE plan.
 ## SYNTAX
 
 ```
-Invoke-IdlePlan [-Plan] <Object> [[-Providers] <Hashtable>] [[-EventSink] <Object>]
- [-ProgressAction <ActionPreference>] [-WhatIf] [-Confirm] [<CommonParameters>]
+Invoke-IdlePlan [-Plan] &lt;Object&gt; [[-Providers] &lt;Hashtable&gt;] [[-EventSink] &lt;Object&gt;]
+ [-ProgressAction &lt;ActionPreference&gt;] [-WhatIf] [-Confirm] [&lt;CommonParameters&gt;]
 ```
 
 ## DESCRIPTION
@@ -108,7 +108,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-`{{ Fill ProgressAction Description }}`
+TODO: ProgressAction Description
 
 ```yaml
 Type: ActionPreference

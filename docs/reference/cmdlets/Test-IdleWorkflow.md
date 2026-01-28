@@ -13,8 +13,8 @@ Validates an IdLE workflow definition file.
 ## SYNTAX
 
 ```
-Test-IdleWorkflow [-WorkflowPath] <String> [[-Request] <Object>] [-ProgressAction <ActionPreference>]
- [<CommonParameters>]
+Test-IdleWorkflow [-WorkflowPath] &lt;String&gt; [[-Request] &lt;Object&gt;] [-ProgressAction &lt;ActionPreference&gt;]
+ [&lt;CommonParameters&gt;]
 ```
 
 ## DESCRIPTION
@@ -61,7 +61,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-`{{ Fill ProgressAction Description }}`
+TODO: ProgressAction Description
 
 ```yaml
 Type: ActionPreference

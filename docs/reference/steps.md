@@ -1,8 +1,3 @@
----
-title: Step Catalog
-sidebar_label: Step Catalog
----
-
 # Step Catalog
 
 > Generated file. Do not edit by hand.
@@ -38,7 +33,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., `@{ Role = 'Tier0' }`).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -80,7 +75,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -115,7 +110,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -174,7 +169,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -209,7 +204,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -252,7 +247,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider methods
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -291,7 +286,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
