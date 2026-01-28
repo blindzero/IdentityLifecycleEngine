@@ -27,4 +27,4 @@ IdLE focuses on:
 
 If you are new to IdLE, start here:
 
-- `User Guide -> Quickstart`
+- [Use Idle --> Quickstart](../use/quickstart.md)
