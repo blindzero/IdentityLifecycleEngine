@@ -87,7 +87,7 @@ IdLE emits **structured events** during execution.
 
 Hosts may optionally provide an external sink to stream events live:
 
-- `Invoke-IdlePlan -EventSink <object>`
+- `Invoke-IdlePlan -EventSink &lt;object&gt;`
 - The sink must implement `WriteEvent(event)`
 - ScriptBlock sinks are rejected (secure default)
 

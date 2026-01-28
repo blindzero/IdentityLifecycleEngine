@@ -151,7 +151,7 @@ Workflow steps can specify which provider to use via the `Provider` key in the `
     Type = 'IdLE.Step.CreateIdentity'
     With = @{
         IdentityKey = 'newuser'
-        Attributes  = @{ ... }
+        Attributes  = @\{ ... \}
         Provider    = 'SourceAD'  # References the alias from the provider hashtable
     }
 }

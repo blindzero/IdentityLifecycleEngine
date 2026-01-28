@@ -66,7 +66,7 @@ Security and portability:
 
 - Steps must never execute code from configuration.
 - Steps must not assume a specific host UI.
-- Hosts can optionally stream events via `Invoke-IdlePlan -EventSink <object>`,
+- Hosts can optionally stream events via `Invoke-IdlePlan -EventSink &lt;object&gt;`,
   but **ScriptBlock sinks are not supported**.
 
 ## Error behavior

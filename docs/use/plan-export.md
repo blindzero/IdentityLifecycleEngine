@@ -72,7 +72,7 @@ Plan export can be used as a build artifact:
 ## Troubleshooting
 
 ### MDX build errors when documenting exports
-If you document placeholders like `{{...}}`, `{Name}` or examples like `@{ Key = 'Value' }`,
+If you document placeholders like `\{\{...\}\}`, `{Name}` or examples like `@{ Key = 'Value' }`,
 wrap them in inline code or fenced code blocks to avoid MDX parsing issues.
 
 ## See also

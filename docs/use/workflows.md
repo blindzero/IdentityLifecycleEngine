@@ -111,9 +111,9 @@ If the condition is not met, the step is marked as `Skipped` and a skip event is
 
 ## References and inputs
 
-### Template substitution (``{{...}}``)
+### Template substitution (double curly braces)
 
-IdLE supports **template substitution** for embedding request values into workflow step configurations using ``{{...}}`` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
+IdLE supports **template substitution** for embedding request values into workflow step configurations using ``\{\{...\}\}`` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
 
 **How it works:**
 
@@ -222,7 +222,7 @@ Prefer explicit reference fields over implicit parsing:
 
 This makes configurations safe and statically validatable.
 
-**Note:** Template substitution (``{{...}}``) is preferred for string fields. Use `ValueFrom` objects when you need non-string references or conditional defaults.
+**Note:** Template substitution (``\{\{...\}\}``) is preferred for string fields. Use `ValueFrom` objects when you need non-string references or conditional defaults.
 
 ## Advanced Workflow Patterns
 

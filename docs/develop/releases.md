@@ -96,7 +96,7 @@ For stable releases, all shipped module manifests must have:
 
 Pre-releases use tags in the form:
 
-- `vMAJOR.MINOR.PATCH-<label>` (example: `v1.2.0-preview.1`, `v1.2.0-rc.1`)
+- `vMAJOR.MINOR.PATCH-&lt;label&gt;` (example: `v1.2.0-preview.1`, `v1.2.0-rc.1`)
 
 **Important:** the module manifests still use the *base* version:
 

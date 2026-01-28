@@ -227,7 +227,7 @@ Workflow steps specify which domain to authenticate against:
     Name = 'CreateTarget'
     With = @{
         IdentityKey = 'user@target.com'
-        Attributes = @{ ... }
+        Attributes = @\{ ... \}
         Provider = 'TargetAD'
         AuthSessionName = 'ActiveDirectory'
         AuthSessionOptions = @{ Domain = 'Target' }
@@ -373,7 +373,7 @@ Built-in steps default to `'Identity'` when `With.Provider` is omitted.
 
 ### Identity Not Found
 
-**Error:** `Identity with <identifier> not found`
+**Error:** `Identity with &lt;identifier&gt; not found`
 
 **Solution:** 
 - Verify the identifier format (GUID/UPN/sAMAccountName)
