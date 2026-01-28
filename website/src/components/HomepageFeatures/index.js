@@ -4,32 +4,29 @@ import styles from './styles.module.css';
 
 const FeatureList = [
   {
-    title: 'Easy to Use',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    title: 'Workflow Oriented',
+    Svg: require('@site/static/img/idle_feature_workflow-oriented.png').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        Manage the lifecycle of identities seamlessly as they join, move within, or leave your organization.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    title: 'Provider Agnostic',
+    Svg: require('@site/static/img/idle_feature_provider-agnostic.png').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Integrate with a wide range of identity providers and services, ensuring flexibility, adaptability and extensibility to your existing infrastructure.
       </>
     ),
   },
   {
-    title: 'Powered by React',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    title: 'Built for Automation',
+    Svg: require('@site/static/img/idle_feature_built-for-automation.png').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        Designed to automate identity management tasks, reducing manual effort and minimizing errors.
       </>
     ),
   },
