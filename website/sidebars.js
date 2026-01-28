@@ -22,6 +22,9 @@ const sidebars = {
       collapsed: false,
       items: [
         'about/intro',
+        'about/concepts',
+        'about/architecture',
+        'about/security',
       ],
     },
     {
@@ -30,6 +33,13 @@ const sidebars = {
       collapsed: false,
       items: [
         'use/intro',
+        'use/installation',
+        'use/quickstart',
+        'use/workflows',
+        'use/providers',
+        'use/steps',
+        'use/configuration',
+        'use/plan-export',
       ],
     },
     {
@@ -38,6 +48,13 @@ const sidebars = {
       collapsed: false,
       items: [
         'extend/intro',
+        'extend/extensibility',
+        'extend/providers',
+        'extend/steps',
+        'extend/events',
+        // Add later if/when you create them:
+        // 'extend/auth-sessions',
+        // 'extend/testing',
       ],
     },
     {
@@ -46,6 +63,39 @@ const sidebars = {
       collapsed: true,
       items: [
         'reference/intro',
+        'reference/capabilities',
+        'reference/steps',
+        'reference/cmdlets',
+        {
+          type: 'category',
+          label: 'Cmdlets',
+          collapsed: true,
+          items: [
+            'reference/cmdlets/Export-IdlePlan',
+            'reference/cmdlets/Invoke-IdlePlan',
+            'reference/cmdlets/New-IdleAuthSession',
+            'reference/cmdlets/New-IdleLifecycleRequest',
+            'reference/cmdlets/New-IdlePlan',
+            'reference/cmdlets/Test-IdleWorkflow',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Providers',
+          collapsed: true,
+          items: [
+            'reference/providers/provider-ad',
+            'reference/providers/provider-entraID',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Specs',
+          collapsed: true,
+          items: [
+            'reference/specs/plan-export',
+          ],
+        },
       ],
     },
   ],
