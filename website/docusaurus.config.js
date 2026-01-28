@@ -17,7 +17,7 @@ const repoName = 'IdentityLifecycleEngine';
 const config = {
   title: 'IdLE',
   tagline: 'Identity Lifecycle Engine',
-  favicon: 'img/favicon.ico',
+  favicon: 'assets/logos/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
