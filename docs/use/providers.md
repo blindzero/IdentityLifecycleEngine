@@ -10,7 +10,7 @@ IdLE workflows to external systems.
 
 For complete provider documentation, including concepts, contracts, authentication, usage patterns, and examples, see:
 
-**→ [Providers and Contracts](../reference/providers-and-contracts.md)** (single source of truth)
+**→ [Providers and Contracts](../extend/providers.md)** (single source of truth)
 
 ---
 
@@ -25,7 +25,7 @@ Providers:
 - Translate generic operations to system APIs
 - Are mockable for tests
 
-See: [Provider responsibilities](../reference/providers-and-contracts.md#responsibilities)
+See: [Provider responsibilities](../extend/providers.md#responsibilities)
 
 ### How to use providers
 
@@ -39,7 +39,7 @@ $providers = @{
 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 ```
 
-See: [Provider aliases and usage](../reference/providers-and-contracts.md#usage)
+See: [Provider aliases and usage](../extend/providers.md#usage)
 
 ### Available providers
 
@@ -50,7 +50,7 @@ See: [Provider aliases and usage](../reference/providers-and-contracts.md#usage)
 
 ## Related
 
-- [Providers and Contracts](../reference/providers-and-contracts.md) — Complete provider reference
+- [Providers and Contracts](../extend/providers.md) — Complete provider reference
 - [Workflows](workflows.md) — How workflows reference providers
 - [Steps](steps.md) — How steps use providers
-- [Extensibility](../advanced/extensibility.md) — How to create custom providers
+- [Extensibility](../extend/extensibility.md) — How to create custom providers

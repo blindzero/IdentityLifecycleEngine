@@ -8,7 +8,10 @@ Capabilities are the contract between **Steps**, **Providers**, and the **Planni
 
 > Note: IdLE is still pre-1.0. Capability IDs may evolve. This document should be treated as the source of truth for IDs once stabilized.
 
-For the conceptual model (why capabilities exist, how discovery/merging works, and how validation behaves), see [About -> Provider capabilities](../about/provider-capabilities).
+For the conceptual model (why capabilities exist, how discovery/merging works, and how validation behaves), see
+- [About -> Architecture](../about/architecture.md)
+- [Extend -> Extensibility](../extend/extensibility.md)
+- [Extend -> Providers](../extend/providers.md)
 
 ---
 

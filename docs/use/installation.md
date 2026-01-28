@@ -110,12 +110,12 @@ Import-Module ./src/IdLE/IdLE.psd1 -Force
 Import-Module ./src/IdLE.Provider.AD/IdLE.Provider.AD.psd1 -Force
 ```
 
-For a complete list of available providers and usage details, see **[Providers](../usage/providers.md)**.
+For a complete list of available providers and usage details, see **[Providers](../use/providers.md)**.
 
 ---
 
 ## Next steps
 
 - [Quickstart](quickstart.md) — Run the demo and learn the Plan → Execute flow
-- [Providers](../usage/providers.md) — Learn about provider aliases and usage
-- [Workflows](../usage/workflows.md) — Learn how to define workflows
+- [Providers](../use/providers.md) — Learn about provider aliases and usage
+- [Workflows](../use/workflows.md) — Learn how to define workflows

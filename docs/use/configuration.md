@@ -209,8 +209,8 @@ Prefer small, focused steps with clear parameters.
 
 ## Related documentation
 
-- [Workflows](../usage/workflows.md)
-- [Steps](../usage/steps.md)
-- [Providers and Contracts](providers-and-contracts.md)
-- [Events and Observability](events-and-observability.md)
-- [Architecture](../advanced/architecture.md)
+- [Workflows](../use/workflows.md)
+- [Steps](../use/steps.md)
+- [Providers and Contracts](../extend/providers.md)
+- [Events and Observability](../extend/events.md)
+- [Architecture](../about/architecture.md)

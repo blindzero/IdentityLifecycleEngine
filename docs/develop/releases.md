@@ -216,7 +216,7 @@ Staging is performed by:
 This script copies the `IdLE` meta-module and baseline nested modules (`IdLE.Core`, `IdLE.Steps.Common`) into a local `Modules/` folder and patches the staged
 `IdLE.psd1` so `NestedModules` use in-package relative paths (e.g. `./Modules/IdLE.Core/IdLE.Core.psd1`).
 
-For details on baseline vs optional modules and the non-blocking import policy, see **[Installation Guide](../getting-started/installation.md#what-gets-imported)**.
+For details on baseline vs optional modules and the non-blocking import policy, see **[Installation Guide](../use/installation.md#what-gets-imported)**.
 
 > This approach avoids repository restructuring while ensuring that `Install-Module IdLE` + `Import-Module IdLE` works
 > reliably on any clean PowerShell 7 environment without external dependencies.

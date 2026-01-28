@@ -79,7 +79,7 @@ Execution runs **only the plan** (no re-planning). This supports:
 - Are provider-agnostic (use contracts, not direct system calls)
 - Emit structured events for audit and progress
 
-Learn more: [Steps](../usage/steps.md) | [Step Catalog](../reference/steps.md)
+Learn more: [Steps](../use/steps.md) | [Step Catalog](../reference/steps.md)
 
 ### Providers
 
@@ -89,7 +89,7 @@ Learn more: [Steps](../usage/steps.md) | [Step Catalog](../reference/steps.md)
 - Translate generic operations to system APIs
 - Are mockable for tests
 
-Learn more: [Providers](../usage/providers.md) | [Providers and Contracts](../reference/providers-and-contracts.md)
+Learn more: [Providers](../use/providers.md) | [Providers and Contracts](../extend/providers.md)
 
 ---
 
@@ -106,7 +106,7 @@ IdLE.Core stays headless and avoids responsibilities that belong to a host appli
 
 ## Next Steps
 
-- [Installation](../getting-started/installation.md) — Install and import guide
-- [Quickstart](../getting-started/quickstart.md) — Run the demo
-- [Architecture](../advanced/architecture.md) — Design principles and decisions
-- [Workflows](../usage/workflows.md) — Define lifecycle workflows
+- [Installation](../use/installation.md) — Install and import guide
+- [Quickstart](../use/quickstart.md) — Run the demo
+- [Architecture](../about/architecture.md) — Design principles and decisions
+- [Workflows](../use/workflows.md) — Define lifecycle workflows

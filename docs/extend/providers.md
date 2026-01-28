@@ -291,7 +291,7 @@ Guidance:
 Providers should have contract tests that verify behavior against a mock or test harness.
 Unit tests must not call live systems.
 
-For testing guidance, see [Testing](../advanced/testing.md).
+For testing guidance, see [Testing](../develop/testing.md).
 
 ---
 
@@ -300,7 +300,7 @@ For testing guidance, see [Testing](../advanced/testing.md).
 Providers and the step registry are host-controlled extension points and should be treated as trusted code.
 Workflows and lifecycle requests are data-only and must not contain executable objects.
 
-For details, see [Security](../advanced/security.md).
+For details, see [Security](../about/security.md).
 
 ---
 
@@ -342,8 +342,8 @@ should be clarified or refined.
 
 ## Related documentation
 
-- [Workflows](../usage/workflows.md)
-- [Steps](../usage/steps.md)
-- [Architecture](../advanced/architecture.md)
-- [Extensibility](../advanced/extensibility.md)
-- [Provider Capabilities](../advanced/provider-capabilities.md)
+- [Workflows](../use/workflows.md)
+- [Steps](../use/steps.md)
+- [Architecture](../about/architecture.md)
+- [Extensibility](../extend/extensibility.md)
+- [Capabilities](../reference/capabilities.md)

@@ -46,7 +46,7 @@ advertise which capabilities they support. The engine matches both sides
 and fails fast if required functionality is missing.
 
 For details on the capability-based provider model and the validation flow,
-see [Provider Capabilities](provider-capabilities.md).
+see [Provider Capabilities](../reference/capabilities.md).
 
 ### Execute
 
@@ -62,7 +62,7 @@ This enables previews, approvals, and repeatable audits.
 Hosts may persist or exchange a plan as a **machine-readable JSON artifact**.
 The canonical contract format is defined here:
 
-- [Plan export specification (JSON)](../specs/plan-export.md)
+- [Plan export specification (JSON)](../reference/specs/plan-export.md)
 
 The exported artifact is intended for **approvals, CI checks, and audits**.
 To keep exports deterministic and review-friendly, the contract intentionally omits volatile information
@@ -102,7 +102,7 @@ No deep merge: replace-at-path semantics only.
 - Steps implement behaviors
 - Providers integrate target systems
 
-See: [Extensibility](extensibility.md).
+See: [Extensibility](../extend/extensibility.md).
 
 ## Trust boundaries
 
@@ -157,7 +157,7 @@ The following are **not contracts** and may change in minor/patch versions:
 **Plan export contract** (JSON):
 - Format: JSON from `Export-IdlePlan`
 - Schema and semantics are stable
-- See [Plan export specification](../specs/plan-export.md)
+- See [Plan export specification](../reference/specs/plan-export.md)
 
 ### Capability ID Baseline (v1.0)
 

@@ -18,10 +18,10 @@ entitlement store, messaging, etc.). If you only want a runnable end-to-end demo
 
 Next steps for library usage:
 
-- Install IdLE: see [Installation](./installation.md)
-- Learn the concepts: [Concept](../overview/concept.md)
+- Install IdLE: see [Installation](installation.md)
+- Learn the concepts: [Concept](../about/concepts.md)
 - Cmdlets reference: [Cmdlets](../reference/cmdlets.md)
-- Providers and contracts: [Providers](../usage/providers.md)
+- Providers and contracts: [Providers](providers.md)
 
 ## Run the repository demo (recommended first run)
 
@@ -72,7 +72,7 @@ $result.Events | Select-Object Type, StepName, Message
 
 ## Next steps
 
-- [Workflows](../usage/workflows.md)
-- [Steps](../usage/steps.md)
-- [Providers](../usage/providers.md)
-- [Architecture](../advanced/architecture.md)
+- [Workflows](workflows.md)
+- [Steps](steps.md)
+- [Providers](providers.md)
+- [Architecture](../about/architecture.md)

@@ -192,9 +192,9 @@ Metadata is not optional; it is part of the step contract.
 
 ## Related documentation
 
-- [Steps (Inventory)](steps.md)
-- [Workflows](../usage/workflows.md)
-- [Configuration](configuration.md)
-- [Providers and Contracts](providers-and-contracts.md)
-- [Events and Observability](events-and-observability.md)
-- [Architecture](../advanced/architecture.md)
+- [Architecture](../about/architecture.md)
+- [Workflows](../use/workflows.md)
+- [Configuration](../use/configuration.md)
+- [Providers](providers.md)
+- [Events and Observability](events.md)
+- [Steps Catalog](../reference/steps.md)

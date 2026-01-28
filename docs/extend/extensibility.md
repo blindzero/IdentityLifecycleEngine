@@ -53,7 +53,7 @@ Key points:
 
 For detailed contract specifications and usage patterns, see:
 
-**→ [Providers and Contracts](../reference/providers-and-contracts.md)** — Complete provider contracts and AuthSessionBroker details
+**→ [Providers and Contracts](../extend/providers.md)** — Complete provider contracts and AuthSessionBroker details
 
 ### Capability Advertisement
 
@@ -63,7 +63,7 @@ during plan build to validate whether all required functionality is
 available.
 
 The full contract, naming rules, and validation behavior are described in
-[Provider Capabilities](provider-capabilities.md).
+[Provider Capabilities](../reference/capabilities.md).
 
 Providers should include the corresponding provider capability contract tests
 to ensure compliance.
@@ -110,7 +110,7 @@ supports it.
 
 ## Related
 
-- [Providers and Contracts](../reference/providers-and-contracts.md) — Provider extension guidance
-- [Provider Capabilities](provider-capabilities.md) — Capability system
-- [Architecture](architecture.md) — Design principles
-- [Testing](testing.md) — Test strategy
+- [Providers and Contracts](../extend/providers.md) — Provider extension guidance
+- [Provider Capabilities](../reference/capabilities.md) — Capability system
+- [Architecture](../about/architecture.md) — Design principles
+- [Testing](../develop/testing.md) — Test strategy

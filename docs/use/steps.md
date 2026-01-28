@@ -117,7 +117,7 @@ IdLE ships with a small set of built-in steps to keep demos and tests frictionle
 
 - [Workflows](workflows.md)
 - [Providers](providers.md)
-- [Architecture](../advanced/architecture.md)
+- [Architecture](../about/architecture.md)
 
 ## Security notes
 

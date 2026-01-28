@@ -218,7 +218,7 @@ Violating this separation would break testability and portability.
 
 ## Related documentation
 
-- [Workflows](../usage/workflows.md)
-- [Steps](../usage/steps.md)
-- [Providers](../usage/providers.md)
-- [Architecture](../advanced/architecture.md)
+- [Workflows](../use/workflows.md)
+- [Steps](../use/steps.md)
+- [Providers](../use/providers.md)
+- [Architecture](../about/architecture.md)
