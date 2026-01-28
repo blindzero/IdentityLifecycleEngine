@@ -4,6 +4,7 @@ sidebar_label: Intro
 ---
 
 This section explains how to **extend IdLE**.
+IdLE is designed for change through modules instead of forks.
 
 It is written for people who want to add or customize functionality, for example:
 
@@ -26,7 +27,6 @@ It is written for people who want to add or customize functionality, for example
 1. [Extensibility](extensibility.md)
 2. [Providers](providers.md)
 3. [Steps](steps.md)
-4. [Testing](testing.md)
 
 ## Not the right section?
 
