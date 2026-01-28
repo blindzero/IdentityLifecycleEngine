@@ -46,6 +46,7 @@ coverage.*
 test-results.*
 *.lcov
 testresults.xml
+docs-audit.json
 
 # Packages
 *.7z
