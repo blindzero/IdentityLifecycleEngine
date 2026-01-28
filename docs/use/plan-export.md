@@ -45,7 +45,8 @@ For the exact format and normative rules, see:
 
 ```powershell
 # Example only. Adjust parameters to your environment.
-$plan = New-IdlePlan -WorkflowPath './workflows/joiner.json' -IdentityId 'jdoe'
+$request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ EmployeeId = 'jdoe' }
+$plan = New-IdlePlan -WorkflowPath './workflows/joiner.psd1' -Request $request
 Export-IdlePlan -Plan $plan -Path './artifacts/joiner.plan.json'
 ```
 
