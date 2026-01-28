@@ -15,7 +15,7 @@
 }
 
 @media (max-width: 996px) {
-  .featureSvg {
+  .featureImg {
     height: 160px;
     max-width: 240px;
   }
