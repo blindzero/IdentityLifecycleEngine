@@ -16,6 +16,8 @@ function HomepageHeader() {
           {siteConfig.title}
         </Heading>
         <p className="hero__subtitle">{siteConfig.tagline}</p>
+        <p>IdLE is a <b>generic, headless, configuration-driven lifecycle orchestration engine</b><br/>
+          for identity and account processes (Joiner / Mover / Leaver), built for PowerShell 7+.</p>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
