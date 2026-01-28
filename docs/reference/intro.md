@@ -1,6 +1,6 @@
 ---
 title: Reference
-sidebar_label: Intro
+sidebar_label: Reference
 ---
 
 This section is the **authoritative reference** for IdLE.

@@ -33,8 +33,8 @@ const sidebars = {
       collapsed: false,
       items: [
         'use/intro',
-        'use/quickstart',
         'use/installation',
+        'use/quickstart',
         'use/configuration',
         'use/workflows',
         'use/steps',
@@ -63,8 +63,6 @@ const sidebars = {
       collapsed: true,
       items: [
         'reference/intro',
-        'reference/capabilities',
-        'reference/steps',
         'reference/cmdlets',
         {
           type: 'category',
@@ -79,6 +77,8 @@ const sidebars = {
             'reference/cmdlets/Test-IdleWorkflow',
           ],
         },
+        'reference/steps',
+        'reference/capabilities',
         {
           type: 'category',
           label: 'Providers',
