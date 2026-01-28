@@ -41,7 +41,7 @@ Learn how to [extend IdLE](extend/intro.md) as a developer.
 
 ## Reference
 
-The [authorative reference](reference/intro.md) for IdLE components.
+The [authoritative reference](reference/intro.md) for IdLE components.
 
 - [Cmdlets](reference/cmdlets.md) - Public cmdlets and usage
 - [Step Catalog](reference/steps.md) - Built-in step reference (generated)
