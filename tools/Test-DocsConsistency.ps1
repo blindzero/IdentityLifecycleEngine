@@ -1,3 +1,6 @@
+#requires -PSEdition Core
+#requires -Version 7.0
+
 [CmdletBinding()]
 param(
     [Parameter()]
@@ -36,6 +39,13 @@ param(
     # If specified, write a non-zero exit code on warnings (not recommended).
     [Parameter()]
     [switch] $FailOnLongPages = $false,
+
+    [Parameter()]
+    [ValidateRange(1, 5000)]
+    [int] $MaxDetailItems = 50,
+
+    [Parameter()]
+    [switch] $NoDetailOutput,
 
     # Output file path for JSON report.
     [Parameter()]
@@ -378,9 +388,396 @@ function Find-MdxRisks {
     return $risks
 }
 
+function Get-IsGitHubActions {
+    [CmdletBinding()]
+    param()
+
+    return ($env:GITHUB_ACTIONS -eq 'true')
+}
+
+function Get-IsCiEnvironment {
+    [CmdletBinding()]
+    param()
+
+    if (Get-IsGitHubActions) { return $true }
+    if ($env:CI -eq 'true') { return $true }
+    if ($env:TF_BUILD -eq 'True') { return $true }
+    if ($env:BUILD_BUILDID) { return $true }
+
+    return $false
+}
+
+function Convert-ToRepoRelativePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $RepoRoot,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $FullPath
+    )
+
+    $root = (Resolve-Path $RepoRoot).Path.TrimEnd('\','/')
+    $full = (Resolve-Path $FullPath).Path
+
+    if ($full.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $rel = $full.Substring($root.Length).TrimStart('\','/')
+        return ($rel -replace '\\', '/')
+    }
+
+    return ($full -replace '\\', '/')
+}
+
+function Write-Log {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Message,
+
+        [Parameter()]
+        [ValidateSet('Gray', 'Green', 'Yellow', 'Red', 'Cyan', 'White')]
+        [string] $Color = 'White'
+    )
+
+    # In CI logs, avoid ANSI noise and keep output machine-friendly.
+    if (Get-IsCiEnvironment) {
+        Write-Output $Message
+        return
+    }
+
+    Write-Host $Message -ForegroundColor $Color
+}
+
+function Write-Section {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Title
+    )
+
+    Write-Log -Message ""
+    Write-Log -Message $Title -Color Cyan
+    Write-Log -Message ("-" * $Title.Length) -Color Cyan
+}
+
+function Write-GitHubAnnotation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('error', 'warning', 'notice')]
+        [string] $Level,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Message,
+
+        [Parameter()]
+        [AllowEmptyString()]
+        [string] $File,
+
+        [Parameter()]
+        [int] $Line = 0
+    )
+
+    if (-not (Get-IsGitHubActions)) { return }
+
+    $parts = @()
+    if (-not [string]::IsNullOrWhiteSpace($File)) {
+        $parts += "file=$File"
+    }
+    if ($Line -gt 0) {
+        $parts += "line=$Line"
+    }
+
+    if ($parts.Count -gt 0) {
+        Write-Output ("::{0} {1}::{2}" -f $Level, ($parts -join ','), $Message)
+    }
+    else {
+        Write-Output ("::{0}::{1}" -f $Level, $Message)
+    }
+}
+
+function Write-DocsAuditReport {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [pscustomobject] $Result,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $RepoRoot,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $DocsRoot,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $WebsiteRoot,
+
+        [Parameter()]
+        [ValidateRange(1, 5000)]
+        [int] $MaxDetailItems = 50,
+
+        [Parameter()]
+        [switch] $NoDetailOutput,
+
+        [Parameter()]
+        [switch] $FailOnOrphans,
+
+        [Parameter()]
+        [switch] $FailOnLinkIssues,
+
+        [Parameter()]
+        [switch] $FailOnMdxRisks,
+
+        [Parameter()]
+        [switch] $FailOnLongPages
+    )
+
+    function Normalize-Array {
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Value
+        )
+
+        if ($null -eq $Value) {
+            return @()
+        }
+
+        # If it's a string, treat it as a single item (avoid char enumeration).
+        if ($Value -is [string]) {
+            if ([string]::IsNullOrWhiteSpace($Value)) {
+                return @()
+            }
+
+            return @($Value)
+        }
+
+        # If it's already an array, return as-is.
+        if ($Value -is [System.Array]) {
+            return $Value
+        }
+
+        # Most list types (List[T], ArrayList, etc.) should enumerate safely.
+        # Still: avoid the @($Value) shortcut because it triggers PowerShell's enumeration pipeline,
+        # which can surface weird enumerator exceptions. We build a list explicitly.
+        try {
+            $items = New-Object System.Collections.Generic.List[object]
+
+            foreach ($item in $Value) {
+                $items.Add($item)
+            }
+
+            return $items.ToArray()
+        }
+        catch {
+            # Fallback: treat the value as a single item (do NOT attempt to enumerate again).
+            return ,$Value
+        }
+    }
+
+
+    function Get-CountColor {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [int] $Count
+        )
+
+        if ($Count -gt 0) { return 'Yellow' }
+        return 'Green'
+    }
+
+    function Get-TakeCount {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [int] $Total,
+
+            [Parameter(Mandatory)]
+            [int] $Max
+        )
+
+        if ($Total -lt 0) { return 0 }
+        if ($Max -lt 0) { return 0 }
+        if ($Total -lt $Max) { return $Total }
+        return $Max
+    }
+
+    function Get-Status {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [bool] $IsFail
+        )
+
+        if ($IsFail) {
+            return [pscustomobject]@{ Text = 'FAIL'; Color = 'Red' }
+        }
+
+        return [pscustomobject]@{ Text = 'PASS'; Color = 'Green' }
+    }
+
+    Write-Section -Title "Docs audit summary"
+    Write-Log -Message ("Docs root:     " + (Convert-ToRepoRelativePath -RepoRoot $RepoRoot -FullPath $DocsRoot)) -Color Gray
+    Write-Log -Message ("Website root:  " + (Convert-ToRepoRelativePath -RepoRoot $RepoRoot -FullPath $WebsiteRoot)) -Color Gray
+    Write-Log -Message ("Report JSON:   " + (Convert-ToRepoRelativePath -RepoRoot $RepoRoot -FullPath $OutputJsonPath)) -Color Gray
+
+    # Normalize everything to arrays and remove null/empty entries early.
+    $orphanIdsRaw = Normalize-Array -Value $Result.OrphanDocIds
+    $orphanIds = @($orphanIdsRaw | Where-Object { $null -ne $_ -and (-not [string]::IsNullOrWhiteSpace([string]$_)) })
+
+    $linkIssuesRaw = Normalize-Array -Value $Result.LinkIssues
+    $linkIssues = @($linkIssuesRaw | Where-Object { $null -ne $_ })
+
+    $mdxRisksRaw = Normalize-Array -Value $Result.MdxRisks
+    $mdxRisks = @($mdxRisksRaw | Where-Object { $null -ne $_ })
+
+    $longPagesRaw = Normalize-Array -Value $Result.LongPages
+    $longPages = @($longPagesRaw | Where-Object { $null -ne $_ })
+
+    $orphansCount = [int]$orphanIds.Count
+    $linkIssuesCount = [int]$linkIssues.Count
+    $mdxRisksCount = [int]$mdxRisks.Count
+    $longPagesCount = [int]$longPages.Count
+
+    $isFail = $false
+    if ($FailOnOrphans -and $orphansCount -gt 0) { $isFail = $true }
+    if ($FailOnLinkIssues -and $linkIssuesCount -gt 0) { $isFail = $true }
+    if ($FailOnMdxRisks -and $mdxRisksCount -gt 0) { $isFail = $true }
+    if ($FailOnLongPages -and $longPagesCount -gt 0) { $isFail = $true }
+
+    $status = Get-Status -IsFail:$isFail
+
+    Write-Log -Message ""
+    Write-Log -Message ("Docs (audited):  " + [int]$Result.DocsFileCount) -Color White
+    Write-Log -Message ("Docs (excluded): " + [int]$Result.ExcludedDocsFileCount) -Color White
+    Write-Log -Message ("Sidebar docIds:  " + [int]$Result.SidebarDocIdCount) -Color White
+
+    Write-Log -Message ""
+    Write-Log -Message ("Orphans:         " + $orphansCount) -Color (Get-CountColor -Count $orphansCount)
+    Write-Log -Message ("Link issues:     " + $linkIssuesCount) -Color (Get-CountColor -Count $linkIssuesCount)
+    Write-Log -Message ("MDX risks:       " + $mdxRisksCount) -Color (Get-CountColor -Count $mdxRisksCount)
+    Write-Log -Message ("Long pages:      " + $longPagesCount + " (warning)") -Color (Get-CountColor -Count $longPagesCount)
+
+    Write-Log -Message ""
+    Write-Log -Message ("Status:          " + $status.Text) -Color $status.Color
+
+    if ($NoDetailOutput) { return }
+
+    # --- Orphans ---
+    if ($orphansCount -gt 0) {
+        Write-Section -Title "Orphan docs (not referenced from website/sidebars.js)"
+
+        $items = @($orphanIds | Sort-Object)
+        $take = Get-TakeCount -Total $items.Count -Max $MaxDetailItems
+
+        for ($i = 0; $i -lt $take; $i++) {
+            $docId = $items[$i]
+
+            $path = $null
+            if ($null -ne $docId -and $script:docIdToPath.ContainsKey($docId)) {
+                $path = $script:docIdToPath[$docId]
+            }
+
+            if ($path) {
+                $rel = Convert-ToRepoRelativePath -RepoRoot $RepoRoot -FullPath $path
+                Write-Log -Message ("- {0}  ({1})" -f $docId, $rel) -Color Yellow
+
+                $level = 'warning'
+                if ($FailOnOrphans) { $level = 'error' }
+                Write-GitHubAnnotation -Level $level -Message ("Orphan doc not in sidebars: {0}" -f $docId) -File $rel
+            }
+            else {
+                Write-Log -Message ("- {0}" -f $docId) -Color Yellow
+            }
+        }
+
+        if ($items.Count -gt $take) {
+            Write-Log -Message ("... and {0} more" -f ($items.Count - $take)) -Color Gray
+        }
+    }
+
+    # --- Link issues ---
+    if ($linkIssuesCount -gt 0) {
+        Write-Section -Title "Broken internal links"
+
+        # Sort defensively (properties may be missing in edge cases)
+        $items = @($linkIssues | Sort-Object { $_.File }, { $_.Target })
+        $take = Get-TakeCount -Total $items.Count -Max $MaxDetailItems
+
+        for ($i = 0; $i -lt $take; $i++) {
+            $it = $items[$i]
+            $rel = Convert-ToRepoRelativePath -RepoRoot $RepoRoot -FullPath $it.File
+            Write-Log -Message ("- {0}: {1} -> {2}" -f $rel, $it.Target, $it.Issue) -Color Yellow
+
+            $level = 'warning'
+            if ($FailOnLinkIssues) { $level = 'error' }
+            Write-GitHubAnnotation -Level $level -Message ("Broken internal link: {0}" -f $it.Target) -File $rel
+        }
+
+        if ($items.Count -gt $take) {
+            Write-Log -Message ("... and {0} more" -f ($items.Count - $take)) -Color Gray
+        }
+    }
+
+    # --- MDX risks ---
+    if ($mdxRisksCount -gt 0) {
+        Write-Section -Title "MDX risks (possible accidental MDX parsing)"
+
+        $items = @($mdxRisks | Sort-Object { $_.File }, { $_.Line }, { $_.Type })
+        $take = Get-TakeCount -Total $items.Count -Max $MaxDetailItems
+
+        for ($i = 0; $i -lt $take; $i++) {
+            $it = $items[$i]
+            $rel = Convert-ToRepoRelativePath -RepoRoot $RepoRoot -FullPath $it.File
+            Write-Log -Message ("- {0}:{1} [{2}] {3}" -f $rel, $it.Line, $it.Type, $it.Snippet) -Color Yellow
+
+            $level = 'warning'
+            if ($FailOnMdxRisks) { $level = 'error' }
+            Write-GitHubAnnotation -Level $level -Message ("MDX risk ({0}): {1}" -f $it.Type, $it.Snippet) -File $rel -Line ([int]$it.Line)
+        }
+
+        if ($items.Count -gt $take) {
+            Write-Log -Message ("... and {0} more" -f ($items.Count - $take)) -Color Gray
+        }
+    }
+
+    # --- Long pages ---
+    if ($longPagesCount -gt 0) {
+        Write-Section -Title ("Long pages (>= {0} lines)" -f $LongPageLineThreshold)
+
+        $items = @($longPages | Sort-Object { $_.Lines } -Descending)
+        $take = Get-TakeCount -Total $items.Count -Max $MaxDetailItems
+
+        for ($i = 0; $i -lt $take; $i++) {
+            $it = $items[$i]
+            $rel = Convert-ToRepoRelativePath -RepoRoot $RepoRoot -FullPath $it.File
+            Write-Log -Message ("- {0}: {1} lines" -f $rel, $it.Lines) -Color Yellow
+
+            $level = 'warning'
+            if ($FailOnLongPages) { $level = 'error' }
+            Write-GitHubAnnotation -Level $level -Message ("Long page: {0} lines" -f $it.Lines) -File $rel
+        }
+
+        if ($items.Count -gt $take) {
+            Write-Log -Message ("... and {0} more" -f ($items.Count - $take)) -Color Gray
+        }
+    }
+}
+
 # --- Resolve paths ---
 $docsRoot = Resolve-FullPath -Path $DocsPath
 $websiteRoot = Resolve-FullPath -Path $WebsitePath
+$repoRoot = Resolve-FullPath -Path (Join-Path $PSScriptRoot '..')
 
 # --- Excludes (Docusaurus + user) ---
 $docusaurusExclude = @()
@@ -440,14 +837,14 @@ catch {
 }
 
 # --- DocId map ---
-$docIdToPath = @{}
+$script:docIdToPath = @{}
 foreach ($df in $docsFiles) {
     $id = Get-DocIdFromPath -DocsRoot $docsRoot -FilePath $df.FullName
-    $docIdToPath[$id] = $df.FullName
+    $script:docIdToPath[$id] = $df.FullName
 }
 
 # --- Orphans (excluding excluded docs implicitly, because they are not in docsFiles unless IncludeExcludedDocs) ---
-$orphans = @($docIdToPath.Keys | Where-Object { $_ -notin $sidebarIds } | Sort-Object)
+$orphans = @($script:docIdToPath.Keys | Where-Object { $_ -notin $sidebarIds } | Sort-Object)
 
 # --- Link issues and MDX risks ---
 $linkIssues = New-Object System.Collections.Generic.List[object]
@@ -496,16 +893,55 @@ if (-not (Test-Path -Path (Split-Path -Parent $OutputJsonPath))) {
 }
 
 $result | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 -Path $OutputJsonPath
-Write-Host "Wrote $OutputJsonPath"
+Write-Log -Message ("Wrote " + (Convert-ToRepoRelativePath -RepoRoot $repoRoot -FullPath $OutputJsonPath)) -Color Gray
 
-Write-Host ("Docs (audited): " + $docsFiles.Count)
-Write-Host ("Docs (excluded): " + $excludedFiles.Count)
-Write-Host ("Sidebar docIds: " + $sidebarIds.Count)
+$reportParams = @{
+    Result         = $result
+    RepoRoot       = $repoRoot
+    DocsRoot       = $docsRoot
+    WebsiteRoot    = $websiteRoot
+    MaxDetailItems = $MaxDetailItems
+    NoDetailOutput = $NoDetailOutput
+    FailOnOrphans  = $FailOnOrphans
+    FailOnLinkIssues = $FailOnLinkIssues
+    FailOnMdxRisks   = $FailOnMdxRisks
+    FailOnLongPages  = $FailOnLongPages
+}
 
-Write-Host ("Orphans: " + $orphans.Count)
-Write-Host ("Link issues: " + $linkIssues.Count)
-Write-Host ("MDX risks: " + $mdxRisks.Count)
-Write-Host ("Long pages (warning): " + $longPages.Count)
+try {
+    Write-DocsAuditReport @reportParams
+}
+catch {
+    Write-Host "Docs audit failed with an unhandled exception." -ForegroundColor Red
+    Write-Host ($_.Exception.GetType().FullName) -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+
+    if ($_.Exception.InnerException) {
+        Write-Host "InnerException:" -ForegroundColor Red
+        Write-Host ($_.Exception.InnerException.GetType().FullName) -ForegroundColor Red
+        Write-Host $_.Exception.InnerException.Message -ForegroundColor Red
+    }
+
+    Write-Host "" 
+    Write-Host "InvocationInfo:" -ForegroundColor Red
+    if ($_.InvocationInfo) {
+        Write-Host ("  ScriptName:     {0}" -f $_.InvocationInfo.ScriptName) -ForegroundColor Red
+        Write-Host ("  ScriptLine:     {0}" -f $_.InvocationInfo.ScriptLineNumber) -ForegroundColor Red
+        Write-Host ("  OffsetInLine:   {0}" -f $_.InvocationInfo.OffsetInLine) -ForegroundColor Red
+        Write-Host "  Line:" -ForegroundColor Red
+        Write-Host ("  {0}" -f $_.InvocationInfo.Line) -ForegroundColor Red
+
+        Write-Host "" 
+        Write-Host "  PositionMessage:" -ForegroundColor Red
+        Write-Host $_.InvocationInfo.PositionMessage -ForegroundColor Red
+    }
+
+    Write-Host "" 
+    Write-Host "ScriptStackTrace:" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor Red
+
+    throw
+}
 
 # --- Exit code policy for CI ---
 $exitCode = 0
