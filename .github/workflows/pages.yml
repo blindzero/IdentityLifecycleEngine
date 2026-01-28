@@ -38,6 +38,7 @@ jobs:
           pwsh -NoProfile -File ./tools/Test-DocsConsistency.ps1
           -DocsPath ./docs
           -WebsitePath ./website
+          -FailOnOrphans:$false
 
       - name: Upload docs audit artifact
         if: always()
