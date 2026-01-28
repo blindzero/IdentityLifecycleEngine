@@ -82,12 +82,12 @@ const config = {
         title: 'IdLE',
         logo: {
           alt: 'IdLE - Identity Lifecycle Engine',
-          src: 'assets/idle_logo_flat_white.png',
+          src: 'assets/logos/idle_logo_flat_white.png',
         },
         items: [
-          { to: '/', label: 'About IdLE', position: 'left'},
-          { to: '/docs/user/intro', label: 'User Guide', position: 'left'},
-          { to: '/docs/developer', label: 'Developer Guide', position: 'left'},
+          { to: '/docs/about/intro', label: 'About IdLE', position: 'left'},
+          { to: '/docs/use/intro', label: 'Use IdLE', position: 'left'},
+          { to: '/docs/extend/intro', label: 'Extend IdLE', position: 'left'},
           {
             href: `https://github.com/${repoOwner}/${repoName}`,
             label: 'GitHub',
