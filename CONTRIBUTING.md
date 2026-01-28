@@ -305,9 +305,8 @@ Keep docs short and linkable:
 
 Key links:
 
-- Docs map: `docs/00-index.md`
-- Architecture: `docs/advanced/architecture.md`
-- Examples: `docs/02-examples.md`
+- Architecture: `docs/about/architecture.md`
+- Examples: `examples/README.md`
 - Coding & in-code documentation rules: `STYLEGUIDE.md`
 
 ---

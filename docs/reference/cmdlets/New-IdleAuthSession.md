@@ -13,8 +13,8 @@ Creates a simple AuthSessionBroker for use with IdLE providers.
 ## SYNTAX
 
 ```
-New-IdleAuthSession [-SessionMap] <Hashtable> [[-DefaultCredential] <PSCredential>]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+New-IdleAuthSession [-SessionMap] &lt;Hashtable&gt; [[-DefaultCredential] &lt;PSCredential&gt;]
+ [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
 
 ## DESCRIPTION
@@ -66,7 +66,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+TODO: ProgressAction Description
 
 ```yaml
 Type: ActionPreference

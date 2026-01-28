@@ -1,0 +1,73 @@
+---
+title: Concepts
+sidebar_label: Concepts
+---
+
+# IdLE Concepts
+
+## Request
+
+A **LifecycleRequest** represents the business intent (for example: Joiner, Mover, Leaver).
+It is the input to planning.
+
+## Plan
+
+A **LifecyclePlan** is created deterministically from:
+
+- request
+- workflow definition
+- step catalog / step registry
+
+The plan is previewable and auditable.
+
+## Execute
+
+Execution runs **only the plan** (no re-planning). This supports:
+
+- approvals
+- repeatability
+- deterministic audits
+
+---
+
+## Building Blocks
+
+### Steps
+
+**Steps** are reusable plugins that define convergence logic. They:
+
+- Operate idempotently (converge towards desired state)
+- Are provider-agnostic (use contracts, not direct system calls)
+- Emit structured events for audit and progress
+
+Learn more: [Steps](../use/steps.md) | [Step Catalog](../reference/steps.md)
+
+### Providers
+
+**Providers** are system-specific adapters that connect workflows to external systems. They:
+
+- Authenticate and manage sessions
+- Translate generic operations to system APIs
+- Are mockable for tests
+
+Learn more: [Providers](../use/providers.md) | [Providers and Contracts](../extend/providers.md)
+
+---
+
+## Non-goals (V1)
+
+IdLE.Core stays headless and avoids responsibilities that belong to a host application:
+
+- no UI framework
+- no interactive prompts
+- no authentication flows inside steps
+- no dynamic code execution from configuration
+
+---
+
+## Next Steps
+
+- [Installation](../use/installation.md) — Install and import guide
+- [Quickstart](../use/quickstart.md) — Run the demo
+- [Architecture](../about/architecture.md) — Design principles and decisions
+- [Workflows](../use/workflows.md) — Define lifecycle workflows

@@ -1,0 +1,22 @@
+.features {
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+}
+
+.featureImg {
+  height: 180px;        /* good match for ~250px source height */
+  width: auto;          /* preserve aspect ratio */
+  max-width: 280px;     /* prevents overly wide cards */
+  object-fit: contain;  /* safety net */
+  display: block;
+  margin: 0 auto;
+}
+
+@media (max-width: 996px) {
+  .featureImg {
+    height: 160px;
+    max-width: 240px;
+  }
+}

@@ -1,0 +1,74 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+.heroBanner {
+  padding: 4rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Top row: logo + title block */
+.heroTopRow {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  justify-content: center; /* looks nice on wide screens */
+}
+
+.heroLogo {
+  width: 180px;
+  height: auto;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.heroTitleBlock {
+  text-align: left;
+}
+
+.heroTitle {
+  margin-bottom: 0.25rem;
+}
+
+.heroSubtitle {
+  margin-bottom: 0;
+}
+
+/* Bottom: lead text + button under the row */
+.heroBottom {
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.heroLead {
+  max-width: 52rem;
+  margin: 0 auto 1.25rem;
+}
+
+/* Button alignment */
+.buttons {
+  display: flex;
+  justify-content: center;
+}
+
+/* Mobile: stack logo above title block, keep bottom centered */
+@media screen and (max-width: 996px) {
+  .heroBanner {
+    padding: 2rem 1.25rem;
+  }
+
+  .heroTopRow {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .heroTitleBlock {
+    text-align: center;
+  }
+
+  .heroLogo {
+    width: 90px;
+  }
+}

@@ -227,7 +227,7 @@ Workflow steps specify which domain to authenticate against:
     Name = 'CreateTarget'
     With = @{
         IdentityKey = 'user@target.com'
-        Attributes = @{ ... }
+        Attributes = @\{ ... \}
         Provider = 'TargetAD'
         AuthSessionName = 'ActiveDirectory'
         AuthSessionOptions = @{ Domain = 'Target' }
@@ -373,7 +373,7 @@ Built-in steps default to `'Identity'` when `With.Provider` is omitted.
 
 ### Identity Not Found
 
-**Error:** `Identity with <identifier> not found`
+**Error:** `Identity with &lt;identifier&gt; not found`
 
 **Solution:** 
 - Verify the identifier format (GUID/UPN/sAMAccountName)
@@ -415,7 +415,10 @@ The provider implements `GetCapabilities()` and announces all supported capabili
 
 ## Related Documentation
 
-- [Providers and Contracts](providers-and-contracts.md) - Provider architecture and contracts
-- [Steps and Metadata](steps-and-metadata.md) - Built-in steps and capability requirements
-- [Provider Capability Rules](../advanced/provider-capabilities.md) - Capability naming and validation
-- [Security Model](../advanced/security.md) - Trust boundaries and security considerations
+- [Providers and Contracts](../../extend/providers.md) - Extend providers
+- [Steps and Metadata](../../extend/steps) - Extend steps
+- [Capabilities Reference](../capabilities.md) - Capability naming and validation
+- [Steps Catalog](../steps.md) - Steps Reference
+- [Architecture](../../about/architecture.md) - IdLE architecture principles
+- [Security Model](../../about/security.md) - Trust boundaries and security considerations
+

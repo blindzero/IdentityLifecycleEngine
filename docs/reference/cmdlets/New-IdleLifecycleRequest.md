@@ -13,9 +13,9 @@ Creates a lifecycle request object.
 ## SYNTAX
 
 ```
-New-IdleLifecycleRequest [-LifecycleEvent] <String> [[-CorrelationId] <String>] [[-Actor] <String>]
- [[-IdentityKeys] <Hashtable>] [[-DesiredState] <Hashtable>] [[-Changes] <Hashtable>]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+New-IdleLifecycleRequest [-LifecycleEvent] &lt;String&gt; [[-CorrelationId] &lt;String&gt;] [[-Actor] &lt;String&gt;]
+ [[-IdentityKeys] &lt;Hashtable&gt;] [[-DesiredState] &lt;Hashtable&gt;] [[-Changes] &lt;Hashtable&gt;]
+ [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
 
 ## DESCRIPTION
@@ -130,7 +130,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+TODO: ProgressAction Description
 
 ```yaml
 Type: ActionPreference

@@ -40,6 +40,11 @@ Important:
 Additionally, it generates an index page (docs/reference/cmdlets.md) that includes a table with cmdlet
 links and their synopsis.
 
+MDX compatibility:
+- Generated platyPS output may include placeholder tokens like '{{ Fill ... }}' which can trigger
+  MDX parsing warnings or failures.
+- Therefore, this generator applies a post-processing pass to ensure MDX-safe output.
+
 .PARAMETER ModuleManifestPath
 Path to the IdLE module manifest (IdLE.psd1). Defaults to ./src/IdLE/IdLE.psd1 relative to this script.
 
@@ -147,6 +152,49 @@ function Get-IdleCmdletMetadata {
     }
 }
 
+function ConvertTo-IdleMdxSafeMarkdown {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Markdown
+    )
+
+    # Normalize newlines first (helps with stable diffs).
+    $text = $Markdown -replace "`r`n", "`n" -replace "`r", "`n"
+
+    # platyPS placeholders: `{{ Fill ... }}` or {{ Fill ... }}.
+    # These can trigger MDX parser warnings. Replace with a stable TODO marker.
+    $text = $text -replace '`\{\{\s*Fill\s+([^}]+?)\s*\}\}`', '`TODO: $1`'
+    $text = $text -replace '\{\{\s*Fill\s+([^}]+?)\s*\}\}', 'TODO: $1'
+
+    # Common "placeholder angle tokens" can be treated as JSX by MDX even if you intended them as literal.
+    # Replace <token> with HTML entities (safe in Markdown and MDX).
+    $text = $text -replace '<(?<t>[A-Za-z][A-Za-z0-9_-]*)>', '&lt;${t}&gt;'
+
+    return $text
+}
+
+function Update-IdleGeneratedMarkdownFilesForMdx {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $FolderPath
+    )
+
+    $files = Get-ChildItem -Path $FolderPath -Filter '*.md' -File -Recurse -ErrorAction Stop
+    foreach ($f in $files) {
+        $raw = Get-Content -Path $f.FullName -Raw -ErrorAction Stop
+        $fixed = ConvertTo-IdleMdxSafeMarkdown -Markdown $raw
+
+        if ($fixed -ne $raw) {
+            Set-Content -Path $f.FullName -Value $fixed -Encoding utf8 -NoNewline
+            Write-Verbose "MDX-sanitized: $($f.FullName)"
+        }
+    }
+}
+
 function New-IdleCmdletIndexMarkdown {
     [CmdletBinding()]
     param(
@@ -172,7 +220,7 @@ function New-IdleCmdletIndexMarkdown {
     $lines.Add('# Cmdlet Reference')
     $lines.Add('')
     $lines.Add('> Generated file. Do not edit by hand.')
-    $lines.Add("> Source: tools/Generate-IdleCmdletReference.ps1")
+    $lines.Add('> Source: tools/Generate-IdleCmdletReference.ps1')
     $lines.Add('')
     $lines.Add('This page links the generated per-cmdlet reference pages and includes their synopsis.')
     $lines.Add('')
@@ -195,15 +243,15 @@ function New-IdleCmdletIndexMarkdown {
 
         $lines.Add("| [$($cmd.Name)]($relative) | $synopsis |")
     }
-    $lines.Add("")
+    $lines.Add('')
+
+    $indexContent = ($lines -join "`n")
+    $indexContent = ConvertTo-IdleMdxSafeMarkdown -Markdown $indexContent
 
     Write-Verbose "Writing index file: $IndexPath"
-    Set-Content -Path $IndexPath -Value ($lines -join "`n") -Encoding utf8 -NoNewline
+    Set-Content -Path $IndexPath -Value $indexContent -Encoding utf8 -NoNewline
 
     $indexFile = Get-Item -Path $IndexPath
-    Write-Verbose "Index size: $($indexFile.Length) bytes"
-
-    # Emit minimal, stable output (friendly for local runs and CI logs).
     "Generated cmdlet reference index: $($indexFile.FullName) ($($indexFile.Length) bytes)"
 }
 
@@ -250,6 +298,9 @@ if ($cmdletMetadata.Count -eq 0) {
 # Generate per-cmdlet Markdown using classic platyPS.
 New-MarkdownHelp -Module $moduleNameForDocs -OutputFolder $OutputFolder -Force | Out-Null
 Update-MarkdownHelp -Path $OutputFolder -Force | Out-Null
+
+# Post-process generated Markdown for MDX compatibility.
+Update-IdleGeneratedMarkdownFilesForMdx -FolderPath $OutputFolder
 
 # Create/overwrite the index page (table with synopsis).
 New-IdleCmdletIndexMarkdown -IndexPath $IndexPath -OutputFolder $OutputFolder -Cmdlets $cmdletMetadata

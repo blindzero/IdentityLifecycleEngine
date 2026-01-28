@@ -22,7 +22,7 @@ Creates a new identity in the target system.
 **Description**
 
 This is a provider-agnostic step. The host must supply a provider instance via
-Context.Providers[<ProviderAlias>] that implements CreateIdentity(identityKey, attributes)
+Context.Providers[&lt;ProviderAlias&gt;] that implements CreateIdentity(identityKey, attributes)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
 The step is idempotent by design: if the identity already exists, the provider
@@ -33,7 +33,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -60,7 +60,7 @@ Deletes an identity from the target system.
 **Description**
 
 This is a provider-agnostic step. The host must supply a provider instance via
-Context.Providers[<ProviderAlias>] that implements DeleteIdentity(identityKey)
+Context.Providers[&lt;ProviderAlias&gt;] that implements DeleteIdentity(identityKey)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
 The step is idempotent by design: if the identity is already deleted, the provider
@@ -75,7 +75,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -99,7 +99,7 @@ Disables an identity in the target system.
 **Description**
 
 This is a provider-agnostic step. The host must supply a provider instance via
-Context.Providers[<ProviderAlias>] that implements DisableIdentity(identityKey)
+Context.Providers[&lt;ProviderAlias&gt;] that implements DisableIdentity(identityKey)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
 The step is idempotent by design: if the identity is already disabled, the provider
@@ -110,7 +110,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -158,7 +158,7 @@ Enables an identity in the target system.
 **Description**
 
 This is a provider-agnostic step. The host must supply a provider instance via
-Context.Providers[<ProviderAlias>] that implements EnableIdentity(identityKey)
+Context.Providers[&lt;ProviderAlias&gt;] that implements EnableIdentity(identityKey)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
 The step is idempotent by design: if the identity is already enabled, the provider
@@ -169,7 +169,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -193,7 +193,7 @@ Ensures that an identity attribute matches the desired value.
 **Description**
 
 This is a provider-agnostic step. The host must supply a provider instance via
-Context.Providers[<ProviderAlias>]. The provider must implement an EnsureAttribute
+Context.Providers[&lt;ProviderAlias&gt;]. The provider must implement an EnsureAttribute
 method with the signature (IdentityKey, Name, Value) and return an object that
 contains a boolean property 'Changed'.
 
@@ -204,7 +204,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -233,7 +233,7 @@ Ensures that an entitlement assignment is present or absent for an identity.
 
 This provider-agnostic step uses entitlement provider contracts to converge
 an assignment to the desired state. The host must supply a provider instance
-via `Context.Providers[<ProviderAlias>]` that implements:
+via `Context.Providers[&lt;ProviderAlias&gt;]` that implements:
 
 - ListEntitlements(identityKey)
 - GrantEntitlement(identityKey, entitlement)
@@ -247,7 +247,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider methods
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -275,7 +275,7 @@ Moves an identity to a different container/OU in the target system.
 **Description**
 
 This is a provider-agnostic step. The host must supply a provider instance via
-Context.Providers[<ProviderAlias>] that implements MoveIdentity(identityKey, targetContainer)
+Context.Providers[&lt;ProviderAlias&gt;] that implements MoveIdentity(identityKey, targetContainer)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
 The step is idempotent by design: if the identity is already in the target container,
@@ -286,7 +286,7 @@ Authentication:
   Context.AcquireAuthSession(Name, Options) and passes it to the provider method
   if the provider supports an AuthSession parameter.
 - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @{ Role = 'Tier0' }).
+  session selection (e.g., @\{ Role = 'Tier0' \}).
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
 **Inputs (With.\*)**
@@ -313,7 +313,7 @@ Triggers a directory sync cycle and optionally waits for completion.
 **Description**
 
 This is a provider-agnostic step. The host must supply a provider instance via
-Context.Providers[<ProviderAlias>] that implements:
+Context.Providers[&lt;ProviderAlias&gt;] that implements:
 - StartSyncCycle(PolicyType, AuthSession)
 - GetSyncCycleState(AuthSession)
 

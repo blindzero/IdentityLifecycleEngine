@@ -35,7 +35,7 @@ IdLE aims to be:
 - **configuration-driven** (workflows as data)
 - **extensible** (add custom steps and providers)
 
-For a complete overview of concepts and architecture, see **[Overview: Concept](docs/overview/concept.md)**.
+For a complete overview of concepts and architecture, see **[About > Concepts](docs/about/concepts.md)**.
 
 ---
 
@@ -57,7 +57,7 @@ Install-Module -Name IdLE -Scope CurrentUser
 Import-Module IdLE
 ```
 
-For detailed installation instructions, requirements, and import options, see **[Installation Guide](docs/getting-started/installation.md)**.
+For detailed installation instructions, requirements, and import options, see **[Installation Guide](docs/use/installation.md)**.
 
 ---
 
@@ -80,23 +80,18 @@ By default, the demo runs **Mock workflows** that work out-of-the-box without ex
 The execution result buffers all emitted events in `result.Events`. Hosts can optionally stream events live
 by providing `-EventSink` as an object implementing `WriteEvent(event)`.
 
-Next steps:
-
-- Documentation entry point: `docs/index.md`
-- Workflow samples: `examples/workflows/` (organized by category: mock, live, templates)
-- Repository demo: `examples/Invoke-IdleDemo.ps1`
-- Pester tests: `tests/`
-
 ---
 
 ## Documentation
 
+The documentation is also available at our project site: [https://blindzero.github.io/IdentityLifecycleEngine](https://blindzero.github.io/IdentityLifecycleEngine)
+
 Start here:
 
-- `docs/index.md` – documentation map
-- `docs/getting-started/quickstart.md` – plan → execute walkthrough
-- `docs/advanced/architecture.md` – architecture and principles
-- `docs/usage/workflows.md` – workflow schema and validation
+- [docs/index.md](docs/index.md) – Documentation map
+- [docs/about/intro.md](docs/about/intro.md) – About IdLE
+- [docs/use/intro.md](docs/use/intro.md) – How to use IdLE
+- [docs/reference/intro.md](docs/reference/intro.md) - The authoritative IdLE reference
 
 ---
 
