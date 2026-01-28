@@ -165,7 +165,7 @@ const config = {
       {
         redirects: [
           // Example:
-          { from: ['/docs'], to: '/docs/user/intro' },
+          { from: ['/docs'], to: '/docs/about/intro' },
         ],
       },
     ],
