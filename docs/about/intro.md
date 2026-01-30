@@ -16,16 +16,26 @@ The key idea is to **separate intent from implementation**:
 
 - **What** should happen is defined in a **workflow** (data-only configuration).
 - **How** it happens is implemented by **steps** and **providers** (pluggable modules).
+  - While **steps** define by StepTypes, which provider-agnostic **capabilities** are required to perform a workflow step
+  - **providers** register to the core and announce the provided **capabilities** and implement the vendor system specific interface
 
 ---
 
 ## Why IdLE exists
+
+JML (joiner/mover/leavers) processes are
+
+- error prune, especially if performed manually
+- time consuming and therefore
+- quite annoying for operators
 
 Identity lifecycle automation often turns into long scripts that are:
 
 - tightly coupled to one environment
 - hard to test
 - hard to change safely
+
+Identity Management Systems (IdMS) on the other side are whether complex or expensive (or both of it) and then often do not care about supplementary systems that also need to be covered within the workflows.
 
 IdLE aims to be:
 
