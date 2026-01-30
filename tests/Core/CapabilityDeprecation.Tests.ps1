@@ -27,7 +27,7 @@ Describe 'Capability Deprecation and Migration' {
             }
 
             # Use a real workflow file that uses mailbox steps
-            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'live' 'exo-leaver-mailbox-offboarding.psd1'
+            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'template' 'exo-leaver-mailbox-offboarding.psd1'
             
             # Verify the workflow file exists
             $wfPath | Should -Exist
@@ -65,7 +65,7 @@ Describe 'Capability Deprecation and Migration' {
             }
 
             # Use a real workflow file
-            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'live' 'exo-leaver-mailbox-offboarding.psd1'
+            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'template' 'exo-leaver-mailbox-offboarding.psd1'
             
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver'
             $providers = @{ MockProvider = $mockProvider }
