@@ -34,7 +34,6 @@ const sidebars = {
         'use/intro',
         'use/installation',
         'use/quickstart',
-        'use/configuration',
         'use/workflows',
         'use/steps',
         'use/providers',

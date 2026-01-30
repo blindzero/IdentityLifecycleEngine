@@ -24,7 +24,6 @@ Learn how to [use IdLE](use/intro.md) as an operator or admin, e.g. for workflow
 
 - [Quickstart](use/quickstart.md) - Run the demo and understand Plan → Execute flow
 - [Installation](use/installation.md) - Install and import guide (requirements, import options)
-- [Configuration](use/configuration.md) - Configuration schema reference
 - [Workflows](use/workflows.md) - Define lifecycle workflows
 - [Steps](use/steps.md) - Use and configure steps
 - [Providers](use/providers.md) - Provider aliases and injection

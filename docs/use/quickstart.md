@@ -1,6 +1,6 @@
 ---
 title: Quick Start
-sidebar_label: QuickStart
+sidebar_label: Quick Start
 ---
 
 # Quick Start
