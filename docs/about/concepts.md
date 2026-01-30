@@ -71,7 +71,7 @@ A **LifecycleRequest** represents the business intent (for example: Joiner, Move
 ```powershell
 $Request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
     key = 'first.last'
-}
+} `
 -DesiredState @{
     Firstname = 'First'          
     Lastname = 'Last'
