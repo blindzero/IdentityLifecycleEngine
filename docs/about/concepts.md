@@ -62,8 +62,6 @@ This separation keeps the core engine free of environmental assumptions.
 
 ---
 
----
-
 IdLE consists of the following elements and components:
 
 ## Request
@@ -109,9 +107,9 @@ To enable larger flexibility, you can use placeholders instead of literals to be
         }
 ```
 
-### Steps
+### Workflows and Steps
 
-**Steps** are reusable plugins that define convergence logic. They:
+**Steps** are reusable plugins used by **workflows** that define convergence logic. They:
 
 - Operate idempotently (converge towards desired state)
 - Are provider-agnostic (use contracts, not direct system calls)
@@ -121,7 +119,7 @@ To enable larger flexibility, you can use placeholders instead of literals to be
 Steps may only write to `State.*` and only to declared output paths.
 No deep merge: replace-at-path semantics only.
 
-Learn more: [Steps](../use/steps.md) | [Step Catalog](../reference/steps.md)
+Learn more: [Workflows](../use/workflows.md) | [Step Catalog](../reference/steps.md)
 
 ### Providers
 
