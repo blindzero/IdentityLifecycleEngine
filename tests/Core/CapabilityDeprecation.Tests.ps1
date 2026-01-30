@@ -27,7 +27,7 @@ Describe 'Capability Deprecation and Migration' {
             }
 
             # Use a real workflow file that uses mailbox steps
-            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'template' 'exo-leaver-mailbox-offboarding.psd1'
+            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1'
             
             # Verify the workflow file exists
             $wfPath | Should -Exist
@@ -65,14 +65,14 @@ Describe 'Capability Deprecation and Migration' {
             }
 
             # Use a real workflow file
-            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'template' 'exo-leaver-mailbox-offboarding.psd1'
-            
+            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1'
+
             $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver'
             $providers = @{ MockProvider = $mockProvider }
 
             # Planning should succeed without deprecation warnings
             $output = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers 3>&1
-            
+
             # Separate plan from warnings
             $plan = $output | Where-Object { $_ -isnot [System.Management.Automation.WarningRecord] }
             $warnings = $output | Where-Object { $_ -is [System.Management.Automation.WarningRecord] }
