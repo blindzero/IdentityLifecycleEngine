@@ -14,7 +14,7 @@ A step:
 - operates on the execution context provided by the engine
 - may interact with external systems through providers
 - reports its outcome through status and events
-- does _not_ orchestrate other steps and do _not_ control execution flow beyond their own outcome.
+- does _not_ orchestrate other steps and does _not_ control execution flow beyond their own outcome.
 
 ## Workflow File Format
 
@@ -69,7 +69,7 @@ Required: True
 
 ## Steps
 
-Each step represents a distinct action that is performed, based on data defined in the workflow parameters or that are passed by the host's request object and merges with the workflow definition on the plan.
+Each step represents a distinct action that is performed based on data defined in the workflow parameters or passed in the host's request object; the engine merges with the workflow definition on the plan.
 
 Steps are represented by PowerShell Hashtable objects.
 
@@ -79,11 +79,11 @@ Step types are treated as **contracts**. Prefer fully-qualified ids (module + st
 Each step type's implementation is made available via a step registry.
 Additionally, each step type's implementation defines required capabilities for this step.
 Later, provider implementations are providing these capabilities for the steps.
-If a provider selected for a step has not the capabilities available required by the step type, the plan of the workflow with fail.
+If a provider selected for a step does not have the capabilities required by the step type, the workflow plan with fail.
 
 For a list of available Step Types please see the [Step Type Catalog](../reference/steps.md).
 
-Additionally, you can provide your own custom [extend with custom steps](../extend/steps.md).
+Additionally, you can extend IdLE with your own custom steps; see [Extending steps](../extend/steps.md).
 
 ### Conditional steps
 

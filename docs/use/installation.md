@@ -86,7 +86,6 @@ Import-Module IdLE -Force
 Import-Module IdLE.Provider.AD -Force
 ```
 
-
 Example (from source):
 
 ```powershell

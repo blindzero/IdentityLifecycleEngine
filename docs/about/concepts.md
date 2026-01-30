@@ -71,8 +71,7 @@ A **LifecycleRequest** represents the business intent (for example: Joiner, Move
 ```powershell
 $Request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
     key = 'first.last'
-}
--DesiredState @{
+} -DesiredState @{
     Firstname = 'First'          
     Lastname = 'Last'
     Mail = 'First.Last@domain.tld'
@@ -88,7 +87,7 @@ To enable larger flexibility, you can use placeholders instead of literals to be
 
 ```powershell
 @{
-    Name           = 'Joiner - Workflow Workflow'
+    Name           = 'Joiner - Example Workflow'
     LifecycleEvent = 'Joiner'
     Steps          = @(
         @{
@@ -105,6 +104,8 @@ To enable larger flexibility, you can use placeholders instead of literals to be
                 Provider    = 'IdentityProvider'
             }
         }
+    )
+}
 ```
 
 ### Workflows and Steps

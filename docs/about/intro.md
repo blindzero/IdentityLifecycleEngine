@@ -25,7 +25,7 @@ The key idea is to **separate intent from implementation**:
 
 JML (joiner/mover/leavers) processes are
 
-- error prune, especially if performed manually
+- error prone, especially if performed manually
 - time consuming and therefore
 - quite annoying for operators
 
@@ -35,7 +35,7 @@ Identity lifecycle automation often turns into long scripts that are:
 - hard to test
 - hard to change safely
 
-Identity Management Systems (IdMS) on the other side are whether complex or expensive (or both of it) and then often do not care about supplementary systems that also need to be covered within the workflows.
+Identity Management Systems (IdMS) on the other side are either complex or expensive (or both of it) and then often do not care about supplementary systems that also need to be covered within the workflows.
 
 IdLE aims to be:
 

@@ -37,7 +37,7 @@ List available mock category examples:
 .\examples\Invoke-IdleDemo.ps1
 ```
 
-Select one of the workflow examples available, that do _not_ use real provider interactions and only use the mock provider interface.
+Select one of the workflow examples available, that does _not_ use real provider interactions and only use the mock provider interface.
 
 Alternatively, select an example workflow with `-Example` parameter:
 
@@ -46,8 +46,6 @@ Alternatively, select an example workflow with `-Example` parameter:
 ```
 
 Or run all mock workflows:
-
-* Run all examples:
 
 ```powershell
 .\examples\Invoke-IdleDemo.ps1 -All
@@ -68,7 +66,10 @@ We also provide additional "template" examples, which could be used with live sy
 .\examples\Invoke-IdleDemo.ps1 -List -Category All
 ```
 
-:::warning Use template examples with care as they connect and may cause harm to your live environments.
+:::warning
+
+Use template examples with care as they connect and may cause harm to your live environments.
+
 :::
 
 ---
