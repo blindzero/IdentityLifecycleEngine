@@ -25,6 +25,45 @@ IdLE stays headless and avoids responsibilities that belong to a host applicatio
 
 ---
 
+## Responsibilities
+
+### Separation of Responsibility
+
+Clear separation of responsibility is the essential foundation for maintainability:
+
+- **Engine**
+  - Orchestrates workflow execution
+  - Invokes steps
+  - Passes providers to steps
+  - Never depends on provider internals
+
+- **Steps**
+  - Implement domain logic
+  - Use providers through contracts
+  - Must not assume a specific provider implementation
+
+- **Providers**
+  - Implement infrastructure-specific behavior
+  - Fulfill contracts expected by steps
+  - Encapsulate external system details
+  - Authenticate and manage sessions
+  - Translate generic operations to system APIs
+  - Are mockable for tests
+  - Avoid global state
+
+- **Host**
+  - Selects and configures providers
+  - Injects providers into plan execution
+  - Decides which provider implementations are used
+
+This separation keeps the core engine free of environmental assumptions.
+
+**Important:** Steps should not handle authentication. Authentication is a provider responsibility via AuthSessionBroker.
+
+---
+
+---
+
 IdLE consists of the following elements and components:
 
 ## Request
