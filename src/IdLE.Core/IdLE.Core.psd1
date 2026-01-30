@@ -12,7 +12,8 @@
         'Test-IdleWorkflowDefinitionObject',
         'New-IdlePlanObject',
         'Invoke-IdlePlanObject',
-        'Export-IdlePlanObject'
+        'Export-IdlePlanObject',
+        'New-IdleAuthSessionBroker'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
