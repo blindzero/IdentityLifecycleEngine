@@ -97,4 +97,4 @@ Import-Module ./src/IdLE/IdLE.psd1 -Force
 Import-Module ./src/IdLE.Provider.AD/IdLE.Provider.AD.psd1 -Force
 ```
 
-For usage details, see [Use > Provider](../use/provider.md).
+For usage details, see [Use > Provider](../use/providers.md).
