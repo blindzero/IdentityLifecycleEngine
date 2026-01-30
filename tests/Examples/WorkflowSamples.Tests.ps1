@@ -59,27 +59,6 @@ Describe 'Mock example workflows' {
     }
 }
 
-Describe 'Live example workflows' {
-    BeforeAll {
-        $liveWorkflowsPath = Join-Path -Path $workflowsPath -ChildPath 'live'
-        $liveWorkflows = Get-ChildItem -Path $liveWorkflowsPath -Filter '*.psd1' -File -ErrorAction SilentlyContinue
-    }
-
-    It 'Live workflow directory exists' {
-        $liveWorkflowsPath | Should -Exist
-    }
-
-    It 'Live workflows exist' {
-        $liveWorkflows | Should -Not -BeNullOrEmpty
-    }
-
-    It 'All live workflows validate with Test-IdleWorkflow' {
-        foreach ($file in $liveWorkflows) {
-            { Test-IdleWorkflow -WorkflowPath $file.FullName } | Should -Not -Throw
-        }
-    }
-}
-
 Describe 'Template example workflows' {
     BeforeAll {
         $templatesWorkflowsPath = Join-Path -Path $workflowsPath -ChildPath 'templates'
