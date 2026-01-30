@@ -16,7 +16,6 @@ for identity and account processes (Joiner / Mover / Leaver) built for **PowerSh
 Learn the basics [about IdLE](about/intro.md)
 
 - [Concepts](about/concepts.md) - What are the basic concepts of IdLE and how it works in general
-- [Architecture](about/architecture.md) - Design principles and decisions
 - [Security](about/security.md) - Trust boundaries and threat model
 
 ## Use IdLE
@@ -25,9 +24,7 @@ Learn how to [use IdLE](use/intro.md) as an operator or admin, e.g. for workflow
 
 - [Quickstart](use/quickstart.md) - Run the demo and understand Plan → Execute flow
 - [Installation](use/installation.md) - Install and import guide (requirements, import options)
-- [Configuration](use/configuration.md) - Configuration schema reference
 - [Workflows](use/workflows.md) - Define lifecycle workflows
-- [Steps](use/steps.md) - Use and configure steps
 - [Providers](use/providers.md) - Provider aliases and injection
 - [Plan Export](use/plan-export.md) - How to use the Plan Exporter (JSON)
 

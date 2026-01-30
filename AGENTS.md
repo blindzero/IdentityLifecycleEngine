@@ -25,7 +25,6 @@ Authoritative docs:
 
 - `README.md` (high-level)
 - `docs/index.md` (documentation entry point)
-- `docs/advanced/architecture.md` (architecture decisions)
 - `docs/advanced/security.md` (trust boundaries)
 - `docs/advanced/provider-capabilities.md` (Capability rules)
 - `docs/reference/providers-and-contracts.md` (Provider contracts)
@@ -161,8 +160,8 @@ Before proposing or finalizing a PR, ensure:
 - [ ] Public APIs have comment-based help
 - [ ] Docs updated where needed (`README.md`, `docs/`, `examples/`)
 - [ ] Generated docs regenerated if required (`docs/reference/*`)
-- [ ] No architecture rules violated (`docs/advanced/architecture.md`)
-- [ ] No security boundary regressions (`docs/advanced/security.md`)
+- [ ] No concept or extensibility rules violated (`docs/about/concepts.md`, `docs/extend/extensibility.md`)
+- [ ] No security boundary regressions (`docs/about/security.md`)
 
 ---
 
@@ -171,8 +170,9 @@ Before proposing or finalizing a PR, ensure:
 - General, cross-cutting agent rules → `AGENTS.md` (repo root)
 - Code style details → `STYLEGUIDE.md`
 - Contributor workflow and DoD → `CONTRIBUTING.md`
-- Architecture decisions → `docs/advanced/architecture.md`
-- Security boundaries → `docs/advanced/security.md`
+- Concept decisions → `docs/about/concepts.md`
+- Extensibility decisions → `docs/extend/extensibility.md`
+- Security boundaries → `docs/about/security.md`
 
 ---
 

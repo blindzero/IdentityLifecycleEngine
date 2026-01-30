@@ -410,15 +410,3 @@ The AD provider uses an internal adapter layer (`New-IdleADAdapter`) that isolat
 ### Capability-Driven Design
 
 The provider implements `GetCapabilities()` and announces all supported capabilities. The engine validates capabilities at plan-time before execution, enabling fail-fast behavior.
-
----
-
-## Related Documentation
-
-- [Providers and Contracts](../../extend/providers.md) - Extend providers
-- [Steps and Metadata](../../extend/steps) - Extend steps
-- [Capabilities Reference](../capabilities.md) - Capability naming and validation
-- [Steps Catalog](../steps.md) - Steps Reference
-- [Architecture](../../about/architecture.md) - IdLE architecture principles
-- [Security Model](../../about/security.md) - Trust boundaries and security considerations
-

@@ -5,45 +5,50 @@ sidebar_label: Quick Start
 
 # Quick Start
 
-This page gets you from **zero → first successful run** as fast as possible.
+The repository contains a demo runner that showcases the full **Plan → Execute** flow using predefined example workflows.<br/>
+Each example workflow is a single workflow definition `psd1`-file in `/examples/workflows/...` directories.
 
-IdLE is an orchestration engine. That means:
+## Get Repository Demo
 
-- **Planning** builds a deterministic plan (safe, no external changes)
-- **Execution** runs that plan using **provider implementations** (system adapters) supplied by the host
-
-If you just want a runnable end-to-end first run, start with **Repository demo**.
-If you want to use IdLE as a library from the PowerShell Gallery package, follow **Install from PowerShell Gallery**.
-
----
-
-## 1) Repository demo (recommended first run)
-
-The repository contains a demo runner that showcases the full **Plan → Execute** flow using predefined example workflows.
-
-1. Clone the repository (or download the source archive from a GitHub release).
-2. Run the demo script:
+Clone the repository (or download the source archive from a GitHub release).
 
 ```powershell
-pwsh -File .\examples\Invoke-IdleDemo.ps1
+git clone https://github.com/blindzero/IdentityLifecycleEngine
+cd IdentityLifecycleEngine
 ```
 
-List available examples:
+## Run Demo
+
+Our **Repository demo** provides sample workflows which are not provided by the module install from PowerShell Gallery package.
+
+### 1. Show Demo Workflows
+
+By default the **IdLE Demo** script uses only examples workflow definition from the `examples/workflows/mock` folder category to avoid dependency to real-life systems.
+
+List available mock category examples:
 
 ```powershell
-pwsh -File .\examples\Invoke-IdleDemo.ps1 -List
+.\examples\Invoke-IdleDemo.ps1 -List
 ```
 
-Run a specific example:
+### 2. Run Demo Workflow
 
 ```powershell
-pwsh -File .\examples\Invoke-IdleDemo.ps1 -Example <example-name-without-suffix>
+.\examples\Invoke-IdleDemo.ps1
 ```
 
-Run all examples:
+Select one of the workflow examples available, that does _not_ use real provider interactions and only use the mock provider interface.
+
+Alternatively, select an example workflow with `-Example` parameter:
 
 ```powershell
-pwsh -File .\examples\Invoke-IdleDemo.ps1 -All
+.\examples\Invoke-IdleDemo.ps1 -Example <example-name-without-suffix>
+```
+
+Or run all mock workflows:
+
+```powershell
+.\examples\Invoke-IdleDemo.ps1 -All
 ```
 
 What you should see:
@@ -53,23 +58,26 @@ What you should see:
 - the plan is executed with demo/mock providers
 - the result contains step results and buffered events
 
----
+### 3. Check other examples
 
-## 2) Install from PowerShell Gallery
-
-Install and import the meta module:
+We also provide additional "template" examples, which could be used with live systems. 
 
 ```powershell
-Install-Module -Name IdLE -Scope CurrentUser
-Import-Module IdLE
+.\examples\Invoke-IdleDemo.ps1 -List -Category All
 ```
 
-> IdLE does not ship a “live system host”. A host (your script, CI job, or service) must provide provider instances
-> for execution. For a safe first run, IdLE ships mock providers that are sufficient to execute example workflows.
+:::warning
+
+Use template examples with care as they connect and may cause harm to your live environments.
+
+:::
 
 ---
 
-## 3) First run from an installed package (mock providers + example workflow)
+## Run your first workflow
+
+IdLE does not ship a “live system host”. A host (your script, CI job, or service) must provide provider instances
+for execution. For a safe first run, IdLE ships mock providers that are sufficient to execute example workflows.
 
 This is the smallest runnable program that demonstrates the full flow:
 
@@ -78,75 +86,80 @@ This is the smallest runnable program that demonstrates the full flow:
 3. Execute with providers (mock)
 4. Inspect result + events
 
-### Use an example workflow from the repository
-
-Workflows are data files (`.psd1`). The quickest path is to reuse one of the repository examples:
-
-- clone the repository, then reference a workflow file from `examples/workflows`
-- or copy a single example workflow file into your working directory
-
-Example (workflow from repo checkout):
+### 1. Import Mock Provider
 
 ```powershell
-# 0) Point to an example workflow file
-$workflowPath = Join-Path 'C:\path\to\IdentityLifecycleEngine' 'examples\workflows\<example-file>.psd1'
+Import-Module .\src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1 -Force
+```
 
-# 1) Create the request (your input intent)
+### 2. Select Workflow
+
+Workflows are data files (`.psd1`). The quickest path is to reuse one of the repository examples,
+
+- reference a workflow file from `examples/workflows`
+- or copy and adapt a single example workflow file into your working directory
+
+:::note
+
+The mock provider below can be used with workflows that use following Step Types:
+
+- IdLE.Step.EmitEvent
+- IdLE.Step.ReadIdentity
+- IdLE.Step.EnsureAttribute
+- IdLE.Step.DisableIdentity
+- IdLE.Step.EnableIdentity
+- IdLE.Step.EnsureEntitlement
+
+:::
+
+```powershell
+$workflow = Join-Path 'C:\path\to\IdentityLifecycleEngine' 'examples\workflows\<example-file>.psd1'
+```
+
+### 3. Create Request Object
+
+With the following command we create a simple 'Joiner' request.
+
+```powershell
 $request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+```
 
-# 2) Build the plan (deterministic, data-only)
-$plan = New-IdlePlan -WorkflowPath $workflowPath -Request $request
+### 4. Build the plan (deterministic, data-only)
 
-# 3) Provide providers (mock providers are included for first runs)
+The plan evaluates validity of the request in combination with the workflow definition.
+
+```powershell
+$plan = New-IdlePlan -WorkflowPath $workflow -Request $request
+```
+
+### 5. Select providers
+
+For first run, we just use our internal mock provider.
+
+```powershell
 $providers = @{
     Identity = New-IdleMockIdentityProvider
 }
+```
 
-# 4) Execute the plan
+### 6. Execute the plan
+
+```powershell
 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+```
 
-# 5) Inspect result + events
+### 7. Inspect result + events
+
+```powershell
 $result.Status
 $result.Steps
 $result.Events | Select-Object Type, StepName, Message
 ```
 
-Notes:
+:::tip
 
 - If your workflow contains steps that require additional provider roles (e.g. `Messaging`, `Entitlement`),
   you must add them to `$providers`.
 - Many steps default to the provider alias `'Identity'` unless a step explicitly sets `With.Provider`.
 
----
-
-## 4) Using real providers (host integration)
-
-To execute against real systems, you supply provider implementations that:
-
-- implement the required provider contract methods for the steps you use
-- advertise capabilities via `GetCapabilities()` (used for planning-time validation)
-
-Example structure:
-
-```powershell
-$providers = @{
-    Identity = $myIdentityProvider
-    # Entitlement = $myEntitlementProvider
-    # Messaging  = $myMessagingProvider
-
-    # Optional (recommended): host-provided auth session broker
-    # AuthSessionBroker = $myAuthSessionBroker
-}
-```
-
-During planning, IdLE validates prerequisites and fails early if required capabilities are missing.
-
----
-
-## Next steps
-
-- Learn the [Concepts](../about/concepts.md)
-- Read about [Workflows](../use/workflows.md)
-- Explore [Steps](../use/steps.md)
-- Review available [Providers](../use/providers.md)
-- See [Architecture](../about/architecture.md)
+:::

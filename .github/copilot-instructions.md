@@ -9,8 +9,9 @@ Use these instructions when suggesting or generating changes in this repo (chat,
 - Agent operating manual: `AGENTS.md`
 - Coding and documentation rules: `STYLEGUIDE.md`
 - Contributor workflow + Definition of Done: `CONTRIBUTING.md`
-- Architecture: `docs/advanced/architecture.md`
-- Security + trust boundaries: `docs/advanced/security.md`
+- Concepts: `docs/about/concepts.md`
+- Security + trust boundaries: `docs/about/security.md`
+- Extensibility: `docs/extend/extensibility.md`
 
 If anything in this file conflicts with those, the more specific document wins.
 

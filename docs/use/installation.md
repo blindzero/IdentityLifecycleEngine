@@ -6,44 +6,33 @@ sidebar_label: Installation
 # Installation
 
 IdLE can be consumed either from the **PowerShell Gallery** (recommended for most users) or directly from the
-repository source (useful for contributors and development scenarios).
+**Github repository source** (useful for contributors and development scenarios).
 
 ---
 
 ## Requirements
 
-- PowerShell **7.x** (`pwsh`)
-- Pester **5.7.1+** (for running tests, optional)
-- PSScriptAnalyzer **1.24.0+** (for running static analysis, optional)
+- PowerShell **7.x** or later (`pwsh`)
 
 ---
 
-## Install from PowerShell Gallery (recommended)
+## Install IdLE
+
+### Install from PowerShell Gallery (recommended)
 
 From a PowerShell 7 prompt:
 
 ```powershell
-Install-Module -Name IdLE -Scope CurrentUser
-Import-Module IdLE
+Install-Module -Name IdLE
+Import-Module -Name IdLE
 ```
 
 > Note: The `IdLE` module automatically imports the baseline modules (`IdLE.Core` and `IdLE.Steps.Common`).
 > Optional modules (providers, additional step modules) are shipped with the package but not auto-imported.
 
-### Verify installation
-
-```powershell
-Get-Module IdLE -ListAvailable | Select-Object Name, Version, Path
-Get-Command -Module IdLE
-```
-
----
-
-## Install from repository source
+### Install from repository source
 
 This path is primarily intended for contributors and development scenarios.
-
-### Clone and import
 
 From a PowerShell 7 prompt:
 
@@ -55,18 +44,18 @@ cd IdentityLifecycleEngine
 Import-Module ./src/IdLE/IdLE.psd1 -Force
 ```
 
-### Verify installation (source)
+### Verify installation
 
 ```powershell
+Get-Module IdLE -ListAvailable | Select-Object Name, Version, Path
 Get-Command -Module IdLE
-Get-Command -Module IdLE.Core
 ```
 
 ---
 
 ## What gets imported
 
-### Default: `IdLE` meta-module (baseline)
+### `IdLE` meta-module (baseline)
 
 `IdLE` is the **baseline** entrypoint. Importing it automatically loads:
 
@@ -78,27 +67,24 @@ This keeps your PowerShell session clean while still allowing workflows to refer
 
 **Non-blocking guarantee:** `Import-Module IdLE` always succeeds on a clean PowerShell 7 environment without any external dependencies (RSAT, AD tools, third-party modules, etc.).
 
-**When to use:** All users and production scenarios.
+### Optional modules (shipped but not auto-imported)
 
-### Advanced: Engine-only import
+The `IdLE` package ships additional modules that are **not automatically imported**. 
+These modules may have system-specific or tool-specific dependencies and are imported explicitly when needed:
 
-Advanced hosts can import the engine without any step packs:
-
-```powershell
-Import-Module ./src/IdLE.Core/IdLE.Core.psd1 -Force
-```
-
-**When to use:** Custom host implementations that provide their own step registry and providers.
-
----
-
-## Optional modules (shipped but not auto-imported)
-
-The `IdLE` package ships additional modules that are **not automatically imported**. These modules may have system-specific or tool-specific dependencies and are imported explicitly when needed:
-
-- **Provider modules:** `IdLE.Provider.AD`, `IdLE.Provider.EntraID`, `IdLE.Provider.ExchangeOnline`, `IdLE.Provider.DirectorySync.EntraConnect`
+- **Provider** modules: see Provider Reference
 - **Optional step modules:** `IdLE.Steps.DirectorySync`, `IdLE.Steps.Mailbox`
 - **Development/testing modules:** `IdLE.Provider.Mock`
+
+Example (from module):
+
+```powershell
+# Import baseline (auto-imports Core and Steps.Common)
+Import-Module IdLE -Force
+
+# Import optional provider when needed
+Import-Module IdLE.Provider.AD -Force
+```
 
 Example (from source):
 
@@ -110,12 +96,4 @@ Import-Module ./src/IdLE/IdLE.psd1 -Force
 Import-Module ./src/IdLE.Provider.AD/IdLE.Provider.AD.psd1 -Force
 ```
 
-For a complete list of available providers and usage details, see **[Providers](../use/providers.md)**.
-
----
-
-## Next steps
-
-- [Quickstart](quickstart.md) — Run the demo and learn the Plan → Execute flow
-- [Providers](../use/providers.md) — Learn about provider aliases and usage
-- [Workflows](../use/workflows.md) — Learn how to define workflows
+For usage details, see [Use > Provider](../use/providers.md).

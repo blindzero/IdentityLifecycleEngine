@@ -13,7 +13,7 @@ param(
 
     [Parameter(ParameterSetName = 'List')]
     [Parameter(ParameterSetName = 'Run')]
-    [ValidateSet('Mock', 'Live', 'Templates', 'All')]
+    [ValidateSet('Mock', 'Templates', 'All')]
     [string]$Category = 'Mock',
 
     [Parameter(ParameterSetName = 'Run')]
@@ -132,7 +132,7 @@ function Get-IdleLifecycleEventFromWorkflowName {
 function Get-DemoWorkflows {
     param(
         [Parameter()]
-        [ValidateSet('Mock', 'Live', 'Templates', 'All')]
+        [ValidateSet('Mock', 'Templates', 'All')]
         [string]$Category = 'Mock'
     )
 
@@ -143,7 +143,7 @@ function Get-DemoWorkflows {
     }
 
     $categories = if ($Category -eq 'All') {
-        @('mock', 'live', 'templates')
+        @('mock', 'templates')
     } else {
         @($Category.ToLowerInvariant())
     }
@@ -244,8 +244,6 @@ if ($List) {
 $selected = @(Select-DemoWorkflows -AvailableWorkflows $available -ExampleNames $Example -AllWorkflows:$All)
 
 # Note: Mock workflows use New-IdleMockIdentityProvider which works out-of-the-box.
-# Live workflows require real providers and will fail if those providers are not available.
-# To run Live workflows, users should modify this script to provide the necessary providers.
 $providers = @{
     Identity = New-IdleMockIdentityProvider
 }

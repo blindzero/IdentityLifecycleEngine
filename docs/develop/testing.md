@@ -2,6 +2,11 @@
 
 IdLE is designed to be testable in isolation. Tests should be deterministic, fast, and runnable on any machine (local or CI) without requiring live systems.
 
+## Requirements
+
+- Pester **5.7.1+** (for running tests, optional)
+- PSScriptAnalyzer **1.24.0+** (for running static analysis, optional)
+
 ## Test folder structure
 
 Tests are organized by domain under `tests/`:

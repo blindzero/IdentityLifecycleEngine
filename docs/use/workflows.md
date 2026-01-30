@@ -1,13 +1,22 @@
 ---
-title: Workflows
-sidebar_label: Workflows
+title: Workflows & Steps
+sidebar_label: Workflows / Steps
 ---
 
-# Workflows
+# Workflows & Steps
 
 Workflows are **data-only** configuration files (PSD1) describing which steps should run for a lifecycle event.
 
-## Format
+A step is a self-contained unit of work executed as part of a plan.<br/>
+A step:
+
+- performs a single, well-defined responsibility
+- operates on the execution context provided by the engine
+- may interact with external systems through providers
+- reports its outcome through status and events
+- does _not_ orchestrate other steps and does _not_ control execution flow beyond their own outcome.
+
+## Workflow File Format
 
 A workflow is a PowerShell hashtable stored as `.psd1`.
 
@@ -30,6 +39,82 @@ Example:
 }
 ```
 
+#### Name
+
+The identifying name of your workflow
+
+```yaml
+Type: String
+Required: True
+```
+
+#### LifecycleEvent
+
+The type of the lifecycle event described by your workflow.
+
+```yaml
+Type: String
+Required: True
+Options: Joiner, Mover, Leaver
+```
+
+#### Steps
+
+An Array of step objects, each a Hashtable.
+
+```yaml
+Type: Array
+Required: True
+```
+
+## Steps
+
+Each step represents a distinct action that is performed based on data defined in the workflow parameters or passed in the host's request object; the engine merges with the workflow definition on the plan.
+
+Steps are represented by PowerShell Hashtable objects.
+
+### Step Types
+
+Step types are treated as **contracts**. Prefer fully-qualified ids (module + step name), for example: `IdLE.Step.EmitEvent`.
+Each step type's implementation is made available via a step registry.
+Additionally, each step type's implementation defines required capabilities for this step.
+Later, provider implementations are providing these capabilities for the steps.
+If a provider selected for a step does not have the capabilities required by the step type, the workflow plan with fail.
+
+For a list of available Step Types please see the [Step Type Catalog](../reference/steps.md).
+
+Additionally, you can extend IdLE with your own custom steps; see [Extending steps](../extend/steps.md).
+
+### Conditional steps
+
+Steps can be skipped using declarative `Condition` key.
+
+Example:
+
+```powershell
+@{
+    Name           = 'Joiner - Condition Demo'
+    LifecycleEvent = 'Joiner'
+    Steps          = @(
+        @{
+            Name = 'EmitOnlyForJoiner'
+            Type = 'IdLE.Step.EmitEvent'
+            Condition = @{
+                Equals = @{
+                    Path   = 'Plan.LifecycleEvent'
+                    Value  = 'Joiner'
+                }
+            }
+            With = @{
+                Message = 'This step runs only if Plan.LifecycleEvent == Joiner.'
+            }
+        }
+    )
+}
+```
+
+If the condition is not met, the step is marked as `Skipped` and a skip event is emitted.
+
 ### OnFailureSteps (optional)
 
 Workflows can define cleanup or rollback steps that run when primary steps fail.
@@ -44,19 +129,33 @@ Example:
 
 ```powershell
 @{
-  Name           = 'Joiner - With Cleanup'
-  LifecycleEvent = 'Joiner'
+    Name           = 'Joiner - With Cleanup'
+    LifecycleEvent = 'Joiner'
+    
+    Steps          = @(
+        @{
+            Name = 'CreateAccount';
+            Type = 'IdLE.Step.CreateAccount'
+        }
+        @{
+            Name = 'EnsureEntitlement';
+            Type = 'IdLE.Step.EnsureEntitlement'
+        }
+    )
 
-  Steps          = @(
-    @{ Name = 'CreateAccount'; Type = 'IdLE.Step.CreateAccount' }
-    @{ Name = 'AssignLicense'; Type = 'IdLE.Step.AssignLicense' }
-  )
-
-  OnFailureSteps = @(
-    @{ Name = 'NotifyAdmin';      Type = 'IdLE.Step.SendEmail'; With = @{ Recipient = 'admin@example.com' } }
-    @{ Name = 'RollbackAccount';  Type = 'IdLE.Step.DeleteAccount' }
-    @{ Name = 'LogFailure';       Type = 'IdLE.Step.LogToDatabase' }
-  )
+    OnFailureSteps = @(
+        @{
+            Name = 'RollbackAccount';
+            Type = 'IdLE.Step.DeleteAccount'
+        }
+        @{
+            Name = 'LogFailure';
+            Type = 'IdLE.Step.EmitEvent';
+            With = @{
+                Message = 'Joiner Failed - Rollback performed'
+            }
+        }
+    )
 }
 ```
 
@@ -73,47 +172,14 @@ The execution result includes a separate `OnFailure` section:
 
 ```powershell
 $result.OnFailure.Status      # 'NotRun', 'Completed', or 'PartiallyFailed'
-$result.OnFailure.Steps        # Array of OnFailure step results
+$result.OnFailure.Steps       # Array of OnFailure step results
 ```
-
-## Planning and validation
-
-Workflows are validated during planning.
-
-Typical validation rules:
-
-- unknown keys are errors
-- required keys must exist
-- condition schemas must be valid
-- `*From` paths must reference allowed roots
-
-## Step identifiers
-
-Step types are treated as **contracts**. Prefer fully-qualified ids (module + step name),
-for example: `IdLE.Step.EmitEvent`.
-
-The host maps step types to step implementations via a step registry.
-
-## Conditional steps
-
-Steps can be skipped using declarative `Condition` key.
-
-Example:
-
-```powershell
-Condition = @{
-  Path   = 'Plan.LifecycleEvent'
-  Equals = 'Joiner'
-}
-```
-
-If the condition is not met, the step is marked as `Skipped` and a skip event is emitted.
 
 ## References and inputs
 
 ### Template substitution (double curly braces)
 
-IdLE supports **template substitution** for embedding request values into workflow step configurations using ``\{\{...\}\}`` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
+IdLE supports **template substitution** for embedding request values into workflow step configurations using `{{...}}` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
 
 **How it works:**
 
@@ -141,8 +207,8 @@ The values in `DesiredState` are accessible via `Request.Input.*` (or `Request.D
   Type = 'IdLE.Step.CreateIdentity'
   With = @{
     Attributes = @{
-      UserPrincipalName = '`\{\{Request.Input.UserPrincipalName\}\}`'
-      DisplayName       = '`\{\{Request.Input.DisplayName\}\}`'
+      UserPrincipalName = '{{Request.Input.UserPrincipalName}}'
+      DisplayName       = '{{Request.Input.DisplayName}}'
     }
   }
 }
@@ -150,24 +216,24 @@ The values in `DesiredState` are accessible via `Request.Input.*` (or `Request.D
   Name = 'EmitEvent'
   Type = 'IdLE.Step.EmitEvent'
   With = @{
-    Message = 'Creating user `\{\{Request.Input.DisplayName\}\}` (`\{\{Request.Input.UserPrincipalName\}\}`)'
+    Message = 'Creating user {{Request.Input.DisplayName}} ({{Request.Input.UserPrincipalName}})'
   }
 }
 ```
 
 When the plan is built, templates are resolved to the actual values from the request:
-- ``\{\{Request.Input.UserPrincipalName\}\}`` → `'jdoe@example.com'`
-- ``\{\{Request.Input.DisplayName\}\}`` → `'John Doe'`
+- `{{Request.Input.UserPrincipalName}}` → `'jdoe@example.com'`
+- `{{Request.Input.DisplayName}}` → `'John Doe'`
 
 **Key features:**
 
-- **Concise syntax**: Use ``\{\{Path\}\}`` instead of verbose `@{ ValueFrom = 'Path' }` objects
+- **Concise syntax**: Use `{{Path}}` instead of verbose `@{ ValueFrom = 'Path' }` objects
 - **Multiple placeholders**: Place multiple templates in one string
 - **Nested structures**: Templates work in nested hashtables and arrays
 - **Planning-time resolution**: Templates are resolved during plan build, not execution
 - **Security boundary**: Only allowlisted request roots are accessible
 
-**Allowed roots:**
+**Allowed references:**
 
 For security, template resolution only allows accessing these request properties:
 
@@ -203,7 +269,7 @@ Use `\{{` to include literal `{{` in a string:
 
 ```powershell
 With = @{
-  Message = 'Literal \`{{ braces here and template `{{Request.Input.Name}}`'
+  Message = 'Literal \{{ braces here and template {{Request.Input.Name}}'
 }
 # Resolves to: 'Literal `{{ braces here and template <actual name>'
 ```
@@ -222,15 +288,21 @@ Prefer explicit reference fields over implicit parsing:
 
 This makes configurations safe and statically validatable.
 
-**Note:** Template substitution (``\{\{...\}\}``) is preferred for string fields. Use `ValueFrom` objects when you need non-string references or conditional defaults.
+:::note
 
-## Advanced Workflow Patterns
+Template substitution (`{{...}}`) is preferred for string fields. Use `ValueFrom` objects when you need non-string references or conditional defaults.
 
-(Content for advanced patterns will be added in future updates)
+:::
 
-This approach keeps workflows data-only while allowing rich message formatting in the host code.
+---
 
-## Related
+## Workflow validation
 
-- [Steps](steps.md)
-- [Providers](providers.md)
+Workflows are validated during planning.
+
+Typical validation rules:
+
+- unknown keys are errors
+- required keys must exist
+- condition schemas must be valid
+- `*From` paths must reference allowed roots

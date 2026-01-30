@@ -16,16 +16,26 @@ The key idea is to **separate intent from implementation**:
 
 - **What** should happen is defined in a **workflow** (data-only configuration).
 - **How** it happens is implemented by **steps** and **providers** (pluggable modules).
+  - **steps** define, via StepTypes, which provider-agnostic **capabilities** are required to perform a workflow step
+  - **providers** register to the core and announce the provided **capabilities** and implement the vendor system specific interface
 
 ---
 
 ## Why IdLE exists
+
+JML (joiner/mover/leavers) processes are
+
+- error prone, especially if performed manually
+- time consuming and therefore
+- quite annoying for operators
 
 Identity lifecycle automation often turns into long scripts that are:
 
 - tightly coupled to one environment
 - hard to test
 - hard to change safely
+
+Identity Management Systems (IdMS) on the other side are either complex or expensive (or both of it) and then often do not care about supplementary systems that also need to be covered within the workflows.
 
 IdLE aims to be:
 
@@ -44,12 +54,3 @@ IdLE aims to be:
 - **Provider/Adapter pattern** (directory, SaaS, REST, file/mock…)
 - **Structured events** for audit/progress (CorrelationId, Actor, step results)
 - **Idempotent execution** (steps can be written to converge state)
-
----
-
-## Where to go next
-
-- [Concepts](concepts.md): more details on the core concepts of IdLE.
-- [Use](../use/intro.md): install IdLE, run workflows, export plans, troubleshoot.
-- [Extend](../extend/intro.md): implement providers and steps, integrate with secrets and events.
-- [Reference](../reference/intro.md): cmdlets, steps, capabilities, and specifications.
