@@ -11,7 +11,7 @@ Use these instructions when suggesting or generating changes in this repo (chat,
 - Contributor workflow + Definition of Done: `CONTRIBUTING.md`
 - Concepts: `docs/about/concepts.md`
 - Security + trust boundaries: `docs/about/security.md`
-- Extensibiltiy: `docs/extend/extensibility.md`
+- Extensibility: `docs/extend/extensibility.md`
 
 If anything in this file conflicts with those, the more specific document wins.
 
