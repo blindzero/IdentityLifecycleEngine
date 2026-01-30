@@ -229,8 +229,3 @@ This makes configurations safe and statically validatable.
 (Content for advanced patterns will be added in future updates)
 
 This approach keeps workflows data-only while allowing rich message formatting in the host code.
-
-## Related
-
-- [Steps](steps.md)
-- [Providers](providers.md)
