@@ -146,6 +146,12 @@ jobs:
             'src/IdLE/IdLE.psd1',
             'src/IdLE.Core/IdLE.Core.psd1',
             'src/IdLE.Steps.Common/IdLE.Steps.Common.psd1',
+            'src/IdLE.Steps.DirectorySync/IdLE.Steps.DirectorySync.psd1',
+            'src/IdLE.Steps.Mailbox/IdLE.Steps.Mailbox.psd1',
+            'src/IdLE.Provider.AD/IdLE.Provider.AD.psd1',
+            'src/IdLE.Provider.EntraID/IdLE.Provider.EntraID.psd1',
+            'src/IdLE.Provider.ExchangeOnline/IdLE.Provider.ExchangeOnline.psd1',
+            'src/IdLE.Provider.DirectorySync.EntraConnect/IdLE.Provider.DirectorySync.EntraConnect.psd1',
             'src/IdLE.Provider.Mock/IdLE.Provider.Mock.psd1'
           )
 
