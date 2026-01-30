@@ -8,11 +8,16 @@ BeforeAll {
 Describe 'Module Export Consistency' {
     Context 'IdLE.Core module exports' {
         BeforeAll {
+            $script:originalIdleAllowInternalImport = $env:IDLE_ALLOW_INTERNAL_IMPORT
             $env:IDLE_ALLOW_INTERNAL_IMPORT = '1'
             $coreModulePath = Join-Path -Path $repoRoot -ChildPath 'src/IdLE.Core/IdLE.Core.psd1'
             Import-Module -Name $coreModulePath -Force -ErrorAction Stop
             
             $coreModule = Get-Module -Name 'IdLE.Core'
+        }
+
+        AfterAll {
+            $env:IDLE_ALLOW_INTERNAL_IMPORT = $script:originalIdleAllowInternalImport
         }
 
         It 'exports New-IdleAuthSessionBroker function' {
