@@ -75,6 +75,8 @@ Redaction happens for:
 
 ### Where redaction is applied
 
+Redaction is intentionally centralized at output boundaries to keep the execution model unchanged and to avoid altering step/provider behavior while making outputs safe-by-default.
+
 Redaction is applied **before** data is:
 
 - Buffered as run events (execution result `Events`)
@@ -87,59 +89,9 @@ Redaction is applied **before** data is:
 - IdLE does **not** attempt to redact secrets embedded inside free-text message strings (e.g., `Event.Message`).
   - Steps and providers should avoid placing secrets into free-text messages.
 
-### Rationale
-
-Redaction is intentionally centralized at output boundaries to keep the execution model unchanged and to avoid altering step/provider behavior while making outputs safe-by-default.
-
 ## Guidance for hosts
 
 - Keep workflow files in a protected location and review them like code (even though they are data-only).
 - Load step and provider modules explicitly before execution.
 - Treat the step registry as privileged configuration and do not let workflow authors change it.
 - If you stream events, implement a small sink object with a `WriteEvent(event)` method and keep it side-effect free.
-
-## Guidance for step authors
-
-- Use providers for system operations; do not embed authentication logic inside steps.
-- Emit events using `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`.
-- Avoid global state. Steps should be idempotent whenever possible.
-
-## Repository security hygiene (maintainers)
-
-This section documents the repository-level security posture and the settings maintainers should keep enabled.
-
-### Dependency hygiene (Dependabot)
-
-IdLE uses Dependabot to keep GitHub Actions dependencies current.
-
-- Configuration file: `.github/dependabot.yml`
-- Expected behaviour: a **weekly** PR that groups GitHub Actions updates
-
-**Verify**:
-
-1. Repository → **Insights** → **Dependency graph** → **Dependabot**
-2. Confirm update activity and that PRs are being opened
-
-### Recommended GitHub repository security settings
-
-These settings are managed in GitHub and cannot be enforced via source control. Maintain them as part of routine repo maintenance:
-
-- **Dependabot alerts**: enabled
-- **Dependabot security updates**: enabled
-- **Secret scanning**: enabled (and **push protection** if available for the repo)
-- **Branch protection rules** on `main`:
-  - Require pull requests before merging
-  - Require status checks to pass before merging (CI)
-  - Restrict force pushes
-- **Least privilege** for workflows:
-  - Use explicit `permissions:` blocks in workflows
-  - Prefer read-only defaults unless a job needs write access
-
-**Verify** (typical locations):
-
-- Repository → **Settings** → **Security** (feature availability depends on GitHub plan)
-- Repository → **Settings** → **Branches** (branch protection)
-
-## See also
-
-- Root security policy: `SECURITY.md`

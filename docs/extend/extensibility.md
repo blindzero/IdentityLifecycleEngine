@@ -24,6 +24,10 @@ Steps can emit structured events using the execution context contract:
 
 Keep steps host-agnostic: do not call UI APIs directly.
 
+- Use providers for system operations; do not embed authentication logic inside steps.
+- Emit events using `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`.
+- Avoid global state. Steps should be idempotent whenever possible.
+
 ---
 
 ## Add a new provider
