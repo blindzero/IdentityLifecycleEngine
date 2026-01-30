@@ -18,7 +18,12 @@ Repository root path. Defaults to the parent folder of this script directory.
 Target folder for the staged package. Defaults to '<RepoRootPath>/artifacts/IdLE'.
 
 .PARAMETER NestedModuleNames
-Names of nested modules to include under 'Modules/'. Defaults to IdLE.Core and IdLE.Steps.Common.
+Names of nested modules to auto-import when IdLE is imported. Defaults to IdLE.Core and IdLE.Steps.Common.
+These modules are automatically loaded when a user runs 'Import-Module IdLE'.
+
+.PARAMETER IncludeModuleNames
+Names of all modules to include in the package under 'Modules/'. Defaults to all batteries-included modules.
+These modules are available for explicit import but not all are auto-imported (see NestedModuleNames).
 Note: IdLE.Provider.Mock is published as a separate top-level module to ensure it is discoverable
 via Import-Module when installed from PowerShell Gallery.
 
@@ -53,11 +58,28 @@ param(
     ),
 
     [Parameter()]
+    [string[]] $IncludeModuleNames = $null,
+
+    [Parameter()]
     [switch] $Clean
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Default IncludeModuleNames to all batteries-included modules if not specified
+if ($null -eq $IncludeModuleNames -or $IncludeModuleNames.Count -eq 0) {
+    $IncludeModuleNames = @(
+        'IdLE.Core',
+        'IdLE.Steps.Common',
+        'IdLE.Steps.DirectorySync',
+        'IdLE.Steps.Mailbox',
+        'IdLE.Provider.AD',
+        'IdLE.Provider.EntraID',
+        'IdLE.Provider.ExchangeOnline',
+        'IdLE.Provider.DirectorySync.EntraConnect'
+    )
+}
 
 function Resolve-IdleRepoRoot {
     [CmdletBinding()]
@@ -195,14 +217,14 @@ Copy-IdleModuleFolder -SourcePath $idleSrc -DestinationPath $idleDst
 # 2) Stage nested modules into IdLE/Modules/<ModuleName>/
 Initialize-IdleDirectory -Path $modulesDst
 
-foreach ($name in $NestedModuleNames) {
+foreach ($name in $IncludeModuleNames) {
     $nestedSrc = Join-Path -Path $srcRoot -ChildPath $name
     $nestedDst = Join-Path -Path $modulesDst -ChildPath $name
 
     Copy-IdleModuleFolder -SourcePath $nestedSrc -DestinationPath $nestedDst
 }
 
-# 3) Patch staged manifest to reference in-package nested module manifests
+# 3) Patch staged manifest to reference in-package nested module manifests (auto-imported)
 $stagedManifest = Join-Path -Path $idleDst -ChildPath 'IdLE.psd1'
 $nestedEntries = Get-IdleNestedModuleEntryPaths -Names $NestedModuleNames
 Set-IdleNestedModulesInManifest -ManifestPath $stagedManifest -NestedModuleEntryPaths $nestedEntries
