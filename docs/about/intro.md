@@ -16,7 +16,7 @@ The key idea is to **separate intent from implementation**:
 
 - **What** should happen is defined in a **workflow** (data-only configuration).
 - **How** it happens is implemented by **steps** and **providers** (pluggable modules).
-  - While **steps** define by StepTypes, which provider-agnostic **capabilities** are required to perform a workflow step
+  - **steps** define, via StepTypes, which provider-agnostic **capabilities** are required to perform a workflow step
   - **providers** register to the core and announce the provided **capabilities** and implement the vendor system specific interface
 
 ---
