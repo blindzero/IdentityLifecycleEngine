@@ -35,7 +35,7 @@ IdLE aims to be:
 - **configuration-driven** (workflows as data)
 - **extensible** (add custom steps and providers)
 
-For a complete overview of concepts and architecture, see **[About > Concepts](docs/about/concepts.md)**.
+For a complete overview of concepts, see **[About > Concepts](docs/about/concepts.md)**.
 
 ---
 

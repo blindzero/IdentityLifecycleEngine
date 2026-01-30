@@ -337,10 +337,3 @@ Microsoft Graph enforces rate limits. The provider marks these as transient erro
 ### "Insufficient permissions"
 
 Verify the access token has the required Graph API permissions (see Required Permissions section).
-
-## See Also
-
-- [IdLE Architecture](../../about/architecture.md)
-- [AuthSessionBroker Pattern](../../about/security.md)
-- [Example Workflows](../../../examples/README.md)
-- [Invoke-IdleDemo.ps1](../../../examples/Invoke-IdleDemo.ps1)

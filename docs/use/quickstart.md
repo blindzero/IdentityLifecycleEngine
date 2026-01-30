@@ -140,13 +140,3 @@ $providers = @{
 ```
 
 During planning, IdLE validates prerequisites and fails early if required capabilities are missing.
-
----
-
-## Next steps
-
-- Learn the [Concepts](../about/concepts.md)
-- Read about [Workflows](../use/workflows.md)
-- Explore [Steps](../use/steps.md)
-- Review available [Providers](../use/providers.md)
-- See [Architecture](../about/architecture.md)

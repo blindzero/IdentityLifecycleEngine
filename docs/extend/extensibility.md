@@ -108,8 +108,29 @@ supports it.
 
 ---
 
-## Related
+## Command Contracts
 
-- [Providers and Contracts](../extend/providers.md) — Provider extension guidance
-- [Provider Capabilities](../reference/capabilities.md) — Capability system
-- [Architecture](../about/architecture.md) — Design principles
+For supported commands, the following are **stable contracts** (breaking changes require a major version):
+
+- Command name
+- Parameter names and parameter sets
+- Observable semantics (mandatory/optional/default behavior)
+- Output type identity at a coarse level (PSTypeName)
+
+The following are **not contracts** and may change in minor/patch versions:
+
+- Exact error message strings
+- Undocumented internal object properties
+- Internal module cmdlets
+
+## Data Contracts
+
+**Workflow authoring contract** (PSD1):
+- Format: PSD1 workflow definitions validated by `Test-IdleWorkflow`
+- Unknown keys: **FAIL** (strict validation)
+- Required fields (Name, LifecycleEvent, Steps[].Name, Steps[].Type): **FAIL** if null/empty
+- `With` payload values: allow `null` and empty strings (supports "clear attribute" scenarios)
+
+**Lifecycle request contract**:
+- Required fields: `LifecycleEvent`, `CorrelationId`
+- Optional fields: `Actor`, `IdentityKeys`, `DesiredState`, `Changes`

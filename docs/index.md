@@ -16,7 +16,6 @@ for identity and account processes (Joiner / Mover / Leaver) built for **PowerSh
 Learn the basics [about IdLE](about/intro.md)
 
 - [Concepts](about/concepts.md) - What are the basic concepts of IdLE and how it works in general
-- [Architecture](about/architecture.md) - Design principles and decisions
 - [Security](about/security.md) - Trust boundaries and threat model
 
 ## Use IdLE

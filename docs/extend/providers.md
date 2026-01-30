@@ -337,13 +337,3 @@ Steps must never rely on provider-specific behavior beyond the documented contra
 
 If a step requires provider-specific functionality, the contract itself
 should be clarified or refined.
-
----
-
-## Related documentation
-
-- [Workflows](../use/workflows.md)
-- [Steps](../use/steps.md)
-- [Architecture](../about/architecture.md)
-- [Extensibility](../extend/extensibility.md)
-- [Capabilities](../reference/capabilities.md)

@@ -204,13 +204,3 @@ Trying to solve every problem with configuration often results in
 overly complex workflows.
 
 Prefer small, focused steps with clear parameters.
-
----
-
-## Related documentation
-
-- [Workflows](../use/workflows.md)
-- [Steps](../use/steps.md)
-- [Providers and Contracts](../extend/providers.md)
-- [Events and Observability](../extend/events.md)
-- [Architecture](../about/architecture.md)

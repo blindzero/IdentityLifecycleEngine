@@ -125,7 +125,8 @@ A contribution is complete when:
 
 - all tests pass (`pwsh -NoProfile -File ./tools/Invoke-IdlePesterTests.ps1`)
 - static analysis passes (`pwsh -NoProfile -File ./tools/Invoke-IdleScriptAnalyzer.ps1`)
-- no architecture rules are violated (see `docs/advanced/architecture.md`)
+- no concept rules are violated (see `docs/about/concepts.md`)
+- no security or trust boundaries are violated (see `docs/about/security.md`)
 - public APIs are documented (comment-based help for exported functions)
 - documentation is updated where required:
   - README.md (only high-level overview + pointers)
@@ -300,12 +301,14 @@ Repository maintainers should configure branch protection so that required statu
 Keep docs short and linkable:
 
 - README.md: landing page (what/why + 30s quickstart + links)
-- docs/: architecture, usage, examples (small focused pages)
+- docs/: concepts, usage, examples (small focused pages)
 - examples/: runnable scripts and workflow samples
 
 Key links:
 
-- Architecture: `docs/about/architecture.md`
+- Concepts: `docs/about/concepts.md`
+- Security: `docs/about/security.md`
+- Extensibility: `docs/extend/extensibility.md`
 - Examples: `examples/README.md`
 - Coding & in-code documentation rules: `STYLEGUIDE.md`
 

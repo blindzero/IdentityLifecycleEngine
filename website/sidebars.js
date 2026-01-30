@@ -23,7 +23,6 @@ const sidebars = {
       items: [
         'about/intro',
         'about/concepts',
-        'about/architecture',
         'about/security',
       ],
     },

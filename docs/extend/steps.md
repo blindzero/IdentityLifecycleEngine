@@ -187,14 +187,3 @@ Undocumented behavior leads to:
 - broken expectations
 
 Metadata is not optional; it is part of the step contract.
-
----
-
-## Related documentation
-
-- [Architecture](../about/architecture.md)
-- [Workflows](../use/workflows.md)
-- [Configuration](../use/configuration.md)
-- [Providers](providers.md)
-- [Events and Observability](events.md)
-- [Steps Catalog](../reference/steps.md)
