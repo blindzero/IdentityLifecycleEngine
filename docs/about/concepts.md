@@ -17,8 +17,8 @@ IdLE stays headless and avoids responsibilities that belong to a host applicatio
 ## Non-goals
 
 - No UI framework or service host
-- no interactive prompts
-- no authentication flows inside steps
+- No interactive prompts
+- No authentication flows inside steps
 - No dynamic code execution from configuration
 - No automatic rollback orchestration
 - No deep merge semantics for state outputs
