@@ -58,8 +58,18 @@ param(
     ),
 
     [Parameter()]
-    [ValidateNotNullOrEmpty()]
-    [string[]] $IncludeModuleNames = @(
+    [string[]] $IncludeModuleNames = $null,
+
+    [Parameter()]
+    [switch] $Clean
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# Default IncludeModuleNames to all batteries-included modules if not specified
+if ($null -eq $IncludeModuleNames -or $IncludeModuleNames.Count -eq 0) {
+    $IncludeModuleNames = @(
         'IdLE.Core',
         'IdLE.Steps.Common',
         'IdLE.Steps.DirectorySync',
@@ -68,14 +78,8 @@ param(
         'IdLE.Provider.EntraID',
         'IdLE.Provider.ExchangeOnline',
         'IdLE.Provider.DirectorySync.EntraConnect'
-    ),
-
-    [Parameter()]
-    [switch] $Clean
-)
-
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
+    )
+}
 
 function Resolve-IdleRepoRoot {
     [CmdletBinding()]
