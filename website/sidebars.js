@@ -35,7 +35,6 @@ const sidebars = {
         'use/installation',
         'use/quickstart',
         'use/workflows',
-        'use/steps',
         'use/providers',
         'use/plan-export',
       ],
