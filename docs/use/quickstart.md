@@ -37,7 +37,7 @@ List available mock category examples:
 .\examples\Invoke-IdleDemo.ps1
 ```
 
-Select one of the workflow examples available, that do _not_ use real provider interactions and only use the mock provider interface.
+Select one of the workflow examples available, that does _not_ use real provider interactions and only use the mock provider interface.
 
 Alternatively, select an example workflow with `-Example` parameter:
 
