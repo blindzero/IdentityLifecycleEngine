@@ -179,7 +179,7 @@ $result.OnFailure.Steps       # Array of OnFailure step results
 
 ### Template substitution (double curly braces)
 
-IdLE supports **template substitution** for embedding request values into workflow step configurations using ``{{...}}`` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
+IdLE supports **template substitution** for embedding request values into workflow step configurations using `{{...}}` placeholders. Templates are resolved during planning (plan build), producing a plan with resolved values.
 
 **How it works:**
 
@@ -227,7 +227,7 @@ When the plan is built, templates are resolved to the actual values from the req
 
 **Key features:**
 
-- **Concise syntax**: Use ``{{Path}}`` instead of verbose `@{ ValueFrom = 'Path' }` objects
+- **Concise syntax**: Use `{{Path}}` instead of verbose `@{ ValueFrom = 'Path' }` objects
 - **Multiple placeholders**: Place multiple templates in one string
 - **Nested structures**: Templates work in nested hashtables and arrays
 - **Planning-time resolution**: Templates are resolved during plan build, not execution
