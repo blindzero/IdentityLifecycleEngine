@@ -49,13 +49,7 @@ param(
     [ValidateNotNullOrEmpty()]
     [string[]] $NestedModuleNames = @(
         'IdLE.Core',
-        'IdLE.Steps.Common',
-        'IdLE.Steps.DirectorySync',
-        'IdLE.Steps.Mailbox',
-        'IdLE.Provider.AD',
-        'IdLE.Provider.EntraID',
-        'IdLE.Provider.ExchangeOnline',
-        'IdLE.Provider.DirectorySync.EntraConnect'
+        'IdLE.Steps.Common'
     ),
 
     [Parameter()]
