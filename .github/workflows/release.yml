@@ -269,7 +269,14 @@ jobs:
       - name: Build publishable module packages
         shell: pwsh
         run: |
-          ./tools/New-IdleModulePackages.ps1 -Clean | Format-List Name
+          ./tools/New-IdleGalleryPackages.ps1 -Clean | Format-List Name
+
+      - name: Upload module packages as artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: idle-modules-${{ needs.release.outputs.tag }}
+          path: artifacts/modules/
+          if-no-files-found: error
 
       - name: Publish modules to local PSRepository and verify install/import
         shell: pwsh
@@ -284,20 +291,10 @@ jobs:
 
           Register-PSRepository -Name 'LocalRepo' -SourceLocation $repoPath -PublishLocation $repoPath -InstallationPolicy Trusted
 
-          # Module publish order (in dependency order)
-          # NOTE: This list must match the order in the 'psgallery' job below
-          $moduleOrder = @(
-            'IdLE.Core',
-            'IdLE.Steps.Common',
-            'IdLE.Steps.DirectorySync',
-            'IdLE.Steps.Mailbox',
-            'IdLE.Provider.AD',
-            'IdLE.Provider.EntraID',
-            'IdLE.Provider.ExchangeOnline',
-            'IdLE.Provider.DirectorySync.EntraConnect',
-            'IdLE.Provider.Mock',
-            'IdLE'
-          )
+          # Get publish order dynamically from dependencies
+          $moduleOrder = & ./tools/Get-IdleModulePublishOrder.ps1
+          Write-Host "Publish order (computed from dependencies):"
+          $moduleOrder | ForEach-Object { Write-Host "  - $_" }
 
           foreach ($moduleName in $moduleOrder) {
             $modulePath = Join-Path $modulesPath $moduleName
@@ -372,10 +369,11 @@ jobs:
           Import-Module PowerShellGet -Force
           Get-Module PowerShellGet | Select-Object Name, Version, Path | Format-List
 
-      - name: Build publishable module packages
-        shell: pwsh
-        run: |
-          ./tools/New-IdleModulePackages.ps1 -Clean | Format-List Name
+      - name: Download module packages from test job
+        uses: actions/download-artifact@v6
+        with:
+          name: idle-modules-${{ needs.release.outputs.tag }}
+          path: artifacts/modules
 
       - name: Publish modules to PSGallery
         shell: pwsh
@@ -391,20 +389,10 @@ jobs:
             throw "Staged modules path not found: $modulesPath"
           }
 
-          # Module publish order (in dependency order)
-          # NOTE: This list must match the order in the 'psgallery_local_test' job above
-          $moduleOrder = @(
-            'IdLE.Core',
-            'IdLE.Steps.Common',
-            'IdLE.Steps.DirectorySync',
-            'IdLE.Steps.Mailbox',
-            'IdLE.Provider.AD',
-            'IdLE.Provider.EntraID',
-            'IdLE.Provider.ExchangeOnline',
-            'IdLE.Provider.DirectorySync.EntraConnect',
-            'IdLE.Provider.Mock',
-            'IdLE'
-          )
+          # Get publish order dynamically from dependencies (checkout is needed for this)
+          $moduleOrder = & ./tools/Get-IdleModulePublishOrder.ps1
+          Write-Host "Publishing modules in dependency order:"
+          $moduleOrder | ForEach-Object { Write-Host "  - $_" }
 
           foreach ($moduleName in $moduleOrder) {
             $modulePath = Join-Path $modulesPath $moduleName
