@@ -11,11 +11,11 @@ sidebar_label: Providers
 
 ## Built-in / first-party providers
 
-- **Active Directory (AD)** — Identity operations against on-prem AD via the AD provider module. → `./provider-ad.md`
-- **Entra ID** — Identity operations against Microsoft Entra ID via Microsoft Graph. → `./provider-entraID.md`
-- **Exchange Online** — Messaging / mailbox related operations against Exchange Online. → `./provider-ExchangeOnline.md`
-- **DirectorySync.EntraConnect** — Directory synchronization provider for Entra Connect / sync-cycle related operations. → `./provider-directorysync-EntraConnect.md`
-- **Mock** — In-memory / file-backed provider for tests and local development without live systems. → `./provider-mock.md`
+- **[Active Directory (AD)](providers/provider-ad.md)** — Identity operations against on-prem AD via the AD provider module
+- **[Entra ID](providers/provider-entraID.md)** — Identity operations against Microsoft Entra ID via Microsoft Graph
+- **[Exchange Online](providers/provider-exchangeonline.md)** — Messaging / mailbox related operations against Exchange Online
+- **[DirectorySync.EntraConnect](providers/provider-directorysync-EntraConnect.md)** — Directory synchronization provider for Entra Connect / sync-cycle related operations
+- **[Mock Provider](providers/provider-mock.md)** — In-memory / file-backed provider for tests and local development without live systems
 
 ---
 
