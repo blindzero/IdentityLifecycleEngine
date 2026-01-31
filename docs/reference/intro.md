@@ -6,15 +6,8 @@ sidebar_label: Reference
 This section is the **authoritative reference** for IdLE.
 
 It contains precise, stable and normative information intended for lookup and verification.
-Content here is not tutorial-style and usually assumes prior knowledge from the **Use** or
-**Extend** sections.
-
-## What you will find here
-
-- Cmdlet reference
-- Step reference
-- Capability reference
-- Specifications (schemas, formats, contracts)
+Content here is not tutorial-style and usually assumes prior knowledge from the **[Use](../use/intro.md)** or
+**[Extend](../extend/intro.md)** sections.
 
 ## How to use this section
 
@@ -22,6 +15,11 @@ Content here is not tutorial-style and usually assumes prior knowledge from the 
 - Verify assumptions during development or review
 - Link from guides and concepts to authoritative definitions
 
-## Not the right section?
+## What you will find here
 
-If you are looking for guidance or explanations, start with [Use](../use/intro.md) or [Extend](../extend/intro.md) instead.
+- [Cmdlet reference](./cmdlets.md)
+- [Step reference](./steps.md)
+- [Providers](./providers.md)
+- [Capability reference](capabilities.md)
+- Specifications (schemas, formats, contracts)
+  - [Plan Export JSON Schema](./specs/plan-export.md)
