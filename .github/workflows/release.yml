@@ -284,7 +284,8 @@ jobs:
 
           Register-PSRepository -Name 'LocalRepo' -SourceLocation $repoPath -PublishLocation $repoPath -InstallationPolicy Trusted
 
-          # Publish modules in dependency order
+          # Module publish order (in dependency order)
+          # NOTE: This list must match the order in the 'psgallery' job below
           $moduleOrder = @(
             'IdLE.Core',
             'IdLE.Steps.Common',
@@ -390,7 +391,8 @@ jobs:
             throw "Staged modules path not found: $modulesPath"
           }
 
-          # Publish modules in dependency order
+          # Module publish order (in dependency order)
+          # NOTE: This list must match the order in the 'psgallery_local_test' job above
           $moduleOrder = @(
             'IdLE.Core',
             'IdLE.Steps.Common',

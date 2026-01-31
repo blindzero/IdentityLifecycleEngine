@@ -48,6 +48,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Module version used for RequiredModules declarations
+# This should match the ModuleVersion in all module manifests
+$script:ModuleVersion = '0.9.1'
+
 # Default ModuleNames to all publishable modules if not specified
 if ($null -eq $ModuleNames -or $ModuleNames.Count -eq 0) {
     $ModuleNames = @(
@@ -155,13 +159,13 @@ function Convert-IdleManifestForGallery {
         if ($raw -match '(?ms)^\s*NestedModules\s*=') {
             $requiredModules = @"
     RequiredModules = @(
-        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' },
-        @{ ModuleName = 'IdLE.Steps.Common'; ModuleVersion = '0.9.1' }
+        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '$script:ModuleVersion' },
+        @{ ModuleName = 'IdLE.Steps.Common'; ModuleVersion = '$script:ModuleVersion' }
     )
 "@
             
             # Remove NestedModules block
-            $pattern = '(?ms)^[ \t]*NestedModules[ \t]*=[ \t]*@\((?:.|\n)*?\)[ \t]*\r?\n'
+            $pattern = '(?ms)^[ \t]*NestedModules[ \t]*=[ \t]*@\([\s\S]*?\)[ \t]*\r?\n'
             $updated = [regex]::Replace($updated, $pattern, '')
             
             # Add RequiredModules after ScriptsToProcess
@@ -182,8 +186,8 @@ function Convert-IdleManifestForGallery {
     elseif ($moduleName -match '^IdLE\.Steps\.(?!Common$)') {
         $requiredModules = @"
     RequiredModules   = @(
-        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' },
-        @{ ModuleName = 'IdLE.Steps.Common'; ModuleVersion = '0.9.1' }
+        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '$script:ModuleVersion' },
+        @{ ModuleName = 'IdLE.Steps.Common'; ModuleVersion = '$script:ModuleVersion' }
     )
 
 "@
@@ -197,7 +201,7 @@ function Convert-IdleManifestForGallery {
     elseif ($moduleName -match '^IdLE\.(Steps\.Common|Provider\.)') {
         $requiredModules = @"
     RequiredModules   = @(
-        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' }
+        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '$script:ModuleVersion' }
     )
 
 "@
