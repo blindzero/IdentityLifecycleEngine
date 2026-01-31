@@ -3,8 +3,6 @@ title: Providers Reference
 sidebar_label: Providers
 ---
 
-# Provider Reference
-
 > Entry page for provider reference. This section is **reference-only**: what a provider implements, how to configure it, and which contracts/capabilities it exposes.
 
 ---
