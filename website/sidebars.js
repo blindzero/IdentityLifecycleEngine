@@ -63,7 +63,7 @@ const sidebars = {
         'reference/cmdlets',
         {
           type: 'category',
-          label: 'Cmdlets',
+          label: 'Cmdlet Reference',
           collapsed: true,
           items: [
             'reference/cmdlets/Export-IdlePlan',
@@ -76,10 +76,10 @@ const sidebars = {
         },
         'reference/steps',
         'reference/capabilities',
-        'reference/providers/index',
+        'reference/providers',
         {
           type: 'category',
-          label: 'Providers',
+          label: 'Provider Reference',
           collapsed: true,
           items: [
             'reference/providers/provider-ad',
