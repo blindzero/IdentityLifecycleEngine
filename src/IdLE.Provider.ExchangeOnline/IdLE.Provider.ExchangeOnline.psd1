@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Provider.ExchangeOnline.psm1'
-    ModuleVersion = '0.9.0'
+    ModuleVersion = '0.9.1'
     GUID              = 'e8f9a3b1-4c2d-4a5b-9f7e-3d2c1a9b8e7f'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'

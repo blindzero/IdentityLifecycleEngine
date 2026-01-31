@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Provider.EntraID.psm1'
-    ModuleVersion = '0.9.0'
+    ModuleVersion = '0.9.1'
     GUID              = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
