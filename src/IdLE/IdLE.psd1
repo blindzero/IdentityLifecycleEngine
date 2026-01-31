@@ -11,9 +11,9 @@
     # This allows us to set environment variables to suppress internal module warnings
     ScriptsToProcess = @('IdLE.Init.ps1')
 
-    NestedModules = @(
-        '..\IdLE.Core\IdLE.Core.psd1',
-        '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
+    RequiredModules = @(
+        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' },
+        @{ ModuleName = 'IdLE.Steps.Common'; ModuleVersion = '0.9.1' }
     )
 
     FunctionsToExport = @(
@@ -27,9 +27,9 @@
     CmdletsToExport   = @()
     AliasesToExport   = @()
 
-    # NOTE: IdLE depends on IdLE.Core.
-    # We intentionally do not use 'RequiredModules' to keep repo-clone imports working
-    # when modules are imported via relative paths (IdLE.Core may not be on PSModulePath).
+    # NOTE: IdLE depends on IdLE.Core and IdLE.Steps.Common.
+    # These are declared as RequiredModules so they are properly resolved from PSModulePath
+    # when installed from PowerShell Gallery.
 
     PrivateData = @{
         PSData = @{
