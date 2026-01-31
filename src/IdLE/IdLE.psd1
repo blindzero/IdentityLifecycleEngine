@@ -11,9 +11,9 @@
     # This allows us to set environment variables to suppress internal module warnings
     ScriptsToProcess = @('IdLE.Init.ps1')
 
-    RequiredModules = @(
-        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' },
-        @{ ModuleName = 'IdLE.Steps.Common'; ModuleVersion = '0.9.1' }
+    NestedModules = @(
+        '..\IdLE.Core\IdLE.Core.psd1',
+        '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
     )
 
     FunctionsToExport = @(
@@ -28,8 +28,9 @@
     AliasesToExport   = @()
 
     # NOTE: IdLE depends on IdLE.Core and IdLE.Steps.Common.
-    # These are declared as RequiredModules so they are properly resolved from PSModulePath
-    # when installed from PowerShell Gallery.
+    # NestedModules with relative paths work for repository imports.
+    # When published to PowerShell Gallery, the packaging script replaces NestedModules
+    # with RequiredModules for proper dependency resolution.
 
     PrivateData = @{
         PSData = @{

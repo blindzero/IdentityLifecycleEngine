@@ -107,7 +107,10 @@ function Copy-IdleModuleFolder {
         [string] $SourcePath,
 
         [Parameter(Mandatory)]
-        [string] $DestinationPath
+        [string] $DestinationPath,
+
+        [Parameter()]
+        [switch] $TransformForGallery
     )
 
     if (-not (Test-Path -LiteralPath $SourcePath)) {
@@ -118,6 +121,96 @@ function Copy-IdleModuleFolder {
 
     # Copy content of the module folder, not the folder itself, to keep predictable structure.
     Copy-Item -Path (Join-Path -Path $SourcePath -ChildPath '*') -Destination $DestinationPath -Recurse -Force
+
+    # Transform IdLE manifest for PowerShell Gallery if needed
+    if ($TransformForGallery) {
+        $moduleName = Split-Path -Path $DestinationPath -Leaf
+        $manifestPath = Join-Path -Path $DestinationPath -ChildPath "$moduleName.psd1"
+        
+        if (Test-Path -LiteralPath $manifestPath) {
+            Convert-IdleManifestForGallery -ManifestPath $manifestPath
+        }
+    }
+}
+
+function Convert-IdleManifestForGallery {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string] $ManifestPath
+    )
+
+    $raw = Get-Content -LiteralPath $ManifestPath -Raw -ErrorAction Stop
+    
+    # Extract module name from manifest path
+    $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($ManifestPath)
+    
+    Write-Verbose "Converting $moduleName manifest for PowerShell Gallery"
+    
+    $updated = $raw
+    
+    # For IdLE meta-module, replace NestedModules with RequiredModules
+    if ($moduleName -eq 'IdLE') {
+        # Check if this manifest has NestedModules
+        if ($raw -match '(?ms)^\s*NestedModules\s*=') {
+            $requiredModules = @"
+    RequiredModules = @(
+        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' },
+        @{ ModuleName = 'IdLE.Steps.Common'; ModuleVersion = '0.9.1' }
+    )
+"@
+            
+            # Remove NestedModules block
+            $pattern = '(?ms)^[ \t]*NestedModules[ \t]*=[ \t]*@\((?:.|\n)*?\)[ \t]*\r?\n'
+            $updated = [regex]::Replace($updated, $pattern, '')
+            
+            # Add RequiredModules after ScriptsToProcess
+            $insertAfter = '(?m)^[ \t]*ScriptsToProcess[ \t]*=.*\)[ \t]*\r?\n'
+            if ($updated -match $insertAfter) {
+                $updated = [regex]::Replace($updated, $insertAfter, "`$0`r`n$requiredModules`r`n", 1)
+            }
+            else {
+                # Fallback: add after RootModule
+                $insertAfter = '(?m)^[ \t]*RootModule[ \t]*=.*\r?\n'
+                if ($updated -match $insertAfter) {
+                    $updated = [regex]::Replace($updated, $insertAfter, "`$0`r`n$requiredModules`r`n", 1)
+                }
+            }
+        }
+    }
+    # For IdLE.Steps.* modules (except Steps.Common), add RequiredModules for IdLE.Core and IdLE.Steps.Common
+    elseif ($moduleName -match '^IdLE\.Steps\.(?!Common$)') {
+        $requiredModules = @"
+    RequiredModules   = @(
+        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' },
+        @{ ModuleName = 'IdLE.Steps.Common'; ModuleVersion = '0.9.1' }
+    )
+
+"@
+        # Add RequiredModules after PowerShellVersion
+        $insertAfter = '(?m)^[ \t]*PowerShellVersion[ \t]*=.*\r?\n'
+        if ($updated -match $insertAfter) {
+            $updated = [regex]::Replace($updated, $insertAfter, "`$0`r`n$requiredModules", 1)
+        }
+    }
+    # For IdLE.Steps.Common or IdLE.Provider.* modules, add RequiredModules for IdLE.Core only
+    elseif ($moduleName -match '^IdLE\.(Steps\.Common|Provider\.)') {
+        $requiredModules = @"
+    RequiredModules   = @(
+        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' }
+    )
+
+"@
+        # Add RequiredModules after PowerShellVersion
+        $insertAfter = '(?m)^[ \t]*PowerShellVersion[ \t]*=.*\r?\n'
+        if ($updated -match $insertAfter) {
+            $updated = [regex]::Replace($updated, $insertAfter, "`$0`r`n$requiredModules", 1)
+        }
+    }
+    
+    if ($updated -ne $raw) {
+        Set-Content -LiteralPath $ManifestPath -Value $updated -Encoding UTF8 -NoNewline
+    }
 }
 
 # Defaults
@@ -143,7 +236,7 @@ foreach ($moduleName in $ModuleNames) {
     }
 
     Write-Host "Packaging module: $moduleName"
-    Copy-IdleModuleFolder -SourcePath $moduleSrc -DestinationPath $moduleDst
+    Copy-IdleModuleFolder -SourcePath $moduleSrc -DestinationPath $moduleDst -TransformForGallery
 
     $packagedModules += Get-Item -LiteralPath $moduleDst
 }

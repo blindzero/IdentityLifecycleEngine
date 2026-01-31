@@ -7,10 +7,6 @@
     Description       = 'Active Directory (on-prem) provider implementation for IdLE (Windows-only, requires RSAT/ActiveDirectory module).'
     PowerShellVersion = '7.0'
 
-    RequiredModules   = @(
-        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' }
-    )
-
     FunctionsToExport = @(
         'New-IdleADIdentityProvider'
     )

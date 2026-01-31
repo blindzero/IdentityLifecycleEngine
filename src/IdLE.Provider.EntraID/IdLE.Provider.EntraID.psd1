@@ -7,10 +7,6 @@
     Description       = 'Microsoft Entra ID (Azure AD) provider implementation for IdLE using Microsoft Graph API.'
     PowerShellVersion = '7.0'
 
-    RequiredModules   = @(
-        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' }
-    )
-
     FunctionsToExport = @(
         'New-IdleEntraIDIdentityProvider'
     )

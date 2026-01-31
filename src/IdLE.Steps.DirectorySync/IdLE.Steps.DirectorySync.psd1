@@ -7,11 +7,6 @@
     Description       = 'Generic directory sync steps for IdLE.'
     PowerShellVersion = '7.0'
 
-    RequiredModules   = @(
-        @{ ModuleName = 'IdLE.Core'; ModuleVersion = '0.9.1' },
-        @{ ModuleName = 'IdLE.Steps.Common'; ModuleVersion = '0.9.1' }
-    )
-
     FunctionsToExport = @(
         'Get-IdleStepMetadataCatalog',
         'Invoke-IdleStepTriggerDirectorySync'
