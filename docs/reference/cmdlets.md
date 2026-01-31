@@ -1,4 +1,4 @@
-# Cmdlet Reference
+# Cmdlets
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleCmdletReference.ps1
