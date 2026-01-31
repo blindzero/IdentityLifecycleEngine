@@ -76,6 +76,7 @@ const sidebars = {
         },
         'reference/steps',
         'reference/capabilities',
+        'reference/providers/index',
         {
           type: 'category',
           label: 'Providers',
