@@ -35,6 +35,7 @@ $plan = New-IdlePlan -WorkflowPath '.\joiner.psd1' -Request $request -Providers 
 ## Documentation
 
 See **[Complete Provider Documentation](../../docs/reference/providers/provider-entraID.md)** for:
+
 - Full usage guide and examples
 - Capabilities and built-in steps
 - Authentication patterns (delegated + app-only)

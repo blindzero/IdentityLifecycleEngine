@@ -144,11 +144,6 @@ With = @{
 
 :::info
 
-Please see the detailed Provider Reference documentation for authentication help.
+Please see the detailed [Provider Reference](../reference/providers.md) documentation for authentication help.
 
 :::
-
-## Provider Reference
-
-### [Active Directory Provider](../reference/providers/provider-ad.md)
-### [Entra ID Provider](../reference/providers/provider-entraID.md)

@@ -31,7 +31,7 @@ const sidebars = {
       label: 'Use IdLE',
       collapsed: false,
       items: [
-        'use/intro',
+        'use/intro-use',
         'use/installation',
         'use/quickstart',
         'use/workflows',
@@ -44,12 +44,12 @@ const sidebars = {
       label: 'Extend IdLE',
       collapsed: false,
       items: [
-        'extend/intro',
+        'extend/intro-extend',
         'extend/extensibility',
-        'extend/providers',
-        'extend/steps',
-        'extend/events',
         // Add later if/when you create them:
+        // 'extend/providers',
+        // 'extend/steps',
+        // 'extend/events',
         // 'extend/auth-sessions',
         // 'extend/testing',
       ],
@@ -59,11 +59,11 @@ const sidebars = {
       label: 'Reference',
       collapsed: true,
       items: [
-        'reference/intro',
+        'reference/intro-reference',
         'reference/cmdlets',
         {
           type: 'category',
-          label: 'Cmdlets',
+          label: 'Cmdlet Reference',
           collapsed: true,
           items: [
             'reference/cmdlets/Export-IdlePlan',
@@ -75,16 +75,36 @@ const sidebars = {
           ],
         },
         'reference/steps',
-        'reference/capabilities',
         {
           type: 'category',
-          label: 'Providers',
+          label: 'Step Reference',
+          collapsed: true,
+          items: [
+            'reference/steps/step-create-identity',
+            'reference/steps/step-delete-identity',
+            'reference/steps/step-disable-identity',
+            'reference/steps/step-enable-identity',
+            'reference/steps/step-emit-event',
+            'reference/steps/step-ensure-attribute',
+            'reference/steps/step-ensure-entitlement',
+            'reference/steps/step-move-identity',
+            'reference/steps/step-trigger-directory-sync',
+          ]
+        },
+        'reference/providers',
+        {
+          type: 'category',
+          label: 'Provider Reference',
           collapsed: true,
           items: [
             'reference/providers/provider-ad',
             'reference/providers/provider-entraID',
+            'reference/providers/provider-directorysync-entraconnect',
+            'reference/providers/provider-exchangeonline',
+            'reference/providers/provider-mock',
           ],
         },
+        'reference/capabilities',
         {
           type: 'category',
           label: 'Specs',

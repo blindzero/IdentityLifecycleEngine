@@ -5,10 +5,17 @@ param(
     [ValidateNotNullOrEmpty()]
     [string] $ModuleManifestPath,
 
-    # Markdown output path (will be created/overwritten).
+    # Markdown output path for the generated index page (will be created/overwritten).
+    # Example: ./docs/reference/steps.md
     [Parameter()]
     [ValidateNotNullOrEmpty()]
     [string] $OutputPath,
+
+    # Output directory for generated per-step-type pages.
+    # If omitted, it is derived from OutputPath: "<parent>/steps".
+    [Parameter()]
+    [ValidateNotNullOrEmpty()]
+    [string] $DetailOutputDirectory,
 
     # Restrict which step modules are scanned.
     [Parameter()]
@@ -17,40 +24,62 @@ param(
 
     # Optional: Step function names to exclude (exact command names).
     [Parameter()]
-    [string[]] $ExcludeCommands = @()
+    [string[]] $ExcludeCommands = @(),
+
+    # If specified, remove previously generated per-step-type pages that no longer exist.
+    # Safety: only deletes files that contain the generator marker string.
+    [Parameter()]
+    [switch] $CleanObsoleteDetailPages
 )
 
 <#
 .SYNOPSIS
-Generates Markdown reference documentation for IdLE steps.
+Generates Markdown reference documentation for IdLE step types.
 
 .DESCRIPTION
-This script imports the IdLE module from the current repository clone and generates a Markdown
-"Step Catalog" based on functions following the naming convention: Invoke-IdleStep<StepType>.
+This script imports the IdLE modules from the current repository clone and generates:
+
+- An index page at -OutputPath (default: ./docs/reference/steps.md)
+- One page per step type in -DetailOutputDirectory (default: ./docs/reference/steps/)
+
+Step types are discovered from functions following the naming convention:
+Invoke-IdleStep<StepType>.
 
 The generator uses comment-based help (Get-Help) as the primary source and adds a small amount of
 heuristic extraction from the step source file (e.g., required With.* keys when they are defined
 in a simple static pattern).
 
 Important:
-- Do not edit the generated file by hand. Update step help/source and regenerate.
+- Do not edit generated files by hand. Update step help/source and regenerate.
+- Per-step-type filenames are slugified from the StepType (kebab-case) and do not include an "idle" prefix.
+  Example: "EnsureAttribute" -> "step-ensure-attribute.md"
 
 MDX compatibility:
 - Step help text may contain angle tokens like <identifier> which MDX can interpret as JSX.
 - Step help text may contain braces like @{ ... } or {Name} which MDX can interpret as expressions.
 - This generator sanitizes help-derived text to be MDX-safe.
 
+Markdown linting:
+- Many linters require a blank line before lists. The generator ensures there is an empty line before
+  markdown list items like "- ", "* ", "+ ", or "1. ".
+
 .PARAMETER ModuleManifestPath
 Path to the IdLE module manifest (IdLE.psd1). Defaults to ./src/IdLE/IdLE.psd1 relative to this script.
 
 .PARAMETER OutputPath
-Path to the generated Markdown file. Defaults to ./docs/reference/steps.md relative to this script.
+Path to the generated Markdown index page. Defaults to ./docs/reference/steps.md relative to this script.
+
+.PARAMETER DetailOutputDirectory
+Directory for generated per-step-type pages. Defaults to "<parent of OutputPath>/steps".
 
 .PARAMETER StepModules
 Modules that contain step functions (IdLE.Steps.*).
 
 .PARAMETER ExcludeCommands
 Specific step function names to exclude (exact command names).
+
+.PARAMETER CleanObsoleteDetailPages
+If specified, delete previously generated detail pages that are no longer produced.
 
 .EXAMPLE
 pwsh ./tools/Generate-IdleStepReference.ps1
@@ -61,6 +90,8 @@ System.String
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+$script:GeneratorMarker = 'Source: tools/Generate-IdleStepReference.ps1'
 
 function Resolve-IdleRepoPath {
     [CmdletBinding()]
@@ -85,6 +116,27 @@ function ConvertTo-IdleMarkdownSafeText {
     return $normalized.Trim()
 }
 
+function Ensure-IdleBlankLineBeforeMarkdownLists {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Text
+    )
+
+    # Many markdown linters require a blank line before lists.
+    # Also applies to: "* ", "+ ", and numbered lists "1. ".
+    $t = $Text -replace "`r`n", "`n" -replace "`r", "`n"
+
+    $t = [regex]::Replace(
+        $t,
+        '(?m)(?<=\S)\n(?=(?:- |\* |\+ |\d+\. ))',
+        "`n`n"
+    )
+
+    return $t
+}
+
 function ConvertTo-IdleMdxSafeText {
     [CmdletBinding()]
     param(
@@ -96,21 +148,18 @@ function ConvertTo-IdleMdxSafeText {
     # NOTE:
     # We intentionally sanitize ONLY help-derived text (synopsis/description),
     # not the full generated Markdown structure.
-    #
-    # 1) Replace simple angle tokens (<object>) that MDX might interpret as JSX.
-    # 2) Escape braces so MDX does not treat them as expressions.
-    #
-    # Backslashes will not show up in rendered Markdown; they merely escape characters.
 
     $t = $Text -replace "`r`n", "`n" -replace "`r", "`n"
 
-    # Replace <token> with HTML entities.
+    # Replace <token> with HTML entities (MDX/JSX safety).
     $t = $t -replace '<(?<tok>[A-Za-z][A-Za-z0-9_-]*)>', '&lt;${tok}&gt;'
 
     # Escape braces to avoid MDX expression parsing, e.g. @{ ... } or {Name}.
-    # We escape single braces as well as any brace characters in the text.
     $t = $t -replace '\{', '\{'
     $t = $t -replace '\}', '\}'
+
+    # Lint-friendly markdown lists.
+    $t = Ensure-IdleBlankLineBeforeMarkdownLists -Text $t
 
     return $t.Trim()
 }
@@ -168,7 +217,12 @@ function Get-IdleRequiredWithKeysFromSource {
 
     $content = Get-Content -Path $filePath -Raw -ErrorAction Stop
 
-    $m = [regex]::Match($content, 'foreach\s*\(\s*\$key\s+in\s+@\((?<List>[^)]*)\)\s*\)', 'IgnoreCase')
+    $m = [regex]::Match(
+        $content,
+        'foreach\s*\(\s*\$key\s+in\s+@\((?<List>[^)]*)\)\s*\)',
+        'IgnoreCase'
+    )
+
     if (-not $m.Success) {
         return @()
     }
@@ -189,7 +243,12 @@ function Get-IdleProviderMethodHintFromDescription {
 
     # Best-effort extraction:
     # "must implement an EnsureAttribute method" -> EnsureAttribute
-    $m = [regex]::Match($DescriptionText, 'must\s+implement\s+an?\s+(?<Method>[A-Za-z0-9_]+)\s+method', 'IgnoreCase')
+    $m = [regex]::Match(
+        $DescriptionText,
+        'must\s+implement\s+an?\s+(?<Method>[A-Za-z0-9_]+)\s+method',
+        'IgnoreCase'
+    )
+
     if (-not $m.Success) {
         return $null
     }
@@ -197,7 +256,83 @@ function Get-IdleProviderMethodHintFromDescription {
     return $m.Groups['Method'].Value
 }
 
-function ConvertTo-IdleStepMarkdownSection {
+function ConvertTo-IdleKebabCase {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Text
+    )
+
+    # Robust kebab-case conversion (prevents per-letter splitting).
+    #
+    # 1) Split acronym-to-word boundaries: "EntraID" -> "Entra-ID"
+    #    (?<=[A-Z])(?=[A-Z][a-z])
+    # 2) Split lower-to-upper boundaries: "CreateIdentity" -> "Create-Identity"
+    #    (?<=[a-z0-9])(?=[A-Z])
+    $t = $Text
+
+    $t = [regex]::Replace($t, '(?<=[A-Z])(?=[A-Z][a-z])', '-')
+    $t = [regex]::Replace($t, '(?<=[a-z0-9])(?=[A-Z])', '-')
+
+    # Normalize common separators to hyphen
+    $t = $t -replace '[\._\s]+', '-'
+
+    # Collapse duplicates and lowercase
+    $t = $t -replace '-{2,}', '-'
+    $t = $t.Trim('-').ToLowerInvariant()
+
+    return $t
+}
+
+function ConvertTo-IdleStepSlug {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $StepType
+    )
+
+    $slug = ConvertTo-IdleKebabCase -Text $StepType
+
+    # Remove optional IdLE-related prefixes (user-facing file names should not include "idle").
+    $slug = $slug -replace '^idle-step-', ''
+    $slug = $slug -replace '^idle-', ''
+
+    # Ensure the file name remains self-explanatory.
+    if (-not $slug.StartsWith('step-')) {
+        $slug = "step-$slug"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($slug)) {
+        throw "Failed to derive a slug for step type: '$StepType'."
+    }
+
+    return $slug
+}
+
+function Get-IdleCommandModuleName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [System.Management.Automation.CommandInfo] $CommandInfo
+    )
+
+    # Prefer ModuleName (string), then Module.Name, else Unknown.
+    $moduleName = $CommandInfo.ModuleName
+    if (-not [string]::IsNullOrWhiteSpace($moduleName)) {
+        return $moduleName
+    }
+
+    if ($null -ne $CommandInfo.Module -and -not [string]::IsNullOrWhiteSpace($CommandInfo.Module.Name)) {
+        return $CommandInfo.Module.Name
+    }
+
+    return 'Unknown'
+}
+
+function New-IdleStepDocModel {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -211,6 +346,7 @@ function ConvertTo-IdleStepMarkdownSection {
         return $null
     }
 
+    $moduleName = Get-IdleCommandModuleName -CommandInfo $CommandInfo
     $help = Get-IdleHelpSafe -CommandName $commandName
 
     $synopsis = ''
@@ -241,43 +377,136 @@ function ConvertTo-IdleStepMarkdownSection {
     $providerMethod = Get-IdleProviderMethodHintFromDescription -DescriptionText $description
     $contracts = if ($providerMethod) { "Provider must implement method: $providerMethod" } else { 'Unknown' }
 
+    $slug = ConvertTo-IdleStepSlug -StepType $stepType
+
+    return [pscustomobject]@{
+        StepType         = $stepType
+        Slug             = $slug
+        ModuleName       = $moduleName
+        CommandName      = $commandName
+        Synopsis         = $synopsis
+        Description      = $description
+        RequiredWithKeys = $requiredWithKeys
+        Idempotent       = $idempotent
+        Contracts        = $contracts
+    }
+}
+
+function New-IdleStepDetailPageContent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [pscustomobject] $Model
+    )
+
     $sb = New-Object System.Text.StringBuilder
 
-    [void]$sb.AppendLine("## $stepType")
+    [void]$sb.AppendLine("# $($Model.StepType)")
     [void]$sb.AppendLine()
-    [void]$sb.AppendLine(("- **Step Name**: ``{0}``" -f $stepType))
-    [void]$sb.AppendLine(("- **Implementation**: ``{0}``" -f $commandName))
-    [void]$sb.AppendLine(("- **Idempotent**: ``{0}``" -f $idempotent))
-    [void]$sb.AppendLine(("- **Contracts**: ``{0}``" -f $contracts))
-    [void]$sb.AppendLine(("- **Events**: Unknown"))
-    [void]$sb.AppendLine()
-    [void]$sb.AppendLine("**Synopsis**")
-    [void]$sb.AppendLine()
-    [void]$sb.AppendLine($synopsis)
+    [void]$sb.AppendLine('> Generated file. Do not edit by hand.')
+    [void]$sb.AppendLine("> $script:GeneratorMarker")
     [void]$sb.AppendLine()
 
-    if (-not [string]::IsNullOrWhiteSpace($description)) {
-        [void]$sb.AppendLine("**Description**")
+    [void]$sb.AppendLine('## Summary')
+    [void]$sb.AppendLine()
+    [void]$sb.AppendLine(("- **Step Type**: ``{0}``" -f $Model.StepType))
+    [void]$sb.AppendLine(("- **Module**: ``{0}``" -f $Model.ModuleName))
+    [void]$sb.AppendLine(("- **Implementation**: ``{0}``" -f $Model.CommandName))
+    [void]$sb.AppendLine(("- **Idempotent**: ``{0}``" -f $Model.Idempotent))
+    [void]$sb.AppendLine(("- **Contracts**: ``{0}``" -f $Model.Contracts))
+    [void]$sb.AppendLine(("- **Events**: Unknown"))
+    [void]$sb.AppendLine()
+
+    [void]$sb.AppendLine('## Synopsis')
+    [void]$sb.AppendLine()
+    [void]$sb.AppendLine($Model.Synopsis.Trim())
+    [void]$sb.AppendLine()
+
+    if (-not [string]::IsNullOrWhiteSpace($Model.Description)) {
+        [void]$sb.AppendLine('## Description')
         [void]$sb.AppendLine()
-        [void]$sb.AppendLine($description)
+        [void]$sb.AppendLine($Model.Description.Trim())
         [void]$sb.AppendLine()
     }
 
-    [void]$sb.AppendLine("**Inputs (With.\*)**")
+    [void]$sb.AppendLine('## Inputs (With.*)')
     [void]$sb.AppendLine()
 
-    if ($requiredWithKeys.Count -eq 0) {
+    if ($Model.RequiredWithKeys.Count -eq 0) {
         [void]$sb.AppendLine('_Unknown (not detected automatically). Document required With.* keys in the step help and/or use a supported pattern._')
+        [void]$sb.AppendLine()
     }
     else {
         [void]$sb.AppendLine('| Key | Required |')
         [void]$sb.AppendLine('| --- | --- |')
-        foreach ($k in $requiredWithKeys) {
+        foreach ($k in $Model.RequiredWithKeys) {
             [void]$sb.AppendLine("| $k | Yes |")
         }
+        [void]$sb.AppendLine()
     }
 
-    return $sb.ToString()
+    # Normalize output: ensure exactly one LF at EOF.
+    return ($sb.ToString().TrimEnd()) + "`n"
+}
+
+function New-IdleStepsIndexPageContent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [pscustomobject[]] $Models
+    )
+
+    $sb = New-Object System.Text.StringBuilder
+
+    [void]$sb.AppendLine('# Steps')
+    [void]$sb.AppendLine()
+    [void]$sb.AppendLine('> Generated file. Do not edit by hand.')
+    [void]$sb.AppendLine("> $script:GeneratorMarker")
+    [void]$sb.AppendLine()
+    [void]$sb.AppendLine('| Step Type | Module | Synopsis |')
+    [void]$sb.AppendLine('| --- | --- | --- |')
+
+    foreach ($m in ($Models | Sort-Object -Property StepType)) {
+        # Keep synopsis a single line in the table.
+        $syn = ($m.Synopsis -replace '\s+', ' ').Trim()
+        [void]$sb.AppendLine(('| [{0}](steps/{1}.md) | ``{2}`` | {3} |' -f $m.StepType, $m.Slug, $m.ModuleName, $syn))
+    }
+
+    return ($sb.ToString().TrimEnd()) + "`n"
+}
+
+function Remove-IdleObsoleteGeneratedPages {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Directory,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [string[]] $KeepFileNames
+    )
+
+    if (-not (Test-Path -Path $Directory)) {
+        return
+    }
+
+    $keep = @{}
+    foreach ($k in $KeepFileNames) { $keep[$k] = $true }
+
+    Get-ChildItem -Path $Directory -Filter '*.md' -File -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($keep.ContainsKey($_.Name)) {
+            return
+        }
+
+        # Safety: only delete if it is clearly generated by this script.
+        $text = Get-Content -Path $_.FullName -Raw -ErrorAction SilentlyContinue
+        if ($null -ne $text -and $text -like "*$script:GeneratorMarker*") {
+            Remove-Item -Path $_.FullName -Force -ErrorAction Stop
+        }
+    }
 }
 
 # Resolve defaults relative to this script.
@@ -298,10 +527,19 @@ if (-not (Test-Path -Path $outDir)) {
     New-Item -Path $outDir -ItemType Directory -Force | Out-Null
 }
 
+if (-not $PSBoundParameters.ContainsKey('DetailOutputDirectory') -or [string]::IsNullOrWhiteSpace($DetailOutputDirectory)) {
+    $DetailOutputDirectory = Join-Path -Path $outDir -ChildPath 'steps'
+}
+
+if (-not (Test-Path -Path $DetailOutputDirectory)) {
+    New-Item -Path $DetailOutputDirectory -ItemType Directory -Force | Out-Null
+}
+
 # Import IdLE from working tree.
 Remove-Module -Name 'IdLE*' -Force -ErrorAction SilentlyContinue
+Import-Module -Name $ModuleManifestPath -Force -ErrorAction Stop
 
-# Ensure step modules are loaded (Import-Module by name does NOT load nested step modules automatically).
+# Ensure step modules are loaded (Import-Module IdLE.psd1 does NOT load nested step modules automatically).
 foreach ($m in $StepModules) {
     if (Get-Module -Name $m) {
         continue
@@ -310,7 +548,6 @@ foreach ($m in $StepModules) {
     Write-Verbose "Importing step module: $m"
 
     try {
-        # Try by module name first (works if it is already discoverable in PSModulePath).
         Import-Module -Name $m -Force -ErrorAction Stop
         continue
     }
@@ -347,36 +584,38 @@ if (-not $stepCommands) {
     throw "No step commands found. Ensure step modules are included in -StepModules (currently: $($StepModules -join ', '))."
 }
 
-$header = @(
-    '# Step Catalog'
-    ''
-    '> Generated file. Do not edit by hand.'
-    "> Source: tools/Generate-IdleStepReference.ps1"
-    ''
-    'This page documents built-in IdLE steps discovered from `Invoke-IdleStep*` functions in `IdLE.Steps.*` modules.'
-    ''
-    '---'
-    ''
-) -join "`n"
-
-$body = New-Object System.Text.StringBuilder
-[void]$body.AppendLine($header)
-
-foreach ($cmd in ($stepCommands | Sort-Object)) {
-    $section = ConvertTo-IdleStepMarkdownSection -CommandInfo $cmd
-    if (-not [string]::IsNullOrWhiteSpace($section)) {
-        [void]$body.AppendLine($section)
-        [void]$body.AppendLine('---')
-        [void]$body.AppendLine()
-    }
+# Build documentation models.
+$models = foreach ($cmd in $stepCommands) {
+    New-IdleStepDocModel -CommandInfo $cmd
 }
 
-# Normalize output:
-# - remove trailing whitespace/newlines introduced by StringBuilder
-# - enforce exactly one LF at EOF (avoids "one newline too many" / dangling blank line issues)
-$content = ($body.ToString().TrimEnd()) + "`n"
+$models = @($models | Where-Object { $null -ne $_ } | Sort-Object -Property StepType)
 
-Set-Content -Path $OutputPath -Value $content -Encoding utf8 -NoNewline
+if ($models.Count -eq 0) {
+    throw "No step documentation models produced. Ensure step functions match 'Invoke-IdleStep<StepType>'."
+}
+
+# Write per-step-type pages.
+$generatedDetailNames = New-Object System.Collections.Generic.List[string]
+
+foreach ($m in $models) {
+    $fileName = "$($m.Slug).md"
+    $filePath = Join-Path -Path $DetailOutputDirectory -ChildPath $fileName
+
+    $pageContent = New-IdleStepDetailPageContent -Model $m
+    Set-Content -Path $filePath -Value $pageContent -Encoding utf8 -NoNewline
+
+    $generatedDetailNames.Add($fileName) | Out-Null
+}
+
+# Optionally remove obsolete generated pages.
+if ($CleanObsoleteDetailPages) {
+    Remove-IdleObsoleteGeneratedPages -Directory $DetailOutputDirectory -KeepFileNames $generatedDetailNames.ToArray()
+}
+
+# Write index page.
+$indexContent = New-IdleStepsIndexPageContent -Models $models
+Set-Content -Path $OutputPath -Value $indexContent -Encoding utf8 -NoNewline
 
 $generatedFile = Get-Item -Path $OutputPath
-"Generated step reference: $($generatedFile.FullName) ($($generatedFile.Length) bytes)"
+"Generated`n`tStep reference index: $($generatedFile.FullName) ($($generatedFile.Length) bytes)`n`tDetail pages: $($models.Count) in '$DetailOutputDirectory'"

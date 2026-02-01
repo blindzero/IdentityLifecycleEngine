@@ -1,4 +1,7 @@
-# IdLE.Provider.AD - Active Directory Provider
+---
+title: Provider Reference - IdLE.Provider.AD (Active Directory)
+sidebar_label: Active Directory
+---
 
 ## Overview
 
@@ -82,6 +85,71 @@ Import-Module IdLE
 This makes `New-IdleADIdentityProvider` available in your session.
 
 ---
+
+## Authentication and session acquisition
+
+> Providers must not prompt for auth. Use the host-provided broker contract.
+
+- **Auth session name(s) used by built-in steps:** `ActiveDirectory`
+- **Auth session formats supported:**  
+  - `null` (integrated authentication / run-as)  
+  - `PSCredential` (used for AD cmdlets `-Credential`)
+- **Session options (data-only):** Any hashtable; commonly `@{ Role = 'Tier0' }` / `@{ Role = 'Admin' }`
+
+:::warning
+
+**Security notes**
+
+- Do not pass secrets in workflow files or provider options.
+- Make sure your host does not emit credential objects (or their secure strings) in logs/events.
+
+:::
+
+### Auth examples
+
+**A) Integrated authentication (no broker)**
+
+```powershell
+# Run the host under an account that already has the required AD permissions.
+$providers = @{
+  Identity = New-IdleADIdentityProvider
+}
+```
+
+**B) Role-based routing with `New-IdleAuthSession` (typical Tier0/Admin)**
+
+```powershell
+$tier0Credential = Get-Credential -Message 'Enter Tier0 AD admin credentials'
+$adminCredential = Get-Credential -Message 'Enter AD admin credentials'
+
+$broker = New-IdleAuthSession -SessionMap @{
+  @{ Role = 'Tier0' } = $tier0Credential
+  @{ Role = 'Admin' } = $adminCredential
+} -DefaultCredential $adminCredential
+
+$providers = @{
+  Identity         = New-IdleADIdentityProvider
+  AuthSessionBroker = $broker
+}
+
+# In the workflow step:
+# With.AuthSessionName    = 'ActiveDirectory'
+# With.AuthSessionOptions = @{ Role = 'Tier0' }
+```
+
+**C) Multi-forest / multi-domain routing**
+
+```powershell
+$sourceCred = Get-Credential -Message 'Enter credentials for source forest'
+$targetCred = Get-Credential -Message 'Enter credentials for target forest'
+
+$broker = New-IdleAuthSession -SessionMap @{
+  @{ Domain = 'SourceForest' } = $sourceCred
+  @{ Domain = 'TargetForest' } = $targetCred
+}
+
+# Steps use With.AuthSessionOptions = @{ Domain = 'SourceForest' } etc.
+```
 
 ## Usage
 

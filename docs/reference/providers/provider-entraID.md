@@ -1,4 +1,7 @@
-# IdLE.Provider.EntraID Reference
+---
+title: Provider Reference - IdLE.Provider.EntraID
+sidebar_label: Entra ID
+---
 
 Microsoft Entra ID (formerly Azure Active Directory) identity provider for IdLE.
 
@@ -90,6 +93,94 @@ $broker = New-IdleAuthSession -SessionMap @{
 } -DefaultCredential $adminToken
 
 # Workflow steps specify: With.AuthSessionOptions = @{ Role = 'Tier0' }
+```
+
+
+
+> Providers must not prompt for auth. Use the host-provided broker contract.
+
+- **Auth session name(s) used by built-in steps:** `MicrosoftGraph`
+- **Auth session formats supported:**  
+  - `string` Bearer access token  
+  - object with `AccessToken` property  
+  - object with `GetAccessToken()` method  
+  - `PSCredential` (token stored in password field; username is ignored)
+- **Session options (data-only):** Any hashtable; common keys: `Role`, `Tenant`, `Environment`
+
+:::warning
+
+**Security notes**
+
+- Do not pass secrets in workflow files or provider options.
+- If you use access tokens, ensure your host does not log them (events, transcripts, verbose output).
+
+:::
+
+### Auth examples
+
+**A) Delegated auth (interactive) – host obtains token, provider consumes token**
+
+```powershell
+# Host responsibility:
+# Example with Microsoft Graph PowerShell (interactive sign-in)
+Connect-MgGraph -Scopes 'User.ReadWrite.All','Group.ReadWrite.All' | Out-Null
+$ctx = Get-MgContext
+
+# Provide a token supplier object so tokens can refresh
+$tokenSupplier = [pscustomobject]@{ Context = $ctx }
+$tokenSupplier | Add-Member -MemberType ScriptMethod -Name GetAccessToken -Value {
+  # NOTE: Replace this with your real token retrieval logic.
+  # In many hosts you would acquire tokens via MSAL / managed identity.
+  throw 'Implement token acquisition in the host.'
+}
+
+$broker = [pscustomobject]@{}
+$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+  param($Name, $Options)
+  return $tokenSupplier
+}
+
+$providers = @{
+  Identity          = New-IdleEntraIDIdentityProvider
+  AuthSessionBroker = $broker
+}
+
+# Steps use:
+# With.AuthSessionName = 'MicrosoftGraph'
+```
+
+**B) App-only auth – host supplies a fixed token string (simple demo / lab)**
+
+```powershell
+$accessToken = Get-MyGraphAppOnlyToken # host-managed (MSAL / managed identity / etc.)
+
+$broker = [pscustomobject]@{}
+$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+  param($Name, $Options)
+  return $accessToken
+}
+
+$providers = @{
+  Identity          = New-IdleEntraIDIdentityProvider
+  AuthSessionBroker = $broker
+}
+```
+
+**C) Multi-tenant routing**
+
+```powershell
+$tokenProd = Get-GraphToken -Tenant 'contoso.onmicrosoft.com'
+$tokenLab  = Get-GraphToken -Tenant 'contoso-lab.onmicrosoft.com'
+
+$broker = [pscustomobject]@{}
+$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+  param($Name, $Options)
+  if ($Options.Tenant -eq 'Prod') { return $tokenProd }
+  if ($Options.Tenant -eq 'Lab')  { return $tokenLab }
+  throw "Unknown tenant option: $($Options.Tenant)"
+}
+
+# Steps use With.AuthSessionOptions = @{ Tenant = 'Prod' } etc.
 ```
 
 ## Required Microsoft Graph Permissions

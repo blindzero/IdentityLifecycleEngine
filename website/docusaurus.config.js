@@ -34,14 +34,13 @@ const config = {
   projectName: repoName, // Usually your repo name.
 
   onBrokenLinks: 'warn',
-  onBrokenMarkdownLinks: 'warn',
-
+  
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: 'en',
-    locales: ['en','de'],
+    locales: ['en'],
   },
 
   presets: [
@@ -59,6 +58,7 @@ const config = {
           editUrl: `https://github.com/${repoOwner}/${repoName}/edit/main/`,
           exclude: [
             '**/develop/**',
+            '_*template.md',
             '**/index.md',
             'index.md'], 
         },
@@ -184,6 +184,12 @@ const config = {
 
   // If you enable Mermaid theme above, also enable markdown mermaid:
   // markdown: { mermaid: true },
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+      onBrokenMarkdownImages: 'warn',
+    }
+  },
 };
 
 module.exports = config;

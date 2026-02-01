@@ -90,8 +90,8 @@ Start here:
 
 - [docs/index.md](docs/index.md) – Documentation map
 - [docs/about/intro.md](docs/about/intro.md) – About IdLE
-- [docs/use/intro.md](docs/use/intro.md) – How to use IdLE
-- [docs/reference/intro.md](docs/reference/intro.md) - The authoritative IdLE reference
+- [docs/use/intro-use.md](docs/use/intro-use.md) – How to use IdLE
+- [docs/reference/intro-reference.md](docs/reference/intro-reference.md) - The authoritative IdLE reference
 
 ---
 

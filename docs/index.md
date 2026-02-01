@@ -20,7 +20,7 @@ Learn the basics [about IdLE](about/intro.md)
 
 ## Use IdLE
 
-Learn how to [use IdLE](use/intro.md) as an operator or admin, e.g. for workflow authoring.
+Learn how to [use IdLE](use/intro-use.md) as an operator or admin, e.g. for workflow authoring.
 
 - [Quickstart](use/quickstart.md) - Run the demo and understand Plan → Execute flow
 - [Installation](use/installation.md) - Install and import guide (requirements, import options)
@@ -30,7 +30,7 @@ Learn how to [use IdLE](use/intro.md) as an operator or admin, e.g. for workflow
 
 ## Extend IdLE
 
-Learn how to [extend IdLE](extend/intro.md) as a developer.
+Learn how to [extend IdLE](extend/intro-extend.md) as a developer.
 
 - [Extensibility](extend/extensibility.md) - General extensibility concept of IdLE
 - [Events](extend/events.md) - Eventing at IdLE to be used in your extensions
@@ -38,20 +38,12 @@ Learn how to [extend IdLE](extend/intro.md) as a developer.
 
 ## Reference
 
-The [authoritative reference](reference/intro.md) for IdLE components.
+The [authoritative reference](reference/intro-reference.md) for IdLE components.
 
-- [Cmdlets](reference/cmdlets.md) - Public cmdlets and usage
-- [Step Catalog](reference/steps.md) - Built-in step reference (generated)
-- [Capabilities](reference/capabilities.md) - The capabilities catalog
-
-## Workflow Examples
-
-- [Workflow Examples](../examples/README.md) - Runnable examples and demo workflows
-
-### Provider Reference
-
-- [Active Directory Provider](reference/providers/provider-ad.md)
-- [Entra ID Provider](reference/providers/provider-entraID.md)
+- [Cmdlet Reference](reference/cmdlets.md)
+- [Provider Reference](reference/providers.md)
+- [Step Reference](reference/steps.md)
+- [Capabilities](reference/capabilities.md)
 
 ### Specifications
 
@@ -59,6 +51,10 @@ Specifications are **normative contracts** (machine-readable formats / stable in
 used between IdLE and its hosts.
 
 - [Plan export (JSON)](reference/specs/plan-export.md) - The JSON specification of the Plan export file
+
+### Workflow Examples
+
+- [Workflow Examples](../examples/README.md) - Runnable examples and demo workflows
 
 ---
 
