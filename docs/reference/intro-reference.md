@@ -6,8 +6,8 @@ sidebar_label: Reference
 This section is the **authoritative reference** for IdLE.
 
 It contains precise, stable and normative information intended for lookup and verification.
-Content here is not tutorial-style and usually assumes prior knowledge from the **[Use](../use/intro.md)** or
-**[Extend](../extend/intro.md)** sections.
+Content here is not tutorial-style and usually assumes prior knowledge from the **[Use](../use/intro-use.md)** or
+**[Extend](../extend/intro-extend.md)** sections.
 
 ## How to use this section
 

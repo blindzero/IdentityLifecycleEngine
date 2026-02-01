@@ -24,4 +24,4 @@ It is written for people who want to add or customize functionality, for example
 
 ## Not the right section?
 
-If you want to run workflows as an operator/admin, go to [Use Idle](../use/intro.md) instead.
+If you want to run workflows as an operator/admin, go to [Use Idle](../use/intro-use.md) instead.

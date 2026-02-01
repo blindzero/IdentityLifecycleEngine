@@ -31,7 +31,7 @@ const sidebars = {
       label: 'Use IdLE',
       collapsed: false,
       items: [
-        'use/intro',
+        'use/intro-use',
         'use/installation',
         'use/quickstart',
         'use/workflows',
@@ -44,7 +44,7 @@ const sidebars = {
       label: 'Extend IdLE',
       collapsed: false,
       items: [
-        'extend/intro',
+        'extend/intro-extend',
         'extend/extensibility',
         // Add later if/when you create them:
         // 'extend/providers',
@@ -59,7 +59,7 @@ const sidebars = {
       label: 'Reference',
       collapsed: true,
       items: [
-        'reference/intro',
+        'reference/intro-reference',
         'reference/cmdlets',
         {
           type: 'category',

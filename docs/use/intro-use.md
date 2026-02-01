@@ -18,4 +18,4 @@ with one or more providers.
 - Executing workflow plans
 - Troubleshooting common issues
 
-If you want to extend IdLE and implement providers or steps, go to [Extend](../extend/intro.md) instead.
+If you want to extend IdLE and implement providers or steps, go to [Extend](../extend/intro-extend.md) instead.
