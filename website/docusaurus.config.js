@@ -58,6 +58,7 @@ const config = {
           editUrl: `https://github.com/${repoOwner}/${repoName}/edit/main/`,
           exclude: [
             '**/develop/**',
+            '_*template.md',
             '**/index.md',
             'index.md'], 
         },
