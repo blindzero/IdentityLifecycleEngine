@@ -284,19 +284,12 @@ jobs:
 
           Register-PSRepository -Name 'LocalRepo' -SourceLocation $repoPath -PublishLocation $repoPath -InstallationPolicy Trusted
 
-          # Publish modules in dependency order: Core → Steps.Common → Others
-          $publishOrder = @(
-            'IdLE.Core',
-            'IdLE.Steps.Common',
-            'IdLE',
-            'IdLE.Steps.DirectorySync',
-            'IdLE.Steps.Mailbox',
-            'IdLE.Provider.AD',
-            'IdLE.Provider.EntraID',
-            'IdLE.Provider.ExchangeOnline',
-            'IdLE.Provider.DirectorySync.EntraConnect',
-            'IdLE.Provider.Mock'
-          )
+          # Load publish order from configuration
+          $configPath = Join-Path $env:GITHUB_WORKSPACE 'tools/ModulePublishOrder.psd1'
+          $config = Import-PowerShellDataFile -LiteralPath $configPath
+          $publishOrder = $config.PublishOrder
+
+          Write-Host "Publishing modules in dependency order from configuration..."
 
           foreach ($moduleName in $publishOrder) {
             $modulePath = Join-Path $modulesPath $moduleName
@@ -383,20 +376,10 @@ jobs:
             throw "Staged modules path not found: $modulesPath"
           }
 
-          # Publish modules in dependency order: Core → Steps.Common → Others
-          # This ensures dependencies exist before dependent modules are published
-          $publishOrder = @(
-            'IdLE.Core',
-            'IdLE.Steps.Common',
-            'IdLE',
-            'IdLE.Steps.DirectorySync',
-            'IdLE.Steps.Mailbox',
-            'IdLE.Provider.AD',
-            'IdLE.Provider.EntraID',
-            'IdLE.Provider.ExchangeOnline',
-            'IdLE.Provider.DirectorySync.EntraConnect',
-            'IdLE.Provider.Mock'
-          )
+          # Load publish order from configuration
+          $configPath = Join-Path $env:GITHUB_WORKSPACE 'tools/ModulePublishOrder.psd1'
+          $config = Import-PowerShellDataFile -LiteralPath $configPath
+          $publishOrder = $config.PublishOrder
 
           Write-Host "Publishing modules to PowerShell Gallery in dependency order..."
           Write-Host "==================================================================`n"
