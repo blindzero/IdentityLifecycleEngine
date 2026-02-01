@@ -90,9 +90,9 @@ const config = {
         },
         items: [
           { to: '/docs/about/intro', label: 'About IdLE', position: 'left'},
-          { to: '/docs/use/intro', label: 'Use IdLE', position: 'left'},
-          { to: '/docs/extend/intro', label: 'Extend IdLE', position: 'left'},
-          { to: '/docs/reference/intro', label: 'Reference', position: 'left'},
+          { to: '/docs/use/intro-use', label: 'Use IdLE', position: 'left'},
+          { to: '/docs/extend/intro-extend', label: 'Extend IdLE', position: 'left'},
+          { to: '/docs/reference/intro-reference', label: 'Reference', position: 'left'},
           {
             href: `https://github.com/${repoOwner}/${repoName}`,
             label: 'GitHub',
