@@ -20,7 +20,7 @@ sidebar_label: Providers
 ## Choosing a provider
 
 - Match the **capabilities required by your steps** to the provider’s `GetCapabilities()` output.
-- Providers handle authentication/session acquisition via `Context.AcquireAuthSession(...)` (host-controlled).
+- Steps acquire auth sessions via `Context.AcquireAuthSession(...)` and pass them to provider methods that accept an optional `AuthSession` parameter (host-controlled).
 - In workflows, steps select a provider by **alias** (defaults to `Identity` if omitted).
 
 Related:
@@ -36,5 +36,5 @@ Related:
 - Minimal checklist:
   - Implement provider contracts (only what you need)
   - Advertise deterministic capabilities (`GetCapabilities()`)
-  - Acquire sessions via host context (no prompts inside providers)
+  - Accept optional `AuthSession` parameter in methods that require authentication (sessions acquired by steps via host context; no prompts inside providers)
   - Add unit tests + contract tests (no live calls in CI)
