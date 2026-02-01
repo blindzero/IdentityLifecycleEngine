@@ -4,5 +4,43 @@
 # Set environment variable to suppress internal module warnings during correct nested load
 $env:IDLE_ALLOW_INTERNAL_IMPORT = '1'
 
-# NOTE: PSModulePath bootstrap for repo/zip layouts is done AFTER NestedModules load
-# (in IdLE.psm1) to avoid interfering with nested module resolution
+# region PSModulePath Bootstrap for Repo/Zip Layouts  
+# Add src/ directory to PSModulePath for name-based imports of providers and optional steps
+# This runs after NestedModules (Core, Steps.Common) are already loaded via relative paths
+# Enables: Import-Module IdLE.Provider.* and Import-Module IdLE.Steps.* by name
+
+if ($PSScriptRoot) {
+    $parentDir = Split-Path -Path $PSScriptRoot -Parent
+    
+    # Check if parent directory is named 'src' (repo/zip layout indicator)
+    if ((Split-Path -Leaf -Path $parentDir) -eq 'src') {
+        $srcPath = $parentDir
+        
+        # Check if src is already in PSModulePath (idempotent)
+        $currentPSModulePath = $env:PSModulePath
+        $pathSeparator = [System.IO.Path]::PathSeparator
+        $paths = $currentPSModulePath -split [regex]::Escape($pathSeparator)
+        
+        $alreadyInPath = $false
+        foreach ($p in $paths) {
+            if ($p) {
+                try {
+                    $resolvedP = (Resolve-Path -Path $p -ErrorAction SilentlyContinue).Path
+                    $resolvedSrc = (Resolve-Path -Path $srcPath -ErrorAction SilentlyContinue).Path
+                    if ($resolvedP -and $resolvedSrc -and $resolvedP -eq $resolvedSrc) {
+                        $alreadyInPath = $true
+                        break
+                    }
+                } catch {
+                    # Ignore resolution errors
+                }
+            }
+        }
+        
+        if (-not $alreadyInPath) {
+            # Add src to PSModulePath at process scope (session-only, non-persistent)
+            $env:PSModulePath = $srcPath + $pathSeparator + $currentPSModulePath
+        }
+    }
+}
+# endregion

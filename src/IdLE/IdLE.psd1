@@ -11,10 +11,10 @@
     # This script bootstraps PSModulePath for repo/zip layouts
     ScriptsToProcess = @('IdLE.Init.ps1')
 
-    # NestedModules: Core and Steps.Common are imported as nested (not globally exported)
-    # For repo/zip: relative paths work
-    # For PSGallery: name-based references work after PSModulePath includes module locations
-    # ScriptsToProcess (IdLE.Init.ps1) adds src/ to PSModulePath for repo/zip layouts
+    # NestedModules: Core and Steps.Common are loaded as nested dependencies
+    # Note: Source manifests use NestedModules with relative paths to support repo/zip layouts
+    # The packaging tool (Part 1 of multi-module publishing) will convert these to
+    # name-based RequiredModules for PSGallery publication
     NestedModules = @(
         '..\IdLE.Core\IdLE.Core.psd1',
         '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
