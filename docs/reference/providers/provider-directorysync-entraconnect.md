@@ -64,7 +64,7 @@ and pass it to provider methods.
 - **Session options (data-only):**
   - Forwarded to the host broker for session selection (provider does not interpret option keys).
 
-:::warn
+:::warning
 
 **Security notes**
 

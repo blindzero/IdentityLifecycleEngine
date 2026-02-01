@@ -107,7 +107,7 @@ $broker = New-IdleAuthSession -SessionMap @{
   - `PSCredential` (token stored in password field; username is ignored)
 - **Session options (data-only):** Any hashtable; common keys: `Role`, `Tenant`, `Environment`
 
-:::warn
+:::warning
 
 **Security notes**
 

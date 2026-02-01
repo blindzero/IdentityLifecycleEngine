@@ -59,7 +59,7 @@ sidebar_label: Mock
 
 This provider does not require authentication.
 
-:::warn
+:::warning
 
 **Security notes**
 

@@ -60,7 +60,7 @@ List the IdLE provider contracts this provider implements and what they mean at 
 - **Session options (data-only):**
   - `<Key>`: `<Type>` — `<Meaning>` (optional default: `<...>`)
 
-:::warn
+:::warning
 
 **Security notes**
 

@@ -59,7 +59,7 @@ sidebar_label: ExchangeOnline
 - **Session options (data-only):**
   - The provider does not interpret options; they are used by the host/broker to select credentials/route to a tenant/session.
 
-:::warn
+:::warning
 
 **Security notes**
 

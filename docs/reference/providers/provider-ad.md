@@ -86,8 +86,6 @@ This makes `New-IdleADIdentityProvider` available in your session.
 
 ---
 
-
-
 ## Authentication and session acquisition
 
 > Providers must not prompt for auth. Use the host-provided broker contract.
@@ -98,7 +96,7 @@ This makes `New-IdleADIdentityProvider` available in your session.
   - `PSCredential` (used for AD cmdlets `-Credential`)
 - **Session options (data-only):** Any hashtable; commonly `@{ Role = 'Tier0' }` / `@{ Role = 'Admin' }`
 
-:::warn
+:::warning
 
 **Security notes**
 
