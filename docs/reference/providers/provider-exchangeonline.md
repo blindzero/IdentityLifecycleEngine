@@ -1,5 +1,5 @@
 ---
-title: Provider Reference: IdLE.Provider.ExchangeOnline
+title: Provider Reference - IdLE.Provider.ExchangeOnline
 sidebar_label: ExchangeOnline
 ---
 

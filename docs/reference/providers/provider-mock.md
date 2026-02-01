@@ -1,5 +1,5 @@
 ---
-title: Provider Reference: IdLE.Provider.Mock
+title: Provider Reference . IdLE.Provider.Mock
 sidebar_label: Mock
 ---
 

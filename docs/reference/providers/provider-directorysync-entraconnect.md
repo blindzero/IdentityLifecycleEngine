@@ -1,5 +1,5 @@
 ---
-title: Provider Reference: IdLE.Provider.DirectorySync.EntraConnect
+title: Provider Reference - IdLE.Provider.DirectorySync.EntraConnect
 sidebar_label: DirectorySync.EntraConnect
 ---
 

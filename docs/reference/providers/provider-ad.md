@@ -1,5 +1,5 @@
 ---
-title: IdLE.Provider.AD - Active Directory Provider
+title: Provider Reference - IdLE.Provider.AD (Active Directory)
 sidebar_label: Active Directory
 ---
 

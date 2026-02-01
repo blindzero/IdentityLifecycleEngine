@@ -1,5 +1,5 @@
 ---
-title: IdLE.Provider.EntraID Reference
+title: Provider Reference - IdLE.Provider.EntraID
 sidebar_label: Entra ID
 ---
 
