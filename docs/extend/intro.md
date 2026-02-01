@@ -22,13 +22,6 @@ It is written for people who want to add or customize functionality, for example
 - Authentication and session handling
 - Testing approaches (unit tests, contract tests)
 
-## Where to continue?
-
-1. [Extensibility](extensibility.md)
-2. [Providers](providers.md)
-3. [Steps](steps.md)
-4. [Events](events.md)
-
 ## Not the right section?
 
 If you want to run workflows as an operator/admin, go to [Use Idle](../use/intro.md) instead.

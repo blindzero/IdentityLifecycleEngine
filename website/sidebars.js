@@ -46,10 +46,10 @@ const sidebars = {
       items: [
         'extend/intro',
         'extend/extensibility',
-        'extend/providers',
-        'extend/steps',
-        'extend/events',
         // Add later if/when you create them:
+        // 'extend/providers',
+        // 'extend/steps',
+        // 'extend/events',
         // 'extend/auth-sessions',
         // 'extend/testing',
       ],
