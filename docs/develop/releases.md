@@ -230,8 +230,8 @@ IdLE is published to the PowerShell Gallery as **multiple separate modules** (mu
 - **IdLE** (meta-module) — Declares `IdLE.Core` and `IdLE.Steps.Common` as `RequiredModules`
 - **IdLE.Core** — Workflow engine (no IdLE dependencies)
 - **IdLE.Steps.Common** — Built-in steps (requires `IdLE.Core`)
-- **IdLE.Provider.**** — Provider modules (each published separately, typically require `IdLE.Core`)
-- **IdLE.Steps.**** — Optional step modules (published separately, require `IdLE.Core` and/or `IdLE.Steps.Common`)
+- **IdLE.Provider.\*** — Provider modules (each published separately, typically require `IdLE.Core`)
+- **IdLE.Steps.\*** — Optional step modules (published separately, require `IdLE.Core` and/or `IdLE.Steps.Common`)
 
 **Publishing Order:**
 

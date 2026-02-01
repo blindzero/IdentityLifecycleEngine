@@ -145,8 +145,8 @@ Starting with version 1.0, IdLE uses a **multi-module distribution model** where
 - **IdLE** (meta-module) — Depends on Core and Steps.Common
 - **IdLE.Core** — Workflow engine
 - **IdLE.Steps.Common** — Built-in steps
-- **IdLE.Provider.**** — Provider modules (published separately)
-- **IdLE.Steps.**** — Optional step modules (published separately)
+- **IdLE.Provider.\*** — Provider modules (published separately)
+- **IdLE.Steps.\*** — Optional step modules (published separately)
 
 This architecture provides:
 - ✅ **Standard PowerShell dependency resolution** via `RequiredModules`
