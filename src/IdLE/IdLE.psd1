@@ -7,9 +7,18 @@
     Description       = 'IdentityLifecycleEngine (IdLE) meta-module. Imports IdLE.Core and optional packs.'
     PowerShellVersion = '7.0'
 
-    # ScriptsToProcess runs before RequiredModules are imported
+    # ScriptsToProcess runs before NestedModules are loaded
     # This script bootstraps PSModulePath for repo/zip layouts
     ScriptsToProcess = @('IdLE.Init.ps1')
+
+    # NestedModules: Core and Steps.Common are imported as nested (not globally exported)
+    # For repo/zip: relative paths work
+    # For PSGallery: name-based references work after PSModulePath includes module locations
+    # ScriptsToProcess (IdLE.Init.ps1) adds src/ to PSModulePath for repo/zip layouts
+    NestedModules = @(
+        '..\IdLE.Core\IdLE.Core.psd1',
+        '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
+    )
 
     FunctionsToExport = @(
         'Test-IdleWorkflow',
@@ -21,11 +30,6 @@
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()
-
-    # NOTE: IdLE meta-module uses RootModule bootstrap instead of RequiredModules
-    # to support both PSGallery/installed and repo/zip layouts without requiring
-    # users to manually configure PSModulePath before first import.
-    # The RootModule (IdLE.psm1) imports IdLE.Core and IdLE.Steps.Common with fallback logic.
 
     PrivateData = @{
         PSData = @{

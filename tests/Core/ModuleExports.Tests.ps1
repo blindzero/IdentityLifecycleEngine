@@ -66,8 +66,8 @@ Describe 'Module Export Consistency' {
 
     Context 'IdLE meta-module exports' {
         BeforeAll {
-            $idleModulePath = Join-Path -Path $repoRoot -ChildPath 'src/IdLE/IdLE.psd1'
-            Import-Module -Name $idleModulePath -Force -ErrorAction Stop
+            $idleManifestPath = Join-Path -Path $repoRoot -ChildPath 'src/IdLE/IdLE.psd1'
+            Import-Module -Name $idleManifestPath -Force -ErrorAction Stop
             
             $idleModule = Get-Module -Name 'IdLE'
         }
@@ -95,8 +95,9 @@ Describe 'Module Export Consistency' {
                     $_.Trim().Trim("'").Trim('"')
                 } | Where-Object { $_ -ne '' }
                 
-                # Read the psd1 manifest
-                $manifest = Import-PowerShellDataFile -Path $idleModulePath
+                # Read the psd1 manifest (use fresh path, not the imported module variable)
+                $manifestPath = Join-Path -Path $repoRoot -ChildPath 'src/IdLE/IdLE.psd1'
+                $manifest = Import-PowerShellDataFile -Path $manifestPath
                 $exportedInPsd1 = $manifest.FunctionsToExport
                 
                 # Compare the two lists
