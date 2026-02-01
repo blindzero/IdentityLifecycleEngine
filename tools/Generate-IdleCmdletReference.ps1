@@ -217,7 +217,7 @@ function New-IdleCmdletIndexMarkdown {
     }
 
     $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add('# Cmdlet Reference')
+    $lines.Add('# Cmdlets')
     $lines.Add('')
     $lines.Add('> Generated file. Do not edit by hand.')
     $lines.Add('> Source: tools/Generate-IdleCmdletReference.ps1')
