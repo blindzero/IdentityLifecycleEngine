@@ -618,5 +618,4 @@ $indexContent = New-IdleStepsIndexPageContent -Models $models
 Set-Content -Path $OutputPath -Value $indexContent -Encoding utf8 -NoNewline
 
 $generatedFile = Get-Item -Path $OutputPath
-$generatedFile = Get-Item -Path $OutputPath
 "Generated`n`tStep reference index: $($generatedFile.FullName) ($($generatedFile.Length) bytes)`n`tDetail pages: $($models.Count) in '$DetailOutputDirectory'"
