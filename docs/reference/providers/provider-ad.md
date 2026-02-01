@@ -103,7 +103,7 @@ This makes `New-IdleADIdentityProvider` available in your session.
 - Do not pass secrets in workflow files or provider options.
 - Make sure your host does not emit credential objects (or their secure strings) in logs/events.
 
-::::
+:::
 
 ### Auth examples
 

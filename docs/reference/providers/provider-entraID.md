@@ -114,7 +114,7 @@ $broker = New-IdleAuthSession -SessionMap @{
 - Do not pass secrets in workflow files or provider options.
 - If you use access tokens, ensure your host does not log them (events, transcripts, verbose output).
 
-::::
+:::
 
 ### Auth examples
 
