@@ -12,7 +12,7 @@ sidebar_label: Providers
 - **[Active Directory (AD)](providers/provider-ad.md)** — Identity operations against on-prem AD via the AD provider module
 - **[Entra ID](providers/provider-entraID.md)** — Identity operations against Microsoft Entra ID via Microsoft Graph
 - **[Exchange Online](providers/provider-exchangeonline.md)** — Messaging / mailbox related operations against Exchange Online
-- **[DirectorySync.EntraConnect](providers/provider-directorysync-EntraConnect.md)** — Directory synchronization provider for Entra Connect / sync-cycle related operations
+- **[DirectorySync.EntraConnect](providers/provider-directorysync-entraconnect.md)** — Directory synchronization provider for Entra Connect / sync-cycle related operations
 - **[Mock Provider](providers/provider-mock.md)** — In-memory / file-backed provider for tests and local development without live systems
 
 ---
@@ -25,9 +25,9 @@ sidebar_label: Providers
 
 Related:
 
-- [Capabilities Reference](../capabilities.md)
-- [Provider fundamentals (concept)](../../about/concepts.md#providers)
-- [Use Providers](../../use/providers.md)
+- [Capabilities Reference](capabilities.md)
+- [Provider fundamentals (concept)](../about/concepts.md#providers)
+- [Use Providers](../use/providers.md)
 
 ---
 
@@ -38,9 +38,3 @@ Related:
   - Advertise deterministic capabilities (`GetCapabilities()`)
   - Acquire sessions via host context (no prompts inside providers)
   - Add unit tests + contract tests (no live calls in CI)
-
-Related:
-
-- [Extensibility](../../extend/extensibility.md)
-- Testing: `../advanced/testing.md`
-- [Security considerations](../../about/security.md)
