@@ -6,6 +6,7 @@
 ## Summary
 
 - **Step Type**: `TriggerDirectorySync`
+- **Module**: `IdLE.Steps.DirectorySync`
 - **Implementation**: `Invoke-IdleStepTriggerDirectorySync`
 - **Idempotent**: `Unknown`
 - **Contracts**: `Unknown`

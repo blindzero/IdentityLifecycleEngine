@@ -6,6 +6,7 @@
 ## Summary
 
 - **Step Type**: `CreateIdentity`
+- **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepCreateIdentity`
 - **Idempotent**: `Yes`
 - **Contracts**: `Unknown`

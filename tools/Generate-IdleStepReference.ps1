@@ -125,20 +125,9 @@ function Ensure-IdleBlankLineBeforeMarkdownLists {
     )
 
     # Many markdown linters require a blank line before lists.
-    #
-    # Turn:
-    #   Authentication:
-    #   - item
-    # Into:
-    #   Authentication:
-    #
-    #   - item
-    #
     # Also applies to: "* ", "+ ", and numbered lists "1. ".
     $t = $Text -replace "`r`n", "`n" -replace "`r", "`n"
 
-    # Insert an extra newline when a non-empty line is followed by a list item line.
-    # We only insert if there is not already an empty line.
     $t = [regex]::Replace(
         $t,
         '(?m)(?<=\S)\n(?=(?:- |\* |\+ |\d+\. ))',
@@ -159,20 +148,17 @@ function ConvertTo-IdleMdxSafeText {
     # NOTE:
     # We intentionally sanitize ONLY help-derived text (synopsis/description),
     # not the full generated Markdown structure.
-    #
-    # 1) Replace simple angle tokens (<object>) that MDX might interpret as JSX.
-    # 2) Escape braces so MDX does not treat them as expressions.
-    # 3) Ensure blank line before markdown lists for linting.
 
     $t = $Text -replace "`r`n", "`n" -replace "`r", "`n"
 
-    # Replace <token> with HTML entities.
+    # Replace <token> with HTML entities (MDX/JSX safety).
     $t = $t -replace '<(?<tok>[A-Za-z][A-Za-z0-9_-]*)>', '&lt;${tok}&gt;'
 
     # Escape braces to avoid MDX expression parsing, e.g. @{ ... } or {Name}.
     $t = $t -replace '\{', '\{'
     $t = $t -replace '\}', '\}'
 
+    # Lint-friendly markdown lists.
     $t = Ensure-IdleBlankLineBeforeMarkdownLists -Text $t
 
     return $t.Trim()
@@ -325,6 +311,27 @@ function ConvertTo-IdleStepSlug {
     return $slug
 }
 
+function Get-IdleCommandModuleName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [System.Management.Automation.CommandInfo] $CommandInfo
+    )
+
+    # Prefer ModuleName (string), then Module.Name, else Unknown.
+    $moduleName = $CommandInfo.ModuleName
+    if (-not [string]::IsNullOrWhiteSpace($moduleName)) {
+        return $moduleName
+    }
+
+    if ($null -ne $CommandInfo.Module -and -not [string]::IsNullOrWhiteSpace($CommandInfo.Module.Name)) {
+        return $CommandInfo.Module.Name
+    }
+
+    return 'Unknown'
+}
+
 function New-IdleStepDocModel {
     [CmdletBinding()]
     param(
@@ -339,6 +346,7 @@ function New-IdleStepDocModel {
         return $null
     }
 
+    $moduleName = Get-IdleCommandModuleName -CommandInfo $CommandInfo
     $help = Get-IdleHelpSafe -CommandName $commandName
 
     $synopsis = ''
@@ -374,6 +382,7 @@ function New-IdleStepDocModel {
     return [pscustomobject]@{
         StepType         = $stepType
         Slug             = $slug
+        ModuleName       = $moduleName
         CommandName      = $commandName
         Synopsis         = $synopsis
         Description      = $description
@@ -402,6 +411,7 @@ function New-IdleStepDetailPageContent {
     [void]$sb.AppendLine('## Summary')
     [void]$sb.AppendLine()
     [void]$sb.AppendLine(("- **Step Type**: ``{0}``" -f $Model.StepType))
+    [void]$sb.AppendLine(("- **Module**: ``{0}``" -f $Model.ModuleName))
     [void]$sb.AppendLine(("- **Implementation**: ``{0}``" -f $Model.CommandName))
     [void]$sb.AppendLine(("- **Idempotent**: ``{0}``" -f $Model.Idempotent))
     [void]$sb.AppendLine(("- **Contracts**: ``{0}``" -f $Model.Contracts))
@@ -455,13 +465,13 @@ function New-IdleStepsIndexPageContent {
     [void]$sb.AppendLine('> Generated file. Do not edit by hand.')
     [void]$sb.AppendLine("> $script:GeneratorMarker")
     [void]$sb.AppendLine()
-    [void]$sb.AppendLine('| Step Type | Synopsis |')
-    [void]$sb.AppendLine('| --- | --- |')
+    [void]$sb.AppendLine('| Step Type | Module | Synopsis |')
+    [void]$sb.AppendLine('| --- | --- | --- |')
 
     foreach ($m in ($Models | Sort-Object -Property StepType)) {
         # Keep synopsis a single line in the table.
         $syn = ($m.Synopsis -replace '\s+', ' ').Trim()
-        [void]$sb.AppendLine(('| [{0}](steps/{1}.md) | {2} |' -f $m.StepType, $m.Slug, $syn))
+        [void]$sb.AppendLine(('| [{0}](steps/{1}.md) | ``{2}`` | {3} |' -f $m.StepType, $m.Slug, $m.ModuleName, $syn))
     }
 
     return ($sb.ToString().TrimEnd()) + "`n"
@@ -511,7 +521,7 @@ if (-not $PSBoundParameters.ContainsKey('OutputPath')) {
 
 $ModuleManifestPath = Resolve-IdleRepoPath -Path $ModuleManifestPath
 
-# Ensure output directories exist.
+# Ensure output directory exists.
 $outDir = Split-Path -Path $OutputPath -Parent
 if (-not (Test-Path -Path $outDir)) {
     New-Item -Path $outDir -ItemType Directory -Force | Out-Null
@@ -529,7 +539,7 @@ if (-not (Test-Path -Path $DetailOutputDirectory)) {
 Remove-Module -Name 'IdLE*' -Force -ErrorAction SilentlyContinue
 Import-Module -Name $ModuleManifestPath -Force -ErrorAction Stop
 
-# Ensure step modules are loaded (Import-Module by name does NOT load nested step modules automatically).
+# Ensure step modules are loaded (Import-Module IdLE.psd1 does NOT load nested step modules automatically).
 foreach ($m in $StepModules) {
     if (Get-Module -Name $m) {
         continue
@@ -538,7 +548,6 @@ foreach ($m in $StepModules) {
     Write-Verbose "Importing step module: $m"
 
     try {
-        # Try by module name first (works if it is already discoverable in PSModulePath).
         Import-Module -Name $m -Force -ErrorAction Stop
         continue
     }
@@ -609,4 +618,5 @@ $indexContent = New-IdleStepsIndexPageContent -Models $models
 Set-Content -Path $OutputPath -Value $indexContent -Encoding utf8 -NoNewline
 
 $generatedFile = Get-Item -Path $OutputPath
-"Generated`nStep reference index: $($generatedFile.FullName) ($($generatedFile.Length) bytes)`nDetail pages: $($models.Count) in '$DetailOutputDirectory'"
+$generatedFile = Get-Item -Path $OutputPath
+"Generated`n`tStep reference index: $($generatedFile.FullName) ($($generatedFile.Length) bytes)`n`tDetail pages: $($models.Count) in '$DetailOutputDirectory'"

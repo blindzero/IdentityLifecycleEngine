@@ -6,6 +6,7 @@
 ## Summary
 
 - **Step Type**: `EmitEvent`
+- **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEmitEvent`
 - **Idempotent**: `Unknown`
 - **Contracts**: `Unknown`

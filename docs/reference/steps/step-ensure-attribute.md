@@ -6,6 +6,7 @@
 ## Summary
 
 - **Step Type**: `EnsureAttribute`
+- **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEnsureAttribute`
 - **Idempotent**: `Yes`
 - **Contracts**: `Provider must implement method: EnsureAttribute`

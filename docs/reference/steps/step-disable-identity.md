@@ -6,6 +6,7 @@
 ## Summary
 
 - **Step Type**: `DisableIdentity`
+- **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepDisableIdentity`
 - **Idempotent**: `Yes`
 - **Contracts**: `Unknown`

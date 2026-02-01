@@ -6,6 +6,7 @@
 ## Summary
 
 - **Step Type**: `MoveIdentity`
+- **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepMoveIdentity`
 - **Idempotent**: `Yes`
 - **Contracts**: `Unknown`

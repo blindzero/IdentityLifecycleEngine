@@ -6,6 +6,7 @@
 ## Summary
 
 - **Step Type**: `DeleteIdentity`
+- **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepDeleteIdentity`
 - **Idempotent**: `Yes`
 - **Contracts**: `Unknown`

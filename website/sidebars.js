@@ -75,7 +75,22 @@ const sidebars = {
           ],
         },
         'reference/steps',
-        'reference/capabilities',
+        {
+          type: 'category',
+          label: 'Step Reference',
+          collapsed: true,
+          items: [
+            'reference/steps/step-create-identity',
+            'reference/steps/step-delete-identity',
+            'reference/steps/step-disable-identity',
+            'reference/steps/step-enable-identity',
+            'reference/steps/step-emit-event',
+            'reference/steps/step-ensure-attribute',
+            'reference/steps/step-ensure-entitlement',
+            'reference/steps/step-move-identity',
+            'reference/steps/step-trigger-directory-sync',
+          ]
+        },
         'reference/providers',
         {
           type: 'category',
@@ -86,6 +101,7 @@ const sidebars = {
             'reference/providers/provider-entraID',
           ],
         },
+        'reference/capabilities',
         {
           type: 'category',
           label: 'Specs',

@@ -6,6 +6,7 @@
 ## Summary
 
 - **Step Type**: `EnsureEntitlement`
+- **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEnsureEntitlement`
 - **Idempotent**: `Yes`
 - **Contracts**: `Unknown`
