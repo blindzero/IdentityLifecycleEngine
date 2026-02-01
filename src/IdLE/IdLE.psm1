@@ -2,6 +2,46 @@
 
 Set-StrictMode -Version Latest
 
+# region PSModulePath Bootstrap for Repo/Zip Layouts
+# Add src/ directory to PSModulePath if we detect a repo/zip layout
+# This must run before attempting to import dependencies
+
+if ($PSScriptRoot) {
+    $parentDir = Split-Path -Path $PSScriptRoot -Parent
+    
+    # Check if parent directory is named 'src' (repo/zip layout indicator)
+    if ((Split-Path -Leaf -Path $parentDir) -eq 'src') {
+        $srcPath = $parentDir
+        
+        # Check if src is already in PSModulePath (idempotent)
+        $currentPSModulePath = $env:PSModulePath
+        $pathSeparator = [System.IO.Path]::PathSeparator
+        $paths = $currentPSModulePath -split [regex]::Escape($pathSeparator)
+        
+        $alreadyInPath = $false
+        foreach ($p in $paths) {
+            if ($p) {
+                try {
+                    $resolvedP = (Resolve-Path -Path $p -ErrorAction SilentlyContinue).Path
+                    $resolvedSrc = (Resolve-Path -Path $srcPath -ErrorAction SilentlyContinue).Path
+                    if ($resolvedP -and $resolvedSrc -and $resolvedP -eq $resolvedSrc) {
+                        $alreadyInPath = $true
+                        break
+                    }
+                } catch {
+                    # Ignore resolution errors
+                }
+            }
+        }
+        
+        if (-not $alreadyInPath) {
+            # Add src to PSModulePath at process scope (session-only, non-persistent)
+            $env:PSModulePath = $srcPath + $pathSeparator + $currentPSModulePath
+        }
+    }
+}
+# endregion
+
 # region Bootstrap - ensure core module is loaded
 # This meta module provides a stable entrypoint. It ensures IdLE.Core is loaded
 # so that users only need to import "IdLE" regardless of installation method.

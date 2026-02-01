@@ -8,7 +8,7 @@
     PowerShellVersion = '7.0'
 
     RequiredModules   = @(
-        '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
+        'IdLE.Steps.Common'
     )
 
     FunctionsToExport = @(
