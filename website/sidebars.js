@@ -99,6 +99,9 @@ const sidebars = {
           items: [
             'reference/providers/provider-ad',
             'reference/providers/provider-entraID',
+            'reference/providers/provider-directorysync-entraconnect',
+            'reference/providers/provider-exchangeonline',
+            'reference/providers/provider-mock',
           ],
         },
         'reference/capabilities',
