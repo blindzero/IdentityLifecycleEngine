@@ -12,9 +12,14 @@
     ScriptsToProcess = @('IdLE.Init.ps1')
 
     # NestedModules: Core and Steps.Common are loaded as nested dependencies
-    # Note: Source manifests use NestedModules with relative paths to support repo/zip layouts
-    # The packaging tool (Part 1 of multi-module publishing) will convert these to
-    # name-based RequiredModules for PSGallery publication
+    # 
+    # Source manifest strategy (repo/zip):
+    #   - Uses NestedModules with relative paths (enables Import-Module ./src/IdLE/IdLE.psd1)
+    #   - ScriptsToProcess adds src/ to PSModulePath for subsequent name-based imports
+    # 
+    # Published manifest strategy (PSGallery):
+    #   - Packaging tool converts to: RequiredModules = @('IdLE.Core', 'IdLE.Steps.Common')
+    #   - Removes NestedModules and ScriptsToProcess (standard PowerShell dependency resolution)
     NestedModules = @(
         '..\IdLE.Core\IdLE.Core.psd1',
         '..\IdLE.Steps.Common\IdLE.Steps.Common.psd1'

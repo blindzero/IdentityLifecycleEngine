@@ -5,9 +5,12 @@
 $env:IDLE_ALLOW_INTERNAL_IMPORT = '1'
 
 # region PSModulePath Bootstrap for Repo/Zip Layouts  
-# Add src/ directory to PSModulePath for name-based imports of providers and optional steps
-# This runs after NestedModules (Core, Steps.Common) are already loaded via relative paths
-# Enables: Import-Module IdLE.Provider.* and Import-Module IdLE.Steps.* by name
+# Add src/ directory to PSModulePath to enable name-based imports
+# This runs BEFORE NestedModules are loaded from relative paths
+# Enables subsequent: Import-Module IdLE.Provider.* and Import-Module IdLE.Steps.* by name
+# 
+# Note: This bootstrap is only needed in repo/zip layouts. For PSGallery published modules,
+# this script and ScriptsToProcess are removed by the packaging tool.
 
 if ($PSScriptRoot) {
     $parentDir = Split-Path -Path $PSScriptRoot -Parent
