@@ -3,7 +3,7 @@
 Set-StrictMode -Version Latest
 
 # NestedModules in the manifest handle loading IdLE.Core and IdLE.Steps.Common
-# PSModulePath bootstrap happens at the end of this file (after NestedModules are loaded)
+# PSModulePath bootstrap is performed by IdLE.Init.ps1 via ScriptsToProcess (before NestedModules load)
 
 $PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
 if (Test-Path -Path $PublicPath) {
