@@ -415,7 +415,12 @@ else {
         # Load module list from publish order configuration (required - single source of truth)
         $publishOrderPath = Join-Path -Path $PSScriptRoot -ChildPath 'ModulePublishOrder.psd1'
         if (-not (Test-Path $publishOrderPath)) {
-            throw "ModulePublishOrder.psd1 not found at '$publishOrderPath'. This file is required as the single source of truth for module packaging order."
+            throw @"
+ModulePublishOrder.psd1 not found at '$publishOrderPath'.
+This file is required as the single source of truth for module packaging order.
+Expected location: tools/ModulePublishOrder.psd1 (relative to repository root)
+See docs/develop/releases.md for more information.
+"@
         }
         
         $publishOrderConfig = Import-PowerShellDataFile -Path $publishOrderPath
