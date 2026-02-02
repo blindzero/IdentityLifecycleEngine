@@ -142,15 +142,17 @@ For usage details, see [Use > Provider](../use/providers.md).
 
 Starting with version 1.0, IdLE uses a **multi-module distribution model** where each module is published separately to the PowerShell Gallery:
 
-- **IdLE** (meta-module) — Depends on Core and Steps.Common
-- **IdLE.Core** — Workflow engine
-- **IdLE.Steps.Common** — Built-in steps
-- **IdLE.Provider.\*** — Provider modules (published separately)
-- **IdLE.Steps.\*** — Optional step modules (published separately)
+- **IdLE.Core** — Workflow engine (published separately)
+- **IdLE.Steps.Common** — Built-in steps (published separately)
+- **IdLE** (meta-module) — Declares `RequiredModules` dependency on Core and Steps.Common
+- **IdLE.Provider.\*** — Provider modules (each published separately)
+- **IdLE.Steps.\*** — Optional step modules (each published separately)
+
+When you `Install-Module IdLE`, PowerShell automatically installs IdLE.Core and IdLE.Steps.Common as dependencies.
 
 This architecture provides:
 - ✅ **Standard PowerShell dependency resolution** via `RequiredModules`
-- ✅ **Granular installation** — Install only the modules you need
+- ✅ **Granular installation** — Install only the modules you need (e.g., `Install-Module IdLE.Provider.EntraID`)
 - ✅ **Clear dependency chains** — PowerShell automatically resolves and installs dependencies
 - ✅ **Third-party extensibility** — Other modules can declare IdLE modules as dependencies
 

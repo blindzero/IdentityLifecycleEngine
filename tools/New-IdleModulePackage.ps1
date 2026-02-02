@@ -412,16 +412,26 @@ else {
     
     # Default IncludeModuleNames to all batteries-included modules if not specified
     if ($null -eq $IncludeModuleNames -or $IncludeModuleNames.Count -eq 0) {
-        $IncludeModuleNames = @(
-            'IdLE.Core',
-            'IdLE.Steps.Common',
-            'IdLE.Steps.DirectorySync',
-            'IdLE.Steps.Mailbox',
-            'IdLE.Provider.AD',
-            'IdLE.Provider.EntraID',
-            'IdLE.Provider.ExchangeOnline',
-            'IdLE.Provider.DirectorySync.EntraConnect'
-        )
+        # Load module list from publish order configuration
+        $publishOrderPath = Join-Path -Path $PSScriptRoot -ChildPath 'ModulePublishOrder.psd1'
+        if (Test-Path $publishOrderPath) {
+            $publishOrderConfig = Import-PowerShellDataFile -Path $publishOrderPath
+            # Use all modules except IdLE itself (meta-module is the package root, not nested)
+            $IncludeModuleNames = $publishOrderConfig.PublishOrder | Where-Object { $_ -ne 'IdLE' }
+        } else {
+            # Fallback if configuration file doesn't exist
+            Write-Warning "ModulePublishOrder.psd1 not found. Using hardcoded module list."
+            $IncludeModuleNames = @(
+                'IdLE.Core',
+                'IdLE.Steps.Common',
+                'IdLE.Steps.DirectorySync',
+                'IdLE.Steps.Mailbox',
+                'IdLE.Provider.AD',
+                'IdLE.Provider.EntraID',
+                'IdLE.Provider.ExchangeOnline',
+                'IdLE.Provider.DirectorySync.EntraConnect'
+            )
+        }
     }
 
     $srcRoot = Join-Path -Path $RepoRootPath -ChildPath 'src'
