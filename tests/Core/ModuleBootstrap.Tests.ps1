@@ -15,16 +15,16 @@ Describe 'IdLE Module Bootstrap for Repo/Zip Layouts' {
         # Restore original PSModulePath
         $env:PSModulePath = $script:originalPSModulePath
         
-        # Remove any imported IdLE modules
-        Get-Module IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
+        # Remove any imported IdLE modules (including nested/hidden modules)
+        Get-Module -All IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
     }
 
     BeforeEach {
         # Reset PSModulePath to original before each test
         $env:PSModulePath = $script:originalPSModulePath
         
-        # Remove any previously imported IdLE modules
-        Get-Module IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
+        # Remove any previously imported IdLE modules (including nested/hidden modules)
+        Get-Module -All IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
     }
 
     Context 'Repo/Zip layout bootstrap' {

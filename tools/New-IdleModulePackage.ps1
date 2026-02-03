@@ -85,20 +85,6 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Default IncludeModuleNames to all batteries-included modules if not specified
-if ($null -eq $IncludeModuleNames -or $IncludeModuleNames.Count -eq 0) {
-    $IncludeModuleNames = @(
-        'IdLE.Core',
-        'IdLE.Steps.Common',
-        'IdLE.Steps.DirectorySync',
-        'IdLE.Steps.Mailbox',
-        'IdLE.Provider.AD',
-        'IdLE.Provider.EntraID',
-        'IdLE.Provider.ExchangeOnline',
-        'IdLE.Provider.DirectorySync.EntraConnect'
-    )
-}
-
 function Resolve-IdleRepoRoot {
     [CmdletBinding()]
     param(
@@ -280,7 +266,7 @@ ${indent})
 "@
             
             # Replace NestedModules with RequiredModules
-            $raw = [regex]::Replace($raw, '(?ms)^[ \t]*NestedModules[ \t]*=[ \t]*@\((?:.|\n)*?\)[ \t]*\r?\n', "$requiredModulesBlock`r`n", 1)
+            $raw = [regex]::Replace($raw, '(?ms)^[ \t]*NestedModules[ \t]*=[ \t]*@\((?:.|\n)*?\)[ \t]*\r?\n', "$requiredModulesBlock`n", 1)
             Write-Host "    - Converted NestedModules to RequiredModules: $($requiredModules -join ', ')"
         }
 

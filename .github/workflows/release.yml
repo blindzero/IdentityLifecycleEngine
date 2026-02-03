@@ -293,14 +293,13 @@ jobs:
 
           foreach ($moduleName in $publishOrder) {
             $modulePath = Join-Path $modulesPath $moduleName
-            if (Test-Path -LiteralPath $modulePath) {
-              Write-Host "Publishing $moduleName..."
-              Publish-Module -Path $modulePath -Repository 'LocalRepo' -ErrorAction Stop
-              Write-Host "  ✓ Published $moduleName"
+            if (-not (Test-Path -LiteralPath $modulePath)) {
+              throw "Module listed in ModulePublishOrder.psd1 not found: $moduleName at $modulePath. This indicates an incomplete build and must be fixed before release."
             }
-            else {
-              Write-Warning "Module not found, skipping: $moduleName"
-            }
+            
+            Write-Host "Publishing $moduleName..."
+            Publish-Module -Path $modulePath -Repository 'LocalRepo' -ErrorAction Stop
+            Write-Host "  ✓ Published $moduleName"
           }
 
           # Test that IdLE can be installed and imports correctly
@@ -387,8 +386,7 @@ jobs:
           foreach ($moduleName in $publishOrder) {
             $modulePath = Join-Path $modulesPath $moduleName
             if (-not (Test-Path -LiteralPath $modulePath)) {
-              Write-Warning "Module not found, skipping: $moduleName"
-              continue
+              throw "Module listed in ModulePublishOrder.psd1 not found: $moduleName at $modulePath. This indicates an incomplete build and must be fixed before publishing to PSGallery."
             }
 
             $manifest = Join-Path $modulePath "$moduleName.psd1"
