@@ -262,9 +262,9 @@ function Convert-IdleManifestForPublication {
             # Extract all unique module names
             $allMatches = [regex]::Matches($raw, '\.\.\\(IdLE\.([^\\]+))\\')
             foreach ($match in $allMatches) {
-                $moduleName = $match.Groups[1].Value  # Group 1 is the full IdLE.ModuleName
-                if ($requiredModules -notcontains $moduleName) {
-                    $requiredModules += $moduleName
+                $requiredModuleName = $match.Groups[1].Value  # Group 1 is the full IdLE.ModuleName
+                if ($requiredModules -notcontains $requiredModuleName) {
+                    $requiredModules += $requiredModuleName
                 }
             }
         }
