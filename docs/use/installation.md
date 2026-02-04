@@ -100,7 +100,7 @@ PowerShell automatically installs and imports these dependencies when you `Insta
 **Repository/zip installation:**
 The `IdLE` module automatically loads `IdLE.Core` and `IdLE.Steps.Common` as nested modules and bootstraps `$env:PSModulePath` to enable name-based imports of other modules.
 
-Built-in steps are **available to the engine by default**, but step functions are intentionally **not exported into the global session state**. This keeps your PowerShell session clean while still allowing workflows to reference built-in steps by `Step.Type`.
+Built-in steps are **available to the engine by default**, but for **PowerShell Gallery installations** step functions are intentionally **not exported into the global session state**. This keeps your PowerShell session clean while still allowing workflows to reference built-in steps by `Step.Type`. For **repository/zip installations**, adding `src/` to `$env:PSModulePath` means PowerShell may surface nested module commands in the session; these commands are not considered part of IdLE’s stable public API surface and are primarily intended for use by workflows, not direct interactive invocation.
 
 **Non-blocking guarantee:** `Import-Module IdLE` always succeeds on a clean PowerShell 7 environment without any external dependencies (RSAT, AD tools, third-party modules, etc.).
 
