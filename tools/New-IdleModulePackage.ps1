@@ -339,6 +339,11 @@ function New-IdleMultiModulePackages {
         $moduleDst = Join-Path -Path $OutputDirectory -ChildPath $moduleName
 
         if (-not (Test-Path -LiteralPath $moduleSrc)) {
+            # If ModuleNames was explicitly provided, fail fast (user error / CI validation)
+            # If auto-discovered, warn and skip (allows partial builds during development)
+            if ($PSBoundParameters.ContainsKey('ModuleNames')) {
+                throw "Module source not found: $moduleSrc (explicitly requested via -ModuleNames)"
+            }
             Write-Warning "  Module source not found, skipping: $moduleSrc"
             continue
         }

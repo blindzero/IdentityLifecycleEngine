@@ -283,8 +283,13 @@ Describe 'Module manifests and public surface' {
             }
             
             $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
+            $originalPSModulePath = $env:PSModulePath
             try {
                 $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
+                # Remove src/ from PSModulePath to ensure warning is triggered
+                # corePsd1 is like /repo/src/IdLE.Core/IdLE.Core.psd1, so go up two levels to get /repo/src
+                $srcPath = Split-Path (Split-Path $corePsd1 -Parent) -Parent
+                $env:PSModulePath = ($env:PSModulePath -split [System.IO.Path]::PathSeparator | Where-Object { $_ -ne $srcPath }) -join [System.IO.Path]::PathSeparator
                 
                 # Import and capture warning output
                 $output = Import-Module $corePsd1 -Force 3>&1 | Out-String
@@ -295,6 +300,7 @@ Describe 'Module manifests and public surface' {
             }
             finally {
                 $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
+                $env:PSModulePath = $originalPSModulePath
                 Remove-Module IdLE.Core -Force -ErrorAction SilentlyContinue
             }
         }
