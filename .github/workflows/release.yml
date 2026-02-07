@@ -279,6 +279,13 @@ jobs:
             throw "Staged modules path not found: $modulesPath"
           }
 
+          # Ensure required modules are discoverable during Test-ModuleManifest/Publish-Module.
+          $pathSeparator = [System.IO.Path]::PathSeparator
+          $modulePathEntries = $env:PSModulePath -split [regex]::Escape($pathSeparator)
+          if ($modulePathEntries -notcontains $modulesPath) {
+            $env:PSModulePath = $modulesPath + $pathSeparator + $env:PSModulePath
+          }
+
           $repoPath = Join-Path $env:RUNNER_TEMP 'psrepo'
           New-Item -ItemType Directory -Path $repoPath -Force | Out-Null
 
@@ -373,6 +380,13 @@ jobs:
           $modulesPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/modules'
           if (-not (Test-Path -LiteralPath $modulesPath)) {
             throw "Staged modules path not found: $modulesPath"
+          }
+
+          # Ensure required modules are discoverable during Test-ModuleManifest/Publish-Module.
+          $pathSeparator = [System.IO.Path]::PathSeparator
+          $modulePathEntries = $env:PSModulePath -split [regex]::Escape($pathSeparator)
+          if ($modulePathEntries -notcontains $modulesPath) {
+            $env:PSModulePath = $modulesPath + $pathSeparator + $env:PSModulePath
           }
 
           # Load publish order from configuration
