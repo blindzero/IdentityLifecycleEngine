@@ -3,11 +3,6 @@ title: Provider Reference - IdLE.Provider.AD (Active Directory)
 sidebar_label: Active Directory
 ---
 
-> **Purpose:** This page is a **reference** for a specific provider implementation.
-> Keep it factual and contract-oriented. Put conceptual explanations elsewhere and link to them.
-
----
-
 ## Summary
 
 - **Provider name:** `AD` (Active Directory)
