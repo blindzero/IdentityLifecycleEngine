@@ -13,7 +13,7 @@ Describe 'New-IdleAuthSession' {
     It 'creates an auth session broker with the expected type' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'AD' } = $testCred
-        } -AuthSessionType 'OAuth'
+        } -AuthSessionType 'Credential'
         
         $broker | Should -Not -BeNullOrEmpty
         $broker.PSTypeNames | Should -Contain 'IdLE.AuthSessionBroker'
@@ -22,7 +22,7 @@ Describe 'New-IdleAuthSession' {
     It 'creates broker with AcquireAuthSession method' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'AD' } = $testCred
-        } -AuthSessionType 'OAuth'
+        } -AuthSessionType 'Credential'
         
         $broker.PSObject.Methods['AcquireAuthSession'] | Should -Not -BeNullOrEmpty
     }
@@ -42,7 +42,7 @@ Describe 'New-IdleAuthSession' {
     It 'accepts optional DefaultCredential parameter' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'AD' } = $testCred
-        } -DefaultCredential $testCred -AuthSessionType 'OAuth'
+        } -DefaultCredential $testCred -AuthSessionType 'Credential'
         
         $broker.DefaultCredential | Should -Not -BeNullOrEmpty
         $broker.DefaultCredential.UserName | Should -Be 'TestUser'
@@ -66,7 +66,7 @@ Describe 'New-IdleAuthSession' {
         
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'Tier0' } = $testCred
-        } -DefaultCredential $defaultCred -AuthSessionType 'OAuth'
+        } -DefaultCredential $defaultCred -AuthSessionType 'Credential'
         
         $acquiredSession = $broker.AcquireAuthSession('TestName', $null)
         
@@ -77,7 +77,7 @@ Describe 'New-IdleAuthSession' {
     It 'throws when no matching credential found and no default provided' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'Tier0' } = $testCred
-        } -AuthSessionType 'OAuth'
+        } -AuthSessionType 'Credential'
         
         { $broker.AcquireAuthSession('TestName', @{ Role = 'NonExistent' }) } | 
             Should -Throw '*No matching credential found*'

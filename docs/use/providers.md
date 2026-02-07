@@ -132,7 +132,7 @@ $adminCredential = Get-Credential -Message "Enter regular admin credentials"
 # Create provider
 $provider = New-IdleADIdentityProvider
 
-# Create broker with role-based credential mapping and Implicit session type
+# Create broker with role-based credential mapping and Credential session type
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
     @{ Role = 'Admin' } = $adminCredential
@@ -152,10 +152,14 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
 Connect-AzAccount
 $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
 
+# Wrap token in PSCredential for broker (token in password field)
+$secureToken = ConvertTo-SecureString $token -AsPlainText -Force
+$tokenCredential = [PSCredential]::new('OAuth', $secureToken)
+
 # Create broker with OAuth session type
 $broker = New-IdleAuthSession -SessionMap @{
-    @{} = $token
-} -DefaultCredential $token -AuthSessionType 'OAuth'
+    @{} = $tokenCredential
+} -DefaultCredential $tokenCredential -AuthSessionType 'OAuth'
 
 # Create provider
 $provider = New-IdleEntraIDIdentityProvider

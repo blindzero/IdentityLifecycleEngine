@@ -47,10 +47,14 @@ The provider accepts authentication sessions in these formats:
 Connect-AzAccount
 $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
 
+# Wrap token in PSCredential for broker (token in password field)
+$secureToken = ConvertTo-SecureString $token -AsPlainText -Force
+$tokenCredential = [PSCredential]::new('OAuth', $secureToken)
+
 # Create broker with OAuth session type
 $broker = New-IdleAuthSession -SessionMap @{
-    @{} = $token
-} -DefaultCredential $token -AuthSessionType 'OAuth'
+    @{} = $tokenCredential
+} -DefaultCredential $tokenCredential -AuthSessionType 'OAuth'
 
 # Create provider
 $provider = New-IdleEntraIDIdentityProvider
@@ -73,10 +77,14 @@ $tenantId = "your-tenant-id"
 # Obtain token (pseudo-code - use your preferred auth library)
 $token = Get-GraphAppOnlyToken -ClientId $clientId -ClientSecret $clientSecret -TenantId $tenantId
 
+# Wrap token in PSCredential for broker (token in password field)
+$secureToken = ConvertTo-SecureString $token -AsPlainText -Force
+$tokenCredential = [PSCredential]::new('OAuth', $secureToken)
+
 # Create broker with OAuth session type
 $broker = New-IdleAuthSession -SessionMap @{
-    @{} = $token
-} -DefaultCredential $token -AuthSessionType 'OAuth'
+    @{} = $tokenCredential
+} -DefaultCredential $tokenCredential -AuthSessionType 'OAuth'
 
 # Rest is identical to delegated flow
 ```
@@ -87,11 +95,17 @@ $broker = New-IdleAuthSession -SessionMap @{
 $tier0Token = Get-GraphToken -Role 'Tier0'
 $adminToken = Get-GraphToken -Role 'Admin'
 
+# Wrap tokens in PSCredential for broker
+$secureTier0 = ConvertTo-SecureString $tier0Token -AsPlainText -Force
+$tier0Cred = [PSCredential]::new('OAuth', $secureTier0)
+$secureAdmin = ConvertTo-SecureString $adminToken -AsPlainText -Force
+$adminCred = [PSCredential]::new('OAuth', $secureAdmin)
+
 # Create broker with OAuth session type
 $broker = New-IdleAuthSession -SessionMap @{
-    @{ Role = 'Tier0' } = $tier0Token
-    @{ Role = 'Admin' } = $adminToken
-} -DefaultCredential $adminToken -AuthSessionType 'OAuth'
+    @{ Role = 'Tier0' } = $tier0Cred
+    @{ Role = 'Admin' } = $adminCred
+} -DefaultCredential $adminCred -AuthSessionType 'OAuth'
 
 # Workflow steps specify: With.AuthSessionOptions = @{ Role = 'Tier0' }
 ```
