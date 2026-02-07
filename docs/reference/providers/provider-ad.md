@@ -136,6 +136,14 @@ This makes `New-IdleADIdentityProvider` available in your session.
 ### Provider constructor / factory
 
 How to create an instance.
+- **Auth session name(s) used by built-in steps:** `ActiveDirectory`
+- **Auth session formats supported:**  
+  - `null` (integrated authentication / run-as)  
+  - `PSCredential` (used for AD cmdlets `-Credential`)
+- **Session options (data-only):** Any hashtable; commonly `@{ Role = 'Tier0' }` / `@{ Role = 'Admin' }`
+- **Required `AuthSessionType`:** `Credential`
+
+The AD provider uses credential-based authentication where the module capabilities exist without requiring explicit session management. When creating the `AuthSessionBroker`, specify `AuthSessionType = 'Credential'` to indicate this authentication pattern.
 
 - **Public constructor cmdlet(s):**
   - `New-IdleADIdentityProvider` — Creates an Active Directory identity provider instance
@@ -186,10 +194,11 @@ $providers = @{
 $tier0Credential = Get-Credential -Message 'Enter Tier0 AD admin credentials'
 $adminCredential = Get-Credential -Message 'Enter AD admin credentials'
 
+# Create broker with Credential session type
 $broker = New-IdleAuthSession -SessionMap @{
   @{ Role = 'Tier0' } = $tier0Credential
   @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential
+} -DefaultCredential $adminCredential -AuthSessionType 'Credential'
 
 $providers = @{
   Identity         = New-IdleADIdentityProvider
@@ -207,10 +216,11 @@ $providers = @{
 $sourceCred = Get-Credential -Message 'Enter credentials for source forest'
 $targetCred = Get-Credential -Message 'Enter credentials for target forest'
 
+# Create broker with Credential session type
 $broker = New-IdleAuthSession -SessionMap @{
   @{ Domain = 'SourceForest' } = $sourceCred
   @{ Domain = 'TargetForest' } = $targetCred
-}
+} -AuthSessionType 'Credential'
 
 # Steps use With.AuthSessionOptions = @{ Domain = 'SourceForest' } etc.
 ```
@@ -281,11 +291,11 @@ $adminCredential = Get-Credential -Message "Enter regular admin credentials"
 # Create provider
 $provider = New-IdleADIdentityProvider
 
-# Create broker with role-based credential mapping
+# Create broker with role-based credential mapping and Credential session type
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
     @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential
+} -DefaultCredential $adminCredential -AuthSessionType 'Credential'
 
 # Use provider with broker
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
@@ -369,7 +379,7 @@ $targetAD = New-IdleADIdentityProvider -AllowDelete
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Domain = 'Source' } = $sourceCred
     @{ Domain = 'Target' } = $targetCred
-}
+} -AuthSessionType 'Credential'
 
 $plan = New-IdlePlan -WorkflowPath './migration.psd1' -Request $request -Providers @{
     SourceAD = $sourceAD

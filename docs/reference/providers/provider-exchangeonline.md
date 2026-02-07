@@ -53,6 +53,9 @@ sidebar_label: ExchangeOnline
   - Typically the step passes `With.AuthSessionName` (if present). For built-in mailbox steps, if `With.AuthSessionName` is absent, it defaults to the provider alias (commonly `ExchangeOnline`).
 - **Session options (data-only):**
   - The provider does not interpret options; they are used by the host/broker to select credentials/route to a tenant/session.
+- **Required `AuthSessionType`:** `OAuth`
+
+The ExchangeOnline provider uses OAuth-based authentication via Exchange Online PowerShell. When creating the `AuthSessionBroker`, specify `AuthSessionType = 'OAuth'` to indicate token-based authentication is expected.
 
 :::warning
 

@@ -86,10 +86,10 @@ The provider accepts authentication sessions in these formats:
 Connect-AzAccount
 $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
 
-# Create broker
+# Create broker with OAuth session type (tokens can be passed directly)
 $broker = New-IdleAuthSession -SessionMap @{
     @{} = $token
-} -DefaultCredential $token
+} -DefaultAuthSession $token -AuthSessionType 'OAuth'
 
 # Create provider
 $provider = New-IdleEntraIDIdentityProvider
@@ -112,10 +112,10 @@ $tenantId = "your-tenant-id"
 # Obtain token (pseudo-code - use your preferred auth library)
 $token = Get-GraphAppOnlyToken -ClientId $clientId -ClientSecret $clientSecret -TenantId $tenantId
 
-# Create broker
+# Create broker with OAuth session type (tokens can be passed directly)
 $broker = New-IdleAuthSession -SessionMap @{
     @{} = $token
-} -DefaultCredential $token
+} -DefaultAuthSession $token -AuthSessionType 'OAuth'
 
 # Rest is identical to delegated flow
 ```
@@ -126,13 +126,20 @@ $broker = New-IdleAuthSession -SessionMap @{
 $tier0Token = Get-GraphToken -Role 'Tier0'
 $adminToken = Get-GraphToken -Role 'Admin'
 
+# Create broker with OAuth session type (tokens can be passed directly)
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Token
     @{ Role = 'Admin' } = $adminToken
-} -DefaultCredential $adminToken
+} -DefaultAuthSession $adminToken -AuthSessionType 'OAuth'
 
 # Workflow steps specify: With.AuthSessionOptions = @{ Role = 'Tier0' }
 ```
+
+### Auth Session Type
+
+**Required `AuthSessionType`:** `OAuth`
+
+The EntraID provider uses OAuth-based authentication via Microsoft Graph API tokens. When creating the `AuthSessionBroker`, specify `AuthSessionType = 'OAuth'` to indicate token-based authentication is expected.
 
 
 
