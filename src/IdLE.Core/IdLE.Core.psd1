@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Core.psm1'
-    ModuleVersion = '0.9.1'
+    ModuleVersion = '0.9.2'
     GUID              = 'c6232cd4-6fe9-4c37-a87b-eed8ce7e3517'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
@@ -22,10 +22,14 @@
 
     PrivateData       = @{
         PSData = @{
-            Tags       = @('IdentityLifecycleEngine', 'IdLE', 'Identity', 'Lifecycle', 'Automation', 'IdentityManagement', 'JML', 'Onboarding', 'Offboarding', 'AccountManagement')
-            LicenseUri = 'https://www.apache.org/licenses/LICENSE-2.0'
-            ProjectUri = 'https://github.com/blindzero/IdentityLifecycleEngine'
-            ContactEmail = '13959569+blindzero@users.noreply.github.com'
+            Tags       = @('IdentityLifecycleEngine', 'IdLE', 'Core', 'Engine', 'Workflow', 'Plan', 'Execution', 'Validation')
+            LicenseUri    = 'https://www.apache.org/licenses/LICENSE-2.0'
+            ProjectUri    = 'https://github.com/blindzero/IdentityLifecycleEngine'
+            ReleaseNotes  = 'https://github.com/blindzero/IdentityLifecycleEngine/releases'
+            HelpInfoUri   = 'https://blindzero.github.io/IdentityLifecycleEngine/'
+            ContactEmail  = '13959569+blindzero@users.noreply.github.com'
+            RepositoryUrl = 'https://github.com/blindzero/IdentityLifecycleEngine'
+            BugTrackerUrl = 'https://github.com/blindzero/IdentityLifecycleEngine/issues'
         }
     }
 }
