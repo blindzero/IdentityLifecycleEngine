@@ -95,6 +95,9 @@ This makes `New-IdleADIdentityProvider` available in your session.
   - `null` (integrated authentication / run-as)  
   - `PSCredential` (used for AD cmdlets `-Credential`)
 - **Session options (data-only):** Any hashtable; commonly `@{ Role = 'Tier0' }` / `@{ Role = 'Admin' }`
+- **Required `AuthSessionType`:** `Implicit`
+
+The AD provider uses implicit authentication where the module capabilities exist without requiring explicit session management. When creating the `AuthSessionBroker`, specify `AuthSessionType = 'Implicit'` to indicate this authentication pattern.
 
 :::warning
 
@@ -122,10 +125,11 @@ $providers = @{
 $tier0Credential = Get-Credential -Message 'Enter Tier0 AD admin credentials'
 $adminCredential = Get-Credential -Message 'Enter AD admin credentials'
 
+# Create broker with Implicit session type
 $broker = New-IdleAuthSession -SessionMap @{
   @{ Role = 'Tier0' } = $tier0Credential
   @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential
+} -DefaultCredential $adminCredential -AuthSessionType 'Implicit'
 
 $providers = @{
   Identity         = New-IdleADIdentityProvider
@@ -143,10 +147,11 @@ $providers = @{
 $sourceCred = Get-Credential -Message 'Enter credentials for source forest'
 $targetCred = Get-Credential -Message 'Enter credentials for target forest'
 
+# Create broker with Implicit session type
 $broker = New-IdleAuthSession -SessionMap @{
   @{ Domain = 'SourceForest' } = $sourceCred
   @{ Domain = 'TargetForest' } = $targetCred
-}
+} -AuthSessionType 'Implicit'
 
 # Steps use With.AuthSessionOptions = @{ Domain = 'SourceForest' } etc.
 ```
@@ -179,11 +184,11 @@ $adminCredential = Get-Credential -Message "Enter regular admin credentials"
 # Create provider
 $provider = New-IdleADIdentityProvider
 
-# Create broker with role-based credential mapping
+# Create broker with role-based credential mapping and Implicit session type
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
     @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential
+} -DefaultCredential $adminCredential -AuthSessionType 'Implicit'
 
 # Use provider with broker
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{

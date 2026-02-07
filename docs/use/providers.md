@@ -112,6 +112,19 @@ Many providers require authenticated connections (tokens, API clients, remote se
 IdLE keeps authentication out of the engine and out of individual providers by using a
 host-supplied broker. Using the **AuthSessionBroker** is in particular helpful for scenarios that use different providers or different authentications for one provider in one workflow.
 
+### AuthSessionType
+
+Each `AuthSessionBroker` must specify an `AuthSessionType` that determines validation rules, lifecycle management, and telemetry behavior:
+
+- **`OAuth`** - Token-based authentication (e.g., Microsoft Graph, Exchange Online)
+- **`PSRemoting`** - PowerShell remoting execution context (e.g., Entra Connect)
+- **`Implicit`** - Implicit authentication without explicit session (e.g., Active Directory)
+- **`None`** - No authentication required (e.g., mock providers)
+
+Each provider documents its required `AuthSessionType` in its reference documentation.
+
+### Example: Active Directory with Implicit Auth
+
 ```powershell
 # Assuming you have credentials available (e.g., from a secure vault or credential manager)
 $tier0Credential = Get-Credential -Message "Enter Tier0 admin credentials"
@@ -120,13 +133,35 @@ $adminCredential = Get-Credential -Message "Enter regular admin credentials"
 # Create provider
 $provider = New-IdleADIdentityProvider
 
-# Create broker with role-based credential mapping
+# Create broker with role-based credential mapping and Implicit session type
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
     @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential
+} -DefaultCredential $adminCredential -AuthSessionType 'Implicit'
 
 # Use provider with broker
+$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+    Identity = $provider
+    AuthSessionBroker = $broker
+}
+```
+
+### Example: Entra ID with OAuth
+
+```powershell
+# Host obtains token (example using Azure PowerShell)
+Connect-AzAccount
+$token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
+
+# Create broker with OAuth session type
+$broker = New-IdleAuthSession -SessionMap @{
+    @{} = $token
+} -DefaultCredential $token -AuthSessionType 'OAuth'
+
+# Create provider
+$provider = New-IdleEntraIDIdentityProvider
+
+# Use in plan
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
     Identity = $provider
     AuthSessionBroker = $broker

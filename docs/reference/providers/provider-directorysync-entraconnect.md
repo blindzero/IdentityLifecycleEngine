@@ -63,6 +63,9 @@ and pass it to provider methods.
   - `DirectorySync` (see `IdLE.Step.TriggerDirectorySync`)
 - **Session options (data-only):**
   - Forwarded to the host broker for session selection (provider does not interpret option keys).
+- **Required `AuthSessionType`:** `PSRemoting`
+
+The EntraConnect provider uses PowerShell remoting to execute commands on a remote Entra Connect server. When creating the `AuthSessionBroker`, specify `AuthSessionType = 'PSRemoting'` to indicate remote execution context is expected.
 
 :::warning
 
