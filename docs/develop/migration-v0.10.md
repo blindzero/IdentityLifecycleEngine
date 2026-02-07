@@ -65,12 +65,7 @@ In v0.10+:
 
 ### New Public API in IdLE.Core
 
-The following functions are now **public** and exported from `IdLE.Core`:
-
-#### `Get-IdleStepMetadataCatalog`
-Returns the metadata catalog for common step types. Previously only in `IdLE.Steps.Common`.
-
-**Note**: Each step pack module should implement its own `Get-IdleStepMetadataCatalog` that returns metadata for the steps in that pack.
+The following foundational helpers are now **public** and exported from `IdLE.Core`:
 
 #### `Invoke-IdleProviderMethod`
 Foundational helper for invoking provider methods with auth session support.
