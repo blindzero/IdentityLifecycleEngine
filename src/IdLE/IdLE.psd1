@@ -39,9 +39,13 @@
     PrivateData = @{
         PSData = @{
             Tags       = @('IdentityLifecycleEngine', 'IdLE', 'Identity', 'Lifecycle', 'Automation', 'IdentityManagement', 'JML', 'Onboarding', 'Offboarding', 'AccountManagement')
-            LicenseUri = 'https://www.apache.org/licenses/LICENSE-2.0'
-            ProjectUri = 'https://github.com/blindzero/IdentityLifecycleEngine'
-            ContactEmail = '13959569+blindzero@users.noreply.github.com'
+            LicenseUri    = 'https://www.apache.org/licenses/LICENSE-2.0'
+            ProjectUri    = 'https://github.com/blindzero/IdentityLifecycleEngine'
+            ReleaseNotes  = 'https://github.com/blindzero/IdentityLifecycleEngine/releases'
+            HelpInfoUri   = 'https://blindzero.github.io/IdentityLifecycleEngine/'
+            ContactEmail  = '13959569+blindzero@users.noreply.github.com'
+            RepositoryUrl = 'https://github.com/blindzero/IdentityLifecycleEngine'
+            BugTrackerUrl = 'https://github.com/blindzero/IdentityLifecycleEngine/issues'
         }
     }
 }
