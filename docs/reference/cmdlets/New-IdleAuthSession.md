@@ -13,8 +13,8 @@ Creates a simple AuthSessionBroker for use with IdLE providers.
 ## SYNTAX
 
 ```
-New-IdleAuthSession [-SessionMap] <Hashtable> [[-DefaultAuthSession] <Object>] -AuthSessionType <String>
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+New-IdleAuthSession [-SessionMap] &lt;Hashtable&gt; [[-DefaultAuthSession] &lt;Object&gt;] [-AuthSessionType] &lt;String&gt;
+ [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
 
 ## DESCRIPTION
@@ -66,7 +66,8 @@ Accept wildcard characters: False
 ```
 
 ### -AuthSessionType
-Specifies the type of authentication session. This determines validation rules,
+Specifies the type of authentication session.
+This determines validation rules,
 lifecycle management, and telemetry behavior.
 
 Valid values:
@@ -78,17 +79,16 @@ Valid values:
 Type: String
 Parameter Sets: (All)
 Aliases:
-Accepted values: OAuth, PSRemoting, Credential
 
 Required: True
-Position: Named
+Position: 3
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-Controls the display of progress information during cmdlet execution.
+TODO: ProgressAction Description
 
 ```yaml
 Type: ActionPreference
