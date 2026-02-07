@@ -136,6 +136,10 @@ $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
 - **Public constructor cmdlet(s):**
   - `New-IdleEntraConnectDirectorySyncProvider` — Creates a provider instance.
 
+**Parameters (high signal only)**
+
+- No mandatory parameters; provider has no configuration options
+
 > Do not copy full comment-based help here. Link to the cmdlet reference.
 
 ### Provider bag / alias usage
@@ -226,3 +230,11 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 - Requires an elevated remote execution context on the Entra Connect server.
 - The remote target must have the ADSync cmdlets available (`Start-ADSyncSyncCycle`, `Get-ADSyncScheduler`).
+
+---
+
+## Testing
+
+- **Unit tests:** `tests/Providers/EntraConnectDirectorySyncProvider.Tests.ps1`
+- **Contract tests:** Provider contract tests validate implementation compliance
+- **Known CI constraints:** Tests use mock remote execution layer; no live Entra Connect server dependency in CI

@@ -203,3 +203,11 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 - Requires the `ExchangeOnlineManagement` PowerShell module at runtime.
 - The host must establish or broker a usable Exchange Online session; the provider does not connect interactively.
+
+---
+
+## Testing
+
+- **Unit tests:** `tests/Providers/ExchangeOnlineProvider.Tests.ps1`
+- **Contract tests:** Provider contract tests validate implementation compliance
+- **Known CI constraints:** Tests use mock cmdlet layer; no live Exchange Online calls in CI
