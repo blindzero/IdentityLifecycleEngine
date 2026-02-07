@@ -6,6 +6,7 @@
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
     Description       = 'IdLE Core engine: domain model, workflow loading/validation, plan builder and execution pipeline.'
     PowerShellVersion = '7.0'
+    HelpInfoUri       = 'https://blindzero.github.io/IdentityLifecycleEngine/'
 
     FunctionsToExport = @(
         'New-IdleLifecycleRequestObject',
