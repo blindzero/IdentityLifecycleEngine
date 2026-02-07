@@ -88,7 +88,7 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-{{ Fill ProgressAction Description }}
+Controls the display of progress information during cmdlet execution.
 
 ```yaml
 Type: ActionPreference
