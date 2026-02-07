@@ -9,8 +9,6 @@
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEmitEvent`
 - **Idempotent**: `Unknown`
-- **Contracts**: `Unknown`
-- **Events**: Unknown
 
 ## Synopsis
 
@@ -24,4 +22,22 @@ to write structured events.
 
 ## Inputs (With.*)
 
-_Unknown (not detected automatically). Document required With.* keys in the step help and/or use a supported pattern._
+The required input keys could not be detected automatically.
+Please refer to the step description and examples for usage details.
+
+## Example
+
+```powershell
+@{
+  Name = 'EmitEvent Example'
+  Type = 'IdLE.Step.EmitEvent'
+  With = @{
+    # See step description for available options
+  }
+}
+```
+
+## See Also
+
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
+- [Providers](../providers.md) - Available provider implementations

@@ -9,8 +9,7 @@
 - **Module**: `IdLE.Steps.DirectorySync`
 - **Implementation**: `Invoke-IdleStepTriggerDirectorySync`
 - **Idempotent**: `Unknown`
-- **Contracts**: `Unknown`
-- **Events**: Unknown
+- **Required Capabilities**: `IdLE.DirectorySync.Trigger`, `IdLE.DirectorySync.Status`
 
 ## Synopsis
 
@@ -18,7 +17,7 @@ Triggers a directory sync cycle and optionally waits for completion.
 
 ## Description
 
-This is a provider-agnostic step. The host must supply a provider instance via
+The host must supply a provider instance via
 Context.Providers[&lt;ProviderAlias&gt;] that implements:
 
 - StartSyncCycle(PolicyType, AuthSession)
@@ -38,4 +37,27 @@ Authentication:
 
 ## Inputs (With.*)
 
-_Unknown (not detected automatically). Document required With.* keys in the step help and/or use a supported pattern._
+The following keys are required in the step's ``With`` configuration:
+
+| Key | Required | Description |
+| --- | --- | --- |
+| `AuthSessionName` | Yes | Name of auth session to use (optional) |
+| `PolicyType` | Yes | Type of policy (e.g., Delta, Initial) |
+
+## Example
+
+```powershell
+@{
+  Name = 'TriggerDirectorySync Example'
+  Type = 'IdLE.Step.TriggerDirectorySync'
+  With = @{
+    AuthSessionName      = 'AdminSession'
+    PolicyType           = 'Delta'
+  }
+}
+```
+
+## See Also
+
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Providers](../providers.md) - Available provider implementations

@@ -9,8 +9,7 @@
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepMoveIdentity`
 - **Idempotent**: `Yes`
-- **Contracts**: `Unknown`
-- **Events**: Unknown
+- **Required Capabilities**: `IdLE.Identity.Move`
 
 ## Synopsis
 
@@ -18,7 +17,7 @@ Moves an identity to a different container/OU in the target system.
 
 ## Description
 
-This is a provider-agnostic step. The host must supply a provider instance via
+The host must supply a provider instance via
 Context.Providers[&lt;ProviderAlias&gt;] that implements MoveIdentity(identityKey, targetContainer)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
@@ -38,7 +37,27 @@ Authentication:
 
 ## Inputs (With.*)
 
-| Key | Required |
-| --- | --- |
-| IdentityKey | Yes |
-| TargetContainer | Yes |
+The following keys are required in the step's ``With`` configuration:
+
+| Key | Required | Description |
+| --- | --- | --- |
+| `IdentityKey` | Yes | Unique identifier for the identity |
+| `TargetContainer` | Yes | See step description for details |
+
+## Example
+
+```powershell
+@{
+  Name = 'MoveIdentity Example'
+  Type = 'IdLE.Step.MoveIdentity'
+  With = @{
+    IdentityKey          = 'user.name'
+    TargetContainer      = '<value>'
+  }
+}
+```
+
+## See Also
+
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Providers](../providers.md) - Available provider implementations

@@ -9,8 +9,7 @@
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepDeleteIdentity`
 - **Idempotent**: `Yes`
-- **Contracts**: `Unknown`
-- **Events**: Unknown
+- **Required Capabilities**: `IdLE.Identity.Delete`
 
 ## Synopsis
 
@@ -18,7 +17,7 @@ Deletes an identity from the target system.
 
 ## Description
 
-This is a provider-agnostic step. The host must supply a provider instance via
+The host must supply a provider instance via
 Context.Providers[&lt;ProviderAlias&gt;] that implements DeleteIdentity(identityKey)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
@@ -42,4 +41,25 @@ Authentication:
 
 ## Inputs (With.*)
 
-_Unknown (not detected automatically). Document required With.* keys in the step help and/or use a supported pattern._
+The following keys are required in the step's ``With`` configuration:
+
+| Key | Required | Description |
+| --- | --- | --- |
+| `IdentityKey` | Yes | Unique identifier for the identity |
+
+## Example
+
+```powershell
+@{
+  Name = 'DeleteIdentity Example'
+  Type = 'IdLE.Step.DeleteIdentity'
+  With = @{
+    IdentityKey          = 'user.name'
+  }
+}
+```
+
+## See Also
+
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Providers](../providers.md) - Available provider implementations
