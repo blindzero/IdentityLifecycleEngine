@@ -47,8 +47,8 @@ The following keys are required in the step's ``With`` configuration:
 
 | Key | Required | Description |
 | --- | --- | --- |
-| `IdentityKey` | Yes | Unique identifier for the identity |
 | `Entitlement` | Yes | Entitlement identifier or object |
+| `IdentityKey` | Yes | Unique identifier for the identity |
 | `State` | Yes | Desired state for the entitlement |
 
 ## Example
@@ -58,8 +58,8 @@ The following keys are required in the step's ``With`` configuration:
   Name = 'EnsureEntitlement Example'
   Type = 'IdLE.Step.EnsureEntitlement'
   With = @{
+    Entitlement          = @{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }
     IdentityKey          = 'user.name'
-    Entitlement          = @{ Type = 'Group'; Value = 'GroupId' }
     State                = 'Present'
   }
 }

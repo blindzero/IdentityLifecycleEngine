@@ -41,8 +41,8 @@ The following keys are required in the step's ``With`` configuration:
 
 | Key | Required | Description |
 | --- | --- | --- |
-| `IdentityKey` | Yes | Unique identifier for the identity |
 | `Attributes` | Yes | Hashtable of attributes to set |
+| `IdentityKey` | Yes | Unique identifier for the identity |
 
 ## Example
 
@@ -51,8 +51,8 @@ The following keys are required in the step's ``With`` configuration:
   Name = 'CreateIdentity Example'
   Type = 'IdLE.Step.CreateIdentity'
   With = @{
-    IdentityKey          = 'user.name'
     Attributes           = @{ GivenName = 'First'; Surname = 'Last' }
+    IdentityKey          = 'user.name'
   }
 }
 ```

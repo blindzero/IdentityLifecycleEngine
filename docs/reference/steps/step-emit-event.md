@@ -22,7 +22,7 @@ to write structured events.
 
 ## Inputs (With.*)
 
-This step may not require specific input keys, or they could not be detected automatically.
+The required input keys could not be detected automatically.
 Please refer to the step description and examples for usage details.
 
 ## Example
@@ -36,3 +36,8 @@ Please refer to the step description and examples for usage details.
   }
 }
 ```
+
+## See Also
+
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
+- [Providers](../providers.md) - Available provider implementations

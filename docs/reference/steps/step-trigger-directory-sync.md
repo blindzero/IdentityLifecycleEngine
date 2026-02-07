@@ -37,8 +37,12 @@ Authentication:
 
 ## Inputs (With.*)
 
-This step may not require specific input keys, or they could not be detected automatically.
-Please refer to the step description and examples for usage details.
+The following keys are required in the step's ``With`` configuration:
+
+| Key | Required | Description |
+| --- | --- | --- |
+| `AuthSessionName` | Yes | Name of auth session to use (optional) |
+| `PolicyType` | Yes | Type of policy (e.g., Delta, Initial) |
 
 ## Example
 
@@ -47,7 +51,8 @@ Please refer to the step description and examples for usage details.
   Name = 'TriggerDirectorySync Example'
   Type = 'IdLE.Step.TriggerDirectorySync'
   With = @{
-    # See step description for available options
+    AuthSessionName      = 'AdminSession'
+    PolicyType           = 'Delta'
   }
 }
 ```

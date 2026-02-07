@@ -37,8 +37,11 @@ Authentication:
 
 ## Inputs (With.*)
 
-This step may not require specific input keys, or they could not be detected automatically.
-Please refer to the step description and examples for usage details.
+The following keys are required in the step's ``With`` configuration:
+
+| Key | Required | Description |
+| --- | --- | --- |
+| `IdentityKey` | Yes | Unique identifier for the identity |
 
 ## Example
 
@@ -47,7 +50,7 @@ Please refer to the step description and examples for usage details.
   Name = 'EnableIdentity Example'
   Type = 'IdLE.Step.EnableIdentity'
   With = @{
-    # See step description for available options
+    IdentityKey          = 'user.name'
   }
 }
 ```
