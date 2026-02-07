@@ -3,10 +3,24 @@
 Set-StrictMode -Version Latest
 
 # Internal module warning: discourage direct import unless explicitly allowed
-# Suppress warning if IDLE_ALLOW_INTERNAL_IMPORT is set
-# (IdLE meta-module sets this automatically; users can also set it for advanced scenarios)
+# Suppress warning if:
+# - IDLE_ALLOW_INTERNAL_IMPORT is set (IdLE meta-module sets this automatically)
+# - Module is in a standard PSModulePath location (published/installed layout)
 if (-not $env:IDLE_ALLOW_INTERNAL_IMPORT) {
-    Write-Warning "IdLE.Core is an internal/unsupported module. Import 'IdLE' instead for the supported public API. To bypass: `$env:IDLE_ALLOW_INTERNAL_IMPORT = '1'"
+    # Check if module is in a PSModulePath directory (published/installed scenario)
+    $modulePaths = $env:PSModulePath -split [System.IO.Path]::PathSeparator
+    $inPSModulePath = $false
+    foreach ($path in $modulePaths) {
+        if ($PSScriptRoot -like "$path*") {
+            $inPSModulePath = $true
+            break
+        }
+    }
+    
+    # Only warn if not in PSModulePath (repo/zip scenario with direct import)
+    if (-not $inPSModulePath) {
+        Write-Warning "IdLE.Core is an internal/unsupported module. Import 'IdLE' instead for the supported public API. To bypass: `$env:IDLE_ALLOW_INTERNAL_IMPORT = '1'"
+    }
 }
 
 $PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
