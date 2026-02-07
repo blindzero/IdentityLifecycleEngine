@@ -531,7 +531,7 @@ function New-IdleStepDetailPageContent {
                 'Message' { '''Custom event message''' }
                 'EntitlementType' { '''Group''' }
                 'EntitlementValue' { '''CN=GroupName,OU=Groups,DC=domain,DC=com''' }
-                'Entitlement' { "@{ Type = 'Group'; Value = 'GroupId' }" }
+                'Entitlement' { "@{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }" }
                 'State' { '''Present''' }
                 'Ensure' { '''Present''' }
                 'Provider' { '''Identity''' }
