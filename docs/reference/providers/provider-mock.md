@@ -59,9 +59,9 @@ sidebar_label: Mock
 
 This provider does not require authentication.
 
-- **Required `AuthSessionType`:** `None`
+- **Required `AuthSessionType`:** `Credential`
 
-The Mock provider doesn't require authentication. When creating an `AuthSessionBroker` for testing purposes with this provider, specify `AuthSessionType = 'None'` to indicate no authentication is needed.
+The Mock provider uses credential-based authentication. When creating an `AuthSessionBroker` for testing purposes with this provider, specify `AuthSessionType = 'Credential'` to indicate credential-based authentication (with mock credentials).
 
 :::warning
 

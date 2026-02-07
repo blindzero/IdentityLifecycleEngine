@@ -31,8 +31,7 @@ function New-IdleAuthSession {
     Valid values:
     - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
     - 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
-    - 'Implicit': Implicit authentication without explicit session (e.g., Active Directory)
-    - 'None': No authentication required (e.g., mock providers)
+    - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
 
     .EXAMPLE
     $broker = New-IdleAuthSession -SessionMap @{
@@ -56,7 +55,7 @@ function New-IdleAuthSession {
         [PSCredential] $DefaultCredential,
 
         [Parameter(Mandatory)]
-        [ValidateSet('OAuth', 'PSRemoting', 'Implicit', 'None')]
+        [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
         [string] $AuthSessionType
     )
 

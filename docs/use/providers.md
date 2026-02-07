@@ -118,12 +118,11 @@ Each `AuthSessionBroker` must specify an `AuthSessionType` that determines valid
 
 - **`OAuth`** - Token-based authentication (e.g., Microsoft Graph, Exchange Online)
 - **`PSRemoting`** - PowerShell remoting execution context (e.g., Entra Connect)
-- **`Implicit`** - Implicit authentication without explicit session (e.g., Active Directory)
-- **`None`** - No authentication required (e.g., mock providers)
+- **`Credential`** - Credential-based authentication (e.g., Active Directory, mock providers)
 
 Each provider documents its required `AuthSessionType` in its reference documentation.
 
-### Example: Active Directory with Implicit Auth
+### Example: Active Directory with Credential Auth
 
 ```powershell
 # Assuming you have credentials available (e.g., from a secure vault or credential manager)
@@ -137,7 +136,7 @@ $provider = New-IdleADIdentityProvider
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
     @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential -AuthSessionType 'Implicit'
+} -DefaultCredential $adminCredential -AuthSessionType 'Credential'
 
 # Use provider with broker
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{

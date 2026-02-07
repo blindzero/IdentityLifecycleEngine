@@ -33,8 +33,7 @@ function New-IdleAuthSessionBroker {
     Valid values:
     - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
     - 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
-    - 'Implicit': Implicit authentication without explicit session (e.g., Active Directory)
-    - 'None': No authentication required (e.g., mock providers)
+    - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
 
     .EXAMPLE
     # Simple role-based broker with OAuth session type
@@ -49,11 +48,11 @@ function New-IdleAuthSessionBroker {
     }
 
     .EXAMPLE
-    # Domain-based broker for multi-forest scenarios with Implicit session type
+    # Domain-based broker for multi-forest scenarios with Credential session type
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Domain = 'SourceAD' } = $sourceCred
         @{ Domain = 'TargetAD' } = $targetCred
-    } -AuthSessionType 'Implicit'
+    } -AuthSessionType 'Credential'
 
     .EXAMPLE
     # PSRemoting broker for Entra Connect directory sync
@@ -75,7 +74,7 @@ function New-IdleAuthSessionBroker {
         [PSCredential] $DefaultCredential,
 
         [Parameter(Mandatory)]
-        [ValidateSet('OAuth', 'PSRemoting', 'Implicit', 'None')]
+        [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
         [string] $AuthSessionType
     )
 
@@ -106,8 +105,7 @@ function New-IdleAuthSessionBroker {
         # Future enhancements may add:
         # - OAuth: Validate token format, expiration, scopes
         # - PSRemoting: Validate remote session state, connectivity
-        # - Implicit: Validate credential format, domain membership
-        # - None: No validation needed
+        # - Credential: Validate credential format, domain membership
 
         # If no options provided, return default
         if ($null -eq $Options -or $Options.Count -eq 0) {

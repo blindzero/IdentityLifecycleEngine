@@ -33,7 +33,7 @@ Describe 'New-IdleAuthSession' {
             @{ Role = 'Admin' } = $testCred
         }
         
-        $broker = New-IdleAuthSession -SessionMap $sessionMap -AuthSessionType 'Implicit'
+        $broker = New-IdleAuthSession -SessionMap $sessionMap -AuthSessionType 'Credential'
         
         $broker.SessionMap | Should -Not -BeNullOrEmpty
         $broker.SessionMap.Count | Should -Be 2
@@ -51,7 +51,7 @@ Describe 'New-IdleAuthSession' {
     It 'broker can acquire auth session with matching options' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'Tier0' } = $testCred
-        } -AuthSessionType 'Implicit'
+        } -AuthSessionType 'Credential'
         
         $acquiredSession = $broker.AcquireAuthSession('TestName', @{ Role = 'Tier0' })
         
@@ -98,7 +98,7 @@ Describe 'New-IdleAuthSession' {
         { 
             $broker = New-IdleAuthSession -SessionMap @{
                 @{ Role = 'AD' } = $testCred
-            } -AuthSessionType 'Implicit' -ErrorAction Stop
+            } -AuthSessionType 'Credential' -ErrorAction Stop
             
             $broker | Should -Not -BeNullOrEmpty
         } | Should -Not -Throw
@@ -121,20 +121,12 @@ Describe 'New-IdleAuthSession' {
             $broker.AuthSessionType | Should -Be 'PSRemoting'
         }
 
-        It 'accepts Implicit session type' {
+        It 'accepts Credential session type' {
             $broker = New-IdleAuthSession -SessionMap @{
                 @{ Domain = 'corp.example.com' } = $testCred
-            } -AuthSessionType 'Implicit'
+            } -AuthSessionType 'Credential'
             
-            $broker.AuthSessionType | Should -Be 'Implicit'
-        }
-
-        It 'accepts None session type' {
-            $broker = New-IdleAuthSession -SessionMap @{
-                @{ Provider = 'Mock' } = $testCred
-            } -AuthSessionType 'None'
-            
-            $broker.AuthSessionType | Should -Be 'None'
+            $broker.AuthSessionType | Should -Be 'Credential'
         }
 
         It 'throws on invalid session type' {
@@ -165,21 +157,12 @@ Describe 'New-IdleAuthSession' {
             $session | Should -Not -BeNullOrEmpty
         }
 
-        It 'Implicit broker can acquire sessions with appropriate options' {
+        It 'Credential broker can acquire sessions with appropriate options' {
             $broker = New-IdleAuthSession -SessionMap @{
                 @{ Domain = 'corp.example.com' } = $testCred
-            } -AuthSessionType 'Implicit'
+            } -AuthSessionType 'Credential'
             
             $session = $broker.AcquireAuthSession('ActiveDirectory', @{ Domain = 'corp.example.com' })
-            $session | Should -Not -BeNullOrEmpty
-        }
-
-        It 'None broker can acquire sessions without strict validation' {
-            $broker = New-IdleAuthSession -SessionMap @{
-                @{ Provider = 'Mock' } = $testCred
-            } -AuthSessionType 'None'
-            
-            $session = $broker.AcquireAuthSession('MockProvider', @{ Provider = 'Mock' })
             $session | Should -Not -BeNullOrEmpty
         }
     }
