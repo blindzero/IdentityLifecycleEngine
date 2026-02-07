@@ -36,7 +36,7 @@ function New-IdleAuthSession {
     .EXAMPLE
     $broker = New-IdleAuthSession -SessionMap @{
         @{ Role = 'Tier0' } = $tier0Credential
-    } -AuthSessionType 'OAuth'
+    } -AuthSessionType 'Credential'
 
     .OUTPUTS
     PSCustomObject with AcquireAuthSession method
