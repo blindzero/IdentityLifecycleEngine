@@ -50,7 +50,7 @@ jobs:
 
       - name: Publish test results
         if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v2
         with:
           name: Pester Tests (${{ matrix.os }})
           path: artifacts/test-results.xml
@@ -59,7 +59,7 @@ jobs:
 
       - name: Publish coverage report
         if: always() && matrix.os == 'ubuntu-latest' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: madrapps/jacoco-report@v1.7.1
+        uses: madrapps/jacoco-report@v1.7.2
         with:
           paths: artifacts/coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
