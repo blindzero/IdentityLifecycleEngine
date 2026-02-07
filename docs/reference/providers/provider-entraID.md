@@ -35,16 +35,6 @@ sidebar_label: Entra ID
 
 ---
 
-## Installation
-
-The provider is included in the IdLE repository under `src/IdLE.Provider.EntraID/`.
-
-```powershell
-Import-Module ./src/IdLE.Provider.EntraID/IdLE.Provider.EntraID.psd1
-```
-
----
-
 ## Contracts and capabilities
 
 ### Contracts implemented
