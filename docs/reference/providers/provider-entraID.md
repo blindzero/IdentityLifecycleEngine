@@ -489,7 +489,7 @@ $provider = New-IdleEntraIDIdentityProvider
 $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
 
 # 3) Create broker
-$broker = New-IdleAuthSession -SessionMap @{ @{} = $token } -DefaultCredential $token
+$broker = New-IdleAuthSession -AuthSessionType OAuth -SessionMap @{ MicrosoftGraph = $token } -DefaultAuthSession $token
 
 # 4) Build provider map
 $providers = @{

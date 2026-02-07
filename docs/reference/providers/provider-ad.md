@@ -33,8 +33,6 @@ sidebar_label: Active Directory
 
 ### Contracts implemented
 
-List the IdLE provider contracts this provider implements and what they mean at a glance.
-
 | Contract | Used by steps for | Notes |
 | --- | --- | --- |
 | Identity provider (implicit) | Identity read/write operations | Supports comprehensive identity lifecycle operations including OU moves |
@@ -198,7 +196,7 @@ $adminCredential = Get-Credential -Message 'Enter AD admin credentials'
 $broker = New-IdleAuthSession -SessionMap @{
   @{ Role = 'Tier0' } = $tier0Credential
   @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential -AuthSessionType 'Credential'
+} -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
 $providers = @{
   Identity         = New-IdleADIdentityProvider
@@ -295,7 +293,7 @@ $provider = New-IdleADIdentityProvider
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
     @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential -AuthSessionType 'Credential'
+} -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
 # Use provider with broker
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
