@@ -280,6 +280,8 @@ jobs:
           }
 
           # Ensure required modules are discoverable during Test-ModuleManifest/Publish-Module.
+          # Save original PSModulePath to restore before install/import verification.
+          $originalPSModulePath = $env:PSModulePath
           $pathSeparator = [System.IO.Path]::PathSeparator
           $modulePathEntries = $env:PSModulePath -split [regex]::Escape($pathSeparator)
           if ($modulePathEntries -notcontains $modulesPath) {
@@ -308,6 +310,10 @@ jobs:
             Publish-Module -Path $modulePath -Repository 'LocalRepo' -ErrorAction Stop
             Write-Host "  ✓ Published $moduleName"
           }
+
+          # Restore original PSModulePath before install/import verification
+          # to ensure Import-Module resolves the installed package, not the staged build.
+          $env:PSModulePath = $originalPSModulePath
 
           # Test that IdLE can be installed and imports correctly
           Write-Host "`nInstalling IdLE from LocalRepo..."
