@@ -7,7 +7,7 @@
     Description       = 'Provider-agnostic mailbox step pack for IdLE.'
     PowerShellVersion = '7.0'
 
-    RequiredModules   = @('..\IdLE.Steps.Common\IdLE.Steps.Common.psd1')
+    RequiredModules   = @('IdLE.Steps.Common')
 
     FunctionsToExport = @(
         'Get-IdleStepMetadataCatalog',
