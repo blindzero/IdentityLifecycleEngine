@@ -14,7 +14,9 @@
         'Invoke-IdlePlanObject',
         'Export-IdlePlanObject',
         'New-IdleAuthSessionBroker',
-        'Get-IdleStepMetadataCatalog'
+        'Get-IdleStepMetadataCatalog',
+        'Invoke-IdleProviderMethod',
+        'Test-IdleProviderMethodParameter'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()

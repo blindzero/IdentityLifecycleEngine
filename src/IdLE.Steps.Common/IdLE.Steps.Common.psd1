@@ -10,6 +10,7 @@
     RequiredModules   = @('IdLE.Core')
 
     FunctionsToExport = @(
+        'Get-IdleStepMetadataCatalog',
         'Invoke-IdleStepEmitEvent',
         'Invoke-IdleStepEnsureAttribute',
         'Invoke-IdleStepEnsureEntitlement',
