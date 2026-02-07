@@ -1,0 +1,8 @@
+The cmdlet reference documentation in this directory needs to be regenerated.
+
+Run: ./tools/Generate-IdleCmdletReference.ps1
+
+This will update New-IdleAuthSession.md to reflect the current API signature:
+- DefaultCredential → DefaultAuthSession
+- [PSCredential] → [object]
+- AuthSessionType is now mandatory
