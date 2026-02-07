@@ -101,27 +101,13 @@ function New-IdleAuthSessionBroker {
         # This broker routes based on Options only; custom brokers may use Name for additional routing
         $null = $Name
 
-        # Validate options based on AuthSessionType
-        if ($null -ne $Options -and $Options.Count -gt 0) {
-            switch ($this.AuthSessionType) {
-                'OAuth' {
-                    # OAuth sessions typically use role or scope-based options
-                    # No additional validation needed for this simple implementation
-                }
-                'PSRemoting' {
-                    # PSRemoting sessions may specify server, computerName, or similar
-                    # No additional validation needed for this simple implementation
-                }
-                'Implicit' {
-                    # Implicit sessions may specify domain, forest, or organizational context
-                    # No additional validation needed for this simple implementation
-                }
-                'None' {
-                    # No session expected, but options may still be used for routing
-                    # No additional validation needed for this simple implementation
-                }
-            }
-        }
+        # TODO: Implement type-specific validation rules for AuthSessionType
+        # Current implementation allows all options for all session types
+        # Future enhancements may add:
+        # - OAuth: Validate token format, expiration, scopes
+        # - PSRemoting: Validate remote session state, connectivity
+        # - Implicit: Validate credential format, domain membership
+        # - None: No validation needed
 
         # If no options provided, return default
         if ($null -eq $Options -or $Options.Count -eq 0) {

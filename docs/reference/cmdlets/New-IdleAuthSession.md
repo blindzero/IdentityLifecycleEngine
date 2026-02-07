@@ -13,7 +13,7 @@ Creates a simple AuthSessionBroker for use with IdLE providers.
 ## SYNTAX
 
 ```
-New-IdleAuthSession [-SessionMap] <Hashtable> [[-DefaultCredential] <PSCredential>] [-AuthSessionType] <String>
+New-IdleAuthSession [-SessionMap] <Hashtable> [[-DefaultCredential] <PSCredential>] -AuthSessionType <String>
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
