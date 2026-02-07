@@ -36,7 +36,7 @@ if ($PSScriptRoot) {
                     }
                 } catch {
                     # Non-fatal: path resolution can fail for invalid entries.
-                    Write-Verbose "Skipping unresolved PSModulePath entry: $p"
+                    Write-Verbose -Message "Skipping unresolved PSModulePath entry: $p"
                 }
             }
         }
