@@ -3,6 +3,11 @@ title: Provider Reference - IdLE.Provider.ExchangeOnline
 sidebar_label: ExchangeOnline
 ---
 
+## Purpose
+
+This provider manages Exchange Online mailbox configuration and Out of Office settings as part of IdLE workflows.
+
+---
 ## Summary
 
 - **Provider name:** ExchangeOnline
