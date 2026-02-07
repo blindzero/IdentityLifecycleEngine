@@ -1,7 +1,7 @@
 function Get-IdleStepMetadataCatalog {
     <#
     .SYNOPSIS
-    Returns metadata for built-in IdLE step types.
+    Returns metadata for common built-in IdLE step types.
 
     .DESCRIPTION
     This function provides a metadata catalog mapping Step.Type to metadata objects.
@@ -16,7 +16,7 @@ function Get-IdleStepMetadataCatalog {
     .EXAMPLE
     $metadata = Get-IdleStepMetadataCatalog
     $metadata['IdLE.Step.DisableIdentity'].RequiredCapabilities
-    # Returns: @('IdLE.Identity.Disable', 'IdLE.Identity.Read')
+    # Returns: @('IdLE.Identity.Disable')
     #>
     [CmdletBinding()]
     param()

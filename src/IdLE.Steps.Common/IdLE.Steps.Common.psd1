@@ -7,6 +7,8 @@
     Description       = 'Common built-in steps for IdLE.'
     PowerShellVersion = '7.0'
 
+    RequiredModules   = @('IdLE.Core')
+
     FunctionsToExport = @(
         'Get-IdleStepMetadataCatalog',
         'Invoke-IdleStepEmitEvent',

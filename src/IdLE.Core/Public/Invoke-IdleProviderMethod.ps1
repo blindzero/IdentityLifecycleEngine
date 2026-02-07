@@ -2,6 +2,49 @@
 # Handles auth session acquisition, parameter detection, and backwards-compatible fallback.
 
 function Invoke-IdleProviderMethod {
+    <#
+    .SYNOPSIS
+    Invokes a provider method with optional AuthSession support.
+
+    .DESCRIPTION
+    This is a foundational helper for step implementations that need to invoke
+    provider methods with proper authentication handling.
+
+    Key features:
+    - Acquires auth sessions via Context.AcquireAuthSession when With.AuthSessionName is present
+    - Detects whether provider methods support AuthSession parameter (backwards compatible)
+    - Passes AuthSession to provider methods that support it
+    - Validates provider existence and method implementation
+
+    .PARAMETER Context
+    Execution context created by IdLE.Core. Must contain Providers hashtable and
+    AcquireAuthSession method.
+
+    .PARAMETER With
+    Step configuration hashtable. May contain:
+    - AuthSessionName (string): Name of auth session to acquire
+    - AuthSessionOptions (hashtable): Optional session selection options
+
+    .PARAMETER ProviderAlias
+    Key to look up the provider in Context.Providers.
+
+    .PARAMETER MethodName
+    Name of the provider method to invoke.
+
+    .PARAMETER MethodArguments
+    Array of arguments to pass to the provider method (excluding AuthSession).
+
+    .OUTPUTS
+    Object returned by the provider method.
+
+    .EXAMPLE
+    $result = Invoke-IdleProviderMethod `
+        -Context $Context `
+        -With @{ AuthSessionName = 'ExchangeOnline' } `
+        -ProviderAlias 'ExchangeOnline' `
+        -MethodName 'EnsureMailboxType' `
+        -MethodArguments @('user@contoso.com', 'Shared')
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

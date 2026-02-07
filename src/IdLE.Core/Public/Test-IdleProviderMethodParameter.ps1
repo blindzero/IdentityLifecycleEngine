@@ -2,6 +2,40 @@
 # Supports ScriptMethod (AST inspection) and compiled methods (reflection).
 
 function Test-IdleProviderMethodParameter {
+    <#
+    .SYNOPSIS
+    Tests whether a provider method supports a given parameter.
+
+    .DESCRIPTION
+    This is a foundational helper that inspects provider method signatures to determine
+    if they accept a specific parameter (e.g., AuthSession).
+
+    Supports:
+    - ScriptMethod (AST inspection via PowerShell parser)
+    - Compiled methods (reflection-based inspection)
+
+    Used by Invoke-IdleProviderMethod to detect backwards-compatible method signatures.
+
+    .PARAMETER ProviderMethod
+    PSMethodInfo object representing the provider method to inspect.
+
+    .PARAMETER ParameterName
+    Name of the parameter to check for (e.g., 'AuthSession').
+
+    .OUTPUTS
+    Boolean. True if the method accepts the specified parameter, False otherwise.
+
+    .EXAMPLE
+    $provider = [pscustomobject]@{}
+    $provider | Add-Member -MemberType ScriptMethod -Name MyMethod -Value {
+        param($Arg1, $AuthSession)
+        # ...
+    }
+
+    $method = $provider.PSObject.Methods['MyMethod']
+    Test-IdleProviderMethodParameter -ProviderMethod $method -ParameterName 'AuthSession'
+    # Returns: True
+    #>
     [CmdletBinding()]
     [OutputType([bool])]
     param(
