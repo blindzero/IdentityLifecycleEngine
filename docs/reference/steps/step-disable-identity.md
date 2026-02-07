@@ -9,8 +9,7 @@
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepDisableIdentity`
 - **Idempotent**: `Yes`
-- **Contracts**: `Unknown`
-- **Events**: Unknown
+- **Required Capabilities**: `IdLE.Identity.Disable`
 
 ## Synopsis
 
@@ -18,7 +17,7 @@ Disables an identity in the target system.
 
 ## Description
 
-This is a provider-agnostic step. The host must supply a provider instance via
+The host must supply a provider instance via
 Context.Providers[&lt;ProviderAlias&gt;] that implements DisableIdentity(identityKey)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
@@ -38,4 +37,22 @@ Authentication:
 
 ## Inputs (With.*)
 
-_Unknown (not detected automatically). Document required With.* keys in the step help and/or use a supported pattern._
+This step may not require specific input keys, or they could not be detected automatically.
+Please refer to the step description and examples for usage details.
+
+## Example
+
+```powershell
+@{
+  Name = 'DisableIdentity Example'
+  Type = 'IdLE.Step.DisableIdentity'
+  With = @{
+    # See step description for available options
+  }
+}
+```
+
+## See Also
+
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Providers](../providers.md) - Available provider implementations

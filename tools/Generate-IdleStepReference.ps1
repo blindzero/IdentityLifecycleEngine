@@ -332,6 +332,42 @@ function Get-IdleCommandModuleName {
     return 'Unknown'
 }
 
+function Get-IdleStepRequiredCapabilities {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $StepType,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $ModuleName
+    )
+
+    # Try to load metadata catalog from the step's module to get required capabilities
+    try {
+        $module = Get-Module -Name $ModuleName -ErrorAction SilentlyContinue
+        if ($null -ne $module) {
+            # Call Get-IdleStepMetadataCatalog in the context of the specific module
+            $catalog = & $module { Get-IdleStepMetadataCatalog -ErrorAction SilentlyContinue }
+            if ($null -ne $catalog) {
+                $fullStepTypeName = "IdLE.Step.$StepType"
+                if ($catalog.ContainsKey($fullStepTypeName)) {
+                    $metadata = $catalog[$fullStepTypeName]
+                    if ($metadata -and $metadata.ContainsKey('RequiredCapabilities')) {
+                        return @($metadata.RequiredCapabilities)
+                    }
+                }
+            }
+        }
+    }
+    catch {
+        # Metadata catalog not available or error loading it
+    }
+
+    return @()
+}
+
 function New-IdleStepDocModel {
     [CmdletBinding()]
     param(
@@ -367,6 +403,9 @@ function New-IdleStepDocModel {
         $synopsis = 'No synopsis available (missing comment-based help).'
     }
 
+    # Remove redundant "This is a provider-agnostic step." sentence
+    $description = $description -replace '(?i)This\s+is\s+a\s+provider-agnostic\s+step\.\s*', ''
+
     $requiredWithKeys = @(Get-IdleRequiredWithKeysFromSource -CommandInfo $CommandInfo)
 
     $idempotent = 'Unknown'
@@ -374,21 +413,21 @@ function New-IdleStepDocModel {
         $idempotent = 'Yes'
     }
 
-    $providerMethod = Get-IdleProviderMethodHintFromDescription -DescriptionText $description
-    $contracts = if ($providerMethod) { "Provider must implement method: $providerMethod" } else { 'Unknown' }
+    # Get required capabilities from metadata catalog
+    $requiredCapabilities = @(Get-IdleStepRequiredCapabilities -StepType $stepType -ModuleName $moduleName)
 
     $slug = ConvertTo-IdleStepSlug -StepType $stepType
 
     return [pscustomobject]@{
-        StepType         = $stepType
-        Slug             = $slug
-        ModuleName       = $moduleName
-        CommandName      = $commandName
-        Synopsis         = $synopsis
-        Description      = $description
-        RequiredWithKeys = $requiredWithKeys
-        Idempotent       = $idempotent
-        Contracts        = $contracts
+        StepType              = $stepType
+        Slug                  = $slug
+        ModuleName            = $moduleName
+        CommandName           = $commandName
+        Synopsis              = $synopsis
+        Description           = $description
+        RequiredWithKeys      = $requiredWithKeys
+        Idempotent            = $idempotent
+        RequiredCapabilities  = $requiredCapabilities
     }
 }
 
@@ -414,8 +453,12 @@ function New-IdleStepDetailPageContent {
     [void]$sb.AppendLine(("- **Module**: ``{0}``" -f $Model.ModuleName))
     [void]$sb.AppendLine(("- **Implementation**: ``{0}``" -f $Model.CommandName))
     [void]$sb.AppendLine(("- **Idempotent**: ``{0}``" -f $Model.Idempotent))
-    [void]$sb.AppendLine(("- **Contracts**: ``{0}``" -f $Model.Contracts))
-    [void]$sb.AppendLine(("- **Events**: Unknown"))
+    
+    # Only show Required Capabilities if we have any
+    if ($Model.RequiredCapabilities -and $Model.RequiredCapabilities.Count -gt 0) {
+        $capsFormatted = ($Model.RequiredCapabilities | ForEach-Object { "``$_``" }) -join ', '
+        [void]$sb.AppendLine(("- **Required Capabilities**: {0}" -f $capsFormatted))
+    }
     [void]$sb.AppendLine()
 
     [void]$sb.AppendLine('## Synopsis')
@@ -434,15 +477,87 @@ function New-IdleStepDetailPageContent {
     [void]$sb.AppendLine()
 
     if ($Model.RequiredWithKeys.Count -eq 0) {
-        [void]$sb.AppendLine('_Unknown (not detected automatically). Document required With.* keys in the step help and/or use a supported pattern._')
+        [void]$sb.AppendLine('This step may not require specific input keys, or they could not be detected automatically.')
+        [void]$sb.AppendLine('Please refer to the step description and examples for usage details.')
         [void]$sb.AppendLine()
     }
     else {
-        [void]$sb.AppendLine('| Key | Required |')
-        [void]$sb.AppendLine('| --- | --- |')
+        [void]$sb.AppendLine('The following keys are required in the step''s ``With`` configuration:')
+        [void]$sb.AppendLine()
+        [void]$sb.AppendLine('| Key | Required | Description |')
+        [void]$sb.AppendLine('| --- | --- | --- |')
         foreach ($k in $Model.RequiredWithKeys) {
-            [void]$sb.AppendLine("| $k | Yes |")
+            # Add basic description based on common key patterns
+            $description = switch ($k) {
+                'IdentityKey' { 'Unique identifier for the identity' }
+                'Name' { 'Name of the attribute or property' }
+                'Value' { 'Desired value to set' }
+                'Attributes' { 'Hashtable of attributes to set' }
+                'DestinationPath' { 'Target location or path' }
+                'Message' { 'Message text to emit (optional for EmitEvent step)' }
+                'EntitlementType' { 'Type of entitlement (e.g., Group, License)' }
+                'EntitlementValue' { 'Specific entitlement identifier' }
+                'Entitlement' { 'Entitlement identifier or object' }
+                'State' { 'Desired state for the entitlement' }
+                'Ensure' { 'Desired state (Present or Absent)' }
+                'Provider' { 'Provider alias (optional, defaults vary by step)' }
+                'AuthSessionName' { 'Name of auth session to use (optional)' }
+                'PolicyType' { 'Type of policy (e.g., Delta, Initial)' }
+                'Wait' { 'Whether to wait for completion' }
+                default { 'See step description for details' }
+            }
+            [void]$sb.AppendLine("| ``$k`` | Yes | $description |")
         }
+        [void]$sb.AppendLine()
+    }
+
+    # Add examples section
+    [void]$sb.AppendLine('## Example')
+    [void]$sb.AppendLine()
+    [void]$sb.AppendLine('```powershell')
+    [void]$sb.AppendLine('@{')
+    [void]$sb.AppendLine(("  Name = '{0} Example'" -f $Model.StepType))
+    [void]$sb.AppendLine(("  Type = 'IdLE.Step.{0}'" -f $Model.StepType))
+    [void]$sb.AppendLine('  With = @{')
+    
+    if ($Model.RequiredWithKeys.Count -gt 0) {
+        foreach ($k in $Model.RequiredWithKeys) {
+            $exampleValue = switch ($k) {
+                'IdentityKey' { '''user.name''' }
+                'Name' { '''AttributeName''' }
+                'Value' { '''AttributeValue''' }
+                'Attributes' { "@{ GivenName = 'First'; Surname = 'Last' }" }
+                'DestinationPath' { '''OU=Users,DC=domain,DC=com''' }
+                'Message' { '''Custom event message''' }
+                'EntitlementType' { '''Group''' }
+                'EntitlementValue' { '''CN=GroupName,OU=Groups,DC=domain,DC=com''' }
+                'Entitlement' { "@{ Type = 'Group'; Value = 'GroupId' }" }
+                'State' { '''Present''' }
+                'Ensure' { '''Present''' }
+                'Provider' { '''Identity''' }
+                'AuthSessionName' { '''AdminSession''' }
+                'PolicyType' { '''Delta''' }
+                'Wait' { '$true' }
+                default { '''<value>''' }
+            }
+            [void]$sb.AppendLine(("    {0,-20} = {1}" -f $k, $exampleValue))
+        }
+    }
+    else {
+        [void]$sb.AppendLine('    # See step description for available options')
+    }
+    
+    [void]$sb.AppendLine('  }')
+    [void]$sb.AppendLine('}')
+    [void]$sb.AppendLine('```')
+    [void]$sb.AppendLine()
+
+    # Add reference to capabilities if any
+    if ($Model.RequiredCapabilities -and $Model.RequiredCapabilities.Count -gt 0) {
+        [void]$sb.AppendLine('## See Also')
+        [void]$sb.AppendLine()
+        [void]$sb.AppendLine('- [Capabilities Reference](../capabilities.md) - Details on required capabilities')
+        [void]$sb.AppendLine('- [Providers](../providers.md) - Available provider implementations')
         [void]$sb.AppendLine()
     }
 

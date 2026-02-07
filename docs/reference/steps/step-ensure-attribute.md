@@ -9,8 +9,7 @@
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEnsureAttribute`
 - **Idempotent**: `Yes`
-- **Contracts**: `Provider must implement method: EnsureAttribute`
-- **Events**: Unknown
+- **Required Capabilities**: `IdLE.Identity.Attribute.Ensure`
 
 ## Synopsis
 
@@ -18,7 +17,7 @@ Ensures that an identity attribute matches the desired value.
 
 ## Description
 
-This is a provider-agnostic step. The host must supply a provider instance via
+The host must supply a provider instance via
 Context.Providers[&lt;ProviderAlias&gt;]. The provider must implement an EnsureAttribute
 method with the signature (IdentityKey, Name, Value) and return an object that
 contains a boolean property 'Changed'.
@@ -38,8 +37,29 @@ Authentication:
 
 ## Inputs (With.*)
 
-| Key | Required |
-| --- | --- |
-| IdentityKey | Yes |
-| Name | Yes |
-| Value | Yes |
+The following keys are required in the step's ``With`` configuration:
+
+| Key | Required | Description |
+| --- | --- | --- |
+| `IdentityKey` | Yes | Unique identifier for the identity |
+| `Name` | Yes | Name of the attribute or property |
+| `Value` | Yes | Desired value to set |
+
+## Example
+
+```powershell
+@{
+  Name = 'EnsureAttribute Example'
+  Type = 'IdLE.Step.EnsureAttribute'
+  With = @{
+    IdentityKey          = 'user.name'
+    Name                 = 'AttributeName'
+    Value                = 'AttributeValue'
+  }
+}
+```
+
+## See Also
+
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Providers](../providers.md) - Available provider implementations
