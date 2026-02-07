@@ -9,8 +9,7 @@
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEnsureEntitlement`
 - **Idempotent**: `Yes`
-- **Contracts**: `Unknown`
-- **Events**: Unknown
+- **Required Capabilities**: `IdLE.Entitlement.List`, `IdLE.Entitlement.Grant`, `IdLE.Entitlement.Revoke`
 
 ## Synopsis
 
@@ -44,8 +43,29 @@ Authentication:
 
 ## Inputs (With.*)
 
-| Key | Required |
-| --- | --- |
-| IdentityKey | Yes |
-| Entitlement | Yes |
-| State | Yes |
+The following keys are required in the step's ``With`` configuration:
+
+| Key | Required | Description |
+| --- | --- | --- |
+| `Entitlement` | Yes | Entitlement identifier or object |
+| `IdentityKey` | Yes | Unique identifier for the identity |
+| `State` | Yes | Desired state for the entitlement |
+
+## Example
+
+```powershell
+@{
+  Name = 'EnsureEntitlement Example'
+  Type = 'IdLE.Step.EnsureEntitlement'
+  With = @{
+    Entitlement          = @{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }
+    IdentityKey          = 'user.name'
+    State                = 'Present'
+  }
+}
+```
+
+## See Also
+
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Providers](../providers.md) - Available provider implementations

@@ -9,8 +9,7 @@
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepCreateIdentity`
 - **Idempotent**: `Yes`
-- **Contracts**: `Unknown`
-- **Events**: Unknown
+- **Required Capabilities**: `IdLE.Identity.Create`
 
 ## Synopsis
 
@@ -18,7 +17,7 @@ Creates a new identity in the target system.
 
 ## Description
 
-This is a provider-agnostic step. The host must supply a provider instance via
+The host must supply a provider instance via
 Context.Providers[&lt;ProviderAlias&gt;] that implements CreateIdentity(identityKey, attributes)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
@@ -38,7 +37,27 @@ Authentication:
 
 ## Inputs (With.*)
 
-| Key | Required |
-| --- | --- |
-| IdentityKey | Yes |
-| Attributes | Yes |
+The following keys are required in the step's ``With`` configuration:
+
+| Key | Required | Description |
+| --- | --- | --- |
+| `Attributes` | Yes | Hashtable of attributes to set |
+| `IdentityKey` | Yes | Unique identifier for the identity |
+
+## Example
+
+```powershell
+@{
+  Name = 'CreateIdentity Example'
+  Type = 'IdLE.Step.CreateIdentity'
+  With = @{
+    Attributes           = @{ GivenName = 'First'; Surname = 'Last' }
+    IdentityKey          = 'user.name'
+  }
+}
+```
+
+## See Also
+
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Providers](../providers.md) - Available provider implementations
