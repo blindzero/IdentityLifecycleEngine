@@ -13,25 +13,37 @@ function New-IdleAuthSessionBroker {
     AcquireAuthSession method.
 
     .PARAMETER SessionMap
-    A hashtable that maps session configurations to credentials. Each key is a hashtable
-    representing the AuthSessionOptions pattern, and each value is the PSCredential to return.
+    A hashtable that maps session configurations to auth sessions. Each key is a hashtable
+    representing the AuthSessionOptions pattern, and each value is the auth session to return.
+    The value can be a PSCredential, token string, session object, or any object appropriate
+    for the AuthSessionType.
 
     Common patterns:
-    - @{ Role = 'Tier0' } -> $tier0Credential
-    - @{ Role = 'Admin' } -> $adminCredential
-    - @{ Domain = 'SourceAD' } -> $sourceCred
+    - @{ Role = 'Tier0' } -> $tier0Credential (for Credential type)
+    - @{ Role = 'Admin' } -> $adminToken (for OAuth type)
+    - @{ Server = 'Server01' } -> $remoteSession (for PSRemoting type)
     - @{ Environment = 'Production' } -> $prodCred
 
-    .PARAMETER DefaultCredential
-    Optional default credential to return when no session options are provided or
-    when the options don't match any entry in SessionMap.
+    .PARAMETER DefaultAuthSession
+    Optional default auth session to return when no session options are provided or
+    when the options don't match any entry in SessionMap. Can be a PSCredential, token
+    string, session object, or any object appropriate for the AuthSessionType.
+
+    .PARAMETER AuthSessionType
+    Specifies the type of authentication session. This determines validation rules,
+    lifecycle management, and telemetry behavior.
+
+    Valid values:
+    - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
+    - 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
+    - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
 
     .EXAMPLE
-    # Simple role-based broker
+    # Simple role-based broker with Credential session type
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Role = 'Tier0' } = $tier0Credential
         @{ Role = 'Admin' } = $adminCredential
-    } -DefaultCredential $adminCredential
+    } -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = New-IdleADIdentityProvider
@@ -39,11 +51,23 @@ function New-IdleAuthSessionBroker {
     }
 
     .EXAMPLE
-    # Domain-based broker for multi-forest scenarios
+    # OAuth broker with token strings
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ Role = 'Admin' } = $graphToken
+    } -DefaultAuthSession $graphToken -AuthSessionType 'OAuth'
+
+    .EXAMPLE
+    # Domain-based broker for multi-forest scenarios with Credential session type
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Domain = 'SourceAD' } = $sourceCred
         @{ Domain = 'TargetAD' } = $targetCred
-    }
+    } -AuthSessionType 'Credential'
+
+    .EXAMPLE
+    # PSRemoting broker for Entra Connect directory sync
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ Server = 'AADConnect01' } = $remoteSessionCred
+    } -AuthSessionType 'PSRemoting'
 
     .OUTPUTS
     PSCustomObject with AcquireAuthSession method
@@ -56,13 +80,18 @@ function New-IdleAuthSessionBroker {
 
         [Parameter()]
         [AllowNull()]
-        [PSCredential] $DefaultCredential
+        [object] $DefaultAuthSession,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
+        [string] $AuthSessionType
     )
 
     $broker = [pscustomobject]@{
         PSTypeName = 'IdLE.AuthSessionBroker'
         SessionMap = $SessionMap
-        DefaultCredential = $DefaultCredential
+        DefaultAuthSession = $DefaultAuthSession
+        AuthSessionType = $AuthSessionType
     }
 
     $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
@@ -80,12 +109,19 @@ function New-IdleAuthSessionBroker {
         # This broker routes based on Options only; custom brokers may use Name for additional routing
         $null = $Name
 
+        # TODO: Implement type-specific validation rules for AuthSessionType
+        # Current implementation allows all options for all session types
+        # Future enhancements may add:
+        # - OAuth: Validate token format, expiration, scopes
+        # - PSRemoting: Validate remote session state, connectivity
+        # - Credential: Validate credential format, domain membership
+
         # If no options provided, return default
         if ($null -eq $Options -or $Options.Count -eq 0) {
-            if ($null -ne $this.DefaultCredential) {
-                return $this.DefaultCredential
+            if ($null -ne $this.DefaultAuthSession) {
+                return $this.DefaultAuthSession
             }
-            throw "No auth session options provided and no default credential configured."
+            throw "No auth session options provided and no default auth session configured."
         }
 
         # Find matching session in map
@@ -108,12 +144,12 @@ function New-IdleAuthSessionBroker {
         }
 
         # No match found
-        if ($null -ne $this.DefaultCredential) {
-            return $this.DefaultCredential
+        if ($null -ne $this.DefaultAuthSession) {
+            return $this.DefaultAuthSession
         }
 
         $optionsStr = ($Options.Keys | ForEach-Object { "$_=$($Options[$_])" }) -join ', '
-        throw "No matching credential found for options: $optionsStr"
+        throw "No matching auth session found for options: $optionsStr"
     } -Force
 
     return $broker
