@@ -3,11 +3,11 @@ title: Provider Reference - IdLE.Provider.ExchangeOnline
 sidebar_label: ExchangeOnline
 ---
 
-> **Purpose:** This page is a **reference** for a specific provider implementation.
-> Keep it factual and contract-oriented. Put conceptual explanations elsewhere and link to them.
+## Purpose
+
+This provider manages Exchange Online mailbox configuration and Out of Office settings as part of IdLE workflows.
 
 ---
-
 ## Summary
 
 - **Provider name:** ExchangeOnline
@@ -206,3 +206,11 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 - Requires the `ExchangeOnlineManagement` PowerShell module at runtime.
 - The host must establish or broker a usable Exchange Online session; the provider does not connect interactively.
+
+---
+
+## Testing
+
+- **Unit tests:** `tests/Providers/ExchangeOnlineProvider.Tests.ps1`
+- **Contract tests:** Provider contract tests validate implementation compliance
+- **Known CI constraints:** Tests use mock cmdlet layer; no live Exchange Online calls in CI

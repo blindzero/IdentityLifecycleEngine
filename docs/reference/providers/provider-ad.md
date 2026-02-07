@@ -3,40 +3,83 @@ title: Provider Reference - IdLE.Provider.AD (Active Directory)
 sidebar_label: Active Directory
 ---
 
-## Overview
+## Summary
 
-The Active Directory provider (`IdLE.Provider.AD`) is a built-in provider for on-premises Active Directory environments. It enables IdLE to perform identity lifecycle operations directly against Windows Active Directory domains.
-
-**Platform:** Windows-only (requires RSAT/ActiveDirectory PowerShell module)
-
-**Module:** IdLE.Provider.AD
-
-**Factory Function:** `New-IdleADIdentityProvider`
+- **Provider name:** `AD` (Active Directory)
+- **Module:** `IdLE.Provider.AD`
+- **Provider kind:** `Identity | Entitlement`
+- **Targets:** Windows Active Directory (on-premises domains)
+- **Status:** Built-in
+- **Since:** 0.9.0
+- **Compatibility:** PowerShell 7+ (IdLE requirement), Windows-only (requires RSAT/ActiveDirectory PowerShell module)
 
 ---
 
-## Capabilities
+## What this provider does
 
-The AD provider implements the following IdLE capabilities:
+- **Primary responsibilities:**
+  - Create, read, update, disable, enable, and delete (opt-in) user accounts in Active Directory
+  - Set and update user attributes (department, title, office location, etc.)
+  - Move users between organizational units (OUs)
+  - Manage group memberships (grant/revoke entitlements)
+- **Out of scope / non-goals:**
+  - Establishing AD connectivity or authentication (handled by host-provided credentials or integrated auth)
+  - Managing group policy objects (GPOs)
+  - Managing other AD object types (computers, contacts, etc.)
 
-### Identity Operations
+---
 
-- **IdLE.Identity.Read** - Query identity information
-- **IdLE.Identity.List** - List identities (provider API only, no built-in step)
-- **IdLE.Identity.Create** - Create new user accounts
-- **IdLE.Identity.Delete** - Delete user accounts (opt-in via `-AllowDelete`)
-- **IdLE.Identity.Disable** - Disable user accounts
-- **IdLE.Identity.Enable** - Enable user accounts
-- **IdLE.Identity.Move** - Move users between OUs
-- **IdLE.Identity.Attribute.Ensure** - Set/update user attributes
+## Contracts and capabilities
 
-### Entitlement Operations
+### Contracts implemented
 
-- **IdLE.Entitlement.List** - List group memberships
-- **IdLE.Entitlement.Grant** - Add users to groups
-- **IdLE.Entitlement.Revoke** - Remove users from groups
+| Contract | Used by steps for | Notes |
+| --- | --- | --- |
+| Identity provider (implicit) | Identity read/write operations | Supports comprehensive identity lifecycle operations including OU moves |
+| Entitlement provider (implicit) | Grant/revoke/list entitlements | Only supports `Kind='Group'` (AD platform limitation) |
+
+> Keep the contract list stable and link to the canonical contract reference.
+
+### Capability advertisement (`GetCapabilities()`)
+
+- **Implements `GetCapabilities()`**: Yes
+- **Capabilities returned (stable identifiers):**
+  - `IdLE.Identity.Read` - Query identity information
+  - `IdLE.Identity.List` - List identities (provider API only, no built-in step)
+  - `IdLE.Identity.Create` - Create new user accounts
+  - `IdLE.Identity.Delete` - Delete user accounts (opt-in via `-AllowDelete`)
+  - `IdLE.Identity.Disable` - Disable user accounts
+  - `IdLE.Identity.Enable` - Enable user accounts
+  - `IdLE.Identity.Move` - Move users between OUs
+  - `IdLE.Identity.Attribute.Ensure` - Set/update user attributes
+  - `IdLE.Entitlement.List` - List group memberships
+  - `IdLE.Entitlement.Grant` - Add users to groups
+  - `IdLE.Entitlement.Revoke` - Remove users from groups
 
 **Note:** AD only supports `Kind='Group'` for entitlements. This is a platform limitation - Active Directory only provides security groups and distribution groups, not arbitrary entitlement types (roles, licenses, etc.).
+
+---
+
+## Authentication and session acquisition
+
+> Providers must not prompt for auth. Use the host-provided broker contract.
+
+- **Auth session name(s) requested via `Context.AcquireAuthSession(...)`:**
+  - `ActiveDirectory`
+- **Session options (data-only):**
+  - Any hashtable; commonly `@{ Role = 'Tier0' }` or `@{ Role = 'Admin' }` or `@{ Domain = 'SourceForest' }`
+- **Auth session formats supported:**
+  - `$null` (integrated authentication / run-as context)
+  - `PSCredential` (used for AD cmdlets `-Credential` parameter)
+
+:::warning
+
+**Security notes**
+
+- Do not pass secrets in workflow files or provider options.
+- Ensure credential objects (or their secure strings) are not emitted in logs/events.
+
+:::
 
 ---
 
@@ -86,10 +129,11 @@ This makes `New-IdleADIdentityProvider` available in your session.
 
 ---
 
-## Authentication and session acquisition
+## Configuration
 
-> Providers must not prompt for auth. Use the host-provided broker contract.
+### Provider constructor / factory
 
+How to create an instance.
 - **Auth session name(s) used by built-in steps:** `ActiveDirectory`
 - **Auth session formats supported:**  
   - `null` (integrated authentication / run-as)  
@@ -99,16 +143,39 @@ This makes `New-IdleADIdentityProvider` available in your session.
 
 The AD provider uses credential-based authentication where the module capabilities exist without requiring explicit session management. When creating the `AuthSessionBroker`, specify `AuthSessionType = 'Credential'` to indicate this authentication pattern.
 
-:::warning
+- **Public constructor cmdlet(s):**
+  - `New-IdleADIdentityProvider` — Creates an Active Directory identity provider instance
 
-**Security notes**
+**Parameters (high signal only)**
 
-- Do not pass secrets in workflow files or provider options.
-- Make sure your host does not emit credential objects (or their secure strings) in logs/events.
+- `-AllowDelete` (switch) — Opt-in to enable the `IdLE.Identity.Delete` capability (disabled by default for safety)
 
-:::
+> Do not copy full comment-based help here. Link to the cmdlet reference.
 
-### Auth examples
+### Provider bag / alias usage
+
+How to pass the provider instance to IdLE as part of the host's provider map.
+
+```powershell
+$providers = @{
+  Identity = New-IdleADIdentityProvider
+}
+```
+
+- **Recommended alias pattern:** `Identity` (single provider) or `SourceAD` / `TargetAD` (multi-provider scenarios)
+- **Default alias expected by built-in steps (if any):** `Identity` (if applicable)
+
+---
+
+## Provider-specific options reference
+
+> Document only **data-only** keys. Keep this list short and unambiguous.
+
+This provider has **no provider-specific option bag**. All configuration is done through the constructor parameters and authentication is managed via the `AuthSessionBroker`.
+
+---
+
+## Auth examples (Authentication patterns)
 
 **A) Integrated authentication (no broker)**
 
@@ -129,7 +196,7 @@ $adminCredential = Get-Credential -Message 'Enter AD admin credentials'
 $broker = New-IdleAuthSession -SessionMap @{
   @{ Role = 'Tier0' } = $tier0Credential
   @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential -AuthSessionType 'Credential'
+} -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
 $providers = @{
   Identity         = New-IdleADIdentityProvider
@@ -155,6 +222,44 @@ $broker = New-IdleAuthSession -SessionMap @{
 
 # Steps use With.AuthSessionOptions = @{ Domain = 'SourceForest' } etc.
 ```
+
+---
+
+## Operational behavior
+
+### Idempotency and consistency
+
+- **Idempotent operations:** Yes (all operations)
+- **Consistency model:** Strong (Active Directory platform consistency)
+- **Concurrency notes:** Operations are safe for retries. AD handles concurrent operations natively.
+
+All operations are idempotent and safe for retries:
+
+| Operation | Idempotent Behavior |
+| --------- | ------------------- |
+| Create | If identity exists, returns `Changed=$false` (no error) |
+| Delete | If identity already gone, returns `Changed=$false` (no error) |
+| Move | If already in target OU, returns `Changed=$false` |
+| Enable/Disable | If already in desired state, returns `Changed=$false` |
+| Grant membership | If already a member, returns `Changed=$false` |
+| Revoke membership | If not a member, returns `Changed=$false` |
+
+This design ensures workflows can be re-run safely without causing duplicate operations or errors.
+
+### Error mapping and retry behavior
+
+- **Common error categories:** `NotFound`, `AlreadyExists`, `PermissionDenied`, `ObjectNotFound`
+- **Retry strategy:** none (delegated to host)
+
+---
+
+## Observability
+
+- **Events emitted by provider (if any):**
+  - Steps emit events via the execution context; provider operations are traced through step events
+- **Sensitive data redaction:** Credential objects and secure strings are not included in operation results or events
+
+---
 
 ## Usage
 
@@ -188,7 +293,7 @@ $provider = New-IdleADIdentityProvider
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
     @{ Role = 'Admin' } = $adminCredential
-} -DefaultCredential $adminCredential -AuthSessionType 'Credential'
+} -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
 # Use provider with broker
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
@@ -336,23 +441,6 @@ The provider supports multiple identifier formats and resolves them deterministi
 
 ---
 
-## Idempotency Guarantees
-
-All operations are idempotent and safe for retries:
-
-| Operation | Idempotent Behavior |
-| --------- | ------------------- |
-| Create | If identity exists, returns `Changed=$false` (no error) |
-| Delete | If identity already gone, returns `Changed=$false` (no error) |
-| Move | If already in target OU, returns `Changed=$false` |
-| Enable/Disable | If already in desired state, returns `Changed=$false` |
-| Grant membership | If already a member, returns `Changed=$false` |
-| Revoke membership | If not a member, returns `Changed=$false` |
-
-This design ensures workflows can be re-run safely without causing duplicate operations or errors.
-
----
-
 ## Entitlement Model
 
 Active Directory entitlements use:
@@ -388,7 +476,47 @@ Step metadata (including required capabilities) is provided by step pack modules
 
 ---
 
-## Example Workflows
+## Examples
+
+### Minimal host usage
+
+```powershell
+# 1) Create provider instance
+$provider = New-IdleADIdentityProvider
+
+# 2) Build provider map
+$providers = @{ Identity = $provider }
+
+# 3) Plan + execute
+$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers $providers
+$result = Invoke-IdlePlan -Plan $plan -Providers $providers
+```
+
+### Example workflow snippet
+
+```powershell
+@{
+  Steps = @(
+    @{
+      Name = 'CreateUser'
+      Type = 'IdLE.Step.CreateIdentity'
+      With = @{
+        Provider = 'Identity'
+        IdentityKey = 'jdoe'
+        Attributes = @{
+          GivenName = 'John'
+          Surname = 'Doe'
+          UserPrincipalName = 'jdoe@contoso.local'
+        }
+        AuthSessionName = 'ActiveDirectory'
+        AuthSessionOptions = @{ Role = 'Admin' }
+      }
+    }
+  )
+}
+```
+
+### Complete example workflows
 
 Complete example workflows are available in the repository:
 
@@ -398,35 +526,20 @@ Complete example workflows are available in the repository:
 
 ---
 
-## Provider Aliases
+## Limitations and known issues
 
-The provider uses **provider aliases** - the hashtable key in the `Providers` parameter is an alias chosen by the host:
+- **Platform:** Windows-only (requires RSAT/ActiveDirectory PowerShell module)
+- **Entitlement types:** Only supports `Kind='Group'` (AD platform limitation - no roles, licenses, etc.)
+- **Concurrency:** While operations are thread-safe, concurrent modifications to the same object should be managed by the host
+- **Delete capability:** Disabled by default; must opt-in with `-AllowDelete` for safety
 
-```powershell
-# Single provider scenario
-$plan = New-IdlePlan -Providers @{ Identity = $provider }
+---
 
-# Multi-provider scenario
-$plan = New-IdlePlan -Providers @{ 
-    SourceAD = $sourceProvider
-    TargetAD = $targetProvider 
-}
-```
+## Testing
 
-Workflow steps reference the alias via `With.Provider`:
-
-```powershell
-@{
-    Type = 'IdLE.Step.CreateIdentity'
-    With = @{
-        Provider = 'SourceAD'  # Matches the alias in Providers hashtable
-        IdentityKey = 'user@contoso.local'
-        # ...
-    }
-}
-```
-
-Built-in steps default to `'Identity'` when `With.Provider` is omitted.
+- **Unit tests:** `tests/Providers/ADIdentityProvider.Tests.ps1`
+- **Contract tests:** Provider contract tests validate implementation compliance
+- **Known CI constraints:** Tests use mock adapter layer; no live AD dependency in CI
 
 ---
 

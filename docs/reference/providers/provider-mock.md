@@ -3,11 +3,6 @@ title: Provider Reference - IdLE.Provider.Mock
 sidebar_label: Mock
 ---
 
-> **Purpose:** This page is a **reference** for a specific provider implementation.
-> Keep it factual and contract-oriented. Put conceptual explanations elsewhere and link to them.
-
----
-
 ## Summary
 
 - **Provider name:** MockIdentity
@@ -182,3 +177,11 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 - Designed for tests and examples only.
 - `GetIdentity` auto-creates missing identities, which may hide "NotFound" scenarios unless tests seed the store explicitly.
+
+---
+
+## Testing
+
+- **Unit tests:** `tests/Providers/MockIdentityProvider.Tests.ps1`
+- **Contract tests:** Provider contract tests validate implementation compliance
+- **Known CI constraints:** None (in-memory provider designed for testing)
