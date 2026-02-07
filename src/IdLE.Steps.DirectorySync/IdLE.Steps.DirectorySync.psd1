@@ -8,6 +8,7 @@
     PowerShellVersion = '7.0'
 
     RequiredModules   = @(
+        'IdLE.Core',
         'IdLE.Steps.Common'
     )
 
