@@ -13,8 +13,8 @@ Creates a simple AuthSessionBroker for use with IdLE providers.
 ## SYNTAX
 
 ```
-New-IdleAuthSession [-SessionMap] &lt;Hashtable&gt; [[-DefaultCredential] &lt;PSCredential&gt;]
- [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
+New-IdleAuthSession [-SessionMap] <Hashtable> [[-DefaultAuthSession] <Object>] -AuthSessionType <String>
+ [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -30,13 +30,13 @@ This is a thin wrapper that delegates to IdLE.Core\New-IdleAuthSessionBroker.
 ```
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
-}
+} -AuthSessionType 'Credential'
 ```
 
 ## PARAMETERS
 
 ### -SessionMap
-A hashtable that maps session configurations to credentials.
+A hashtable that maps session configurations to auth sessions.
 
 ```yaml
 Type: Hashtable
@@ -50,11 +50,11 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -DefaultCredential
-Optional default credential to return when no session options are provided.
+### -DefaultAuthSession
+Optional default auth session to return when no session options are provided.
 
 ```yaml
-Type: PSCredential
+Type: Object
 Parameter Sets: (All)
 Aliases:
 
@@ -65,8 +65,30 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -AuthSessionType
+Specifies the type of authentication session. This determines validation rules,
+lifecycle management, and telemetry behavior.
+
+Valid values:
+- 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
+- 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
+- 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases:
+Accepted values: OAuth, PSRemoting, Credential
+
+Required: True
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### -ProgressAction
-TODO: ProgressAction Description
+{{ Fill ProgressAction Description }}
 
 ```yaml
 Type: ActionPreference
