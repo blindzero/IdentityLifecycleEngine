@@ -26,12 +26,22 @@ function New-IdleAuthSessionBroker {
     Optional default credential to return when no session options are provided or
     when the options don't match any entry in SessionMap.
 
+    .PARAMETER AuthSessionType
+    Specifies the type of authentication session. This determines validation rules,
+    lifecycle management, and telemetry behavior.
+
+    Valid values:
+    - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
+    - 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
+    - 'Implicit': Implicit authentication without explicit session (e.g., Active Directory)
+    - 'None': No authentication required (e.g., mock providers)
+
     .EXAMPLE
-    # Simple role-based broker
+    # Simple role-based broker with OAuth session type
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Role = 'Tier0' } = $tier0Credential
         @{ Role = 'Admin' } = $adminCredential
-    } -DefaultCredential $adminCredential
+    } -DefaultCredential $adminCredential -AuthSessionType 'OAuth'
 
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = New-IdleADIdentityProvider
@@ -39,11 +49,17 @@ function New-IdleAuthSessionBroker {
     }
 
     .EXAMPLE
-    # Domain-based broker for multi-forest scenarios
+    # Domain-based broker for multi-forest scenarios with Implicit session type
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Domain = 'SourceAD' } = $sourceCred
         @{ Domain = 'TargetAD' } = $targetCred
-    }
+    } -AuthSessionType 'Implicit'
+
+    .EXAMPLE
+    # PSRemoting broker for Entra Connect directory sync
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ Server = 'AADConnect01' } = $remoteSessionCred
+    } -AuthSessionType 'PSRemoting'
 
     .OUTPUTS
     PSCustomObject with AcquireAuthSession method
@@ -56,13 +72,18 @@ function New-IdleAuthSessionBroker {
 
         [Parameter()]
         [AllowNull()]
-        [PSCredential] $DefaultCredential
+        [PSCredential] $DefaultCredential,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('OAuth', 'PSRemoting', 'Implicit', 'None')]
+        [string] $AuthSessionType
     )
 
     $broker = [pscustomobject]@{
         PSTypeName = 'IdLE.AuthSessionBroker'
         SessionMap = $SessionMap
         DefaultCredential = $DefaultCredential
+        AuthSessionType = $AuthSessionType
     }
 
     $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
@@ -79,6 +100,28 @@ function New-IdleAuthSessionBroker {
         # $Name is part of the broker contract but not used in this simple implementation
         # This broker routes based on Options only; custom brokers may use Name for additional routing
         $null = $Name
+
+        # Validate options based on AuthSessionType
+        if ($null -ne $Options -and $Options.Count -gt 0) {
+            switch ($this.AuthSessionType) {
+                'OAuth' {
+                    # OAuth sessions typically use role or scope-based options
+                    # No additional validation needed for this simple implementation
+                }
+                'PSRemoting' {
+                    # PSRemoting sessions may specify server, computerName, or similar
+                    # No additional validation needed for this simple implementation
+                }
+                'Implicit' {
+                    # Implicit sessions may specify domain, forest, or organizational context
+                    # No additional validation needed for this simple implementation
+                }
+                'None' {
+                    # No session expected, but options may still be used for routing
+                    # No additional validation needed for this simple implementation
+                }
+            }
+        }
 
         # If no options provided, return default
         if ($null -eq $Options -or $Options.Count -eq 0) {

@@ -13,7 +13,7 @@ Describe 'New-IdleAuthSession' {
     It 'creates an auth session broker with the expected type' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'AD' } = $testCred
-        }
+        } -AuthSessionType 'OAuth'
         
         $broker | Should -Not -BeNullOrEmpty
         $broker.PSTypeNames | Should -Contain 'IdLE.AuthSessionBroker'
@@ -22,7 +22,7 @@ Describe 'New-IdleAuthSession' {
     It 'creates broker with AcquireAuthSession method' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'AD' } = $testCred
-        }
+        } -AuthSessionType 'OAuth'
         
         $broker.PSObject.Methods['AcquireAuthSession'] | Should -Not -BeNullOrEmpty
     }
@@ -33,7 +33,7 @@ Describe 'New-IdleAuthSession' {
             @{ Role = 'Admin' } = $testCred
         }
         
-        $broker = New-IdleAuthSession -SessionMap $sessionMap
+        $broker = New-IdleAuthSession -SessionMap $sessionMap -AuthSessionType 'Implicit'
         
         $broker.SessionMap | Should -Not -BeNullOrEmpty
         $broker.SessionMap.Count | Should -Be 2
@@ -42,7 +42,7 @@ Describe 'New-IdleAuthSession' {
     It 'accepts optional DefaultCredential parameter' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'AD' } = $testCred
-        } -DefaultCredential $testCred
+        } -DefaultCredential $testCred -AuthSessionType 'OAuth'
         
         $broker.DefaultCredential | Should -Not -BeNullOrEmpty
         $broker.DefaultCredential.UserName | Should -Be 'TestUser'
@@ -51,7 +51,7 @@ Describe 'New-IdleAuthSession' {
     It 'broker can acquire auth session with matching options' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'Tier0' } = $testCred
-        }
+        } -AuthSessionType 'Implicit'
         
         $acquiredSession = $broker.AcquireAuthSession('TestName', @{ Role = 'Tier0' })
         
@@ -66,7 +66,7 @@ Describe 'New-IdleAuthSession' {
         
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'Tier0' } = $testCred
-        } -DefaultCredential $defaultCred
+        } -DefaultCredential $defaultCred -AuthSessionType 'OAuth'
         
         $acquiredSession = $broker.AcquireAuthSession('TestName', $null)
         
@@ -77,7 +77,7 @@ Describe 'New-IdleAuthSession' {
     It 'throws when no matching credential found and no default provided' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'Tier0' } = $testCred
-        }
+        } -AuthSessionType 'OAuth'
         
         { $broker.AcquireAuthSession('TestName', @{ Role = 'NonExistent' }) } | 
             Should -Throw '*No matching credential found*'
@@ -98,9 +98,89 @@ Describe 'New-IdleAuthSession' {
         { 
             $broker = New-IdleAuthSession -SessionMap @{
                 @{ Role = 'AD' } = $testCred
-            } -ErrorAction Stop
+            } -AuthSessionType 'Implicit' -ErrorAction Stop
             
             $broker | Should -Not -BeNullOrEmpty
         } | Should -Not -Throw
+    }
+
+    Context 'AuthSessionType parameter' {
+        It 'accepts OAuth session type' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Role = 'Admin' } = $testCred
+            } -AuthSessionType 'OAuth'
+            
+            $broker.AuthSessionType | Should -Be 'OAuth'
+        }
+
+        It 'accepts PSRemoting session type' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Server = 'AADConnect01' } = $testCred
+            } -AuthSessionType 'PSRemoting'
+            
+            $broker.AuthSessionType | Should -Be 'PSRemoting'
+        }
+
+        It 'accepts Implicit session type' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Domain = 'corp.example.com' } = $testCred
+            } -AuthSessionType 'Implicit'
+            
+            $broker.AuthSessionType | Should -Be 'Implicit'
+        }
+
+        It 'accepts None session type' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Provider = 'Mock' } = $testCred
+            } -AuthSessionType 'None'
+            
+            $broker.AuthSessionType | Should -Be 'None'
+        }
+
+        It 'throws on invalid session type' {
+            { 
+                New-IdleAuthSession -SessionMap @{
+                    @{ Role = 'AD' } = $testCred
+                } -AuthSessionType 'InvalidType'
+            } | Should -Throw
+        }
+    }
+
+    Context 'AuthSessionType validation during acquisition' {
+        It 'OAuth broker can acquire sessions with appropriate options' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Role = 'Admin' } = $testCred
+            } -AuthSessionType 'OAuth'
+            
+            $session = $broker.AcquireAuthSession('MicrosoftGraph', @{ Role = 'Admin' })
+            $session | Should -Not -BeNullOrEmpty
+        }
+
+        It 'PSRemoting broker can acquire sessions with appropriate options' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Server = 'AADConnect01' } = $testCred
+            } -AuthSessionType 'PSRemoting'
+            
+            $session = $broker.AcquireAuthSession('EntraConnect', @{ Server = 'AADConnect01' })
+            $session | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Implicit broker can acquire sessions with appropriate options' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Domain = 'corp.example.com' } = $testCred
+            } -AuthSessionType 'Implicit'
+            
+            $session = $broker.AcquireAuthSession('ActiveDirectory', @{ Domain = 'corp.example.com' })
+            $session | Should -Not -BeNullOrEmpty
+        }
+
+        It 'None broker can acquire sessions without strict validation' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Provider = 'Mock' } = $testCred
+            } -AuthSessionType 'None'
+            
+            $session = $broker.AcquireAuthSession('MockProvider', @{ Provider = 'Mock' })
+            $session | Should -Not -BeNullOrEmpty
+        }
     }
 }
