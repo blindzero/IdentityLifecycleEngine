@@ -39,13 +39,13 @@ Describe 'New-IdleAuthSession' {
         $broker.SessionMap.Count | Should -Be 2
     }
 
-    It 'accepts optional DefaultCredential parameter' {
+    It 'accepts optional DefaultAuthSession parameter' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'AD' } = $testCred
-        } -DefaultCredential $testCred -AuthSessionType 'Credential'
+        } -DefaultAuthSession $testCred -AuthSessionType 'Credential'
         
-        $broker.DefaultCredential | Should -Not -BeNullOrEmpty
-        $broker.DefaultCredential.UserName | Should -Be 'TestUser'
+        $broker.DefaultAuthSession | Should -Not -BeNullOrEmpty
+        $broker.DefaultAuthSession.UserName | Should -Be 'TestUser'
     }
 
     It 'broker can acquire auth session with matching options' {
@@ -60,13 +60,13 @@ Describe 'New-IdleAuthSession' {
         $acquiredSession.UserName | Should -Be 'TestUser'
     }
 
-    It 'broker returns default credential when no options provided' {
+    It 'broker returns default auth session when no options provided' {
         $defaultPassword = ConvertTo-SecureString 'DefaultPassword!' -AsPlainText -Force
         $defaultCred = New-Object System.Management.Automation.PSCredential('DefaultUser', $defaultPassword)
         
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'Tier0' } = $testCred
-        } -DefaultCredential $defaultCred -AuthSessionType 'Credential'
+        } -DefaultAuthSession $defaultCred -AuthSessionType 'Credential'
         
         $acquiredSession = $broker.AcquireAuthSession('TestName', $null)
         
@@ -74,13 +74,13 @@ Describe 'New-IdleAuthSession' {
         $acquiredSession.UserName | Should -Be 'DefaultUser'
     }
 
-    It 'throws when no matching credential found and no default provided' {
+    It 'throws when no matching auth session found and no default provided' {
         $broker = New-IdleAuthSession -SessionMap @{
             @{ Role = 'Tier0' } = $testCred
         } -AuthSessionType 'Credential'
         
         { $broker.AcquireAuthSession('TestName', @{ Role = 'NonExistent' }) } | 
-            Should -Throw '*No matching credential found*'
+            Should -Throw '*No matching auth session found*'
     }
 
     It 'is available as exported command from IdLE module' {

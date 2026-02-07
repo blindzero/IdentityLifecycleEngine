@@ -272,7 +272,7 @@ $targetAD = New-IdleADIdentityProvider -AllowDelete
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Domain = 'Source' } = $sourceCred
     @{ Domain = 'Target' } = $targetCred
-}
+} -AuthSessionType 'Credential'
 
 $plan = New-IdlePlan -WorkflowPath './migration.psd1' -Request $request -Providers @{
     SourceAD = $sourceAD

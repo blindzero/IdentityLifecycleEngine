@@ -19,10 +19,10 @@ function New-IdleAuthSession {
     This is a thin wrapper that delegates to IdLE.Core\New-IdleAuthSessionBroker.
 
     .PARAMETER SessionMap
-    A hashtable that maps session configurations to credentials.
+    A hashtable that maps session configurations to auth sessions.
 
-    .PARAMETER DefaultCredential
-    Optional default credential to return when no session options are provided.
+    .PARAMETER DefaultAuthSession
+    Optional default auth session to return when no session options are provided.
 
     .PARAMETER AuthSessionType
     Specifies the type of authentication session. This determines validation rules,
@@ -52,7 +52,7 @@ function New-IdleAuthSession {
 
         [Parameter()]
         [AllowNull()]
-        [PSCredential] $DefaultCredential,
+        [object] $DefaultAuthSession,
 
         [Parameter(Mandatory)]
         [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
@@ -64,8 +64,8 @@ function New-IdleAuthSession {
         SessionMap = $SessionMap
         AuthSessionType = $AuthSessionType
     }
-    if ($PSBoundParameters.ContainsKey('DefaultCredential')) {
-        $params['DefaultCredential'] = $DefaultCredential
+    if ($PSBoundParameters.ContainsKey('DefaultAuthSession')) {
+        $params['DefaultAuthSession'] = $DefaultAuthSession
     }
     
     return IdLE.Core\New-IdleAuthSessionBroker @params
