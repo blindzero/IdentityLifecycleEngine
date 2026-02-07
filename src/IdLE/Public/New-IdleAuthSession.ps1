@@ -19,15 +19,24 @@ function New-IdleAuthSession {
     This is a thin wrapper that delegates to IdLE.Core\New-IdleAuthSessionBroker.
 
     .PARAMETER SessionMap
-    A hashtable that maps session configurations to credentials.
+    A hashtable that maps session configurations to auth sessions.
 
-    .PARAMETER DefaultCredential
-    Optional default credential to return when no session options are provided.
+    .PARAMETER DefaultAuthSession
+    Optional default auth session to return when no session options are provided.
+
+    .PARAMETER AuthSessionType
+    Specifies the type of authentication session. This determines validation rules,
+    lifecycle management, and telemetry behavior.
+
+    Valid values:
+    - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
+    - 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
+    - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
 
     .EXAMPLE
     $broker = New-IdleAuthSession -SessionMap @{
         @{ Role = 'Tier0' } = $tier0Credential
-    }
+    } -AuthSessionType 'Credential'
 
     .OUTPUTS
     PSCustomObject with AcquireAuthSession method
@@ -43,13 +52,20 @@ function New-IdleAuthSession {
 
         [Parameter()]
         [AllowNull()]
-        [PSCredential] $DefaultCredential
+        [object] $DefaultAuthSession,
+
+        [Parameter(Mandatory)]
+        [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
+        [string] $AuthSessionType
     )
 
     # Delegate to IdLE.Core implementation.
-    $params = @{ SessionMap = $SessionMap }
-    if ($PSBoundParameters.ContainsKey('DefaultCredential')) {
-        $params['DefaultCredential'] = $DefaultCredential
+    $params = @{ 
+        SessionMap = $SessionMap
+        AuthSessionType = $AuthSessionType
+    }
+    if ($PSBoundParameters.ContainsKey('DefaultAuthSession')) {
+        $params['DefaultAuthSession'] = $DefaultAuthSession
     }
     
     return IdLE.Core\New-IdleAuthSessionBroker @params
