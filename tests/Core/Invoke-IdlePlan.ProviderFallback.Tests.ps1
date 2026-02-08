@@ -235,4 +235,37 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
         $result.Providers.TestProvider.apiKey | Should -Be '[REDACTED]'
         $result.Providers.TestProvider.endpoint | Should -Be 'https://example.test'
     }
+
+    It 'uses Plan.Providers when it is a PSCustomObject (not just IDictionary)' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
+        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Joiner - Standard'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'TestStep'; Type = 'IdLE.Step.Test' }
+  )
+}
+'@
+
+        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+
+        # Create a PSCustomObject-shaped provider registry (not a hashtable)
+        $providersObject = [pscustomobject]@{
+            StepRegistry = @{
+                'IdLE.Step.Test' = 'Invoke-IdleTestProviderFallbackStep'
+            }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+        }
+
+        # Build plan with PSCustomObject providers
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providersObject
+
+        # Execute without passing -Providers (should use Plan.Providers even though it's a PSCustomObject)
+        $result = Invoke-IdlePlan -Plan $plan
+
+        $result.PSTypeNames | Should -Contain 'IdLE.ExecutionResult'
+        $result.Status | Should -Be 'Completed'
+        $result.Steps[0].Status | Should -Be 'Completed'
+    }
 }

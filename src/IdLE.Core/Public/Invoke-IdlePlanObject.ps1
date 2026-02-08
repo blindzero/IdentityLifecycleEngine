@@ -110,8 +110,15 @@ function Invoke-IdlePlanObject {
     if ($null -eq $effectiveProviders) {
         if ($planPropNames -contains 'Providers') {
             $planProviders = $Plan.Providers
-            if ($null -ne $planProviders -and $planProviders -is [System.Collections.IDictionary]) {
-                $effectiveProviders = $planProviders
+            # Accept both IDictionary (hashtables) and PSCustomObject-shaped provider registries
+            if ($null -ne $planProviders) {
+                if ($planProviders -is [System.Collections.IDictionary]) {
+                    $effectiveProviders = $planProviders
+                }
+                elseif ($planProviders.PSObject -and $planProviders.PSObject.Properties) {
+                    # Accept PSCustomObject with properties (e.g., StepRegistry, AuthSessionBroker)
+                    $effectiveProviders = $planProviders
+                }
             }
         }
     }
