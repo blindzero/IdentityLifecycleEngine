@@ -35,7 +35,7 @@ If PowerShellGet reports that a command is already available (for example `New-I
 prefer a clean reinstall instead of `-AllowClobber`:
 
 ```powershell
-Get-InstalledModule IdLE, IdLE.Core -ErrorAction SilentlyContinue | Uninstall-Module -AllVersions -Force
+Get-InstalledModule IdLE, IdLE.Core, IdLE.Steps.Common -ErrorAction SilentlyContinue | Uninstall-Module -AllVersions -Force
 Install-Module -Name IdLE -Scope CurrentUser -Force
 ```
 :::
