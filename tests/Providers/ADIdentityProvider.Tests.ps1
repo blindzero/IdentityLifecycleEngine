@@ -1,3 +1,8 @@
+# PSScriptAnalyzer suppression: Test file intentionally uses ConvertTo-SecureString -AsPlainText
+# to create test data for password handling validation
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
+param()
+
 Set-StrictMode -Version Latest
 
 BeforeDiscovery {
@@ -765,6 +770,7 @@ Describe 'AD identity provider' {
         }
 
         It 'CreateIdentity accepts AccountPassword as SecureString' {
+            # Test setup requires plaintext conversion - this is intentional for test data
             $password = ConvertTo-SecureString -String 'TestPass123!' -AsPlainText -Force
             $attrs = @{
                 SamAccountName = 'pwtest1'
@@ -780,6 +786,7 @@ Describe 'AD identity provider' {
 
         It 'CreateIdentity accepts AccountPassword as ProtectedString' {
             # Create a ProtectedString using ConvertFrom-SecureString
+            # Test setup requires plaintext conversion - this is intentional for test data
             $securePassword = ConvertTo-SecureString -String 'TestPass456!' -AsPlainText -Force
             $protectedString = ConvertFrom-SecureString -SecureString $securePassword
 
@@ -809,6 +816,7 @@ Describe 'AD identity provider' {
         }
 
         It 'Throws when both AccountPassword and AccountPasswordAsPlainText are provided' {
+            # Test setup requires plaintext conversion - this is intentional for test data
             $password = ConvertTo-SecureString -String 'TestPass!' -AsPlainText -Force
             $attrs = @{
                 SamAccountName = 'pwtest4'
