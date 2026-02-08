@@ -188,15 +188,33 @@ function Resolve-IdleTemplateString {
         else {
             # For pure placeholders, validate scalar types
             # Accept: primitives (int, bool, etc.), string, datetime, guid, enums
-            # Reject: collections, PSCustomObject, complex reference types
+            # Reject: collections, PSCustomObject, complex reference types, executable types
+            
+            # Explicitly reject dangerous/executable types (defense in depth)
+            if ($Value -is [scriptblock]) {
+                throw [System.ArgumentException]::new(
+                    ("Template security error in step '{0}': Path '{1}' resolved to a ScriptBlock. ScriptBlocks are not allowed in template resolution." -f $StepName, $Path),
+                    'Workflow'
+                )
+            }
+            
+            # Reject credential types (should be handled via AuthSessionBroker, not templates)
+            if ($Value -is [System.Management.Automation.PSCredential] -or
+                $Value -is [System.Security.SecureString]) {
+                throw [System.ArgumentException]::new(
+                    ("Template security error in step '{0}': Path '{1}' resolved to a credential type ('{2}'). Credentials must not be passed through templates. Use AuthSessionBroker for authentication." -f $StepName, $Path, ($Value.GetType().FullName)),
+                    'Workflow'
+                )
+            }
+            
             $isScalar = $false
             
             if ($Value -is [string]) {
-                # String is always allowed
+                # String is a fundamental data type
                 $isScalar = $true
             }
             elseif ($Value.GetType().IsValueType) {
-                # Value types are primitives (int, bool, datetime, guid, etc.) or enums
+                # Value types: primitives (int, bool, etc.), structs (datetime, guid, timespan), enums
                 $isScalar = $true
             }
             
