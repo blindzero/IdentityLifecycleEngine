@@ -194,7 +194,9 @@ function New-IdleADAdapter {
                 catch {
                     $errorMsg = "AccountPassword: Expected a ProtectedString (output from ConvertFrom-SecureString) but conversion failed. "
                     $errorMsg += "ProtectedString only works when encryption and decryption occur under the same Windows user and machine (DPAPI scope). "
-                    $errorMsg += "Original error: $_"
+                    if ($null -ne $_.Exception) {
+                        $errorMsg += " Inner exception type: $($PSItem.Exception.GetType().FullName)."
+                    }
                     throw $errorMsg
                 }
             }
