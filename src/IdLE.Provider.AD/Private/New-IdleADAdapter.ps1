@@ -17,9 +17,14 @@ function New-IdleADAdapter {
         [PSCredential] $Credential
     )
 
-    # Helper function to escape LDAP filter special characters (LDAP injection prevention)
+    $adapter = [pscustomobject]@{
+        PSTypeName = 'IdLE.ADAdapter'
+        Credential = $Credential
+    }
+
+    # Add LDAP filter escaping as a ScriptMethod to make it available in the adapter's scope
     # Uses 'Protect' prefix as 'Escape' is not an approved PowerShell verb
-    function Protect-LdapFilterValue {
+    $adapter | Add-Member -MemberType ScriptMethod -Name ProtectLdapFilterValue -Value {
         param(
             [Parameter(Mandatory)]
             [string] $Value
@@ -31,12 +36,7 @@ function New-IdleADAdapter {
         $escaped = $escaped -replace '\)', '\29'
         $escaped = $escaped -replace "`0", '\00'
         return $escaped
-    }
-
-    $adapter = [pscustomobject]@{
-        PSTypeName = 'IdLE.ADAdapter'
-        Credential = $Credential
-    }
+    } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
         param(
@@ -45,7 +45,7 @@ function New-IdleADAdapter {
             [string] $Upn
         )
 
-        $escapedUpn = Protect-LdapFilterValue -Value $Upn
+        $escapedUpn = $this.ProtectLdapFilterValue($Upn)
         $params = @{
             Filter     = "UserPrincipalName -eq '$escapedUpn'"
             Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
@@ -71,7 +71,7 @@ function New-IdleADAdapter {
             [string] $SamAccountName
         )
 
-        $escapedSam = Protect-LdapFilterValue -Value $SamAccountName
+        $escapedSam = $this.ProtectLdapFilterValue($SamAccountName)
 
         $params = @{
             Filter     = "sAMAccountName -eq '$escapedSam'"
@@ -401,7 +401,7 @@ function New-IdleADAdapter {
         $filterString = '*'
         if ($null -ne $Filter -and $Filter.ContainsKey('Search') -and -not [string]::IsNullOrWhiteSpace($Filter['Search'])) {
             $searchValue = [string] $Filter['Search']
-            $escapedSearch = Protect-LdapFilterValue -Value $searchValue
+            $escapedSearch = $this.ProtectLdapFilterValue($searchValue)
             $filterString = "sAMAccountName -like '$escapedSearch*' -or UserPrincipalName -like '$escapedSearch*'"
         }
 

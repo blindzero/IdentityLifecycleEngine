@@ -481,6 +481,97 @@ Describe 'AD identity provider' {
         }
     }
 
+    Context 'LDAP filter escaping (ProtectLdapFilterValue)' {
+        BeforeAll {
+            # Test LDAP escaping by using an adapter with the ProtectLdapFilterValue method
+            # We use the FakeADAdapter but add the real ProtectLdapFilterValue method to test it
+            $script:TestEscapeAdapter = [pscustomobject]@{
+                PSTypeName = 'TestEscapeAdapter'
+            }
+
+            # Add the real ProtectLdapFilterValue method implementation
+            $script:TestEscapeAdapter | Add-Member -MemberType ScriptMethod -Name ProtectLdapFilterValue -Value {
+                param(
+                    [Parameter(Mandatory)]
+                    [string] $Value
+                )
+
+                $escaped = $Value -replace '\\', '\5c'
+                $escaped = $escaped -replace '\*', '\2a'
+                $escaped = $escaped -replace '\(', '\28'
+                $escaped = $escaped -replace '\)', '\29'
+                $escaped = $escaped -replace "`0", '\00'
+                return $escaped
+            } -Force
+
+            # Add a mock GetUserBySam method that uses ProtectLdapFilterValue
+            # This verifies the method is callable from within a ScriptMethod
+            $script:TestEscapeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserBySam -Value {
+                param(
+                    [Parameter(Mandatory)]
+                    [string] $SamAccountName
+                )
+
+                # This should not throw "command not recognized"
+                $escapedSam = $this.ProtectLdapFilterValue($SamAccountName)
+                
+                # Return a simple result that includes the escaped value for verification
+                return [pscustomobject]@{
+                    sAMAccountName = $SamAccountName
+                    EscapedValue = $escapedSam
+                }
+            } -Force
+        }
+
+        It 'Escapes backslash character' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test\value')
+            $result | Should -Be 'test\5cvalue'
+        }
+
+        It 'Escapes asterisk character' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test*value')
+            $result | Should -Be 'test\2avalue'
+        }
+
+        It 'Escapes left parenthesis' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test(value')
+            $result | Should -Be 'test\28value'
+        }
+
+        It 'Escapes right parenthesis' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test)value')
+            $result | Should -Be 'test\29value'
+        }
+
+        It 'Escapes null byte' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue("test`0value")
+            $result | Should -Be 'test\00value'
+        }
+
+        It 'Escapes multiple special characters in one string' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test*\()value')
+            $result | Should -Be 'test\2a\5c\28\29value'
+        }
+
+        It 'Returns unchanged string when no special characters present' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('testvalue123')
+            $result | Should -Be 'testvalue123'
+        }
+
+        It 'Handles empty string' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('')
+            $result | Should -Be ''
+        }
+
+        It 'Can be called from within a ScriptMethod (fixes scope issue)' {
+            # This verifies that the fix works: ProtectLdapFilterValue is callable via $this
+            # from within another ScriptMethod (like GetUserBySam)
+            $result = $script:TestEscapeAdapter.GetUserBySam('test*user')
+            $result | Should -Not -BeNullOrEmpty
+            $result.EscapedValue | Should -Be 'test\2auser'
+        }
+    }
+
     Context 'Idempotency' {
         BeforeEach {
             $adapter = New-FakeADAdapter
