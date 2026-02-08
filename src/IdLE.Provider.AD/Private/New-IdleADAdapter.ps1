@@ -9,8 +9,14 @@ function New-IdleADAdapter {
 
     .PARAMETER Credential
     Optional PSCredential for AD operations. If not provided, uses integrated auth.
+    
+    .NOTES
+    PSScriptAnalyzer suppression: This function intentionally uses ConvertTo-SecureString -AsPlainText
+    as an explicit escape hatch for AccountPasswordAsPlainText. This is a documented design decision
+    with automatic redaction via Copy-IdleRedactedObject.
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '', Justification = 'Intentional escape hatch for AccountPasswordAsPlainText with explicit opt-in and automatic redaction')]
     param(
         [Parameter()]
         [AllowNull()]
@@ -229,6 +235,8 @@ function New-IdleADAdapter {
             }
 
             # Mode 3: Explicit plaintext - convert with -AsPlainText
+            # This is an intentional escape hatch with explicit opt-in via AccountPasswordAsPlainText.
+            # The value is redacted from logs/events via Copy-IdleRedactedObject.
             $params['AccountPassword'] = ConvertTo-SecureString -String $plainTextPassword -AsPlainText -Force
         }
 
