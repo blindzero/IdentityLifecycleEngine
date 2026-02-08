@@ -34,6 +34,12 @@ As providers may require additional tools and configuration, they are not import
 
 :::
 
+### Provider Resolution
+
+When executing a plan, providers can be supplied in two ways:
+
+1. **During planning** (recommended for most scenarios):
+
 ```powershell
 Import-Module -Name IdLE.Provider.Mock
 
@@ -41,7 +47,41 @@ $providers = @{
     Identity = New-IdleMockIdentityProvider
 }
 
-$result = Invoke-IdlePlan -Plan $plan -Providers $providers
+# Build plan with providers
+$plan = New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $request -Providers $providers
+
+# Execute without re-supplying providers (uses Plan.Providers)
+$result = Invoke-IdlePlan -Plan $plan
+```
+
+2. **At execution time** (for provider override or exported plans):
+
+```powershell
+# Override providers at execution time
+$otherProviders = @{
+    Identity = New-IdleMockIdentityProvider -Config $differentConfig
+}
+
+$result = Invoke-IdlePlan -Plan $plan -Providers $otherProviders
+```
+
+#### Resolution Rules
+
+- If `-Providers` is supplied to `Invoke-IdlePlan`, it **takes precedence** over `Plan.Providers`.
+- If `-Providers` is **not** supplied, `Invoke-IdlePlan` uses `Plan.Providers` (if available).
+- If neither is present, execution fails early with: `Providers are required. Provide -Providers to Invoke-IdlePlan or build the plan with Providers.`
+
+#### Exported Plans
+
+When a plan is exported without provider objects (for review or audit), providers must be supplied at execution time:
+
+```powershell
+# Export plan (without providers)
+Export-IdlePlan -Plan $plan -Path ./plan.json
+
+# Later: import and execute with providers
+$importedPlan = Import-IdlePlan -Path ./plan.json
+$result = Invoke-IdlePlan -Plan $importedPlan -Providers $providers
 ```
 
 ### Provider Aliases

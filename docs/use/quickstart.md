@@ -124,15 +124,7 @@ With the following command we create a simple 'Joiner' request.
 $request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 ```
 
-### 4. Build the plan (deterministic, data-only)
-
-The plan evaluates validity of the request in combination with the workflow definition.
-
-```powershell
-$plan = New-IdlePlan -WorkflowPath $workflow -Request $request
-```
-
-### 5. Select providers
+### 4. Select providers
 
 For first run, we just use our internal mock provider.
 
@@ -142,10 +134,19 @@ $providers = @{
 }
 ```
 
+### 5. Build the plan with providers
+
+The plan evaluates validity of the request in combination with the workflow definition.
+
+```powershell
+$plan = New-IdlePlan -WorkflowPath $workflow -Request $request -Providers $providers
+```
+
 ### 6. Execute the plan
 
 ```powershell
-$result = Invoke-IdlePlan -Plan $plan -Providers $providers
+# Execute without re-supplying providers (uses Plan.Providers automatically)
+$result = Invoke-IdlePlan -Plan $plan
 ```
 
 ### 7. Inspect result + events
@@ -161,5 +162,6 @@ $result.Events | Select-Object Type, StepName, Message
 - If your workflow contains steps that require additional provider roles (e.g. `Messaging`, `Entitlement`),
   you must add them to `$providers`.
 - Many steps default to the provider alias `'Identity'` unless a step explicitly sets `With.Provider`.
+- You can override providers at execution time by passing `-Providers` to `Invoke-IdlePlan`.
 
 :::

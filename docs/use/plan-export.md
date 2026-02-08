@@ -47,9 +47,22 @@ For the exact format and normative rules, see [Plan Export Specification](../ref
 ```powershell
 # Example only. Adjust parameters to your environment.
 $request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ EmployeeId = 'jdoe' }
-$plan = New-IdlePlan -WorkflowPath './workflows/joiner.psd1' -Request $request
+$providers = @{ Identity = New-IdleMockIdentityProvider }
+$plan = New-IdlePlan -WorkflowPath './workflows/joiner.psd1' -Request $request -Providers $providers
 Export-IdlePlan -Plan $plan -Path './artifacts/joiner.plan.json'
 ```
+
+:::note
+
+Exported plans typically do not include provider objects. When importing and executing an exported plan,
+you must supply providers at execution time:
+
+```powershell
+$importedPlan = Import-IdlePlan -Path './artifacts/joiner.plan.json'
+$result = Invoke-IdlePlan -Plan $importedPlan -Providers $providers
+```
+
+:::
 
 ### Review tips
 

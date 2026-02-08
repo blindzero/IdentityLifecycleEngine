@@ -269,7 +269,8 @@ foreach ($wf in $selected) {
 
         Write-Host ""
         Write-DemoHeader "Execute"
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+        # Execute plan using Plan.Providers (no need to re-supply -Providers)
+        $result = Invoke-IdlePlan -Plan $plan
         $allResults += $result
 
         Write-Host ""
