@@ -28,7 +28,9 @@ function Copy-IdleRedactedObject {
         'accessToken',
         'refreshToken',
         'credential',
-        'privateKey'
+        'privateKey',
+        'AccountPassword',
+        'AccountPasswordAsPlainText'
     )
 
     $effectiveKeys = if ($null -ne $RedactedKeys -and $RedactedKeys.Count -gt 0) {

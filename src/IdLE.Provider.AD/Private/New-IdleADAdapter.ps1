@@ -171,6 +171,53 @@ function New-IdleADAdapter {
             $params['EmailAddress'] = $Attributes['EmailAddress']
         }
 
+        # Password handling: support SecureString, ProtectedString, and explicit PlainText
+        $hasAccountPassword = $Attributes.ContainsKey('AccountPassword')
+        $hasAccountPasswordAsPlainText = $Attributes.ContainsKey('AccountPasswordAsPlainText')
+
+        if ($hasAccountPassword -and $hasAccountPasswordAsPlainText) {
+            throw "Ambiguous password configuration: both 'AccountPassword' and 'AccountPasswordAsPlainText' are provided. Use only one."
+        }
+
+        if ($hasAccountPassword) {
+            $passwordValue = $Attributes['AccountPassword']
+
+            if ($passwordValue -is [securestring]) {
+                # Mode 1: SecureString - use directly
+                $params['AccountPassword'] = $passwordValue
+            }
+            elseif ($passwordValue -is [string]) {
+                # Mode 2: ProtectedString (from ConvertFrom-SecureString)
+                try {
+                    $params['AccountPassword'] = ConvertTo-SecureString -String $passwordValue -ErrorAction Stop
+                }
+                catch {
+                    $errorMsg = "AccountPassword: Expected a ProtectedString (output from ConvertFrom-SecureString) but conversion failed. "
+                    $errorMsg += "ProtectedString only works when encryption and decryption occur under the same Windows user and machine (DPAPI scope). "
+                    $errorMsg += "Original error: $_"
+                    throw $errorMsg
+                }
+            }
+            else {
+                throw "AccountPassword: Expected a SecureString or ProtectedString (string from ConvertFrom-SecureString), but received type: $($passwordValue.GetType().FullName)"
+            }
+        }
+
+        if ($hasAccountPasswordAsPlainText) {
+            $plainTextPassword = $Attributes['AccountPasswordAsPlainText']
+
+            if ($plainTextPassword -isnot [string]) {
+                throw "AccountPasswordAsPlainText: Expected a string but received type: $($plainTextPassword.GetType().FullName)"
+            }
+
+            if ([string]::IsNullOrWhiteSpace($plainTextPassword)) {
+                throw "AccountPasswordAsPlainText: Password cannot be null or empty."
+            }
+
+            # Mode 3: Explicit plaintext - convert with -AsPlainText
+            $params['AccountPassword'] = ConvertTo-SecureString -String $plainTextPassword -AsPlainText -Force
+        }
+
         if ($null -ne $this.Credential) {
             $params['Credential'] = $this.Credential
         }

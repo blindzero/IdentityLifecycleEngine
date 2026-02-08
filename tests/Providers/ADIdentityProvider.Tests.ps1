@@ -46,6 +46,8 @@ Describe 'AD identity provider' {
             # Auto-creation behavior: The fake adapter auto-creates identities on lookup
             # to support provider contract tests (which expect this behavior from test providers).
             # This differs from the real AD adapter which will throw when an identity is not found.
+            # However, we only auto-create for GetUserByUpn to support contract tests,
+            # while GetUserBySam returns null to enable proper CreateIdentity testing.
 
             $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
                 param([string]$Upn)
@@ -54,7 +56,27 @@ Describe 'AD identity provider' {
                         return $this.Store[$key]
                     }
                 }
-                return $null
+                
+                # Auto-create for contract test compatibility
+                $sam = $Upn -replace '@.*$', ''
+                $guid = [guid]::NewGuid().ToString()
+                $user = [pscustomobject]@{
+                    ObjectGuid         = [guid]$guid
+                    sAMAccountName     = $sam
+                    UserPrincipalName  = $Upn
+                    DistinguishedName  = "CN=$sam,OU=Users,DC=domain,DC=local"
+                    Enabled            = $true
+                    GivenName          = $null
+                    Surname            = $null
+                    DisplayName        = $null
+                    Description        = $null
+                    Department         = $null
+                    Title              = $null
+                    EmailAddress       = $null
+                    Groups             = @()
+                }
+                $this.Store[$guid] = $user
+                return $user
             } -Force
 
             $adapter | Add-Member -MemberType ScriptMethod -Name GetUserBySam -Value {
@@ -97,6 +119,49 @@ Describe 'AD identity provider' {
             $adapter | Add-Member -MemberType ScriptMethod -Name NewUser -Value {
                 param([string]$Name, [hashtable]$Attributes, [bool]$Enabled)
                 
+                # Password handling validation (same as real adapter)
+                $hasAccountPassword = $Attributes.ContainsKey('AccountPassword')
+                $hasAccountPasswordAsPlainText = $Attributes.ContainsKey('AccountPasswordAsPlainText')
+
+                if ($hasAccountPassword -and $hasAccountPasswordAsPlainText) {
+                    throw "Ambiguous password configuration: both 'AccountPassword' and 'AccountPasswordAsPlainText' are provided. Use only one."
+                }
+
+                if ($hasAccountPassword) {
+                    $passwordValue = $Attributes['AccountPassword']
+
+                    if ($passwordValue -is [securestring]) {
+                        # Valid: SecureString
+                    }
+                    elseif ($passwordValue -is [string]) {
+                        # Valid: ProtectedString - test conversion
+                        try {
+                            $null = ConvertTo-SecureString -String $passwordValue -ErrorAction Stop
+                        }
+                        catch {
+                            $errorMsg = "AccountPassword: Expected a ProtectedString (output from ConvertFrom-SecureString) but conversion failed. "
+                            $errorMsg += "ProtectedString only works when encryption and decryption occur under the same Windows user and machine (DPAPI scope). "
+                            $errorMsg += "Original error: $_"
+                            throw $errorMsg
+                        }
+                    }
+                    else {
+                        throw "AccountPassword: Expected a SecureString or ProtectedString (string from ConvertFrom-SecureString), but received type: $($passwordValue.GetType().FullName)"
+                    }
+                }
+
+                if ($hasAccountPasswordAsPlainText) {
+                    $plainTextPassword = $Attributes['AccountPasswordAsPlainText']
+
+                    if ($plainTextPassword -isnot [string]) {
+                        throw "AccountPasswordAsPlainText: Expected a string but received type: $($plainTextPassword.GetType().FullName)"
+                    }
+
+                    if ([string]::IsNullOrWhiteSpace($plainTextPassword)) {
+                        throw "AccountPasswordAsPlainText: Password cannot be null or empty."
+                    }
+                }
+
                 $guid = [guid]::NewGuid().ToString()
                 $sam = if ($Attributes.ContainsKey('SamAccountName')) { $Attributes['SamAccountName'] } else { $Name }
                 $upn = if ($Attributes.ContainsKey('UserPrincipalName')) { $Attributes['UserPrincipalName'] } else { "$sam@domain.local" }
@@ -679,6 +744,126 @@ Describe 'AD identity provider' {
             $guid = $testUser.ObjectGuid.ToString()
 
             { $provider.DeleteIdentity($guid) } | Should -Throw -ExpectedMessage '*AllowDelete*'
+        }
+    }
+
+    Context 'Password handling' {
+        BeforeEach {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            $script:TestProvider = $provider
+            $script:TestAdapter = $adapter
+        }
+
+        It 'CreateIdentity accepts AccountPassword as SecureString' {
+            $password = ConvertTo-SecureString -String 'TestPass123!' -AsPlainText -Force
+            $attrs = @{
+                SamAccountName = 'pwtest1'
+                AccountPassword = $password
+            }
+
+            # Should not throw - validation passes
+            $result = $script:TestProvider.CreateIdentity('pwtest1', $attrs)
+            $result | Should -Not -BeNullOrEmpty
+            $result.IdentityKey | Should -Be 'pwtest1'
+        }
+
+        It 'CreateIdentity accepts AccountPassword as ProtectedString' {
+            # Create a ProtectedString using ConvertFrom-SecureString
+            $securePassword = ConvertTo-SecureString -String 'TestPass456!' -AsPlainText -Force
+            $protectedString = ConvertFrom-SecureString -SecureString $securePassword
+
+            $attrs = @{
+                SamAccountName = 'pwtest2'
+                AccountPassword = $protectedString
+            }
+
+            # Should not throw - validation passes
+            $result = $script:TestProvider.CreateIdentity('pwtest2', $attrs)
+            $result | Should -Not -BeNullOrEmpty
+            $result.IdentityKey | Should -Be 'pwtest2'
+        }
+
+        It 'CreateIdentity accepts AccountPasswordAsPlainText' {
+            $attrs = @{
+                SamAccountName = 'pwtest3'
+                AccountPasswordAsPlainText = 'PlainTextPass789!'
+            }
+
+            # Should not throw - validation passes
+            $result = $script:TestProvider.CreateIdentity('pwtest3', $attrs)
+            $result | Should -Not -BeNullOrEmpty
+            $result.IdentityKey | Should -Be 'pwtest3'
+        }
+
+        It 'Throws when both AccountPassword and AccountPasswordAsPlainText are provided' {
+            $password = ConvertTo-SecureString -String 'TestPass!' -AsPlainText -Force
+            $attrs = @{
+                SamAccountName = 'pwtest4'
+                AccountPassword = $password
+                AccountPasswordAsPlainText = 'PlainText!'
+            }
+
+            # Test the adapter's NewUser method directly to verify validation
+            { $script:TestAdapter.NewUser('pwtest4', $attrs, $true) } | 
+                Should -Throw -ExpectedMessage '*Ambiguous password configuration*'
+        }
+
+        It 'Throws when AccountPassword has invalid type' {
+            $attrs = @{
+                SamAccountName = 'pwtest5'
+                AccountPassword = 12345  # Invalid: should be string or SecureString
+            }
+
+            # Test the adapter's NewUser method directly to verify validation
+            { $script:TestAdapter.NewUser('pwtest5', $attrs, $true) } | 
+                Should -Throw -ExpectedMessage '*Expected a SecureString or ProtectedString*'
+        }
+
+        It 'Throws when AccountPassword string is not a valid ProtectedString' {
+            $attrs = @{
+                SamAccountName = 'pwtest6'
+                AccountPassword = 'NotAProtectedString'  # Plain string, not from ConvertFrom-SecureString
+            }
+
+            # Test the adapter's NewUser method directly to verify validation
+            { $script:TestAdapter.NewUser('pwtest6', $attrs, $true) } | 
+                Should -Throw -ExpectedMessage '*conversion failed*'
+        }
+
+        It 'Throws when AccountPasswordAsPlainText has invalid type' {
+            $attrs = @{
+                SamAccountName = 'pwtest7'
+                AccountPasswordAsPlainText = 12345  # Invalid: should be string
+            }
+
+            # Test the adapter's NewUser method directly to verify validation
+            { $script:TestAdapter.NewUser('pwtest7', $attrs, $true) } | 
+                Should -Throw -ExpectedMessage '*Expected a string but received type*'
+        }
+
+        It 'Throws when AccountPasswordAsPlainText is empty' {
+            $attrs = @{
+                SamAccountName = 'pwtest8'
+                AccountPasswordAsPlainText = ''
+            }
+
+            # Test the adapter's NewUser method directly to verify validation
+            { $script:TestAdapter.NewUser('pwtest8', $attrs, $true) } | 
+                Should -Throw -ExpectedMessage '*cannot be null or empty*'
+        }
+
+        It 'CreateIdentity works without password (existing behavior)' {
+            $attrs = @{
+                SamAccountName = 'pwtest9'
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            # Should not throw - no password is valid
+            $result = $script:TestProvider.CreateIdentity('pwtest9', $attrs)
+            $result | Should -Not -BeNullOrEmpty
+            $result.IdentityKey | Should -Be 'pwtest9'
         }
     }
 }
