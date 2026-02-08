@@ -46,8 +46,9 @@ Describe 'AD identity provider' {
             # Auto-creation behavior: The fake adapter auto-creates identities on lookup
             # to support provider contract tests (which expect this behavior from test providers).
             # This differs from the real AD adapter which will throw when an identity is not found.
-            # However, we only auto-create for GetUserByUpn to support contract tests,
-            # while GetUserBySam returns null to enable proper CreateIdentity testing.
+            # Note: This fake adapter may auto-create identities for multiple lookup methods
+            # (e.g., UPN and sAMAccountName), so tests that rely on non-existence should not
+            # assume that a given lookup will return $null as the real adapter would.
 
             $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
                 param([string]$Upn)
