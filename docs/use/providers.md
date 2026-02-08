@@ -153,11 +153,13 @@ host-supplied broker. Using the **AuthSessionBroker** is in particular helpful f
 
 ### AuthSessionType
 
-Each `AuthSessionBroker` must specify an `AuthSessionType` that determines validation rules, lifecycle management, and telemetry behavior:
+Each `AuthSessionBroker` can specify an `AuthSessionType` that determines validation rules, lifecycle management, and telemetry behavior:
 
 - **`OAuth`** - Token-based authentication (e.g., Microsoft Graph, Exchange Online)
 - **`PSRemoting`** - PowerShell remoting execution context (e.g., Entra Connect)
 - **`Credential`** - Credential-based authentication (e.g., Active Directory, mock providers)
+
+Starting with version 0.3.0, you can use **per-entry session types** to support multiple authentication types in a single broker (e.g., AD with Credential + EXO with OAuth).
 
 Each provider documents its required `AuthSessionType` in its reference documentation.
 
@@ -205,6 +207,74 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
     AuthSessionBroker = $broker
 }
 ```
+
+### Example: Mixed Authentication Types (AD + EXO)
+
+For workflows that need multiple providers with different authentication types, you can use typed session values:
+
+```powershell
+# Obtain credentials and tokens
+$adCredential = Get-Credential -Message "Enter AD admin credentials"
+$exoToken = (Connect-AzAccount | Get-AzAccessToken -ResourceUrl "https://outlook.office365.com").Token
+
+# Create providers
+$adProvider = New-IdleADIdentityProvider
+$exoProvider = New-IdleExchangeOnlineProvider
+
+# Create broker with mixed authentication types
+$broker = New-IdleAuthSession -SessionMap @{
+    # Active Directory uses Credential type
+    @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCredential }
+    
+    # Exchange Online uses OAuth type
+    @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $exoToken }
+}
+
+# Use in plan
+$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+    AD = $adProvider
+    EXO = $exoProvider
+    AuthSessionBroker = $broker
+}
+```
+
+In the workflow, steps specify which authentication session to use:
+
+```powershell
+# Step using AD (Credential)
+@{
+    Name = 'Create AD User'
+    Type = 'IdLE.Step.CreateIdentity'
+    With = @{
+        Provider = 'AD'
+        AuthSessionName = 'AD'
+        # ...
+    }
+}
+
+# Step using EXO (OAuth)
+@{
+    Name = 'Create Mailbox'
+    Type = 'IdLE.Step.CreateMailbox'
+    With = @{
+        Provider = 'EXO'
+        AuthSessionName = 'EXO'
+        # ...
+    }
+}
+```
+
+:::tip Backward Compatibility
+
+For simpler scenarios with a single authentication type, you can continue using the original syntax with `-AuthSessionType`:
+
+```powershell
+$broker = New-IdleAuthSession -SessionMap @{
+    @{ Role = 'Admin' } = $credential
+} -AuthSessionType 'Credential'
+```
+
+:::
 
 The different authentication sessions are used by the workflow definition by the steps via `AuthSessionOptions`.
 ```powershell
