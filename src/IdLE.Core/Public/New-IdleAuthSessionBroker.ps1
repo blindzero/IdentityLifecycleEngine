@@ -15,8 +15,15 @@ function New-IdleAuthSessionBroker {
     .PARAMETER SessionMap
     Optional hashtable that maps session configurations to auth sessions. Each key is a hashtable
     representing the AuthSessionOptions pattern, and each value is the auth session to return.
-    The value can be a PSCredential, token string, session object, or any object appropriate
-    for the AuthSessionType.
+
+    Values can be specified in two formats:
+
+    1. Legacy/Untyped (requires -AuthSessionType):
+       - Direct session object: @{ Role = 'Admin' } = $credential
+
+    2. Typed (supports mixed types, -AuthSessionType acts as default):
+       - Hashtable: @{ Role = 'Admin' } = @{ AuthSessionType = 'Credential'; Session = $credential }
+       - PSCustomObject: @{ Role = 'Admin' } = [pscustomobject]@{ AuthSessionType = 'OAuth'; Session = $token }
 
     Keys can include AuthSessionName for name-based routing:
     - @{ AuthSessionName = 'AD'; Role = 'ADAdm' } -> $admAD (AuthSessionName + Role routing)
@@ -30,19 +37,26 @@ function New-IdleAuthSessionBroker {
 
     .PARAMETER DefaultAuthSession
     Optional default auth session to return when no session options are provided or
-    when the options don't match any entry in SessionMap. Can be a PSCredential, token
-    string, session object, or any object appropriate for the AuthSessionType.
+    when the options don't match any entry in SessionMap.
+
+    Can be specified in two formats:
+    1. Legacy/Untyped (requires -AuthSessionType): $credential
+    2. Typed: @{ AuthSessionType = 'Credential'; Session = $credential }
 
     At least one of SessionMap or DefaultAuthSession must be provided.
 
     .PARAMETER AuthSessionType
-    Specifies the type of authentication session. This determines validation rules,
+    Optional default authentication session type. Acts as the default for untyped
+    SessionMap entries and DefaultAuthSession. This determines validation rules,
     lifecycle management, and telemetry behavior.
 
     Valid values:
     - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
     - 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
     - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
+
+    If not provided, all SessionMap values and DefaultAuthSession must be typed
+    (include AuthSessionType and Session properties).
 
     .EXAMPLE
     # Simple single-credential broker (no SessionMap required)
@@ -86,6 +100,20 @@ function New-IdleAuthSessionBroker {
         @{ Environment = 'Test' } = $testCred
     } -DefaultAuthSession $devCred -AuthSessionType 'Credential'
 
+    .EXAMPLE
+    # Mixed-type broker for AD (Credential) + EXO (OAuth) in single workflow
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
+        @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $exoToken }
+    }
+
+    .EXAMPLE
+    # Mixed typed and untyped with default AuthSessionType
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ AuthSessionName = 'AD' } = $adCred  # Uses default 'Credential'
+        @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $exoToken }
+    } -AuthSessionType 'Credential'
+
     .OUTPUTS
     PSCustomObject with AcquireAuthSession method
     #>
@@ -100,7 +128,7 @@ function New-IdleAuthSessionBroker {
         [AllowNull()]
         [object] $DefaultAuthSession,
 
-        [Parameter(Mandatory)]
+        [Parameter()]
         [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
         [string] $AuthSessionType
     )
@@ -110,11 +138,90 @@ function New-IdleAuthSessionBroker {
         throw "SessionMap is empty or null. DefaultAuthSession must be provided when SessionMap is not used."
     }
 
+    # Helper function to detect if a value is a typed session descriptor
+    $isTypedSession = {
+        param($value)
+
+        if ($null -eq $value) {
+            return $false
+        }
+
+        # Check for hashtable with AuthSessionType and Session keys
+        if ($value -is [hashtable]) {
+            return ($value.ContainsKey('AuthSessionType') -and $value.ContainsKey('Session'))
+        }
+
+        # Check for PSCustomObject with AuthSessionType and Session properties
+        if ($value -is [pscustomobject]) {
+            $properties = $value.PSObject.Properties.Name
+            return (($properties -contains 'AuthSessionType') -and ($properties -contains 'Session'))
+        }
+
+        return $false
+    }
+
+    # Helper function to normalize session value to internal format
+    $normalizeSessionValue = {
+        param($value, $defaultType, $context)
+
+        if ($null -eq $value) {
+            return $null
+        }
+
+        # Check if value is already typed
+        if (& $isTypedSession $value) {
+            $sessionType = $value.AuthSessionType
+            $session = $value.Session
+
+            # Validate the provided AuthSessionType
+            if ($sessionType -notin @('OAuth', 'PSRemoting', 'Credential')) {
+                throw "Invalid AuthSessionType '$sessionType' in $context. Valid values: 'OAuth', 'PSRemoting', 'Credential'."
+            }
+
+            return @{
+                AuthSessionType = $sessionType
+                Session = $session
+            }
+        }
+
+        # Untyped value - use default type
+        if ([string]::IsNullOrEmpty($defaultType)) {
+            throw "Untyped session value found in $context, but no default -AuthSessionType provided. Either provide -AuthSessionType or use typed session values: @{ AuthSessionType = '<type>'; Session = <value> }"
+        }
+
+        return @{
+            AuthSessionType = $defaultType
+            Session = $value
+        }
+    }
+
+    # Normalize SessionMap entries
+    $normalizedSessionMap = @{}
+    if ($null -ne $SessionMap -and $SessionMap.Count -gt 0) {
+        foreach ($entry in $SessionMap.GetEnumerator()) {
+            $pattern = $entry.Key
+            $value = $entry.Value
+
+            # Create a readable pattern description for error messages
+            $patternDesc = ($pattern.Keys | ForEach-Object { "$_=$($pattern[$_])" }) -join ', '
+            $context = "SessionMap entry { $patternDesc }"
+
+            $normalizedValue = & $normalizeSessionValue $value $AuthSessionType $context
+            $normalizedSessionMap[$pattern] = $normalizedValue
+        }
+    }
+
+    # Normalize DefaultAuthSession
+    $normalizedDefaultAuthSession = $null
+    if ($null -ne $DefaultAuthSession) {
+        $normalizedDefaultAuthSession = & $normalizeSessionValue $DefaultAuthSession $AuthSessionType 'DefaultAuthSession'
+    }
+
     $broker = [pscustomobject]@{
         PSTypeName = 'IdLE.AuthSessionBroker'
-        SessionMap = $SessionMap
-        DefaultAuthSession = $DefaultAuthSession
-        AuthSessionType = $AuthSessionType
+        SessionMap = $normalizedSessionMap
+        DefaultAuthSession = $normalizedDefaultAuthSession
+        AuthSessionType = $AuthSessionType  # Store for backward compatibility
     }
 
     $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
@@ -128,17 +235,16 @@ function New-IdleAuthSessionBroker {
             [hashtable] $Options
         )
 
-        # TODO: Implement type-specific validation rules for AuthSessionType
-        # Current implementation allows all options for all session types
-        # Future enhancements may add:
-        # - OAuth: Validate token format, expiration, scopes
-        # - PSRemoting: Validate remote session state, connectivity
-        # - Credential: Validate credential format, domain membership
-
         # Empty string signals default session request
         if ([string]::IsNullOrEmpty($Name)) {
             if ($null -ne $this.DefaultAuthSession) {
-                return $this.DefaultAuthSession
+                $normalized = $this.DefaultAuthSession
+
+                # Validate type before returning
+                $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
+                & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Session -SessionName '<default>'
+
+                return $normalized.Session
             }
             throw "No default auth session configured."
         }
@@ -146,7 +252,13 @@ function New-IdleAuthSessionBroker {
         # If SessionMap is null or empty, return default
         if ($null -eq $this.SessionMap -or $this.SessionMap.Count -eq 0) {
             if ($null -ne $this.DefaultAuthSession) {
-                return $this.DefaultAuthSession
+                $normalized = $this.DefaultAuthSession
+
+                # Validate type before returning
+                $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
+                & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Session -SessionName $Name
+
+                return $normalized.Session
             }
             throw "No SessionMap configured and no default auth session available."
         }
@@ -228,7 +340,13 @@ function New-IdleAuthSessionBroker {
 
         # Return first match if exactly one found
         if ($matchingEntries.Count -eq 1) {
-            return $matchingEntries[0].Value
+            $normalized = $matchingEntries[0].Value
+
+            # Validate type before returning
+            $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
+            & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Session -SessionName $Name
+
+            return $normalized.Session
         }
         
         # If multiple matches, this is ambiguous - fail with clear error
@@ -243,7 +361,13 @@ function New-IdleAuthSessionBroker {
 
         # No match found - fall back to default
         if ($null -ne $this.DefaultAuthSession) {
-            return $this.DefaultAuthSession
+            $normalized = $this.DefaultAuthSession
+
+            # Validate type before returning
+            $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
+            & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Session -SessionName $Name
+
+            return $normalized.Session
         }
 
         # No match and no default

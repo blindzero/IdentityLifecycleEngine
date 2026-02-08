@@ -25,13 +25,16 @@ function New-IdleAuthSession {
     Optional default auth session to return when no session options are provided.
 
     .PARAMETER AuthSessionType
-    Specifies the type of authentication session. This determines validation rules,
-    lifecycle management, and telemetry behavior.
+    Optional default authentication session type. Acts as the default for untyped
+    SessionMap entries and DefaultAuthSession.
 
     Valid values:
     - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
     - 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
     - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
+
+    If not provided, all SessionMap values and DefaultAuthSession must be typed
+    (include AuthSessionType and Session properties).
 
     .EXAMPLE
     $broker = New-IdleAuthSession -SessionMap @{
@@ -55,20 +58,21 @@ function New-IdleAuthSession {
         [AllowNull()]
         [object] $DefaultAuthSession,
 
-        [Parameter(Mandatory)]
+        [Parameter()]
         [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
         [string] $AuthSessionType
     )
 
     # Delegate to IdLE.Core implementation.
-    $params = @{ 
-        AuthSessionType = $AuthSessionType
-    }
+    $params = @{}
     if ($PSBoundParameters.ContainsKey('SessionMap')) {
         $params['SessionMap'] = $SessionMap
     }
     if ($PSBoundParameters.ContainsKey('DefaultAuthSession')) {
         $params['DefaultAuthSession'] = $DefaultAuthSession
+    }
+    if ($PSBoundParameters.ContainsKey('AuthSessionType')) {
+        $params['AuthSessionType'] = $AuthSessionType
     }
     
     return IdLE.Core\New-IdleAuthSessionBroker @params

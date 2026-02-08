@@ -45,7 +45,9 @@ Describe 'New-IdleAuthSession' {
         } -DefaultAuthSession $testCred -AuthSessionType 'Credential'
         
         $broker.DefaultAuthSession | Should -Not -BeNullOrEmpty
-        $broker.DefaultAuthSession.UserName | Should -Be 'TestUser'
+        # Note: DefaultAuthSession is now normalized internally, test via AcquireAuthSession
+        $session = $broker.AcquireAuthSession('', $null)
+        $session.UserName | Should -Be 'TestUser'
     }
 
     It 'broker can acquire auth session with matching options' {
@@ -140,12 +142,14 @@ Describe 'New-IdleAuthSession' {
 
     Context 'AuthSessionType validation during acquisition' {
         It 'OAuth broker can acquire sessions with appropriate options' {
+            $oauthToken = 'mock-oauth-token'
             $broker = New-IdleAuthSession -SessionMap @{
-                @{ Role = 'Admin' } = $testCred
+                @{ Role = 'Admin' } = $oauthToken
             } -AuthSessionType 'OAuth'
             
             $session = $broker.AcquireAuthSession('MicrosoftGraph', @{ Role = 'Admin' })
             $session | Should -Not -BeNullOrEmpty
+            $session | Should -BeOfType [string]
         }
 
         It 'PSRemoting broker can acquire sessions with appropriate options' {
@@ -155,6 +159,7 @@ Describe 'New-IdleAuthSession' {
             
             $session = $broker.AcquireAuthSession('EntraConnect', @{ Server = 'AADConnect01' })
             $session | Should -Not -BeNullOrEmpty
+            $session | Should -BeOfType [PSCredential]
         }
 
         It 'Credential broker can acquire sessions with appropriate options' {
@@ -318,6 +323,230 @@ Describe 'New-IdleAuthSession' {
             
             $session | Should -Not -BeNullOrEmpty
             $session.UserName | Should -Be 'TestUser'
+        }
+    }
+
+    Context 'Per-entry AuthSessionType support' {
+        BeforeEach {
+            $password = ConvertTo-SecureString 'Password!' -AsPlainText -Force
+            $adCred = New-Object System.Management.Automation.PSCredential('ADUser', $password)
+            $exoToken = 'mock-oauth-token-12345'
+        }
+
+        It 'supports typed SessionMap values with AuthSessionType property' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
+            }
+
+            $session = $broker.AcquireAuthSession('AD', $null)
+
+            $session | Should -Not -BeNullOrEmpty
+            $session | Should -BeOfType [PSCredential]
+            $session.UserName | Should -Be 'ADUser'
+        }
+
+        It 'supports mixed typed and untyped SessionMap values with default AuthSessionType' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = $adCred  # Untyped, uses default
+                @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $exoToken }  # Typed
+            } -AuthSessionType 'Credential'
+
+            $adSession = $broker.AcquireAuthSession('AD', $null)
+            $adSession | Should -BeOfType [PSCredential]
+
+            $exoSession = $broker.AcquireAuthSession('EXO', $null)
+            $exoSession | Should -BeOfType [string]
+            $exoSession | Should -Be 'mock-oauth-token-12345'
+        }
+
+        It 'supports all typed SessionMap values without -AuthSessionType' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
+                @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $exoToken }
+            }
+
+            $adSession = $broker.AcquireAuthSession('AD', $null)
+            $adSession | Should -BeOfType [PSCredential]
+
+            $exoSession = $broker.AcquireAuthSession('EXO', $null)
+            $exoSession | Should -BeOfType [string]
+        }
+
+        It 'throws when untyped SessionMap value provided without -AuthSessionType' {
+            {
+                New-IdleAuthSession -SessionMap @{
+                    @{ AuthSessionName = 'AD' } = $adCred  # Untyped
+                }
+            } | Should -Throw '*Untyped session value*'
+        }
+
+        It 'throws when untyped DefaultAuthSession provided without -AuthSessionType' {
+            {
+                New-IdleAuthSession -SessionMap @{
+                    @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
+                } -DefaultAuthSession $adCred  # Untyped default
+            } | Should -Throw '*Untyped session value*'
+        }
+
+        It 'validates Credential type matches PSCredential' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
+            }
+
+            # Should succeed
+            $session = $broker.AcquireAuthSession('AD', $null)
+            $session | Should -BeOfType [PSCredential]
+        }
+
+        It 'throws when Credential type receives non-PSCredential object' {
+            {
+                $broker = New-IdleAuthSession -SessionMap @{
+                    @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = 'not-a-credential' }
+                }
+                $broker.AcquireAuthSession('AD', $null)
+            } | Should -Throw '*Expected AuthSessionType=''Credential'' requires a*PSCredential*'
+        }
+
+        It 'validates OAuth type matches string token' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $exoToken }
+            }
+
+            # Should succeed
+            $session = $broker.AcquireAuthSession('EXO', $null)
+            $session | Should -BeOfType [string]
+        }
+
+        It 'throws when OAuth type receives non-string object' {
+            {
+                $broker = New-IdleAuthSession -SessionMap @{
+                    @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $adCred }
+                }
+                $broker.AcquireAuthSession('EXO', $null)
+            } | Should -Throw '*Expected AuthSessionType=''OAuth'' requires a*string*'
+        }
+
+        It 'validates PSRemoting type matches PSCredential' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'Remote' } = @{ AuthSessionType = 'PSRemoting'; Session = $adCred }
+            }
+
+            # Should succeed (PSCredential is valid for PSRemoting)
+            $session = $broker.AcquireAuthSession('Remote', $null)
+            $session | Should -BeOfType [PSCredential]
+        }
+
+        It 'throws when PSRemoting type receives invalid object' {
+            {
+                $broker = New-IdleAuthSession -SessionMap @{
+                    @{ AuthSessionName = 'Remote' } = @{ AuthSessionType = 'PSRemoting'; Session = 'not-valid' }
+                }
+                $broker.AcquireAuthSession('Remote', $null)
+            } | Should -Throw '*Expected AuthSessionType=''PSRemoting''*'
+        }
+
+        It 'supports typed DefaultAuthSession' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
+            } -DefaultAuthSession @{ AuthSessionType = 'OAuth'; Session = $exoToken }
+
+            $defaultSession = $broker.AcquireAuthSession('Unknown', $null)
+            $defaultSession | Should -BeOfType [string]
+            $defaultSession | Should -Be 'mock-oauth-token-12345'
+        }
+
+        It 'validates typed DefaultAuthSession' {
+            {
+                $broker = New-IdleAuthSession -SessionMap @{
+                    @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
+                } -DefaultAuthSession @{ AuthSessionType = 'Credential'; Session = 'not-a-credential' }
+
+                $broker.AcquireAuthSession('Unknown', $null)
+            } | Should -Throw '*Expected AuthSessionType=''Credential''*'
+        }
+
+        It 'supports PSCustomObject format for typed sessions' {
+            $typedSession = [pscustomobject]@{
+                AuthSessionType = 'OAuth'
+                Session = $exoToken
+            }
+
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'EXO' } = $typedSession
+            }
+
+            $session = $broker.AcquireAuthSession('EXO', $null)
+            $session | Should -BeOfType [string]
+            $session | Should -Be 'mock-oauth-token-12345'
+        }
+
+        It 'multi-provider scenario: AD (Credential) + EXO (OAuth)' {
+            # Real-world scenario: mixed authentication types in single broker
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD'; Role = 'Admin' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
+                @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $exoToken }
+            }
+
+            # Acquire AD session
+            $adSession = $broker.AcquireAuthSession('AD', @{ Role = 'Admin' })
+            $adSession | Should -BeOfType [PSCredential]
+            $adSession.UserName | Should -Be 'ADUser'
+
+            # Acquire EXO session
+            $exoSession = $broker.AcquireAuthSession('EXO', $null)
+            $exoSession | Should -BeOfType [string]
+            $exoSession | Should -Be 'mock-oauth-token-12345'
+        }
+
+        It 'throws with clear error including session name on type mismatch' {
+            {
+                $broker = New-IdleAuthSession -SessionMap @{
+                    @{ AuthSessionName = 'MyCustomSession' } = @{ AuthSessionType = 'Credential'; Session = 'wrong-type' }
+                }
+                $broker.AcquireAuthSession('MyCustomSession', $null)
+            } | Should -Throw '*MyCustomSession*'
+        }
+
+        It 'throws when invalid AuthSessionType provided in typed value' {
+            {
+                New-IdleAuthSession -SessionMap @{
+                    @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'InvalidType'; Session = $adCred }
+                }
+            } | Should -Throw '*Invalid AuthSessionType*'
+        }
+    }
+
+    Context 'Backward compatibility' {
+        BeforeEach {
+            $password = ConvertTo-SecureString 'Password!' -AsPlainText -Force
+            $cred = New-Object System.Management.Automation.PSCredential('User', $password)
+        }
+
+        It 'legacy untyped SessionMap with -AuthSessionType still works' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Role = 'Admin' } = $cred
+            } -AuthSessionType 'Credential'
+
+            $session = $broker.AcquireAuthSession('Test', @{ Role = 'Admin' })
+            $session | Should -BeOfType [PSCredential]
+        }
+
+        It 'legacy untyped DefaultAuthSession with -AuthSessionType still works' {
+            $broker = New-IdleAuthSession -SessionMap @{} -DefaultAuthSession $cred -AuthSessionType 'Credential'
+
+            $session = $broker.AcquireAuthSession('Test', $null)
+            $session | Should -BeOfType [PSCredential]
+        }
+
+        It 'existing tests should continue to work' {
+            # This mimics the original test pattern
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Role = 'Tier0' } = $cred
+            } -AuthSessionType 'Credential'
+
+            $session = $broker.AcquireAuthSession('TestName', @{ Role = 'Tier0' })
+            $session | Should -Not -BeNullOrEmpty
+            $session | Should -BeOfType [PSCredential]
         }
     }
 }
