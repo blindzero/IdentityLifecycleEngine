@@ -22,6 +22,9 @@ function New-IdleAuthSessionBroker {
     - @{ AuthSessionName = 'AD'; Role = 'ADAdm' } -> $admAD (AuthSessionName + Role routing)
     - @{ AuthSessionName = 'EXO' } -> $exoToken (AuthSessionName-only routing)
     - @{ Role = 'Tier0' } -> $tier0Credential (Options-only routing, legacy support)
+    - @{ Server = 'AADConnect01' } -> $remoteSession (for PSRemoting scenarios)
+    - @{ Domain = 'SourceAD' } -> $sourceCred (for multi-forest scenarios)
+    - @{ Environment = 'Production' } -> $prodCred (for environment-specific routing)
 
     SessionMap is optional if DefaultAuthSession is provided.
 
@@ -29,6 +32,8 @@ function New-IdleAuthSessionBroker {
     Optional default auth session to return when no session options are provided or
     when the options don't match any entry in SessionMap. Can be a PSCredential, token
     string, session object, or any object appropriate for the AuthSessionType.
+
+    At least one of SessionMap or DefaultAuthSession must be provided.
 
     .PARAMETER AuthSessionType
     Specifies the type of authentication session. This determines validation rules,
@@ -73,6 +78,13 @@ function New-IdleAuthSessionBroker {
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Server = 'AADConnect01' } = $remoteSessionCred
     } -AuthSessionType 'PSRemoting'
+
+    .EXAMPLE
+    # Environment-based routing for multi-environment scenarios
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ Environment = 'Production' } = $prodCred
+        @{ Environment = 'Test' } = $testCred
+    } -DefaultAuthSession $devCred -AuthSessionType 'Credential'
 
     .OUTPUTS
     PSCustomObject with AcquireAuthSession method
