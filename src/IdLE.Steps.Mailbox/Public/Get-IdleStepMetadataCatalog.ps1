@@ -41,5 +41,10 @@ function Get-IdleStepMetadataCatalog {
         RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.OutOfOffice.Ensure')
     }
 
+    # Alias: IdLE.Step.Mailbox.EnsureOutOfOffice (alternative naming convention)
+    $catalog['IdLE.Step.Mailbox.EnsureOutOfOffice'] = @{
+        RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.OutOfOffice.Ensure')
+    }
+
     return $catalog
 }
