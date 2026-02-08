@@ -435,4 +435,100 @@ Describe 'Template Substitution' {
                 Should -Throw -ExpectedMessage '*non-scalar value*'
         }
     }
+
+    Context 'Type preservation for pure placeholders' {
+        It 'preserves boolean false type for pure placeholder' {
+            $wfPath = Get-TemplateTestFixture 'template-pure-boolean-false'
+
+            $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Enabled = $false }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.Enabled | Should -BeOfType [bool]
+            $plan.Steps[0].With.Enabled | Should -BeFalse
+            # Verify it's not the string "False"
+            $plan.Steps[0].With.Enabled | Should -Not -BeOfType [string]
+        }
+
+        It 'preserves boolean true type for pure placeholder' {
+            $wfPath = Get-TemplateTestFixture 'template-pure-boolean-true'
+
+            $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ IsActive = $true }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.IsActive | Should -BeOfType [bool]
+            $plan.Steps[0].With.IsActive | Should -BeTrue
+        }
+
+        It 'preserves integer type for pure placeholder' {
+            $wfPath = Get-TemplateTestFixture 'template-pure-integer'
+
+            $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ UserId = 12345 }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.UserId | Should -BeOfType [int]
+            $plan.Steps[0].With.UserId | Should -Be 12345
+        }
+
+        It 'preserves datetime type for pure placeholder' {
+            $wfPath = Get-TemplateTestFixture 'template-pure-datetime'
+
+            $testDate = Get-Date '2026-01-15T10:00:00'
+            $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ StartDate = $testDate }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.StartDate | Should -BeOfType [datetime]
+            $plan.Steps[0].With.StartDate | Should -Be $testDate
+        }
+
+        It 'preserves guid type for pure placeholder' {
+            $wfPath = Get-TemplateTestFixture 'template-pure-guid'
+
+            $testGuid = [guid]::NewGuid()
+            $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ ObjectId = $testGuid }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.ObjectId | Should -BeOfType [guid]
+            $plan.Steps[0].With.ObjectId | Should -Be $testGuid
+        }
+
+        It 'converts to string for mixed template (string interpolation)' {
+            $wfPath = Get-TemplateTestFixture 'template-mixed-boolean'
+
+            $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Enabled = $false }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.Message | Should -BeOfType [string]
+            $plan.Steps[0].With.Message | Should -Be 'Account enabled: False'
+        }
+    }
 }
