@@ -204,13 +204,37 @@ function Resolve-IdleTemplateString {
             )
         }
 
-        # Type validation: only scalar-ish types allowed
-        if ($resolvedValue -is [hashtable] -or
-            $resolvedValue -is [System.Collections.IDictionary] -or
-            $resolvedValue -is [array] -or
-            ($resolvedValue -is [System.Collections.IEnumerable] -and $resolvedValue -isnot [string])) {
+        # Type validation: only allow scalar-ish types explicitly
+        $isAllowedScalar = $false
+
+        if ($resolvedValue -is [string] -or
+            $resolvedValue -is [bool] -or
+            $resolvedValue -is [byte] -or
+            $resolvedValue -is [sbyte] -or
+            $resolvedValue -is [int16] -or
+            $resolvedValue -is [uint16] -or
+            $resolvedValue -is [int32] -or
+            $resolvedValue -is [uint32] -or
+            $resolvedValue -is [int64] -or
+            $resolvedValue -is [uint64] -or
+            $resolvedValue -is [single] -or
+            $resolvedValue -is [double] -or
+            $resolvedValue -is [decimal] -or
+            $resolvedValue -is [datetime] -or
+            $resolvedValue -is [guid]) {
+            $isAllowedScalar = $true
+        }
+        elseif ($resolvedValue -ne $null) {
+            # Allow enum values (any enum type)
+            $valueType = $resolvedValue.GetType()
+            if ($valueType.IsEnum) {
+                $isAllowedScalar = $true
+            }
+        }
+
+        if (-not $isAllowedScalar) {
             throw [System.ArgumentException]::new(
-                ("Template type error in step '{0}': Path '{1}' resolved to a non-scalar value (hashtable/array/object). Templates only support scalar values (string, number, bool, datetime, guid). Use an explicit mapping step or host-side pre-flattening." -f $StepName, $path),
+                ("Template type error in step '{0}': Path '{1}' resolved to a non-scalar or unsupported value type ('{2}'). Templates only support scalar values (string, numeric primitives, bool, datetime, guid, enum). Use an explicit mapping step or host-side pre-flattening." -f $StepName, $path, ($resolvedValue.GetType().FullName)),
                 'Workflow'
             )
         }
