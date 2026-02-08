@@ -46,8 +46,9 @@ function New-IdleAuthSession {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]
-        [ValidateNotNull()]
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyCollection()]
         [hashtable] $SessionMap,
 
         [Parameter()]
@@ -61,8 +62,10 @@ function New-IdleAuthSession {
 
     # Delegate to IdLE.Core implementation.
     $params = @{ 
-        SessionMap = $SessionMap
         AuthSessionType = $AuthSessionType
+    }
+    if ($PSBoundParameters.ContainsKey('SessionMap')) {
+        $params['SessionMap'] = $SessionMap
     }
     if ($PSBoundParameters.ContainsKey('DefaultAuthSession')) {
         $params['DefaultAuthSession'] = $DefaultAuthSession

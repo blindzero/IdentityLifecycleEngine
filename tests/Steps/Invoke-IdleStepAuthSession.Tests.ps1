@@ -294,5 +294,109 @@ Describe 'IdLE.Steps - Auth Session Routing' {
             { Invoke-IdleStepEnsureAttribute -Context $context -Step $step } |
                 Should -Throw '*AuthSessionOptions*hashtable*'
         }
+
+        It 'acquires default auth session when AuthSessionName is absent but broker exists' {
+            # Arrange
+            $testState = [pscustomobject]@{
+                SessionAcquired = $false
+                AcquiredName = $null
+                AcquiredOptions = $null
+            }
+
+            $broker = [pscustomobject]@{
+                PSTypeName = 'Tests.AuthSessionBroker'
+                State = $testState
+            }
+            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+                param($Name, $Options)
+                $this.State.SessionAcquired = $true
+                $this.State.AcquiredName = $Name
+                $this.State.AcquiredOptions = $Options
+                return [PSCredential]::new('defaultuser', (ConvertTo-SecureString 'defaultpass' -AsPlainText -Force))
+            } -Force
+
+            $mockProvider = [pscustomobject]@{
+                PSTypeName = 'Tests.MockProvider'
+            }
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
+                param($IdentityKey, $Name, $Value, $AuthSession)
+                return [pscustomobject]@{
+                    PSTypeName = 'IdLE.ProviderResult'
+                    Changed = $true
+                }
+            } -Force
+
+            $context = [pscustomobject]@{
+                PSTypeName = 'IdLE.ExecutionContext'
+                Providers = @{
+                    Identity = $mockProvider
+                    AuthSessionBroker = $broker
+                }
+            }
+            $context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+                param($Name, $Options)
+                return $this.Providers.AuthSessionBroker.AcquireAuthSession($Name, $Options)
+            } -Force
+
+            $step = [pscustomobject]@{
+                PSTypeName = 'IdLE.Step'
+                Name = 'TestStep'
+                Type = 'IdLE.Step.EnsureAttribute'
+                With = @{
+                    IdentityKey = 'testuser'
+                    Name = 'Department'
+                    Value = 'IT'
+                    # No AuthSessionName - should still try to acquire default session
+                }
+            }
+
+            # Act
+            $result = Invoke-IdleStepEnsureAttribute -Context $context -Step $step
+
+            # Assert
+            $result | Should -Not -BeNullOrEmpty
+            $result.Status | Should -Be 'Completed'
+            $testState.SessionAcquired | Should -Be $true
+            $testState.AcquiredName | Should -Be ''
+            $testState.AcquiredOptions | Should -BeNullOrEmpty
+        }
+
+        It 'throws when AuthSessionName is set but no broker is available' {
+            # Arrange
+            $mockProvider = [pscustomobject]@{
+                PSTypeName = 'Tests.MockProvider'
+            }
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
+                param($IdentityKey, $Name, $Value, $AuthSession)
+                return [pscustomobject]@{
+                    PSTypeName = 'IdLE.ProviderResult'
+                    Changed = $true
+                }
+            } -Force
+
+            $context = [pscustomobject]@{
+                PSTypeName = 'IdLE.ExecutionContext'
+                Providers = @{
+                    Identity = $mockProvider
+                    # No AuthSessionBroker
+                }
+            }
+
+            $step = [pscustomobject]@{
+                PSTypeName = 'IdLE.Step'
+                Name = 'TestStep'
+                Type = 'IdLE.Step.EnsureAttribute'
+                With = @{
+                    IdentityKey = 'testuser'
+                    Name = 'Department'
+                    Value = 'IT'
+                    AuthSessionName = 'ActiveDirectory'  # Explicitly set but no broker
+                }
+            }
+
+            # Act & Assert
+            { Invoke-IdleStepEnsureAttribute -Context $context -Step $step } |
+                Should -Throw '*AuthSessionName*AcquireAuthSession*'
+        }
     }
 }

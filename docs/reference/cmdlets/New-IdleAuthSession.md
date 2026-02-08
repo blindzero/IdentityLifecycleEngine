@@ -13,7 +13,7 @@ Creates a simple AuthSessionBroker for use with IdLE providers.
 ## SYNTAX
 
 ```
-New-IdleAuthSession [-SessionMap] &lt;Hashtable&gt; [[-DefaultAuthSession] &lt;Object&gt;] [-AuthSessionType] &lt;String&gt;
+New-IdleAuthSession [[-SessionMap] &lt;Hashtable&gt;] [[-DefaultAuthSession] &lt;Object&gt;] [-AuthSessionType] &lt;String&gt;
  [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
 
@@ -43,7 +43,7 @@ Type: Hashtable
 Parameter Sets: (All)
 Aliases:
 
-Required: True
+Required: False
 Position: 1
 Default value: None
 Accept pipeline input: False
