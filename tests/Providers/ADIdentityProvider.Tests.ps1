@@ -771,7 +771,9 @@ Describe 'AD identity provider' {
                 AccountPassword = $password
             }
 
-            # Should not throw - validation passes
+            # Note: This test verifies that valid SecureString passwords are accepted without throwing.
+            # The fake adapter auto-creates users during ResolveIdentity, so CreateIdentity returns
+            # Changed=false. Password validation is tested directly via NewUser in error-throwing tests.
             $result = $script:TestProvider.CreateIdentity('pwtest1', $attrs)
             $result | Should -Not -BeNullOrEmpty
             $result.IdentityKey | Should -Be 'pwtest1'
@@ -787,7 +789,9 @@ Describe 'AD identity provider' {
                 AccountPassword = $protectedString
             }
 
-            # Should not throw - validation passes
+            # Note: This test verifies that valid ProtectedString passwords are accepted without throwing.
+            # The fake adapter auto-creates users during ResolveIdentity, so CreateIdentity returns
+            # Changed=false. Password validation is tested directly via NewUser in error-throwing tests.
             $result = $script:TestProvider.CreateIdentity('pwtest2', $attrs)
             $result | Should -Not -BeNullOrEmpty
             $result.IdentityKey | Should -Be 'pwtest2'
@@ -799,7 +803,9 @@ Describe 'AD identity provider' {
                 AccountPasswordAsPlainText = 'PlainTextPass789!'
             }
 
-            # Should not throw - validation passes
+            # Note: This test verifies that valid plaintext passwords are accepted without throwing.
+            # The fake adapter auto-creates users during ResolveIdentity, so CreateIdentity returns
+            # Changed=false. Password validation is tested directly via NewUser in error-throwing tests.
             $result = $script:TestProvider.CreateIdentity('pwtest3', $attrs)
             $result | Should -Not -BeNullOrEmpty
             $result.IdentityKey | Should -Be 'pwtest3'
