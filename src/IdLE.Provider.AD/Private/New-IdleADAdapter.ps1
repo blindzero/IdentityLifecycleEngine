@@ -74,6 +74,8 @@ function New-IdleADAdapter {
         )
 
         $escapedSam = $this.ProtectLdapFilterValue($SamAccountName)
+        # Escape single quotes for PowerShell -Filter single-quoted string syntax by doubling them
+        $escapedSam = $escapedSam -replace '''', ''''''
 
         $params = @{
             Filter     = "sAMAccountName -eq '$escapedSam'"
