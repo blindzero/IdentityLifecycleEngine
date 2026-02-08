@@ -112,11 +112,9 @@ function Invoke-IdlePlanObject {
             $planProviders = $Plan.Providers
             # Accept both IDictionary (hashtables) and PSCustomObject-shaped provider registries
             if ($null -ne $planProviders) {
-                if ($planProviders -is [System.Collections.IDictionary]) {
-                    $effectiveProviders = $planProviders
-                }
-                elseif ($planProviders.PSObject -and $planProviders.PSObject.Properties) {
-                    # Accept PSCustomObject with properties (e.g., StepRegistry, AuthSessionBroker)
+                $isValidProvider = ($planProviders -is [System.Collections.IDictionary]) -or 
+                                   ($planProviders.PSObject -and $planProviders.PSObject.Properties)
+                if ($isValidProvider) {
                     $effectiveProviders = $planProviders
                 }
             }
