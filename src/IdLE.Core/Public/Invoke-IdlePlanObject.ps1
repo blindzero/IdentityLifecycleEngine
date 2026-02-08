@@ -6,6 +6,11 @@ function Invoke-IdlePlanObject {
     .DESCRIPTION
     Executes steps in order, emits structured events, and returns a stable execution result.
 
+    Provider resolution:
+    - If -Providers is supplied, it is used for execution.
+    - If -Providers is not supplied (null), Plan.Providers is used if available.
+    - If neither is present, execution fails early with a clear error message.
+
     Security:
     - ScriptBlocks are rejected in plan and providers.
     - The returned execution result is an output boundary: Providers are redacted.
@@ -15,6 +20,8 @@ function Invoke-IdlePlanObject {
 
     .PARAMETER Providers
     Provider registry/collection passed through to execution.
+    If omitted and Plan.Providers exists, Plan.Providers will be used.
+    If supplied, overrides Plan.Providers.
 
     .PARAMETER EventSink
     Optional external event sink object. Must provide a WriteEvent(event) method.
@@ -96,18 +103,43 @@ function Invoke-IdlePlanObject {
     }
 
     Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
-    Assert-IdleNoScriptBlock -InputObject $Providers -Path 'Providers'
+
+    # Resolve effective providers: explicit -Providers parameter takes precedence, otherwise use Plan.Providers.
+    # This allows the common workflow: build plan with providers once, execute without re-supplying them.
+    $effectiveProviders = $Providers
+    if ($null -eq $effectiveProviders) {
+        if ($planPropNames -contains 'Providers') {
+            $planProviders = $Plan.Providers
+            # Accept both IDictionary (hashtables) and PSCustomObject-shaped provider registries
+            if ($null -ne $planProviders) {
+                $isValidProvider = ($planProviders -is [System.Collections.IDictionary]) -or 
+                                   ($planProviders.PSObject -and $planProviders.PSObject.Properties)
+                if ($isValidProvider) {
+                    $effectiveProviders = $planProviders
+                }
+            }
+        }
+    }
+
+    # Early validation: fail with a clear message if no providers are available.
+    if ($null -eq $effectiveProviders) {
+        throw [System.InvalidOperationException]::new(
+            'Providers are required. Provide -Providers to Invoke-IdlePlan or build the plan with Providers.'
+        )
+    }
+
+    Assert-IdleNoScriptBlock -InputObject $effectiveProviders -Path 'Providers'
 
     # Validate ExecutionOptions
     Assert-IdleExecutionOptions -ExecutionOptions $ExecutionOptions
 
     # StepRegistry is constructed via helper to ensure built-in steps and host-provided steps can co-exist.
-    $stepRegistry = Get-IdleStepRegistry -Providers $Providers
+    $stepRegistry = Get-IdleStepRegistry -Providers $effectiveProviders
 
     $context = [pscustomobject]@{
         PSTypeName = 'IdLE.ExecutionContext'
         Plan       = $Plan
-        Providers  = $Providers
+        Providers  = $effectiveProviders
         EventSink  = $engineEventSink
     }
 
@@ -202,14 +234,14 @@ function Invoke-IdlePlanObject {
 
     if ($requiresAuthBroker) {
         $broker = $null
-        if ($Providers -is [System.Collections.IDictionary]) {
-            if ($Providers.Contains('AuthSessionBroker')) {
-                $broker = $Providers['AuthSessionBroker']
+        if ($effectiveProviders -is [System.Collections.IDictionary]) {
+            if ($effectiveProviders.Contains('AuthSessionBroker')) {
+                $broker = $effectiveProviders['AuthSessionBroker']
             }
         }
         else {
-            if ($null -ne $Providers -and $Providers.PSObject.Properties.Name -contains 'AuthSessionBroker') {
-                $broker = $Providers.AuthSessionBroker
+            if ($null -ne $effectiveProviders -and $effectiveProviders.PSObject.Properties.Name -contains 'AuthSessionBroker') {
+                $broker = $effectiveProviders.AuthSessionBroker
             }
         }
 
@@ -620,8 +652,8 @@ function Invoke-IdlePlanObject {
 
     # Issue #48:
     # Redact provider configuration/state at the output boundary (execution result).
-    $redactedProviders = if ($null -ne $Providers) {
-        Copy-IdleRedactedObject -Value $Providers
+    $redactedProviders = if ($null -ne $effectiveProviders) {
+        Copy-IdleRedactedObject -Value $effectiveProviders
     }
     else {
         $null

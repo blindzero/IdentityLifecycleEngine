@@ -7,11 +7,18 @@ function Invoke-IdlePlan {
     Executes a plan deterministically and emits structured events.
     Delegates execution to IdLE.Core.
 
+    Provider resolution:
+    - If -Providers is supplied, it is used for execution.
+    - If -Providers is not supplied, Plan.Providers is used if available.
+    - If neither is present, execution fails early with a clear error message.
+
     .PARAMETER Plan
     The plan object created by New-IdlePlan.
 
     .PARAMETER Providers
     Provider registry/collection passed through to execution.
+    If omitted and Plan.Providers exists, Plan.Providers will be used.
+    If supplied, overrides Plan.Providers.
 
     .PARAMETER EventSink
     Optional external event sink for streaming. Must be an object with a WriteEvent(event) method.
@@ -21,7 +28,14 @@ function Invoke-IdlePlan {
     Must be a hashtable with optional keys: RetryProfiles, DefaultRetryProfile.
 
     .EXAMPLE
-    Invoke-IdlePlan -Plan $plan -Providers $providers
+    # Default: plan built with providers, execution uses Plan.Providers
+    $providers = @{ Identity = $provider; AuthSessionBroker = $broker }
+    $plan = New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $req -Providers $providers
+    Invoke-IdlePlan -Plan $plan
+
+    .EXAMPLE
+    # Override: explicit -Providers at invoke time
+    Invoke-IdlePlan -Plan $plan -Providers $otherProviders
 
     .EXAMPLE
     $execOptions = @{
@@ -31,7 +45,7 @@ function Invoke-IdlePlan {
         }
         DefaultRetryProfile = 'Default'
     }
-    Invoke-IdlePlan -Plan $plan -Providers $providers -ExecutionOptions $execOptions
+    Invoke-IdlePlan -Plan $plan -ExecutionOptions $execOptions
 
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.ExecutionResult)

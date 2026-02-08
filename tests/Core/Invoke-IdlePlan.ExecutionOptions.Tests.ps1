@@ -139,7 +139,8 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 '@
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+        $providers = @{ StepRegistry = @{} }
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $opts = @{
             SomeKey = { Write-Host 'test' }
@@ -159,7 +160,8 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 '@
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+        $providers = @{ StepRegistry = @{} }
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $opts = @{
             RetryProfiles = @{
@@ -181,7 +183,8 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 '@
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+        $providers = @{ StepRegistry = @{} }
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $opts = @{
             RetryProfiles = @{
@@ -204,7 +207,8 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 '@
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+        $providers = @{ StepRegistry = @{} }
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
         $opts = @{
             RetryProfiles = @{

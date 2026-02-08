@@ -22,14 +22,28 @@ Invoke-IdlePlan [-Plan] &lt;Object&gt; [[-Providers] &lt;Hashtable&gt;] [[-Event
 Executes a plan deterministically and emits structured events.
 Delegates execution to IdLE.Core.
 
+Provider resolution:
+- If -Providers is supplied, it is used for execution.
+- If -Providers is not supplied, Plan.Providers is used if available.
+- If neither is present, execution fails early with a clear error message.
+
 ## EXAMPLES
 
 ### EXAMPLE 1
 ```
-Invoke-IdlePlan -Plan $plan -Providers $providers
+# Default: plan built with providers, execution uses Plan.Providers
+$providers = @{ Identity = $provider; AuthSessionBroker = $broker }
+$plan = New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $req -Providers $providers
+Invoke-IdlePlan -Plan $plan
 ```
 
 ### EXAMPLE 2
+```
+# Override: explicit -Providers at invoke time
+Invoke-IdlePlan -Plan $plan -Providers $otherProviders
+```
+
+### EXAMPLE 3
 ```
 $execOptions = @{
     RetryProfiles = @{
@@ -38,7 +52,7 @@ $execOptions = @{
     }
     DefaultRetryProfile = 'Default'
 }
-Invoke-IdlePlan -Plan $plan -Providers $providers -ExecutionOptions $execOptions
+Invoke-IdlePlan -Plan $plan -ExecutionOptions $execOptions
 ```
 
 ## PARAMETERS
@@ -60,6 +74,8 @@ Accept wildcard characters: False
 
 ### -Providers
 Provider registry/collection passed through to execution.
+If omitted and Plan.Providers exists, Plan.Providers will be used.
+If supplied, overrides Plan.Providers.
 
 ```yaml
 Type: Hashtable
