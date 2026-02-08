@@ -100,6 +100,50 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
             }
         }
     }
+
+    .EXAMPLE
+    # Template usage with dynamic manager attributes (Leaver scenario):
+    # Note: Templates are resolved during planning against the request object.
+    # Host must enrich request.DesiredState with manager data before calling New-IdlePlan.
+    
+    # Host-side enrichment (example):
+    # $user = Get-ADUser -Identity 'max.power' -Properties Manager
+    # $mgr = if ($user.Manager) { Get-ADUser -Identity $user.Manager -Properties DisplayName, Mail }
+    # $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver' -Actor $env:USERNAME -DesiredState @{
+    #   Manager = @{ DisplayName = $mgr.DisplayName; Mail = $mgr.Mail }
+    # }
+    
+    # Workflow step with template variables:
+    @{
+        Name = 'Set OOF with Manager Contact'
+        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        With = @{
+            Provider        = 'ExchangeOnline'
+            IdentityKey     = 'max.power@contoso.com'
+            Config          = @{
+                Mode            = 'Enabled'
+                InternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.DisplayName}} ({{Request.DesiredState.Manager.Mail}}).'
+                ExternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.Mail}}.'
+                ExternalAudience = 'All'
+            }
+        }
+    }
+
+    .EXAMPLE
+    # Using the step type alias IdLE.Step.Mailbox.EnsureOutOfOffice:
+    @{
+        Name = 'Enable Out of Office'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
+        With = @{
+            Provider        = 'ExchangeOnline'
+            IdentityKey     = 'user@contoso.com'
+            Config          = @{
+                Mode            = 'Enabled'
+                InternalMessage = 'Out of office.'
+                ExternalMessage = 'Out of office.'
+            }
+        }
+    }
     #>
     [CmdletBinding()]
     param(

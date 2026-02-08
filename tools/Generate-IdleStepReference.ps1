@@ -20,7 +20,7 @@ param(
     # Restrict which step modules are scanned.
     [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string[]] $StepModules = @('IdLE.Steps.Common', 'IdLE.Steps.DirectorySync'),
+    [string[]] $StepModules = @('IdLE.Steps.Common', 'IdLE.Steps.DirectorySync', 'IdLE.Steps.Mailbox'),
 
     # Optional: Step function names to exclude (exact command names).
     [Parameter()]

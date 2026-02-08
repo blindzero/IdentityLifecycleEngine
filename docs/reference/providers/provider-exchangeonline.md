@@ -187,11 +187,11 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
   Steps = @(
     @{
       Name = 'Ensure mailbox type'
-      Type = 'IdLE.Step.MailboxType.Ensure'
+      Type = 'IdLE.Step.Mailbox.Type.Ensure'
       With = @{
         Provider    = 'ExchangeOnline'
         IdentityKey = 'user@contoso.com'
-        Type        = 'Shared'
+        MailboxType = 'Shared'
         # AuthSessionName is optional; defaults to the provider alias if omitted
         # AuthSessionOptions = @{ ... }
       }
@@ -199,6 +199,90 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
   )
 }
 ```
+
+### OOF with template variables and dynamic manager attributes
+
+This example shows how to use template variables (`{{...}}`) in Out of Office messages
+with dynamic user attributes (e.g., manager information). Templates are resolved during
+plan building against the request object.
+
+**Important:** Manager lookup is performed **host-side**, not inside the step. This
+maintains the security boundary: steps do not perform directory lookups.
+
+**Host enrichment (example using AD):**
+
+```powershell
+# 1. Retrieve user and manager details from AD
+$user = Get-ADUser -Identity 'max.power' -Properties Manager
+$mgr = $null
+
+if ($user.Manager) {
+  $mgr = Get-ADUser -Identity $user.Manager -Properties DisplayName, Mail
+}
+
+# 2. Build request with manager data in DesiredState
+$req = New-IdleLifecycleRequest `
+  -LifecycleEvent 'Leaver' `
+  -Actor $env:USERNAME `
+  -Input @{ UserPrincipalName = 'max.power@contoso.com' } `
+  -DesiredState @{
+    Manager = @{
+      DisplayName = $mgr.DisplayName
+      Mail        = $mgr.Mail
+    }
+  }
+
+# 3. Plan and execute
+$plan = New-IdlePlan -WorkflowPath './leaver-workflow.psd1' -Request $req -Providers $providers
+$result = Invoke-IdlePlan -Plan $plan -Providers $providers
+```
+
+**Workflow step using templates:**
+
+```powershell
+@{
+  Name = 'Set Exchange OOF'
+  Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+  With = @{
+    Provider        = 'ExchangeOnline'
+    IdentityKey     = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
+    Config          = @{
+      Mode            = 'Enabled'
+      InternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.DisplayName}} ({{Request.DesiredState.Manager.Mail}}).'
+      ExternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.Mail}}.'
+      ExternalAudience = 'All'
+    }
+  }
+}
+```
+
+**Alternative (using Entra ID / Microsoft Graph):**
+
+```powershell
+# Host enrichment using Microsoft Graph
+Connect-MgGraph -Scopes 'User.Read.All'
+
+$user = Get-MgUser -UserId 'max.power@contoso.com' -Property 'Manager'
+$mgr = if ($user.Manager.Id) {
+  Get-MgUser -UserId $user.Manager.Id -Property 'DisplayName', 'Mail'
+} else { $null }
+
+$req = New-IdleLifecycleRequest `
+  -LifecycleEvent 'Leaver' `
+  -Actor $env:USERNAME `
+  -Input @{ UserPrincipalName = 'max.power@contoso.com' } `
+  -DesiredState @{
+    Manager = @{
+      DisplayName = $mgr.DisplayName
+      Mail        = $mgr.Mail
+    }
+  }
+```
+
+**Step type alias:**
+
+You can use `IdLE.Step.Mailbox.EnsureOutOfOffice` as an alternative to
+`IdLE.Step.Mailbox.OutOfOffice.Ensure` (both resolve to the same handler).
 
 ---
 
