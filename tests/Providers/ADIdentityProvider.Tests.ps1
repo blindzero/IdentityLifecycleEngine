@@ -771,12 +771,11 @@ Describe 'AD identity provider' {
                 AccountPassword = $password
             }
 
-            # Note: This test verifies that valid SecureString passwords are accepted without throwing.
-            # The fake adapter auto-creates users during ResolveIdentity, so CreateIdentity returns
-            # Changed=false. Password validation is tested directly via NewUser in error-throwing tests.
-            $result = $script:TestProvider.CreateIdentity('pwtest1', $attrs)
+            # Test the adapter's NewUser method directly to verify password handling
+            # (CreateIdentity would skip NewUser due to fake adapter auto-creation)
+            $result = $script:TestAdapter.NewUser('pwtest1', $attrs, $true)
             $result | Should -Not -BeNullOrEmpty
-            $result.IdentityKey | Should -Be 'pwtest1'
+            $result.sAMAccountName | Should -Be 'pwtest1'
         }
 
         It 'CreateIdentity accepts AccountPassword as ProtectedString' {
@@ -789,12 +788,11 @@ Describe 'AD identity provider' {
                 AccountPassword = $protectedString
             }
 
-            # Note: This test verifies that valid ProtectedString passwords are accepted without throwing.
-            # The fake adapter auto-creates users during ResolveIdentity, so CreateIdentity returns
-            # Changed=false. Password validation is tested directly via NewUser in error-throwing tests.
-            $result = $script:TestProvider.CreateIdentity('pwtest2', $attrs)
+            # Test the adapter's NewUser method directly to verify password handling
+            # (CreateIdentity would skip NewUser due to fake adapter auto-creation)
+            $result = $script:TestAdapter.NewUser('pwtest2', $attrs, $true)
             $result | Should -Not -BeNullOrEmpty
-            $result.IdentityKey | Should -Be 'pwtest2'
+            $result.sAMAccountName | Should -Be 'pwtest2'
         }
 
         It 'CreateIdentity accepts AccountPasswordAsPlainText' {
@@ -803,12 +801,11 @@ Describe 'AD identity provider' {
                 AccountPasswordAsPlainText = 'PlainTextPass789!'
             }
 
-            # Note: This test verifies that valid plaintext passwords are accepted without throwing.
-            # The fake adapter auto-creates users during ResolveIdentity, so CreateIdentity returns
-            # Changed=false. Password validation is tested directly via NewUser in error-throwing tests.
-            $result = $script:TestProvider.CreateIdentity('pwtest3', $attrs)
+            # Test the adapter's NewUser method directly to verify password handling
+            # (CreateIdentity would skip NewUser due to fake adapter auto-creation)
+            $result = $script:TestAdapter.NewUser('pwtest3', $attrs, $true)
             $result | Should -Not -BeNullOrEmpty
-            $result.IdentityKey | Should -Be 'pwtest3'
+            $result.sAMAccountName | Should -Be 'pwtest3'
         }
 
         It 'Throws when both AccountPassword and AccountPasswordAsPlainText are provided' {

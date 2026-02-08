@@ -196,10 +196,14 @@ function New-IdleADAdapter {
                     $params['AccountPassword'] = ConvertTo-SecureString -String $passwordValue -ErrorAction Stop
                 }
                 catch {
-                    $errorMsg = "AccountPassword: Expected a ProtectedString (output from ConvertFrom-SecureString) but conversion failed. "
-                    $errorMsg += "ProtectedString only works when encryption and decryption occur under the same Windows user and machine (DPAPI scope). "
+                    $errorMsg = "AccountPassword: Expected a ProtectedString (output from ConvertFrom-SecureString without -Key) but conversion failed. "
+                    $errorMsg += "Only DPAPI-scoped ProtectedStrings are supported (created under the same Windows user and machine). "
+                    $errorMsg += "Key-based protected strings (using -Key or -SecureKey) are not supported. "
                     if ($null -ne $_.Exception) {
-                        $errorMsg += " Inner exception type: $($PSItem.Exception.GetType().FullName)."
+                        $errorMsg += "Exception type: $($PSItem.Exception.GetType().FullName). "
+                        if (-not [string]::IsNullOrWhiteSpace($_.Exception.Message)) {
+                            $errorMsg += "Message: $($_.Exception.Message)"
+                        }
                     }
                     throw $errorMsg
                 }
