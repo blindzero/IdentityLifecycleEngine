@@ -104,6 +104,125 @@ function Resolve-IdleTemplateString {
         }
     }
 
+    # Helper function to resolve a template path to its value
+    $resolvePath = {
+        param([string]$Path)
+        
+        # Handle Request.Input.* alias to Request.DesiredState.*
+        $targetPath = $Path
+        $hasInputProperty = $false
+        if ($Request.PSObject.Properties['Input']) {
+            $hasInputProperty = $true
+        }
+        
+        if ($Path.StartsWith('Request.Input.')) {
+            if (-not $hasInputProperty) {
+                # Alias to DesiredState
+                $targetPath = $Path -replace '^Request\.Input\.', 'Request.DesiredState.'
+            }
+        }
+        elseif ($Path -eq 'Request.Input') {
+            if (-not $hasInputProperty) {
+                $targetPath = 'Request.DesiredState'
+            }
+        }
+
+        # Resolve the value (using custom logic that handles hashtables)
+        $contextWrapper = [pscustomobject]@{ Request = $Request }
+        $current = $contextWrapper
+        foreach ($segment in ($targetPath -split '\.')) {
+            if ($null -eq $current) {
+                $resolvedValue = $null
+                break
+            }
+
+            # Handle hashtables/dictionaries
+            if ($current -is [System.Collections.IDictionary]) {
+                if ($current.ContainsKey($segment)) {
+                    $current = $current[$segment]
+                }
+                else {
+                    $current = $null
+                }
+            }
+            # Handle PSCustomObjects and class instances
+            else {
+                $prop = $current.PSObject.Properties[$segment]
+                if ($null -eq $prop) {
+                    $current = $null
+                }
+                else {
+                    $current = $prop.Value
+                }
+            }
+        }
+        $resolvedValue = $current
+
+        # Fail fast on null/missing values
+        if ($null -eq $resolvedValue) {
+            throw [System.ArgumentException]::new(
+                ("Template resolution error in step '{0}': Path '{1}' resolved to null or does not exist. Ensure the request contains all required values." -f $StepName, $Path),
+                'Workflow'
+            )
+        }
+
+        return $resolvedValue
+    }
+
+    # Helper function to validate resolved value is a scalar type
+    $validateScalarType = {
+        param([object]$Value, [string]$Path, [bool]$AllowComplexForInterpolation = $false)
+        
+        # For mixed templates (string interpolation), use simpler validation
+        if ($AllowComplexForInterpolation) {
+            if ($Value -is [hashtable] -or
+                $Value -is [System.Collections.IDictionary] -or
+                $Value -is [array] -or
+                ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string])) {
+                throw [System.ArgumentException]::new(
+                    ("Template type error in step '{0}': Path '{1}' resolved to a non-scalar value (hashtable/array/object). Templates only support scalar values (string, number, bool, datetime, guid). Use an explicit mapping step or host-side pre-flattening." -f $StepName, $Path),
+                    'Workflow'
+                )
+            }
+        }
+        else {
+            # For pure placeholders, use explicit allowlist
+            $isAllowedScalar = $false
+
+            if ($Value -is [string] -or
+                $Value -is [bool] -or
+                $Value -is [byte] -or
+                $Value -is [sbyte] -or
+                $Value -is [int16] -or
+                $Value -is [uint16] -or
+                $Value -is [int32] -or
+                $Value -is [uint32] -or
+                $Value -is [int64] -or
+                $Value -is [uint64] -or
+                $Value -is [single] -or
+                $Value -is [double] -or
+                $Value -is [decimal] -or
+                $Value -is [datetime] -or
+                $Value -is [guid]) {
+                $isAllowedScalar = $true
+            }
+            elseif ($Value -ne $null) {
+                # Allow enum values (any enum type)
+                $valueType = $Value.GetType()
+                if ($valueType.IsEnum) {
+                    $isAllowedScalar = $true
+                }
+            }
+
+            if (-not $isAllowedScalar) {
+                throw [System.ArgumentException]::new(
+                    ("Template type error in step '{0}': Path '{1}' resolved to a non-scalar value (unsupported type: '{2}'). Templates only support scalar values (string, numeric primitives, bool, datetime, guid, enum). Use an explicit mapping step or host-side pre-flattening." -f $StepName, $Path, ($Value.GetType().FullName)),
+                    'Workflow'
+                )
+            }
+        }
+    }
+
     # Check if this is a pure placeholder (no prefix/suffix text, single placeholder)
     # If so, we can preserve the type instead of coercing to string
     $purePattern = '^\s*\{\{([^}]+)\}\}\s*$'
@@ -146,98 +265,11 @@ function Resolve-IdleTemplateString {
         & $validatePath $path
         & $validateAllowedRoot $path
 
-        # Handle Request.Input.* alias to Request.DesiredState.*
-        $resolvePath = $path
-        $hasInputProperty = $false
-        if ($Request.PSObject.Properties['Input']) {
-            $hasInputProperty = $true
-        }
-        
-        if ($path.StartsWith('Request.Input.')) {
-            if (-not $hasInputProperty) {
-                # Alias to DesiredState
-                $resolvePath = $path -replace '^Request\.Input\.', 'Request.DesiredState.'
-            }
-        }
-        elseif ($path -eq 'Request.Input') {
-            if (-not $hasInputProperty) {
-                $resolvePath = 'Request.DesiredState'
-            }
-        }
-
-        # Resolve the value (using custom logic that handles hashtables)
-        $contextWrapper = [pscustomobject]@{ Request = $Request }
-        $current = $contextWrapper
-        foreach ($segment in ($resolvePath -split '\.')) {
-            if ($null -eq $current) {
-                $resolvedValue = $null
-                break
-            }
-
-            # Handle hashtables/dictionaries
-            if ($current -is [System.Collections.IDictionary]) {
-                if ($current.ContainsKey($segment)) {
-                    $current = $current[$segment]
-                }
-                else {
-                    $current = $null
-                }
-            }
-            # Handle PSCustomObjects and class instances
-            else {
-                $prop = $current.PSObject.Properties[$segment]
-                if ($null -eq $prop) {
-                    $current = $null
-                }
-                else {
-                    $current = $prop.Value
-                }
-            }
-        }
-        $resolvedValue = $current
-
-        # Fail fast on null/missing values
-        if ($null -eq $resolvedValue) {
-            throw [System.ArgumentException]::new(
-                ("Template resolution error in step '{0}': Path '{1}' resolved to null or does not exist. Ensure the request contains all required values." -f $StepName, $path),
-                'Workflow'
-            )
-        }
+        # Resolve the value using the shared helper
+        $resolvedValue = & $resolvePath $path
 
         # Type validation: only allow scalar-ish types explicitly
-        $isAllowedScalar = $false
-
-        if ($resolvedValue -is [string] -or
-            $resolvedValue -is [bool] -or
-            $resolvedValue -is [byte] -or
-            $resolvedValue -is [sbyte] -or
-            $resolvedValue -is [int16] -or
-            $resolvedValue -is [uint16] -or
-            $resolvedValue -is [int32] -or
-            $resolvedValue -is [uint32] -or
-            $resolvedValue -is [int64] -or
-            $resolvedValue -is [uint64] -or
-            $resolvedValue -is [single] -or
-            $resolvedValue -is [double] -or
-            $resolvedValue -is [decimal] -or
-            $resolvedValue -is [datetime] -or
-            $resolvedValue -is [guid]) {
-            $isAllowedScalar = $true
-        }
-        elseif ($resolvedValue -ne $null) {
-            # Allow enum values (any enum type)
-            $valueType = $resolvedValue.GetType()
-            if ($valueType.IsEnum) {
-                $isAllowedScalar = $true
-            }
-        }
-
-        if (-not $isAllowedScalar) {
-            throw [System.ArgumentException]::new(
-                ("Template type error in step '{0}': Path '{1}' resolved to a non-scalar or unsupported value type ('{2}'). Templates only support scalar values (string, numeric primitives, bool, datetime, guid, enum). Use an explicit mapping step or host-side pre-flattening." -f $StepName, $path, ($resolvedValue.GetType().FullName)),
-                'Workflow'
-            )
-        }
+        & $validateScalarType $resolvedValue $path $false
 
         # Return the typed value directly (no string conversion)
         return $resolvedValue
@@ -253,74 +285,11 @@ function Resolve-IdleTemplateString {
         & $validatePath $path
         & $validateAllowedRoot $path
 
-        # Handle Request.Input.* alias to Request.DesiredState.*
-        $resolvePath = $path
-        $hasInputProperty = $false
-        if ($Request.PSObject.Properties['Input']) {
-            $hasInputProperty = $true
-        }
-        
-        if ($path.StartsWith('Request.Input.')) {
-            if (-not $hasInputProperty) {
-                # Alias to DesiredState
-                $resolvePath = $path -replace '^Request\.Input\.', 'Request.DesiredState.'
-            }
-        }
-        elseif ($path -eq 'Request.Input') {
-            if (-not $hasInputProperty) {
-                $resolvePath = 'Request.DesiredState'
-            }
-        }
-
-        # Resolve the value (using custom logic that handles hashtables)
-        $contextWrapper = [pscustomobject]@{ Request = $Request }
-        $current = $contextWrapper
-        foreach ($segment in ($resolvePath -split '\.')) {
-            if ($null -eq $current) {
-                $resolvedValue = $null
-                break
-            }
-
-            # Handle hashtables/dictionaries
-            if ($current -is [System.Collections.IDictionary]) {
-                if ($current.ContainsKey($segment)) {
-                    $current = $current[$segment]
-                }
-                else {
-                    $current = $null
-                }
-            }
-            # Handle PSCustomObjects and class instances
-            else {
-                $prop = $current.PSObject.Properties[$segment]
-                if ($null -eq $prop) {
-                    $current = $null
-                }
-                else {
-                    $current = $prop.Value
-                }
-            }
-        }
-        $resolvedValue = $current
-
-        # Fail fast on null/missing values
-        if ($null -eq $resolvedValue) {
-            throw [System.ArgumentException]::new(
-                ("Template resolution error in step '{0}': Path '{1}' resolved to null or does not exist. Ensure the request contains all required values." -f $StepName, $path),
-                'Workflow'
-            )
-        }
+        # Resolve the value using the shared helper
+        $resolvedValue = & $resolvePath $path
 
         # Type validation: only scalar-ish types allowed
-        if ($resolvedValue -is [hashtable] -or
-            $resolvedValue -is [System.Collections.IDictionary] -or
-            $resolvedValue -is [array] -or
-            ($resolvedValue -is [System.Collections.IEnumerable] -and $resolvedValue -isnot [string])) {
-            throw [System.ArgumentException]::new(
-                ("Template type error in step '{0}': Path '{1}' resolved to a non-scalar value (hashtable/array/object). Templates only support scalar values (string, number, bool, datetime, guid). Use an explicit mapping step or host-side pre-flattening." -f $StepName, $path),
-                'Workflow'
-            )
-        }
+        & $validateScalarType $resolvedValue $path $true
 
         # Convert to string
         $stringReplacement = [string]$resolvedValue
