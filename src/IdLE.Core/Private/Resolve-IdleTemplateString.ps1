@@ -71,6 +71,39 @@ function Resolve-IdleTemplateString {
         return $stringValue
     }
 
+    # Define validation constants used in multiple paths
+    $pathValidationPattern = '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$'
+    $allowedRoots = @('Request.Input', 'Request.DesiredState', 'Request.IdentityKeys', 'Request.Changes', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
+
+    # Helper function to validate path pattern
+    $validatePath = {
+        param([string]$Path)
+        if ($Path -notmatch $pathValidationPattern) {
+            throw [System.ArgumentException]::new(
+                ("Template path error in step '{0}': Invalid path pattern '{1}'. Paths must use dot-separated identifiers (letters, numbers, underscores) with no spaces or special characters." -f $StepName, $Path),
+                'Workflow'
+            )
+        }
+    }
+
+    # Helper function to validate allowed roots
+    $validateAllowedRoot = {
+        param([string]$Path)
+        $isAllowed = $false
+        foreach ($root in $allowedRoots) {
+            if ($Path -eq $root -or $Path.StartsWith("$root.")) {
+                $isAllowed = $true
+                break
+            }
+        }
+        if (-not $isAllowed) {
+            throw [System.ArgumentException]::new(
+                ("Template security error in step '{0}': Path '{1}' is not allowed. Only these roots are permitted: {2}" -f $StepName, $Path, ([string]::Join(', ', $allowedRoots))),
+                'Workflow'
+            )
+        }
+    }
+
     # Check if this is a pure placeholder (no prefix/suffix text, single placeholder)
     # If so, we can preserve the type instead of coercing to string
     $purePattern = '^\s*\{\{([^}]+)\}\}\s*$'
@@ -109,30 +142,9 @@ function Resolve-IdleTemplateString {
         $match = $matches[0]
         $path = $match.Groups[1].Value.Trim()
 
-        # Validate path pattern (strict: alphanumeric + dots only)
-        if ($path -notmatch '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$') {
-            throw [System.ArgumentException]::new(
-                ("Template path error in step '{0}': Invalid path pattern '{1}'. Paths must use dot-separated identifiers (letters, numbers, underscores) with no spaces or special characters." -f $StepName, $path),
-                'Workflow'
-            )
-        }
-
-        # Security: validate allowed roots
-        $allowedRoots = @('Request.Input', 'Request.DesiredState', 'Request.IdentityKeys', 'Request.Changes', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
-        $isAllowed = $false
-        foreach ($root in $allowedRoots) {
-            if ($path -eq $root -or $path.StartsWith("$root.")) {
-                $isAllowed = $true
-                break
-            }
-        }
-
-        if (-not $isAllowed) {
-            throw [System.ArgumentException]::new(
-                ("Template security error in step '{0}': Path '{1}' is not allowed. Only these roots are permitted: {2}" -f $StepName, $path, ([string]::Join(', ', $allowedRoots))),
-                'Workflow'
-            )
-        }
+        # Validate path pattern and allowed roots using helper functions
+        & $validatePath $path
+        & $validateAllowedRoot $path
 
         # Handle Request.Input.* alias to Request.DesiredState.*
         $resolvePath = $path
@@ -213,30 +225,9 @@ function Resolve-IdleTemplateString {
         $placeholder = $match.Groups[0].Value
         $path = $match.Groups[1].Value.Trim()
 
-        # Validate path pattern (strict: alphanumeric + dots only)
-        if ($path -notmatch '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$') {
-            throw [System.ArgumentException]::new(
-                ("Template path error in step '{0}': Invalid path pattern '{1}'. Paths must use dot-separated identifiers (letters, numbers, underscores) with no spaces or special characters." -f $StepName, $path),
-                'Workflow'
-            )
-        }
-
-        # Security: validate allowed roots
-        $allowedRoots = @('Request.Input', 'Request.DesiredState', 'Request.IdentityKeys', 'Request.Changes', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
-        $isAllowed = $false
-        foreach ($root in $allowedRoots) {
-            if ($path -eq $root -or $path.StartsWith("$root.")) {
-                $isAllowed = $true
-                break
-            }
-        }
-
-        if (-not $isAllowed) {
-            throw [System.ArgumentException]::new(
-                ("Template security error in step '{0}': Path '{1}' is not allowed. Only these roots are permitted: {2}" -f $StepName, $path, ([string]::Join(', ', $allowedRoots))),
-                'Workflow'
-            )
-        }
+        # Validate path pattern and allowed roots using helper functions
+        & $validatePath $path
+        & $validateAllowedRoot $path
 
         # Handle Request.Input.* alias to Request.DesiredState.*
         $resolvePath = $path
