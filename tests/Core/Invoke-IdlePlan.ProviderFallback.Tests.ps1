@@ -123,7 +123,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
 
         $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
 
-        # Build plan without providers
+        # Build plan with providers, then remove Providers property to simulate exported plan scenario
         $providers = @{
             StepRegistry = @{
                 'IdLE.Step.Test' = 'Invoke-IdleTestProviderFallbackStep'
@@ -132,7 +132,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
         }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
-        # Manually remove Providers from plan to simulate exported plan scenario
+        # Remove Providers property to simulate an exported plan without provider objects
         $plan.PSObject.Properties.Remove('Providers')
 
         # Execute without -Providers and without Plan.Providers
