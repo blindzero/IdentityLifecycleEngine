@@ -357,8 +357,46 @@ Describe 'IdLE.Steps - Auth Session Routing' {
             $result | Should -Not -BeNullOrEmpty
             $result.Status | Should -Be 'Completed'
             $testState.SessionAcquired | Should -Be $true
-            $testState.AcquiredName | Should -Be '__default__'
+            $testState.AcquiredName | Should -Be ''
             $testState.AcquiredOptions | Should -BeNullOrEmpty
+        }
+
+        It 'throws when AuthSessionName is set but no broker is available' {
+            # Arrange
+            $mockProvider = [pscustomobject]@{
+                PSTypeName = 'Tests.MockProvider'
+            }
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
+                param($IdentityKey, $Name, $Value, $AuthSession)
+                return [pscustomobject]@{
+                    PSTypeName = 'IdLE.ProviderResult'
+                    Changed = $true
+                }
+            } -Force
+
+            $context = [pscustomobject]@{
+                PSTypeName = 'IdLE.ExecutionContext'
+                Providers = @{
+                    Identity = $mockProvider
+                    # No AuthSessionBroker
+                }
+            }
+
+            $step = [pscustomobject]@{
+                PSTypeName = 'IdLE.Step'
+                Name = 'TestStep'
+                Type = 'IdLE.Step.EnsureAttribute'
+                With = @{
+                    IdentityKey = 'testuser'
+                    Name = 'Department'
+                    Value = 'IT'
+                    AuthSessionName = 'ActiveDirectory'  # Explicitly set but no broker
+                }
+            }
+
+            # Act & Assert
+            { Invoke-IdleStepEnsureAttribute -Context $context -Step $step } |
+                Should -Throw '*AuthSessionName*AcquireAuthSession*'
         }
     }
 }

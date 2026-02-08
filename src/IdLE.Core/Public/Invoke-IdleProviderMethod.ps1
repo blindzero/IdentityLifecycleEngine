@@ -81,33 +81,6 @@ function Invoke-IdleProviderMethod {
         }
     }
     
-    # Check if an AuthSessionBroker is available
-    $brokerAvailable = $Context.PSObject.Properties.Name -contains 'Providers' -and 
-                       $null -ne $Context.Providers -and 
-                       $Context.Providers.ContainsKey('AuthSessionBroker')
-    
-    if ($brokerAvailable) {
-        # If AuthSessionName is provided, use it for routing
-        if ($With.ContainsKey('AuthSessionName')) {
-            $sessionName = [string]$With.AuthSessionName
-            $sessionOptions = if ($With.ContainsKey('AuthSessionOptions')) { $With.AuthSessionOptions } else { $null }
-
-            $authSession = $Context.AcquireAuthSession($sessionName, $sessionOptions)
-        }
-        else {
-            # No AuthSessionName provided - try to acquire default session
-            # Use a placeholder name and no options to trigger default session logic
-            try {
-                $authSession = $Context.AcquireAuthSession('__default__', $null)
-            }
-            catch {
-                # If acquiring default fails, continue without auth session
-                # This preserves backward compatibility for providers that don't require auth
-                $authSession = $null
-            }
-        }
-    }
-
     $provider = $Context.Providers[$ProviderAlias]
 
     # Check if provider method exists
@@ -118,6 +91,42 @@ function Invoke-IdleProviderMethod {
 
     # Check if method supports AuthSession parameter
     $supportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $providerMethod -ParameterName 'AuthSession'
+    
+    # Check if context can acquire auth sessions
+    $canAcquireAuth = $Context.PSObject.Methods.Name -contains 'AcquireAuthSession'
+    
+    # Only acquire auth session if provider method can use it or if explicitly requested
+    $shouldAcquireAuth = $With.ContainsKey('AuthSessionName') -or ($supportsAuthSession -and $canAcquireAuth)
+    
+    if ($shouldAcquireAuth) {
+        if (-not $canAcquireAuth) {
+            # AuthSessionName was explicitly set but context cannot acquire sessions
+            throw "With.AuthSessionName is set to '$($With.AuthSessionName)' but Context does not have an AcquireAuthSession method."
+        }
+        
+        # If AuthSessionName is provided, use it for routing
+        if ($With.ContainsKey('AuthSessionName')) {
+            $sessionName = [string]$With.AuthSessionName
+            $sessionOptions = if ($With.ContainsKey('AuthSessionOptions')) { $With.AuthSessionOptions } else { $null }
+
+            $authSession = $Context.AcquireAuthSession($sessionName, $sessionOptions)
+        }
+        else {
+            # No AuthSessionName provided but provider supports auth - try to acquire default session
+            # Use empty string to signal default request without conflicting with user session names
+            try {
+                $authSession = $Context.AcquireAuthSession('', $null)
+            }
+            catch {
+                # If provider method supports AuthSession and default acquisition fails, rethrow
+                if ($supportsAuthSession) {
+                    throw
+                }
+                # Otherwise, continue without auth session for backward compatibility
+                $authSession = $null
+            }
+        }
+    }
 
     # Call provider method with appropriate signature
     if ($supportsAuthSession -and $null -ne $authSession) {

@@ -57,7 +57,7 @@ function New-IdleAuthSessionBroker {
     # AuthSessionName-based routing with roles
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ AuthSessionName = 'AD'; Role = 'ADAdm' } = $tier0Credential
-        @{ AuthSessionName = 'EXO'; Role = 'EXOAdm' } = $exoToken
+        @{ AuthSessionName = 'AD'; Role = 'ADRead' } = $readOnlyCredential
     } -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
     .EXAMPLE
@@ -120,7 +120,7 @@ function New-IdleAuthSessionBroker {
     $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
         param(
             [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
+            [AllowEmptyString()]
             [string] $Name,
 
             [Parameter()]
@@ -134,6 +134,14 @@ function New-IdleAuthSessionBroker {
         # - OAuth: Validate token format, expiration, scopes
         # - PSRemoting: Validate remote session state, connectivity
         # - Credential: Validate credential format, domain membership
+
+        # Empty string signals default session request
+        if ([string]::IsNullOrEmpty($Name)) {
+            if ($null -ne $this.DefaultAuthSession) {
+                return $this.DefaultAuthSession
+            }
+            throw "No default auth session configured."
+        }
 
         # If SessionMap is null or empty, return default
         if ($null -eq $this.SessionMap -or $this.SessionMap.Count -eq 0) {
@@ -162,9 +170,12 @@ function New-IdleAuthSessionBroker {
                     continue
                 }
                 
-                # If pattern has ONLY AuthSessionName (no other keys), it's a match
+                # If pattern has ONLY AuthSessionName (no other keys)
                 if ($pattern.Keys.Count -eq 1) {
-                    $authSessionNameMatches += $entry
+                    # Only match if Options is null or empty
+                    if ($null -eq $Options -or $Options.Count -eq 0) {
+                        $authSessionNameMatches += $entry
+                    }
                     continue
                 }
                 
