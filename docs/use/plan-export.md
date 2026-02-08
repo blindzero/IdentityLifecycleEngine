@@ -54,13 +54,8 @@ Export-IdlePlan -Plan $plan -Path './artifacts/joiner.plan.json'
 
 :::note
 
-Exported plans typically do not include provider objects. When importing and executing an exported plan,
-you must supply providers at execution time:
-
-```powershell
-$importedPlan = Import-IdlePlan -Path './artifacts/joiner.plan.json'
-$result = Invoke-IdlePlan -Plan $importedPlan -Providers $providers
-```
+Exported plans typically do not include provider objects. When executing an exported plan,
+you must supply providers at execution time.
 
 :::
 

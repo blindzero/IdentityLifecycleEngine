@@ -79,9 +79,8 @@ When a plan is exported without provider objects (for review or audit), provider
 # Export plan (without providers)
 Export-IdlePlan -Plan $plan -Path ./plan.json
 
-# Later: import and execute with providers
-$importedPlan = Import-IdlePlan -Path ./plan.json
-$result = Invoke-IdlePlan -Plan $importedPlan -Providers $providers
+# Later: execute with providers (plan import functionality is planned for future release)
+$result = Invoke-IdlePlan -Plan $plan -Providers $providers
 ```
 
 ### Provider Aliases
