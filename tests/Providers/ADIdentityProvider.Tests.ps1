@@ -131,6 +131,10 @@ Describe 'AD identity provider' {
                 if ($hasAccountPassword) {
                     $passwordValue = $Attributes['AccountPassword']
 
+                    if ($null -eq $passwordValue) {
+                        throw "AccountPassword: Value cannot be null. Provide a SecureString or ProtectedString (from ConvertFrom-SecureString)."
+                    }
+
                     if ($passwordValue -is [securestring]) {
                         # Valid: SecureString
                     }
@@ -153,6 +157,10 @@ Describe 'AD identity provider' {
 
                 if ($hasAccountPasswordAsPlainText) {
                     $plainTextPassword = $Attributes['AccountPasswordAsPlainText']
+
+                    if ($null -eq $plainTextPassword) {
+                        throw "AccountPasswordAsPlainText: Value cannot be null. Provide a non-empty plaintext password string."
+                    }
 
                     if ($plainTextPassword -isnot [string]) {
                         throw "AccountPasswordAsPlainText: Expected a string but received type: $($plainTextPassword.GetType().FullName)"
@@ -854,17 +862,39 @@ Describe 'AD identity provider' {
                 Should -Throw -ExpectedMessage '*cannot be null or empty*'
         }
 
-        It 'CreateIdentity works without password (existing behavior)' {
+        It 'Throws when AccountPassword is null' {
             $attrs = @{
                 SamAccountName = 'pwtest9'
+                AccountPassword = $null
+            }
+
+            # Test the adapter's NewUser method directly to verify validation
+            { $script:TestAdapter.NewUser('pwtest9', $attrs, $true) } | 
+                Should -Throw -ExpectedMessage '*Value cannot be null*'
+        }
+
+        It 'Throws when AccountPasswordAsPlainText is null' {
+            $attrs = @{
+                SamAccountName = 'pwtest10'
+                AccountPasswordAsPlainText = $null
+            }
+
+            # Test the adapter's NewUser method directly to verify validation
+            { $script:TestAdapter.NewUser('pwtest10', $attrs, $true) } | 
+                Should -Throw -ExpectedMessage '*Value cannot be null*'
+        }
+
+        It 'CreateIdentity works without password (existing behavior)' {
+            $attrs = @{
+                SamAccountName = 'pwtest11'
                 GivenName = 'Test'
                 Surname = 'User'
             }
 
             # Should not throw - no password is valid
-            $result = $script:TestProvider.CreateIdentity('pwtest9', $attrs)
+            $result = $script:TestProvider.CreateIdentity('pwtest11', $attrs)
             $result | Should -Not -BeNullOrEmpty
-            $result.IdentityKey | Should -Be 'pwtest9'
+            $result.IdentityKey | Should -Be 'pwtest11'
         }
     }
 }

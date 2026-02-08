@@ -182,6 +182,10 @@ function New-IdleADAdapter {
         if ($hasAccountPassword) {
             $passwordValue = $Attributes['AccountPassword']
 
+            if ($null -eq $passwordValue) {
+                throw "AccountPassword: Value cannot be null. Provide a SecureString or ProtectedString (from ConvertFrom-SecureString)."
+            }
+
             if ($passwordValue -is [securestring]) {
                 # Mode 1: SecureString - use directly
                 $params['AccountPassword'] = $passwordValue
@@ -207,6 +211,10 @@ function New-IdleADAdapter {
 
         if ($hasAccountPasswordAsPlainText) {
             $plainTextPassword = $Attributes['AccountPasswordAsPlainText']
+
+            if ($null -eq $plainTextPassword) {
+                throw "AccountPasswordAsPlainText: Value cannot be null. Provide a non-empty plaintext password string."
+            }
 
             if ($plainTextPassword -isnot [string]) {
                 throw "AccountPasswordAsPlainText: Expected a string but received type: $($plainTextPassword.GetType().FullName)"
