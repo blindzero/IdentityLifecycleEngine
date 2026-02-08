@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Provider.Mock.psm1'
-    ModuleVersion = '0.9.2'
+    ModuleVersion = '0.9.3'
     GUID              = 'e661d3d6-1797-4cb1-b173-474982dbd653'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
