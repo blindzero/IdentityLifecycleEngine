@@ -166,4 +166,158 @@ Describe 'New-IdleAuthSession' {
             $session | Should -Not -BeNullOrEmpty
         }
     }
+
+    Context 'Optional SessionMap' {
+        It 'creates broker with only DefaultAuthSession (no SessionMap)' {
+            $broker = New-IdleAuthSession -DefaultAuthSession $testCred -AuthSessionType 'Credential'
+            
+            $broker | Should -Not -BeNullOrEmpty
+            $broker.DefaultAuthSession | Should -Not -BeNullOrEmpty
+            $broker.SessionMap | Should -BeNullOrEmpty
+        }
+
+        It 'returns DefaultAuthSession when SessionMap is null' {
+            $broker = New-IdleAuthSession -DefaultAuthSession $testCred -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('AnyName', $null)
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'TestUser'
+        }
+
+        It 'returns DefaultAuthSession when SessionMap is empty' {
+            $broker = New-IdleAuthSession -SessionMap @{} -DefaultAuthSession $testCred -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('AnyName', $null)
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'TestUser'
+        }
+
+        It 'throws when SessionMap is null and DefaultAuthSession is not provided' {
+            { 
+                New-IdleAuthSession -SessionMap $null -AuthSessionType 'Credential'
+            } | Should -Throw '*DefaultAuthSession must be provided*'
+        }
+
+        It 'throws when SessionMap is empty and DefaultAuthSession is not provided' {
+            { 
+                New-IdleAuthSession -SessionMap @{} -AuthSessionType 'Credential'
+            } | Should -Throw '*DefaultAuthSession must be provided*'
+        }
+    }
+
+    Context 'AuthSessionName-based routing' {
+        BeforeEach {
+            $password1 = ConvertTo-SecureString 'Password1!' -AsPlainText -Force
+            $cred1 = New-Object System.Management.Automation.PSCredential('ADAdm', $password1)
+            
+            $password2 = ConvertTo-SecureString 'Password2!' -AsPlainText -Force
+            $cred2 = New-Object System.Management.Automation.PSCredential('EXOAdm', $password2)
+            
+            $password3 = ConvertTo-SecureString 'Password3!' -AsPlainText -Force
+            $cred3 = New-Object System.Management.Automation.PSCredential('ADRead', $password3)
+        }
+
+        It 'matches AuthSessionName without options' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = $cred1
+                @{ AuthSessionName = 'EXO' } = $cred2
+            } -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('AD', $null)
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'ADAdm'
+        }
+
+        It 'matches AuthSessionName with matching options' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD'; Role = 'ADAdm' } = $cred1
+                @{ AuthSessionName = 'AD'; Role = 'ADRead' } = $cred3
+            } -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('AD', @{ Role = 'ADRead' })
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'ADRead'
+        }
+
+        It 'falls back to default when AuthSessionName does not match' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = $cred1
+            } -DefaultAuthSession $testCred -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('EXO', $null)
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'TestUser'
+        }
+
+        It 'throws when AuthSessionName matches multiple entries (ambiguous)' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = $cred1
+                @{ AuthSessionName = 'AD' } = $cred3
+            } -AuthSessionType 'Credential'
+            
+            { $broker.AcquireAuthSession('AD', $null) } | 
+                Should -Throw '*Ambiguous*'
+        }
+
+        It 'prefers AuthSessionName match over legacy Options-only match' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Role = 'Admin' } = $testCred
+                @{ AuthSessionName = 'AD'; Role = 'Admin' } = $cred1
+            } -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('AD', @{ Role = 'Admin' })
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'ADAdm'
+        }
+
+        It 'supports legacy Options-only routing when AuthSessionName is not in pattern' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Role = 'Tier0' } = $cred1
+                @{ Role = 'Admin' } = $cred2
+            } -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('AnyName', @{ Role = 'Admin' })
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'EXOAdm'
+        }
+
+        It 'throws when AuthSessionName does not match and no default provided' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = $cred1
+            } -AuthSessionType 'Credential'
+            
+            { $broker.AcquireAuthSession('EXO', $null) } | 
+                Should -Throw '*No matching auth session found*'
+        }
+
+        It 'matches complex pattern: AuthSessionName + multiple options' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD'; Role = 'Admin'; Environment = 'Prod' } = $cred1
+            } -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('AD', @{ Role = 'Admin'; Environment = 'Prod' })
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'ADAdm'
+        }
+
+        It 'does not match when partial options provided' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD'; Role = 'Admin'; Environment = 'Prod' } = $cred1
+            } -DefaultAuthSession $testCred -AuthSessionType 'Credential'
+            
+            # Only providing Role, not Environment - should fall back to default
+            $session = $broker.AcquireAuthSession('AD', @{ Role = 'Admin' })
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'TestUser'
+        }
+    }
 }

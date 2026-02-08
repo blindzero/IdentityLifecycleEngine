@@ -13,16 +13,17 @@ function New-IdleAuthSessionBroker {
     AcquireAuthSession method.
 
     .PARAMETER SessionMap
-    A hashtable that maps session configurations to auth sessions. Each key is a hashtable
+    Optional hashtable that maps session configurations to auth sessions. Each key is a hashtable
     representing the AuthSessionOptions pattern, and each value is the auth session to return.
     The value can be a PSCredential, token string, session object, or any object appropriate
     for the AuthSessionType.
 
-    Common patterns:
-    - @{ Role = 'Tier0' } -> $tier0Credential (for Credential type)
-    - @{ Role = 'Admin' } -> $adminToken (for OAuth type)
-    - @{ Server = 'Server01' } -> $remoteSession (for PSRemoting type)
-    - @{ Environment = 'Production' } -> $prodCred
+    Keys can include AuthSessionName for name-based routing:
+    - @{ AuthSessionName = 'AD'; Role = 'ADAdm' } -> $admAD (AuthSessionName + Role routing)
+    - @{ AuthSessionName = 'EXO' } -> $exoToken (AuthSessionName-only routing)
+    - @{ Role = 'Tier0' } -> $tier0Credential (Options-only routing, legacy support)
+
+    SessionMap is optional if DefaultAuthSession is provided.
 
     .PARAMETER DefaultAuthSession
     Optional default auth session to return when no session options are provided or
@@ -39,16 +40,20 @@ function New-IdleAuthSessionBroker {
     - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
 
     .EXAMPLE
-    # Simple role-based broker with Credential session type
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
-        @{ Role = 'Tier0' } = $tier0Credential
-        @{ Role = 'Admin' } = $adminCredential
-    } -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
+    # Simple single-credential broker (no SessionMap required)
+    $broker = New-IdleAuthSessionBroker -DefaultAuthSession $admCred -AuthSessionType 'Credential'
 
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = New-IdleADIdentityProvider
         AuthSessionBroker = $broker
     }
+
+    .EXAMPLE
+    # AuthSessionName-based routing with roles
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ AuthSessionName = 'AD'; Role = 'ADAdm' } = $tier0Credential
+        @{ AuthSessionName = 'EXO'; Role = 'EXOAdm' } = $exoToken
+    } -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
     .EXAMPLE
     # OAuth broker with token strings
@@ -74,8 +79,9 @@ function New-IdleAuthSessionBroker {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]
-        [ValidateNotNull()]
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyCollection()]
         [hashtable] $SessionMap,
 
         [Parameter()]
@@ -86,6 +92,11 @@ function New-IdleAuthSessionBroker {
         [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
         [string] $AuthSessionType
     )
+
+    # Validate: If SessionMap is empty/null, DefaultAuthSession must be provided
+    if (($null -eq $SessionMap -or $SessionMap.Count -eq 0) -and $null -eq $DefaultAuthSession) {
+        throw "SessionMap is empty or null. DefaultAuthSession must be provided when SessionMap is not used."
+    }
 
     $broker = [pscustomobject]@{
         PSTypeName = 'IdLE.AuthSessionBroker'
@@ -105,10 +116,6 @@ function New-IdleAuthSessionBroker {
             [hashtable] $Options
         )
 
-        # $Name is part of the broker contract but not used in this simple implementation
-        # This broker routes based on Options only; custom brokers may use Name for additional routing
-        $null = $Name
-
         # TODO: Implement type-specific validation rules for AuthSessionType
         # Current implementation allows all options for all session types
         # Future enhancements may add:
@@ -116,40 +123,115 @@ function New-IdleAuthSessionBroker {
         # - PSRemoting: Validate remote session state, connectivity
         # - Credential: Validate credential format, domain membership
 
-        # If no options provided, return default
-        if ($null -eq $Options -or $Options.Count -eq 0) {
+        # If SessionMap is null or empty, return default
+        if ($null -eq $this.SessionMap -or $this.SessionMap.Count -eq 0) {
             if ($null -ne $this.DefaultAuthSession) {
                 return $this.DefaultAuthSession
             }
-            throw "No auth session options provided and no default auth session configured."
+            throw "No SessionMap configured and no default auth session available."
         }
 
-        # Find matching session in map
+        # Matching logic:
+        # 1. If Name provided: try to match entries with AuthSessionName key
+        # 2. If Options provided: match all key/value pairs
+        # 3. Fall back to DefaultAuthSession
+        # 4. Fail with clear error
+
+        $authSessionNameMatches = @()
+        $legacyMatches = @()
+        
         foreach ($entry in $this.SessionMap.GetEnumerator()) {
             $pattern = $entry.Key
-            $credential = $entry.Value
-
-            # Check if all keys in pattern match Options
-            $matches = $true
-            foreach ($key in $pattern.Keys) {
-                if (-not $Options.ContainsKey($key) -or $Options[$key] -ne $pattern[$key]) {
-                    $matches = $false
-                    break
+            
+            # Check if pattern includes AuthSessionName
+            if ($pattern.ContainsKey('AuthSessionName')) {
+                # AuthSessionName must match
+                if ($pattern.AuthSessionName -ne $Name) {
+                    continue
+                }
+                
+                # If pattern has ONLY AuthSessionName (no other keys), it's a match
+                if ($pattern.Keys.Count -eq 1) {
+                    $authSessionNameMatches += $entry
+                    continue
+                }
+                
+                # Pattern has additional keys beyond AuthSessionName
+                # All other keys in pattern must match Options (if Options provided)
+                $matches = $true
+                foreach ($key in $pattern.Keys) {
+                    if ($key -eq 'AuthSessionName') {
+                        continue  # Already checked
+                    }
+                    
+                    # If Options is null or doesn't contain the key, no match
+                    if ($null -eq $Options -or -not $Options.ContainsKey($key) -or $Options[$key] -ne $pattern[$key]) {
+                        $matches = $false
+                        break
+                    }
+                }
+                
+                if ($matches) {
+                    $authSessionNameMatches += $entry
                 }
             }
-
-            if ($matches) {
-                return $credential
+            else {
+                # Legacy: pattern without AuthSessionName - match based on Options only
+                if ($null -eq $Options -or $Options.Count -eq 0) {
+                    continue  # No options to match
+                }
+                
+                $matches = $true
+                foreach ($key in $pattern.Keys) {
+                    if (-not $Options.ContainsKey($key) -or $Options[$key] -ne $pattern[$key]) {
+                        $matches = $false
+                        break
+                    }
+                }
+                
+                if ($matches) {
+                    $legacyMatches += $entry
+                }
             }
         }
 
-        # No match found
+        # Prioritize AuthSessionName-based matches over legacy matches
+        $matchingEntries = @()
+        if (@($authSessionNameMatches).Count -gt 0) {
+            $matchingEntries = @($authSessionNameMatches)
+        } else {
+            $matchingEntries = @($legacyMatches)
+        }
+
+        # Return first match if exactly one found
+        if ($matchingEntries.Count -eq 1) {
+            return $matchingEntries[0].Value
+        }
+        
+        # If multiple matches, this is ambiguous - fail with clear error
+        if ($matchingEntries.Count -gt 1) {
+            $matchDetails = ($matchingEntries | ForEach-Object {
+                $currentEntry = $_
+                $keyStr = ($currentEntry.Key.Keys | ForEach-Object { "$_=$($currentEntry.Key[$_])" }) -join ', '
+                "{ $keyStr }"
+            }) -join '; '
+            throw "Ambiguous auth session match for Name='$Name'. Multiple entries matched: $matchDetails. Provide AuthSessionOptions to disambiguate."
+        }
+
+        # No match found - fall back to default
         if ($null -ne $this.DefaultAuthSession) {
             return $this.DefaultAuthSession
         }
 
-        $optionsStr = ($Options.Keys | ForEach-Object { "$_=$($Options[$_])" }) -join ', '
-        throw "No matching auth session found for options: $optionsStr"
+        # No match and no default
+        $nameStr = "Name='$Name'"
+        $optionsPart = if ($null -ne $Options -and $Options.Count -gt 0) {
+            $optsStr = ($Options.Keys | ForEach-Object { "$_=$($Options[$_])" }) -join ', '
+            ", Options={ $optsStr }"
+        } else {
+            ""
+        }
+        throw "No matching auth session found for $nameStr$optionsPart and no default auth session configured."
     } -Force
 
     return $broker
