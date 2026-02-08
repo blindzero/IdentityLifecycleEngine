@@ -9,8 +9,14 @@ function New-IdleADAdapter {
 
     .PARAMETER Credential
     Optional PSCredential for AD operations. If not provided, uses integrated auth.
+    
+    .NOTES
+    PSScriptAnalyzer suppression: This function intentionally uses ConvertTo-SecureString -AsPlainText
+    as an explicit escape hatch for AccountPasswordAsPlainText. This is a documented design decision
+    with automatic redaction via Copy-IdleRedactedObject.
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '', Justification = 'Intentional escape hatch for AccountPasswordAsPlainText with explicit opt-in and automatic redaction')]
     param(
         [Parameter()]
         [AllowNull()]
@@ -169,6 +175,69 @@ function New-IdleADAdapter {
         }
         if ($Attributes.ContainsKey('EmailAddress')) {
             $params['EmailAddress'] = $Attributes['EmailAddress']
+        }
+
+        # Password handling: support SecureString, ProtectedString, and explicit PlainText
+        $hasAccountPassword = $Attributes.ContainsKey('AccountPassword')
+        $hasAccountPasswordAsPlainText = $Attributes.ContainsKey('AccountPasswordAsPlainText')
+
+        if ($hasAccountPassword -and $hasAccountPasswordAsPlainText) {
+            throw "Ambiguous password configuration: both 'AccountPassword' and 'AccountPasswordAsPlainText' are provided. Use only one."
+        }
+
+        if ($hasAccountPassword) {
+            $passwordValue = $Attributes['AccountPassword']
+
+            if ($null -eq $passwordValue) {
+                throw "AccountPassword: Value cannot be null. Provide a SecureString or ProtectedString (from ConvertFrom-SecureString)."
+            }
+
+            if ($passwordValue -is [securestring]) {
+                # Mode 1: SecureString - use directly
+                $params['AccountPassword'] = $passwordValue
+            }
+            elseif ($passwordValue -is [string]) {
+                # Mode 2: ProtectedString (from ConvertFrom-SecureString)
+                try {
+                    $params['AccountPassword'] = ConvertTo-SecureString -String $passwordValue -ErrorAction Stop
+                }
+                catch {
+                    $errorMsg = "AccountPassword: Expected a ProtectedString (output from ConvertFrom-SecureString without -Key) but conversion failed. "
+                    $errorMsg += "Only DPAPI-scoped ProtectedStrings are supported (created under the same Windows user and machine). "
+                    $errorMsg += "Key-based protected strings (using -Key or -SecureKey) are not supported. "
+                    if ($null -ne $_.Exception) {
+                        $errorMsg += "Exception type: $($PSItem.Exception.GetType().FullName). "
+                        if (-not [string]::IsNullOrWhiteSpace($_.Exception.Message)) {
+                            $errorMsg += "Message: $($_.Exception.Message)"
+                        }
+                    }
+                    throw $errorMsg
+                }
+            }
+            else {
+                throw "AccountPassword: Expected a SecureString or ProtectedString (string from ConvertFrom-SecureString), but received type: $($passwordValue.GetType().FullName)"
+            }
+        }
+
+        if ($hasAccountPasswordAsPlainText) {
+            $plainTextPassword = $Attributes['AccountPasswordAsPlainText']
+
+            if ($null -eq $plainTextPassword) {
+                throw "AccountPasswordAsPlainText: Value cannot be null. Provide a non-empty plaintext password string."
+            }
+
+            if ($plainTextPassword -isnot [string]) {
+                throw "AccountPasswordAsPlainText: Expected a string but received type: $($plainTextPassword.GetType().FullName)"
+            }
+
+            if ([string]::IsNullOrWhiteSpace($plainTextPassword)) {
+                throw "AccountPasswordAsPlainText: Password cannot be null or empty."
+            }
+
+            # Mode 3: Explicit plaintext - convert with -AsPlainText
+            # This is an intentional escape hatch with explicit opt-in via AccountPasswordAsPlainText.
+            # The value is redacted from logs/events via Copy-IdleRedactedObject.
+            $params['AccountPassword'] = ConvertTo-SecureString -String $plainTextPassword -AsPlainText -Force
         }
 
         if ($null -ne $this.Credential) {

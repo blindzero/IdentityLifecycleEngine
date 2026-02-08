@@ -112,5 +112,53 @@ Describe 'Copy-IdleRedactedObject - deterministic redaction utility' {
 
             $copy.password | Should -Be '<redacted>'
         }
+
+        It 'redacts AccountPassword key' {
+            $input = @{
+                userName = 'testuser'
+                AccountPassword = 'ProtectedStringValue'
+                otherField = 'visible'
+            }
+
+            $copy = Copy-IdleRedactedObject -Value $input
+
+            $copy.userName | Should -Be 'testuser'
+            $copy.AccountPassword | Should -Be '[REDACTED]'
+            $copy.otherField | Should -Be 'visible'
+        }
+
+        It 'redacts AccountPasswordAsPlainText key' {
+            $input = @{
+                userName = 'testuser'
+                AccountPasswordAsPlainText = 'PlainTextPassword'
+                otherField = 'visible'
+            }
+
+            $copy = Copy-IdleRedactedObject -Value $input
+
+            $copy.userName | Should -Be 'testuser'
+            $copy.AccountPasswordAsPlainText | Should -Be '[REDACTED]'
+            $copy.otherField | Should -Be 'visible'
+        }
+
+        It 'redacts both password fields if present in nested structure' {
+            $input = @{
+                userDetails = @{
+                    name = 'alice'
+                    AccountPassword = 'SecureValue'
+                }
+                settings = [pscustomobject]@{
+                    AccountPasswordAsPlainText = 'PlainTextValue'
+                    enabled = $true
+                }
+            }
+
+            $copy = Copy-IdleRedactedObject -Value $input
+
+            $copy.userDetails.name | Should -Be 'alice'
+            $copy.userDetails.AccountPassword | Should -Be '[REDACTED]'
+            $copy.settings.AccountPasswordAsPlainText | Should -Be '[REDACTED]'
+            $copy.settings.enabled | Should -Be $true
+        }
     }
 }
