@@ -186,35 +186,21 @@ function Resolve-IdleTemplateString {
             }
         }
         else {
-            # For pure placeholders, use explicit allowlist
-            $isAllowedScalar = $false
-
-            if ($Value -is [string] -or
-                $Value -is [bool] -or
-                $Value -is [byte] -or
-                $Value -is [sbyte] -or
-                $Value -is [int16] -or
-                $Value -is [uint16] -or
-                $Value -is [int32] -or
-                $Value -is [uint32] -or
-                $Value -is [int64] -or
-                $Value -is [uint64] -or
-                $Value -is [single] -or
-                $Value -is [double] -or
-                $Value -is [decimal] -or
-                $Value -is [datetime] -or
-                $Value -is [guid]) {
-                $isAllowedScalar = $true
+            # For pure placeholders, validate scalar types
+            # Accept: primitives (int, bool, etc.), string, datetime, guid, enums
+            # Reject: collections, PSCustomObject, complex reference types
+            $isScalar = $false
+            
+            if ($Value -is [string]) {
+                # String is always allowed
+                $isScalar = $true
             }
-            elseif ($Value -ne $null) {
-                # Allow enum values (any enum type)
-                $valueType = $Value.GetType()
-                if ($valueType.IsEnum) {
-                    $isAllowedScalar = $true
-                }
+            elseif ($Value.GetType().IsValueType) {
+                # Value types are primitives (int, bool, datetime, guid, etc.) or enums
+                $isScalar = $true
             }
-
-            if (-not $isAllowedScalar) {
+            
+            if (-not $isScalar) {
                 throw [System.ArgumentException]::new(
                     ("Template type error in step '{0}': Path '{1}' resolved to a non-scalar value (unsupported type: '{2}'). Templates only support scalar values (string, numeric primitives, bool, datetime, guid, enum). Use an explicit mapping step or host-side pre-flattening." -f $StepName, $Path, ($Value.GetType().FullName)),
                     'Workflow'
