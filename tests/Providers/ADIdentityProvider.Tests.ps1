@@ -481,6 +481,74 @@ Describe 'AD identity provider' {
         }
     }
 
+    Context 'LDAP filter escaping (ProtectLdapFilterValue)' {
+        BeforeAll {
+            # Import the private New-IdleADAdapter function to test the real implementation
+            $repoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
+            $adapterScriptPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.AD\Private\New-IdleADAdapter.ps1'
+            
+            if (-not (Test-Path -LiteralPath $adapterScriptPath -PathType Leaf)) {
+                throw "New-IdleADAdapter script not found at: $adapterScriptPath"
+            }
+            
+            # Dot-source the adapter script to make New-IdleADAdapter available
+            . $adapterScriptPath
+            
+            # Create a real adapter instance to test the actual ProtectLdapFilterValue implementation
+            $script:TestEscapeAdapter = New-IdleADAdapter
+        }
+
+        It 'Escapes backslash character' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test\value')
+            $result | Should -Be 'test\5cvalue'
+        }
+
+        It 'Escapes asterisk character' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test*value')
+            $result | Should -Be 'test\2avalue'
+        }
+
+        It 'Escapes left parenthesis' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test(value')
+            $result | Should -Be 'test\28value'
+        }
+
+        It 'Escapes right parenthesis' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test)value')
+            $result | Should -Be 'test\29value'
+        }
+
+        It 'Escapes null byte' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue("test`0value")
+            $result | Should -Be 'test\00value'
+        }
+
+        It 'Escapes multiple special characters in one string' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('test*\()value')
+            $result | Should -Be 'test\2a\5c\28\29value'
+        }
+
+        It 'Returns unchanged string when no special characters present' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('testvalue123')
+            $result | Should -Be 'testvalue123'
+        }
+
+        It 'Handles empty string' {
+            $result = $script:TestEscapeAdapter.ProtectLdapFilterValue('')
+            $result | Should -Be ''
+        }
+
+        It 'Can be called from within a ScriptMethod (fixes scope issue)' {
+            # This verifies that the fix works: ProtectLdapFilterValue is accessible via $this
+            # from within another ScriptMethod (like GetUserBySam).
+            # The real integration test is that all the provider contract tests pass,
+            # which exercise GetUserBySam, GetUserByUpn, and ListUsers that all use ProtectLdapFilterValue.
+            # Here we just verify the method exists and is a ScriptMethod.
+            $script:TestEscapeAdapter.PSObject.Methods['ProtectLdapFilterValue'] | Should -Not -BeNullOrEmpty
+            $script:TestEscapeAdapter.PSObject.Methods['ProtectLdapFilterValue'].MemberType | Should -Be 'ScriptMethod'
+        }
+    }
+
     Context 'Idempotency' {
         BeforeEach {
             $adapter = New-FakeADAdapter
