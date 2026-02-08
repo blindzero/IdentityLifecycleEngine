@@ -46,6 +46,8 @@ function New-IdleADAdapter {
         )
 
         $escapedUpn = $this.ProtectLdapFilterValue($Upn)
+        # Escape single quotes for PowerShell -Filter single-quoted string syntax by doubling them
+        $escapedUpn = $escapedUpn -replace '''', ''''''
         $params = @{
             Filter     = "UserPrincipalName -eq '$escapedUpn'"
             Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
@@ -402,7 +404,9 @@ function New-IdleADAdapter {
         if ($null -ne $Filter -and $Filter.ContainsKey('Search') -and -not [string]::IsNullOrWhiteSpace($Filter['Search'])) {
             $searchValue = [string] $Filter['Search']
             $escapedSearch = $this.ProtectLdapFilterValue($searchValue)
-            $filterString = "sAMAccountName -like '$escapedSearch*' -or UserPrincipalName -like '$escapedSearch*'"
+            # Escape single quotes for use inside a single-quoted -Filter string (PowerShell/AD filter syntax)
+            $filterSafeSearch = $escapedSearch -replace "'", "''"
+            $filterString = "sAMAccountName -like '$filterSafeSearch*' -or UserPrincipalName -like '$filterSafeSearch*'"
         }
 
         $params = @{
