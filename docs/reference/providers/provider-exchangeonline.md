@@ -187,7 +187,7 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
   Steps = @(
     @{
       Name = 'Ensure mailbox type'
-      Type = 'IdLE.Step.Mailbox.Type.Ensure'
+      Type = 'IdLE.Step.Mailbox.EnsureType'
       With = @{
         Provider    = 'ExchangeOnline'
         IdentityKey = 'user@contoso.com'
@@ -242,7 +242,7 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 ```powershell
 @{
   Name = 'Set Exchange OOF'
-  Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+  Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
   With = @{
     Provider        = 'ExchangeOnline'
     IdentityKey     = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
@@ -278,11 +278,6 @@ $req = New-IdleLifecycleRequest `
     }
   }
 ```
-
-**Step type alias:**
-
-You can use `IdLE.Step.Mailbox.EnsureOutOfOffice` as an alternative to
-`IdLE.Step.Mailbox.OutOfOffice.Ensure` (both resolve to the same handler).
 
 ---
 

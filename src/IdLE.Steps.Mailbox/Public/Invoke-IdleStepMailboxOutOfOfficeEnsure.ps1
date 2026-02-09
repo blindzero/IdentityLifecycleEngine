@@ -39,7 +39,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     # In workflow definition (enable OOF):
     @{
         Name = 'Enable Out of Office'
-        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider        = 'ExchangeOnline'
             IdentityKey     = 'user@contoso.com'
@@ -56,7 +56,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     # In workflow definition (with ValueFrom for dynamic values):
     @{
         Name = 'Enable Out of Office for Leaver'
-        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider        = 'ExchangeOnline'
             IdentityKey     = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
@@ -73,7 +73,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     # In workflow definition (scheduled OOF):
     @{
         Name = 'Schedule Out of Office'
-        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider        = 'ExchangeOnline'
             IdentityKey     = 'user@contoso.com'
@@ -91,7 +91,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     # In workflow definition (disable OOF):
     @{
         Name = 'Disable Out of Office'
-        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider    = 'ExchangeOnline'
             IdentityKey = 'user@contoso.com'
@@ -116,7 +116,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     # Workflow step with template variables:
     @{
         Name = 'Set OOF with Manager Contact'
-        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider        = 'ExchangeOnline'
             IdentityKey     = 'max.power@contoso.com'
@@ -125,22 +125,6 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
                 InternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.DisplayName}} ({{Request.DesiredState.Manager.Mail}}).'
                 ExternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.Mail}}.'
                 ExternalAudience = 'All'
-            }
-        }
-    }
-
-    .EXAMPLE
-    # Using the step type alias IdLE.Step.Mailbox.EnsureOutOfOffice:
-    @{
-        Name = 'Enable Out of Office'
-        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
-        With = @{
-            Provider        = 'ExchangeOnline'
-            IdentityKey     = 'user@contoso.com'
-            Config          = @{
-                Mode            = 'Enabled'
-                InternalMessage = 'Out of office.'
-                ExternalMessage = 'Out of office.'
             }
         }
     }

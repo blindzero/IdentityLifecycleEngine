@@ -37,7 +37,7 @@ function Invoke-IdleStepMailboxTypeEnsure {
     # In workflow definition (convert to shared mailbox):
     @{
         Name = 'Convert to shared mailbox'
-        Type = 'IdLE.Step.Mailbox.Type.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureType'
         With = @{
             Provider    = 'ExchangeOnline'
             IdentityKey = 'user@contoso.com'

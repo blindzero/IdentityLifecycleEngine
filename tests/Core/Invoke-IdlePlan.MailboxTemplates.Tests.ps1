@@ -70,7 +70,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
   Steps          = @(
     @{
       Name = 'SetOOF'
-      Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+      Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
       With = @{
         Provider    = 'ExchangeOnline'
         IdentityKey = 'user@contoso.com'
@@ -126,7 +126,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
   Steps          = @(
     @{
       Name = 'SetOOF'
-      Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+      Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
       With = @{
         Provider    = 'ExchangeOnline'
         IdentityKey = 'user@contoso.com'
@@ -162,11 +162,11 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
         $plan.Steps[0].With.Config.ExternalMessage | Should -Be 'For assistance: bob.johnson@contoso.com'
     }
     
-    It 'works with alias step type and templates' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'oof-alias-templates.psd1'
+    It 'works with new step type naming and templates' {
+        $wfPath = Join-Path -Path $TestDrive -ChildPath 'oof-new-naming-templates.psd1'
         Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
-  Name           = 'OOF Alias with Templates'
+  Name           = 'OOF New Naming with Templates'
   LifecycleEvent = 'Leaver'
   Steps          = @(
     @{

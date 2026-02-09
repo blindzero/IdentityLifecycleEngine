@@ -31,17 +31,12 @@ function Get-IdleStepMetadataCatalog {
         RequiredCapabilities = @('IdLE.Mailbox.Info.Read')
     }
 
-    # IdLE.Step.Mailbox.Type.Ensure - idempotent mailbox type conversion
-    $catalog['IdLE.Step.Mailbox.Type.Ensure'] = @{
+    # IdLE.Step.Mailbox.EnsureType - idempotent mailbox type conversion
+    $catalog['IdLE.Step.Mailbox.EnsureType'] = @{
         RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.Type.Ensure')
     }
 
-    # IdLE.Step.Mailbox.OutOfOffice.Ensure - idempotent Out of Office configuration
-    $catalog['IdLE.Step.Mailbox.OutOfOffice.Ensure'] = @{
-        RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.OutOfOffice.Ensure')
-    }
-
-    # Alias: IdLE.Step.Mailbox.EnsureOutOfOffice (alternative naming convention)
+    # IdLE.Step.Mailbox.EnsureOutOfOffice - idempotent Out of Office configuration
     $catalog['IdLE.Step.Mailbox.EnsureOutOfOffice'] = @{
         RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.OutOfOffice.Ensure')
     }

@@ -171,14 +171,6 @@ function Get-IdleStepRegistry {
     }
 
     # Mailbox steps (IdLE.Steps.Mailbox module)
-    if (-not $registry.ContainsKey('IdLE.Step.Mailbox.OutOfOffice.Ensure')) {
-        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepMailboxOutOfOfficeEnsure' -ModuleName 'IdLE.Steps.Mailbox'
-        if (-not [string]::IsNullOrWhiteSpace($handler)) {
-            $registry['IdLE.Step.Mailbox.OutOfOffice.Ensure'] = $handler
-        }
-    }
-
-    # Alias: IdLE.Step.Mailbox.EnsureOutOfOffice -> IdLE.Step.Mailbox.OutOfOffice.Ensure
     if (-not $registry.ContainsKey('IdLE.Step.Mailbox.EnsureOutOfOffice')) {
         $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepMailboxOutOfOfficeEnsure' -ModuleName 'IdLE.Steps.Mailbox'
         if (-not [string]::IsNullOrWhiteSpace($handler)) {
@@ -193,10 +185,10 @@ function Get-IdleStepRegistry {
         }
     }
 
-    if (-not $registry.ContainsKey('IdLE.Step.Mailbox.Type.Ensure')) {
+    if (-not $registry.ContainsKey('IdLE.Step.Mailbox.EnsureType')) {
         $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepMailboxTypeEnsure' -ModuleName 'IdLE.Steps.Mailbox'
         if (-not [string]::IsNullOrWhiteSpace($handler)) {
-            $registry['IdLE.Step.Mailbox.Type.Ensure'] = $handler
+            $registry['IdLE.Step.Mailbox.EnsureType'] = $handler
         }
     }
 
