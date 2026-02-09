@@ -42,6 +42,12 @@ function Assert-IdleNoScriptBlock {
 
     # PSCustomObject (walk note properties)
     if ($InputObject -is [pscustomobject]) {
+        # Exempt trusted IdLE types that legitimately contain ScriptBlocks
+        # AuthSessionBroker contains ValidateAuthSession scriptblock which is an internal implementation detail
+        if ($InputObject.PSTypeNames -contains 'IdLE.AuthSessionBroker') {
+            return
+        }
+        
         foreach ($p in $InputObject.PSObject.Properties) {
             if ($p.MemberType -eq 'NoteProperty') {
                 # PSPropertyInfo does not expose "InputObject" here; the value is in .Value.

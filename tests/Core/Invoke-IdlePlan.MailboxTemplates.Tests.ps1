@@ -92,12 +92,11 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
                 }
             }
         
-        $providers = @{
-            ExchangeOnline    = $script:Provider
-            AuthSessionBroker = $script:AuthBroker
+        # Plan creation doesn't need providers with brokers (they contain ScriptBlocks)
+        # Pass providers only to Invoke-IdlePlan
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{
+            ExchangeOnline = $script:Provider
         }
-
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
         $plan | Should -Not -BeNullOrEmpty
         
         # Verify templates were resolved in the plan
@@ -105,6 +104,11 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
         $plan.Steps[0].With.Config.ExternalMessage | Should -Be 'Please contact jane.smith@contoso.com.'
         
         # Execute and verify provider received resolved values
+        # AuthSessionBroker is passed here for execution
+        $providers = @{
+            ExchangeOnline    = $script:Provider
+            AuthSessionBroker = $script:AuthBroker
+        }
         $result = Invoke-IdlePlan -Plan $plan -Providers $providers
         $result.Status | Should -Be 'Completed'
         
@@ -147,12 +151,10 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
                 }
             }
         
-        $providers = @{
-            ExchangeOnline    = $script:Provider
-            AuthSessionBroker = $script:AuthBroker
+        # Plan creation doesn't need providers with brokers (they contain ScriptBlocks)
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{
+            ExchangeOnline = $script:Provider
         }
-
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
         
         $plan.Steps[0].With.Config.InternalMessage | Should -Be 'User has left. Contact: Bob Johnson (bob.johnson@contoso.com)'
         $plan.Steps[0].With.Config.ExternalMessage | Should -Be 'For assistance: bob.johnson@contoso.com'
@@ -192,15 +194,18 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
                 }
             }
         
+        # Plan creation doesn't need providers with brokers (they contain ScriptBlocks)
+        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{
+            ExchangeOnline = $script:Provider
+        }
+        $plan.Steps[0].Type | Should -Be 'IdLE.Step.Mailbox.EnsureOutOfOffice'
+        $plan.Steps[0].With.Config.InternalMessage | Should -Be 'Contact Alice Brown'
+        
+        # Execute with full providers including broker
         $providers = @{
             ExchangeOnline    = $script:Provider
             AuthSessionBroker = $script:AuthBroker
         }
-
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
-        $plan.Steps[0].Type | Should -Be 'IdLE.Step.Mailbox.EnsureOutOfOffice'
-        $plan.Steps[0].With.Config.InternalMessage | Should -Be 'Contact Alice Brown'
-        
         $result = Invoke-IdlePlan -Plan $plan -Providers $providers
         $result.Status | Should -Be 'Completed'
         
