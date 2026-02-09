@@ -21,6 +21,7 @@ sidebar_label: Entra ID
   - Create, read, update, disable, enable, and delete (opt-in) user accounts in Microsoft Entra ID
   - Set and update user attributes (givenName, surname, department, jobTitle, etc.)
   - List group memberships and manage group entitlements (grant/revoke)
+  - Revoke active sign-in sessions (refresh tokens) for user accounts
   - Resolve identities by objectId (GUID), UserPrincipalName (UPN), or mail address
 - **Out of scope / non-goals:**
   - Establishing authentication or obtaining Graph access tokens (handled by host-provided broker)
@@ -49,6 +50,7 @@ sidebar_label: Entra ID
   - `IdLE.Identity.Attribute.Ensure` - Set/update identity attributes
   - `IdLE.Identity.Disable` - Disable user accounts
   - `IdLE.Identity.Enable` - Enable user accounts
+  - `IdLE.Identity.RevokeSessions` - Revoke active sign-in sessions
   - `IdLE.Entitlement.List` - List group memberships
   - `IdLE.Entitlement.Grant` - Add group membership
   - `IdLE.Entitlement.Revoke` - Remove group membership
@@ -325,6 +327,18 @@ Minimum required (same as delegated):
 
 **Note**: Application permissions require admin consent in the tenant.
 
+### Additional Permissions for Session Revocation
+
+To use the `IdLE.Identity.RevokeSessions` capability and `IdLE.Step.RevokeIdentitySessions` step:
+
+**Delegated Permissions:**
+- `User.RevokeSessions.All` (allows revoking sessions for any user)
+
+**Application Permissions:**
+- `User.RevokeSessions.All` (allows revoking sessions for any user)
+
+**Note**: Session revocation is a security-sensitive operation. Ensure appropriate approval processes are in place before granting these permissions.
+
 ---
 
 ## Identity Addressing
@@ -426,6 +440,46 @@ All operations are idempotent:
 | Grant membership | If already a member, returns `Changed=$false` |
 | Revoke membership | If not a member, returns `Changed=$false` |
 | Set attribute | If already at desired value, returns `Changed=$false` |
+| Revoke sessions | Always returns `Changed=$true` when successful (no state to check) |
+
+### Session Revocation Behavior
+
+The `RevokeSessions` operation invalidates all active sign-in sessions and refresh tokens for a user account. This is typically used in Leaver workflows after disabling an account to ensure immediate sign-out.
+
+**Important characteristics:**
+
+- **Immediate effect**: Sign-in sessions are invalidated, forcing re-authentication on the next request
+- **Propagation delay**: Due to token caching and Conditional Access Evaluation (CAE), there may be a short delay (typically a few minutes) before all sessions are terminated
+- **Changed flag**: The operation reports `Changed=$true` when successful, as there's no reliable way to determine the pre-revocation state
+- **Idempotency**: Safe to call multiple times; subsequent calls succeed but have no additional effect
+- **No account state change**: This operation does NOT disable the account; use `DisableIdentity` separately if account disabling is also required
+
+**Workflow pattern for Leaver scenarios:**
+
+```powershell
+Steps = @(
+    @{
+        Name = 'DisableAccount'
+        Type = 'IdLE.Step.DisableIdentity'
+        With = @{
+            Provider = 'Identity'
+            AuthSessionName = 'MicrosoftGraph'
+            IdentityKey = '{{Request.Input.UserObjectId}}'
+        }
+    }
+    @{
+        Name = 'RevokeActiveSessions'
+        Type = 'IdLE.Step.RevokeIdentitySessions'
+        With = @{
+            Provider = 'Identity'
+            AuthSessionName = 'MicrosoftGraph'
+            IdentityKey = '{{Request.Input.UserObjectId}}'
+        }
+    }
+)
+```
+
+**Note**: The `DisableIdentity` step does NOT automatically revoke sessions. Session revocation must be explicitly requested via the `RevokeIdentitySessions` step.
 
 ### Error mapping and retry behavior
 
@@ -570,6 +624,7 @@ The provider works with these built-in IdLE steps:
 - `IdLE.Step.EnsureAttribute`
 - `IdLE.Step.DisableIdentity`
 - `IdLE.Step.EnableIdentity`
+- `IdLE.Step.RevokeIdentitySessions` (revokes active sign-in sessions)
 - `IdLE.Step.DeleteIdentity` (when `AllowDelete = $true`)
 - `IdLE.Step.EnsureEntitlement`
 
