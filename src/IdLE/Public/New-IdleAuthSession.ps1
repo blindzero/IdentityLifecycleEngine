@@ -19,27 +19,24 @@ function New-IdleAuthSession {
     This is a thin wrapper that delegates to IdLE.Core\New-IdleAuthSessionBroker.
 
     .PARAMETER SessionMap
-    A hashtable that maps session configurations to auth sessions.
+    A hashtable that maps session configurations to typed auth sessions.
 
     .PARAMETER DefaultAuthSession
-    Optional default auth session to return when no session options are provided.
-
-    .PARAMETER AuthSessionType
-    Optional default authentication session type. Acts as the default for untyped
-    SessionMap entries and DefaultAuthSession.
-
-    Valid values:
-    - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
-    - 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
-    - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
-
-    If not provided, all SessionMap values and DefaultAuthSession must be typed
-    (include AuthSessionType and Session properties).
+    Optional default typed auth session to return when no session options are provided.
 
     .EXAMPLE
+    # Simple broker with single credential
+    $broker = New-IdleAuthSession -DefaultAuthSession @{
+        AuthSessionType = 'Credential'
+        Session = $credential
+    }
+
+    .EXAMPLE
+    # Mixed-type broker for AD + EXO
     $broker = New-IdleAuthSession -SessionMap @{
-        @{ Role = 'Tier0' } = $tier0Credential
-    } -AuthSessionType 'Credential'
+        @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
+        @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $token }
+    }
 
     .OUTPUTS
     PSCustomObject with AcquireAuthSession method
@@ -56,11 +53,7 @@ function New-IdleAuthSession {
 
         [Parameter()]
         [AllowNull()]
-        [object] $DefaultAuthSession,
-
-        [Parameter()]
-        [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
-        [string] $AuthSessionType
+        [object] $DefaultAuthSession
     )
 
     # Delegate to IdLE.Core implementation.
@@ -70,9 +63,6 @@ function New-IdleAuthSession {
     }
     if ($PSBoundParameters.ContainsKey('DefaultAuthSession')) {
         $params['DefaultAuthSession'] = $DefaultAuthSession
-    }
-    if ($PSBoundParameters.ContainsKey('AuthSessionType')) {
-        $params['AuthSessionType'] = $AuthSessionType
     }
     
     return IdLE.Core\New-IdleAuthSessionBroker @params
