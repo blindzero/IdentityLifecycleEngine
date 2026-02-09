@@ -153,7 +153,7 @@ host-supplied broker. Using the **AuthSessionBroker** is in particular helpful f
 
 ### AuthSessionType
 
-Each `AuthSessionBroker` must specify an `AuthSessionType` that determines validation rules, lifecycle management, and telemetry behavior:
+AuthSessionBroker session values must specify an `AuthSessionType` that determines validation rules, lifecycle management, and telemetry behavior:
 
 - **`OAuth`** - Token-based authentication (e.g., Microsoft Graph, Exchange Online)
 - **`PSRemoting`** - PowerShell remoting execution context (e.g., Entra Connect)
@@ -161,26 +161,58 @@ Each `AuthSessionBroker` must specify an `AuthSessionType` that determines valid
 
 Each provider documents its required `AuthSessionType` in its reference documentation.
 
-### Example: Active Directory with Credential Auth
+### Example: Simple Single Credential
+
+For the simplest case with just one credential:
 
 ```powershell
-# Assuming you have credentials available (e.g., from a secure vault or credential manager)
+# Obtain credential (e.g., from a secure vault or credential manager)
+$credential = Get-Credential -Message "Enter admin credentials"
+
+# Create provider
+$provider = New-IdleADIdentityProvider
+
+# Create broker with single credential
+$broker = New-IdleAuthSession -DefaultAuthSession $credential -AuthSessionType 'Credential'
+
+# Use in plan
+$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+    Identity = $provider
+    AuthSessionBroker = $broker
+}
+```
+
+### Example: Role-Based Credentials
+
+For scenarios with multiple credentials for different roles, use `AuthSessionOptions` in workflows to select the appropriate credential:
+
+```powershell
+# Obtain credentials (e.g., from a secure vault or credential manager)
 $tier0Credential = Get-Credential -Message "Enter Tier0 admin credentials"
 $adminCredential = Get-Credential -Message "Enter regular admin credentials"
 
 # Create provider
 $provider = New-IdleADIdentityProvider
 
-# Create broker with role-based credential mapping and Credential session type
+# Create broker with role-based credential mapping
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Credential
     @{ Role = 'Admin' } = $adminCredential
 } -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
-# Use provider with broker
+# Use in plan
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
     Identity = $provider
     AuthSessionBroker = $broker
+}
+```
+
+In the workflow definition, steps specify which role to use via `AuthSessionOptions`:
+
+```powershell
+With = @{
+    ...
+    AuthSessionOptions = @{ Role = 'Tier0' }
 }
 ```
 
@@ -191,13 +223,11 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
 Connect-AzAccount
 $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
 
-# Create broker with OAuth session type (tokens can be passed directly)
-$broker = New-IdleAuthSession -SessionMap @{
-    @{} = $token
-} -DefaultAuthSession $token -AuthSessionType 'OAuth'
-
 # Create provider
 $provider = New-IdleEntraIDIdentityProvider
+
+# Create broker with OAuth session type
+$broker = New-IdleAuthSession -DefaultAuthSession $token -AuthSessionType 'OAuth'
 
 # Use in plan
 $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
@@ -206,12 +236,58 @@ $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Provider
 }
 ```
 
-The different authentication sessions are used by the workflow definition by the steps via `AuthSessionOptions`.
+### Example: Mixed Authentication Types (AD + EXO)
+
+For workflows that need multiple providers with different authentication types:
+
 ```powershell
-With = @{
-    ...
-    AuthSessionName = 'ActiveDirectory'
-    AuthSessionOptions = @{ Role = 'Tier0' }
+# Obtain credentials and tokens
+$adCredential = Get-Credential -Message "Enter AD admin credentials"
+Connect-AzAccount
+$exoToken = (Get-AzAccessToken -ResourceUrl "https://outlook.office365.com").Token
+
+# Create providers
+$adProvider = New-IdleADIdentityProvider
+$exoProvider = New-IdleExchangeOnlineProvider
+
+# Create broker with mixed authentication types
+$broker = New-IdleAuthSession -SessionMap @{
+    # Active Directory uses Credential type
+    @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $adCredential }
+    
+    # Exchange Online uses OAuth type
+    @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $exoToken }
+}
+
+# Use in plan
+$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+    AD = $adProvider
+    EXO = $exoProvider
+    AuthSessionBroker = $broker
+}
+```
+
+In the workflow, steps specify which authentication session to use via `AuthSessionName`:
+
+```powershell
+# Step using AD (Credential)
+@{
+    Name = 'Create AD User'
+    Type = 'IdLE.Step.CreateIdentity'
+    With = @{
+        AuthSessionName = 'AD'
+        # ...
+    }
+}
+
+# Step using EXO (OAuth)
+@{
+    Name = 'Create Mailbox'
+    Type = 'IdLE.Step.CreateMailbox'
+    With = @{
+        AuthSessionName = 'EXO'
+        # ...
+    }
 }
 ```
 

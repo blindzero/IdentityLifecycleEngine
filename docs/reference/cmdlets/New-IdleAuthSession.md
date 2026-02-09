@@ -13,7 +13,7 @@ Creates a simple AuthSessionBroker for use with IdLE providers.
 ## SYNTAX
 
 ```
-New-IdleAuthSession [[-SessionMap] &lt;Hashtable&gt;] [[-DefaultAuthSession] &lt;Object&gt;] [-AuthSessionType] &lt;String&gt;
+New-IdleAuthSession [[-SessionMap] &lt;Hashtable&gt;] [[-DefaultAuthSession] &lt;Object&gt;] [[-AuthSessionType] &lt;String&gt;]
  [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
 
@@ -28,9 +28,17 @@ This is a thin wrapper that delegates to IdLE.Core\New-IdleAuthSessionBroker.
 
 ### EXAMPLE 1
 ```
+# Simple broker with single credential
+$broker = New-IdleAuthSession -DefaultAuthSession $credential -AuthSessionType 'Credential'
+```
+
+### EXAMPLE 2
+```
+# Mixed-type broker for AD + EXO
 $broker = New-IdleAuthSession -SessionMap @{
-    @{ Role = 'Tier0' } = $tier0Credential
-} -AuthSessionType 'Credential'
+    @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $adCred }
+    @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $token }
+}
 ```
 
 ## PARAMETERS
@@ -66,9 +74,10 @@ Accept wildcard characters: False
 ```
 
 ### -AuthSessionType
-Specifies the type of authentication session.
-This determines validation rules,
-lifecycle management, and telemetry behavior.
+Optional default authentication session type.
+When provided, allows simple (untyped) 
+session values.
+When not provided, values must be typed descriptors.
 
 Valid values:
 - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
@@ -80,7 +89,7 @@ Type: String
 Parameter Sets: (All)
 Aliases:
 
-Required: True
+Required: False
 Position: 3
 Default value: None
 Accept pipeline input: False
