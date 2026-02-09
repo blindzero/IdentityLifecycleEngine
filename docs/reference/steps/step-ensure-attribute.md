@@ -1,15 +1,14 @@
-# EnsureAttribute
+# IdLE.Step.EnsureAttribute
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `EnsureAttribute`
+- **Step Type**: `IdLE.Step.EnsureAttribute`
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEnsureAttribute`
 - **Idempotent**: `Yes`
-- **Required Capabilities**: `IdLE.Identity.Attribute.Ensure`
 
 ## Synopsis
 
@@ -49,7 +48,7 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'EnsureAttribute Example'
+  Name = 'IdLE.Step.EnsureAttribute Example'
   Type = 'IdLE.Step.EnsureAttribute'
   With = @{
     IdentityKey          = 'user.name'
@@ -61,5 +60,5 @@ The following keys are required in the step's ``With`` configuration:
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
 - [Providers](../providers.md) - Available provider implementations

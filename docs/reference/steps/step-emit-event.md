@@ -1,11 +1,11 @@
-# EmitEvent
+# IdLE.Step.EmitEvent
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `EmitEvent`
+- **Step Type**: `IdLE.Step.EmitEvent`
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEmitEvent`
 - **Idempotent**: `Unknown`
@@ -29,7 +29,7 @@ Please refer to the step description and examples for usage details.
 
 ```powershell
 @{
-  Name = 'EmitEvent Example'
+  Name = 'IdLE.Step.EmitEvent Example'
   Type = 'IdLE.Step.EmitEvent'
   With = @{
     # See step description for available options

@@ -1,15 +1,14 @@
-# CreateIdentity
+# IdLE.Step.CreateIdentity
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `CreateIdentity`
+- **Step Type**: `IdLE.Step.CreateIdentity`
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepCreateIdentity`
 - **Idempotent**: `Yes`
-- **Required Capabilities**: `IdLE.Identity.Create`
 
 ## Synopsis
 
@@ -48,7 +47,7 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'CreateIdentity Example'
+  Name = 'IdLE.Step.CreateIdentity Example'
   Type = 'IdLE.Step.CreateIdentity'
   With = @{
     Attributes           = @{ GivenName = 'First'; Surname = 'Last' }
@@ -59,5 +58,5 @@ The following keys are required in the step's ``With`` configuration:
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
 - [Providers](../providers.md) - Available provider implementations

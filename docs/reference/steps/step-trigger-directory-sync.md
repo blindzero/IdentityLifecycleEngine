@@ -1,15 +1,14 @@
-# TriggerDirectorySync
+# IdLE.Step.TriggerDirectorySync
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `TriggerDirectorySync`
+- **Step Type**: `IdLE.Step.TriggerDirectorySync`
 - **Module**: `IdLE.Steps.DirectorySync`
 - **Implementation**: `Invoke-IdleStepTriggerDirectorySync`
 - **Idempotent**: `Unknown`
-- **Required Capabilities**: `IdLE.DirectorySync.Trigger`, `IdLE.DirectorySync.Status`
 
 ## Synopsis
 
@@ -48,7 +47,7 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'TriggerDirectorySync Example'
+  Name = 'IdLE.Step.TriggerDirectorySync Example'
   Type = 'IdLE.Step.TriggerDirectorySync'
   With = @{
     AuthSessionName      = 'AdminSession'
@@ -59,5 +58,5 @@ The following keys are required in the step's ``With`` configuration:
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
 - [Providers](../providers.md) - Available provider implementations

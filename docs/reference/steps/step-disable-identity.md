@@ -1,15 +1,14 @@
-# DisableIdentity
+# IdLE.Step.DisableIdentity
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `DisableIdentity`
+- **Step Type**: `IdLE.Step.DisableIdentity`
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepDisableIdentity`
 - **Idempotent**: `Yes`
-- **Required Capabilities**: `IdLE.Identity.Disable`
 
 ## Synopsis
 
@@ -47,7 +46,7 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'DisableIdentity Example'
+  Name = 'IdLE.Step.DisableIdentity Example'
   Type = 'IdLE.Step.DisableIdentity'
   With = @{
     IdentityKey          = 'user.name'
@@ -57,5 +56,5 @@ The following keys are required in the step's ``With`` configuration:
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
 - [Providers](../providers.md) - Available provider implementations

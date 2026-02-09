@@ -366,7 +366,10 @@ function ConvertTo-IdleStepSlug {
     $slug = ConvertTo-IdleKebabCase -Text $StepType
 
     # Remove optional IdLE-related prefixes (user-facing file names should not include "idle").
+    # Handle both kebab-case (id-le-step-) and lowercase (idle-step-) prefixes
+    $slug = $slug -replace '^id-le-step-', ''
     $slug = $slug -replace '^idle-step-', ''
+    $slug = $slug -replace '^id-le-', ''
     $slug = $slug -replace '^idle-', ''
 
     # Ensure the file name remains self-explanatory.
