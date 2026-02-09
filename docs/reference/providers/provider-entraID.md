@@ -86,10 +86,8 @@ The provider accepts authentication sessions in these formats:
 Connect-AzAccount
 $token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
 
-# Create broker with OAuth session type (tokens can be passed directly)
-$broker = New-IdleAuthSession -SessionMap @{
-    @{} = $token
-} -DefaultAuthSession $token -AuthSessionType 'OAuth'
+# Create broker with OAuth session type
+$broker = New-IdleAuthSession -DefaultAuthSession $token -AuthSessionType 'OAuth'
 
 # Create provider
 $provider = New-IdleEntraIDIdentityProvider
@@ -112,10 +110,8 @@ $tenantId = "your-tenant-id"
 # Obtain token (pseudo-code - use your preferred auth library)
 $token = Get-GraphAppOnlyToken -ClientId $clientId -ClientSecret $clientSecret -TenantId $tenantId
 
-# Create broker with OAuth session type (tokens can be passed directly)
-$broker = New-IdleAuthSession -SessionMap @{
-    @{} = $token
-} -DefaultAuthSession $token -AuthSessionType 'OAuth'
+# Create broker with OAuth session type
+$broker = New-IdleAuthSession -DefaultAuthSession $token -AuthSessionType 'OAuth'
 
 # Rest is identical to delegated flow
 ```
@@ -126,7 +122,7 @@ $broker = New-IdleAuthSession -SessionMap @{
 $tier0Token = Get-GraphToken -Role 'Tier0'
 $adminToken = Get-GraphToken -Role 'Admin'
 
-# Create broker with OAuth session type (tokens can be passed directly)
+# Create broker with role-based routing
 $broker = New-IdleAuthSession -SessionMap @{
     @{ Role = 'Tier0' } = $tier0Token
     @{ Role = 'Admin' } = $adminToken
