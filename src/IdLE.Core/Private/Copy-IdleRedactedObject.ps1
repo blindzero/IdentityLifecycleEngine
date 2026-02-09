@@ -108,6 +108,11 @@ function Copy-IdleRedactedObject {
             return $RedactionMarker
         }
 
+        # Redact ScriptBlocks to avoid complex nested structures and potential cycles
+        if ($InnerValue -is [scriptblock]) {
+            return $RedactionMarker
+        }
+
         # Primitive / immutable-ish types can be returned as-is.
         if ($InnerValue -is [string] -or
             $InnerValue -is [int] -or

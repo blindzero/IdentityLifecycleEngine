@@ -54,7 +54,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
         # Create mock AuthSessionBroker
         $script:AuthBroker = New-IdleAuthSessionBroker `
             -AuthSessionType 'OAuth' `
-            -DefaultAuthSession ([pscustomobject]@{ Token = 'mock-token' })
+            -DefaultAuthSession 'mock-token-string'
     }
     
     It 'resolves template variables in InternalMessage and ExternalMessage' {
