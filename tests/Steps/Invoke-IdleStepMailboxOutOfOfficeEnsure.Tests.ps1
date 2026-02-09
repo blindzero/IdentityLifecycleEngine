@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
+    Import-IdleTestMailboxModule
     
     # Import Mailbox step pack
     $testsRoot = $PSScriptRoot
