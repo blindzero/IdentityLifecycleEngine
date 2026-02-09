@@ -172,6 +172,14 @@ function New-IdleAuthSessionBroker {
             $pattern = $entry.Key
             $value = $entry.Value
 
+            # Validate SessionMap key type before using hashtable members
+            if ($null -eq $pattern -or -not ($pattern -is [hashtable])) {
+                $patternType = if ($null -eq $pattern) { 'null' } else { $pattern.GetType().FullName }
+                throw [System.ArgumentException]::new(
+                    "Invalid SessionMap key type '$patternType'. SessionMap keys must be hashtables representing the AuthSessionOptions pattern.",
+                    'SessionMap'
+                )
+            }
             # Create a readable pattern description for error messages
             $patternDesc = ($pattern.Keys | ForEach-Object { "$_=$($pattern[$_])" }) -join ', '
             $context = "SessionMap entry { $patternDesc }"
