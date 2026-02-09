@@ -20,7 +20,7 @@ param(
     # Restrict which step modules are scanned.
     # If not specified, auto-discovers all IdLE.Steps.* modules in the repository.
     [Parameter()]
-    [ValidateNotNullOrEmpty()]
+
     [string[]] $StepModules,
 
     # Optional: Step function names to exclude (exact command names).

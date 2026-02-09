@@ -45,7 +45,7 @@ The following keys are required in the step's ``With`` configuration:
 ```powershell
 @{
   Name = 'MailboxGetInfo Example'
-  Type = 'IdLE.Step.MailboxGetInfo'
+  Type = 'IdLE.Step.Mailbox.GetInfo'
   With = @{
     IdentityKey          = 'user.name'
   }

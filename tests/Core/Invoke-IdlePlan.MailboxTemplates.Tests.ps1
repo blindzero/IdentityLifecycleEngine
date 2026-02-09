@@ -1,14 +1,7 @@
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
-    
-    # Import Mailbox step pack
-    $testsRoot = $PSScriptRoot
-    $repoRoot = Split-Path -Path $testsRoot -Parent
-    $mailboxModulePath = Join-Path -Path $repoRoot -ChildPath 'src/IdLE.Steps.Mailbox/IdLE.Steps.Mailbox.psd1'
-    if (Test-Path -LiteralPath $mailboxModulePath -PathType Leaf) {
-        Import-Module $mailboxModulePath -Force -ErrorAction Stop
-    }
+
 }
 
 AfterAll {

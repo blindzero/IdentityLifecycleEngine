@@ -108,7 +108,15 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     
     # Host-side enrichment (example):
     # $user = Get-ADUser -Identity 'max.power' -Properties Manager
-    # $mgr = if ($user.Manager) { Get-ADUser -Identity $user.Manager -Properties DisplayName, Mail }
+    # $mgr = if ($user.Manager) {
+    #     Get-ADUser -Identity $user.Manager -Properties DisplayName, Mail
+    # } else {
+    #     # Fallback manager/contact to avoid null template values
+    #     [pscustomobject]@{
+    #         DisplayName = 'Service Desk'
+    #         Mail        = 'servicedesk@contoso.com'
+    #     }
+    # }
     # $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver' -Actor $env:USERNAME -DesiredState @{
     #   Manager = @{ DisplayName = $mgr.DisplayName; Mail = $mgr.Mail }
     # }

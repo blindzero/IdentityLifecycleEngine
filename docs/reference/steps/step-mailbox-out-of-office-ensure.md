@@ -61,7 +61,7 @@ The following keys are required in the step's ``With`` configuration:
 ```powershell
 @{
   Name = 'MailboxOutOfOfficeEnsure Example'
-  Type = 'IdLE.Step.MailboxOutOfOfficeEnsure'
+  Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
   With = @{
     Config               = '<value>'
     IdentityKey          = 'user.name'

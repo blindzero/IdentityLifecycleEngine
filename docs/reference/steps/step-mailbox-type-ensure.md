@@ -57,7 +57,7 @@ The following keys are required in the step's ``With`` configuration:
 ```powershell
 @{
   Name = 'MailboxTypeEnsure Example'
-  Type = 'IdLE.Step.MailboxTypeEnsure'
+  Type = 'IdLE.Step.Mailbox.EnsureType'
   With = @{
     IdentityKey          = 'user.name'
     MailboxType          = '<value>'
