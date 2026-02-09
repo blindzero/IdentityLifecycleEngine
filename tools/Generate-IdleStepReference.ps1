@@ -18,9 +18,10 @@ param(
     [string] $DetailOutputDirectory,
 
     # Restrict which step modules are scanned.
+    # If not specified, auto-discovers all IdLE.Steps.* modules in the repository.
     [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string[]] $StepModules = @('IdLE.Steps.Common', 'IdLE.Steps.DirectorySync', 'IdLE.Steps.Mailbox'),
+    [string[]] $StepModules,
 
     # Optional: Step function names to exclude (exact command names).
     [Parameter()]
@@ -73,7 +74,8 @@ Path to the generated Markdown index page. Defaults to ./docs/reference/steps.md
 Directory for generated per-step-type pages. Defaults to "<parent of OutputPath>/steps".
 
 .PARAMETER StepModules
-Modules that contain step functions (IdLE.Steps.*).
+Modules that contain step functions (IdLE.Steps.*). 
+If not specified, automatically discovers all IdLE.Steps.* modules in the src/ directory.
 
 .PARAMETER ExcludeCommands
 Specific step function names to exclude (exact command names).
@@ -695,6 +697,23 @@ if (-not (Test-Path -Path $DetailOutputDirectory)) {
 # Import IdLE from working tree.
 Remove-Module -Name 'IdLE*' -Force -ErrorAction SilentlyContinue
 Import-Module -Name $ModuleManifestPath -Force -ErrorAction Stop
+
+# Auto-discover step modules if not specified
+if (-not $StepModules -or $StepModules.Count -eq 0) {
+    Write-Verbose "Auto-discovering step modules in repository..."
+    
+    $srcPath = Join-Path -Path $repoRoot -ChildPath 'src'
+    $stepModuleDirs = Get-ChildItem -Path $srcPath -Directory -Filter 'IdLE.Steps.*' -ErrorAction SilentlyContinue
+    
+    if ($stepModuleDirs) {
+        $StepModules = @($stepModuleDirs | Select-Object -ExpandProperty Name | Sort-Object)
+        Write-Verbose "Discovered step modules: $($StepModules -join ', ')"
+    }
+    else {
+        Write-Warning "No IdLE.Steps.* modules found in '$srcPath'. Using empty module list."
+        $StepModules = @()
+    }
+}
 
 # Ensure step modules are loaded (Import-Module IdLE.psd1 does NOT load nested step modules automatically).
 foreach ($m in $StepModules) {
