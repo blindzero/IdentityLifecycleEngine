@@ -63,5 +63,10 @@ function Get-IdleStepMetadataCatalog {
         RequiredCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant', 'IdLE.Entitlement.Revoke')
     }
 
+    # IdLE.Step.RevokeIdentitySessions - requires identity session revocation capability
+    $catalog['IdLE.Step.RevokeIdentitySessions'] = @{
+        RequiredCapabilities = @('IdLE.Identity.RevokeSessions')
+    }
+
     return $catalog
 }

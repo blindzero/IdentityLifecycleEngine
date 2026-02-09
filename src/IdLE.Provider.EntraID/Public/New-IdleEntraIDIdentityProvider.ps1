@@ -304,6 +304,7 @@ function New-IdleEntraIDIdentityProvider {
             'IdLE.Identity.Attribute.Ensure'
             'IdLE.Identity.Disable'
             'IdLE.Identity.Enable'
+            'IdLE.Identity.RevokeSessions'
             'IdLE.Entitlement.List'
             'IdLE.Entitlement.Grant'
             'IdLE.Entitlement.Revoke'
@@ -694,6 +695,49 @@ function New-IdleEntraIDIdentityProvider {
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'EnableIdentity'
+            IdentityKey = $IdentityKey
+            Changed     = $changed
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name RevokeSessions -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        # Get id from user object
+        $userId = if ($user -is [System.Collections.IDictionary]) {
+            $user['id']
+        }
+        else {
+            $user.id
+        }
+
+        # Call the adapter to revoke sign-in sessions
+        $response = $this.Adapter.RevokeSignInSessions($userId, $accessToken)
+
+        # Graph returns a response indicating whether sessions were revoked
+        # We consider this operation as always "changed" when successful,
+        # as there's no reliable way to know if sessions existed before revocation
+        $changed = $true
+        
+        # If response contains a value property, use it to determine if changes occurred
+        if ($null -ne $response -and ($response.PSObject.Properties.Name -contains 'value')) {
+            $changed = [bool]$response.value
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'RevokeSessions'
             IdentityKey = $IdentityKey
             Changed     = $changed
         }
