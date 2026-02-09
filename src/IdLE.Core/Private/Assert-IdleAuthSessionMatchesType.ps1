@@ -47,10 +47,45 @@ function Assert-IdleAuthSessionMatchesType {
         }
 
         'OAuth' {
-            # Accept string tokens as the primary OAuth session format
-            if ($Session -isnot [string]) {
+            # Accept multiple OAuth session shapes:
+            # - [string] raw bearer token
+            # - [PSCredential] with token in the Password field
+            # - object with an AccessToken property
+            # - object with a GetAccessToken() method
+            $isValid = $false
+
+            if ($Session -is [string]) {
+                $isValid = $true
+            }
+            elseif ($Session -is [pscredential]) {
+                $isValid = $true
+            }
+            elseif ($null -ne $Session) {
+                $psObj = [System.Management.Automation.PSObject]::AsPSObject($Session)
+
+                # Check for AccessToken property
+                if ($psObj.Properties['AccessToken']) {
+                    $isValid = $true
+                }
+                else {
+                    # Check for GetAccessToken() method
+                    $getTokenMethod = $psObj | Get-Member -Name GetAccessToken -MemberType Method -ErrorAction SilentlyContinue
+                    if ($null -ne $getTokenMethod) {
+                        $isValid = $true
+                    }
+                }
+            }
+
+            if (-not $isValid) {
                 $actualType = $Session.GetType().FullName
-                throw "Auth session validation failed for '$SessionName': Expected AuthSessionType='OAuth' requires a [string] token, but received [$actualType]."
+                throw @"
+Auth session validation failed for '$SessionName': Expected AuthSessionType='OAuth' requires one of:
+- [string] raw access token
+- [PSCredential] with the access token in the Password field
+- object with an AccessToken property
+- object with a GetAccessToken() method
+but received [$actualType].
+"@
             }
         }
 
