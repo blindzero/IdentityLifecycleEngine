@@ -441,6 +441,66 @@ The provider supports multiple identifier formats and resolves them deterministi
 
 ---
 
+## CreateIdentity Derivation Behavior
+
+When creating identities with `CreateIdentity()` (or `IdLE.Step.CreateIdentity`), the AD provider implements smart defaults to reduce boilerplate and improve workflow usability:
+
+### 1. SamAccountName Derivation
+
+**If `Attributes.SamAccountName` is missing or empty:**
+
+- When `IdentityKey` is **SamAccountName-like** (no `@`, not a GUID):
+  - **Derives** `SamAccountName = IdentityKey`
+  - Example: `IdentityKey='jdoe'` → `SamAccountName='jdoe'`
+  
+- When `IdentityKey` is a **UPN** (contains `@`):
+  - **Fails fast** with a clear error requiring explicit `SamAccountName`
+  - Rationale: Automatic truncation/sanitization introduces org-specific policy decisions and collision risks
+  
+- When `IdentityKey` is a **GUID**:
+  - **Fails fast** with a clear error requiring explicit `SamAccountName`
+  - Rationale: GUIDs are not valid SamAccountNames
+
+**Explicit values are never overridden:** If `Attributes.SamAccountName` is provided, it is always used as-is.
+
+### 2. UserPrincipalName Auto-Set
+
+**If `IdentityKey` is a UPN and `Attributes.UserPrincipalName` is missing or empty:**
+
+- **Auto-sets** `UserPrincipalName = IdentityKey`
+- Example: `IdentityKey='john.doe@contoso.com'` → `UserPrincipalName='john.doe@contoso.com'`
+
+**Explicit values are never overridden:** If `Attributes.UserPrincipalName` is provided, it is always used as-is.
+
+### 3. CN/RDN Name Derivation
+
+The AD object's Common Name (CN/RDN, used in the DistinguishedName) is derived using this priority order:
+
+1. **`Attributes.Name`** (explicit CN/RDN)
+2. **`Attributes.DisplayName`**
+3. **`GivenName + Surname`** (if both are present)
+4. **`IdentityKey`** (fallback)
+
+**Example:**
+```powershell
+# IdentityKey='jdoe', GivenName='John', Surname='Doe', DisplayName='John Doe'
+# → CN/RDN = 'John Doe' (from DisplayName)
+
+# IdentityKey='jdoe', GivenName='John', Surname='Doe'
+# → CN/RDN = 'John Doe' (from GivenName+Surname)
+
+# IdentityKey='jdoe'
+# → CN/RDN = 'jdoe' (fallback to IdentityKey)
+```
+
+**Verbose logging:** All derivations emit `Write-Verbose` messages for observability.
+
+### 4. Path Pass-Through
+
+**`Attributes.Path`** is always passed through to `New-ADUser -Path` when provided. No derivation or defaulting occurs at the provider level.
+
+---
+
 ## Entitlement Model
 
 Active Directory entitlements use:
@@ -507,9 +567,37 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
           GivenName = 'John'
           Surname = 'Doe'
           UserPrincipalName = 'jdoe@contoso.local'
+          # SamAccountName is automatically derived from IdentityKey ('jdoe')
+          # CN/RDN Name will be derived from GivenName+Surname ('John Doe')
         }
         AuthSessionName = 'ActiveDirectory'
         AuthSessionOptions = @{ Role = 'Admin' }
+      }
+    }
+  )
+}
+```
+
+### Example with UPN IdentityKey
+
+```powershell
+@{
+  Steps = @(
+    @{
+      Name = 'CreateUserWithUPN'
+      Type = 'IdLE.Step.CreateIdentity'
+      With = @{
+        Provider = 'Identity'
+        IdentityKey = 'john.doe@contoso.com'
+        Attributes = @{
+          SamAccountName = 'jdoe'  # Required when IdentityKey is UPN
+          GivenName = 'John'
+          Surname = 'Doe'
+          DisplayName = 'John Doe'
+          # UserPrincipalName is automatically set from IdentityKey
+          # CN/RDN Name will be 'John Doe' (from DisplayName)
+        }
+        AuthSessionName = 'ActiveDirectory'
       }
     }
   )
