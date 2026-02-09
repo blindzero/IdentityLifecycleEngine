@@ -130,7 +130,7 @@ function New-IdleADAdapter {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $Name,
+            [string] $IdentityKey,
 
             [Parameter(Mandatory)]
             [ValidateNotNull()]
@@ -140,8 +140,70 @@ function New-IdleADAdapter {
             [bool] $Enabled = $true
         )
 
+        # Classify IdentityKey: GUID, UPN, or SamAccountName-like
+        $isGuid = $false
+        $isUpn = $false
+        $isSamAccountNameLike = $false
+
+        $guid = [System.Guid]::Empty
+        if ([System.Guid]::TryParse($IdentityKey, [ref]$guid)) {
+            $isGuid = $true
+        }
+        elseif ($IdentityKey -match '@') {
+            $isUpn = $true
+        }
+        else {
+            $isSamAccountNameLike = $true
+        }
+
+        # 1. Derive SamAccountName from IdentityKey if missing
+        $hasSamAccountName = $Attributes.ContainsKey('SamAccountName') -and -not [string]::IsNullOrWhiteSpace($Attributes['SamAccountName'])
+        
+        if (-not $hasSamAccountName) {
+            if ($isSamAccountNameLike) {
+                $Attributes['SamAccountName'] = $IdentityKey
+                Write-Verbose "AD Provider: Derived SamAccountName='$IdentityKey' from IdentityKey (SamAccountName-like)"
+            }
+            elseif ($isUpn) {
+                throw "SamAccountName is required when IdentityKey is a UPN. IdentityKey='$IdentityKey' appears to be a UPN (contains '@'). Please provide an explicit 'SamAccountName' in Attributes."
+            }
+            elseif ($isGuid) {
+                throw "SamAccountName is required when IdentityKey is a GUID. IdentityKey='$IdentityKey' is a GUID. Please provide an explicit 'SamAccountName' in Attributes."
+            }
+        }
+
+        # 2. Auto-set UserPrincipalName when IdentityKey is a UPN
+        $hasUpn = $Attributes.ContainsKey('UserPrincipalName') -and -not [string]::IsNullOrWhiteSpace($Attributes['UserPrincipalName'])
+        
+        if (-not $hasUpn -and $isUpn) {
+            $Attributes['UserPrincipalName'] = $IdentityKey
+            Write-Verbose "AD Provider: Derived UserPrincipalName='$IdentityKey' from IdentityKey (UPN format)"
+        }
+
+        # 3. Derive CN/RDN Name with priority: Name > DisplayName > GivenName+Surname > IdentityKey
+        $derivedName = $null
+        $hasExplicitName = $Attributes.ContainsKey('Name') -and -not [string]::IsNullOrWhiteSpace($Attributes['Name'])
+        
+        if ($hasExplicitName) {
+            $derivedName = $Attributes['Name']
+            Write-Verbose "AD Provider: Using explicit Name='$derivedName' for CN/RDN"
+        }
+        elseif ($Attributes.ContainsKey('DisplayName') -and -not [string]::IsNullOrWhiteSpace($Attributes['DisplayName'])) {
+            $derivedName = $Attributes['DisplayName']
+            Write-Verbose "AD Provider: Derived CN/RDN Name='$derivedName' from DisplayName"
+        }
+        elseif ($Attributes.ContainsKey('GivenName') -and -not [string]::IsNullOrWhiteSpace($Attributes['GivenName']) -and 
+                $Attributes.ContainsKey('Surname') -and -not [string]::IsNullOrWhiteSpace($Attributes['Surname'])) {
+            $derivedName = "$($Attributes['GivenName']) $($Attributes['Surname'])"
+            Write-Verbose "AD Provider: Derived CN/RDN Name='$derivedName' from GivenName+Surname"
+        }
+        else {
+            $derivedName = $IdentityKey
+            Write-Verbose "AD Provider: Falling back to IdentityKey='$derivedName' for CN/RDN Name (no DisplayName or GivenName+Surname provided)"
+        }
+
         $params = @{
-            Name        = $Name
+            Name        = $derivedName
             Enabled     = $Enabled
             ErrorAction = 'Stop'
         }

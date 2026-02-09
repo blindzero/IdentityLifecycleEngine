@@ -123,7 +123,63 @@ Describe 'AD identity provider' {
             } -Force
 
             $adapter | Add-Member -MemberType ScriptMethod -Name NewUser -Value {
-                param([string]$Name, [hashtable]$Attributes, [bool]$Enabled)
+                param([string]$IdentityKey, [hashtable]$Attributes, [bool]$Enabled)
+                
+                # Classify IdentityKey: GUID, UPN, or SamAccountName-like
+                $isGuid = $false
+                $isUpn = $false
+                $isSamAccountNameLike = $false
+
+                $guid = [System.Guid]::Empty
+                if ([System.Guid]::TryParse($IdentityKey, [ref]$guid)) {
+                    $isGuid = $true
+                }
+                elseif ($IdentityKey -match '@') {
+                    $isUpn = $true
+                }
+                else {
+                    $isSamAccountNameLike = $true
+                }
+
+                # 1. Derive SamAccountName from IdentityKey if missing
+                $hasSamAccountName = $Attributes.ContainsKey('SamAccountName') -and -not [string]::IsNullOrWhiteSpace($Attributes['SamAccountName'])
+                
+                if (-not $hasSamAccountName) {
+                    if ($isSamAccountNameLike) {
+                        $Attributes['SamAccountName'] = $IdentityKey
+                    }
+                    elseif ($isUpn) {
+                        throw "SamAccountName is required when IdentityKey is a UPN. IdentityKey='$IdentityKey' appears to be a UPN (contains '@'). Please provide an explicit 'SamAccountName' in Attributes."
+                    }
+                    elseif ($isGuid) {
+                        throw "SamAccountName is required when IdentityKey is a GUID. IdentityKey='$IdentityKey' is a GUID. Please provide an explicit 'SamAccountName' in Attributes."
+                    }
+                }
+
+                # 2. Auto-set UserPrincipalName when IdentityKey is a UPN
+                $hasUpn = $Attributes.ContainsKey('UserPrincipalName') -and -not [string]::IsNullOrWhiteSpace($Attributes['UserPrincipalName'])
+                
+                if (-not $hasUpn -and $isUpn) {
+                    $Attributes['UserPrincipalName'] = $IdentityKey
+                }
+
+                # 3. Derive CN/RDN Name with priority: Name > DisplayName > GivenName+Surname > IdentityKey
+                $derivedName = $null
+                $hasExplicitName = $Attributes.ContainsKey('Name') -and -not [string]::IsNullOrWhiteSpace($Attributes['Name'])
+                
+                if ($hasExplicitName) {
+                    $derivedName = $Attributes['Name']
+                }
+                elseif ($Attributes.ContainsKey('DisplayName') -and -not [string]::IsNullOrWhiteSpace($Attributes['DisplayName'])) {
+                    $derivedName = $Attributes['DisplayName']
+                }
+                elseif ($Attributes.ContainsKey('GivenName') -and -not [string]::IsNullOrWhiteSpace($Attributes['GivenName']) -and 
+                        $Attributes.ContainsKey('Surname') -and -not [string]::IsNullOrWhiteSpace($Attributes['Surname'])) {
+                    $derivedName = "$($Attributes['GivenName']) $($Attributes['Surname'])"
+                }
+                else {
+                    $derivedName = $IdentityKey
+                }
                 
                 # Password handling validation (same as real adapter)
                 $hasAccountPassword = $Attributes.ContainsKey('AccountPassword')
@@ -176,16 +232,16 @@ Describe 'AD identity provider' {
                     }
                 }
 
-                $guid = [guid]::NewGuid().ToString()
-                $sam = if ($Attributes.ContainsKey('SamAccountName')) { $Attributes['SamAccountName'] } else { $Name }
+                $newGuid = [guid]::NewGuid().ToString()
+                $sam = $Attributes['SamAccountName']
                 $upn = if ($Attributes.ContainsKey('UserPrincipalName')) { $Attributes['UserPrincipalName'] } else { "$sam@domain.local" }
                 $path = if ($Attributes.ContainsKey('Path')) { $Attributes['Path'] } else { 'OU=Users,DC=domain,DC=local' }
 
                 $user = [pscustomobject]@{
-                    ObjectGuid         = [guid]$guid
+                    ObjectGuid         = [guid]$newGuid
                     sAMAccountName     = $sam
                     UserPrincipalName  = $upn
-                    DistinguishedName  = "CN=$Name,$path"
+                    DistinguishedName  = "CN=$derivedName,$path"
                     Enabled            = $Enabled
                     GivenName          = $Attributes['GivenName']
                     Surname            = $Attributes['Surname']
@@ -197,7 +253,7 @@ Describe 'AD identity provider' {
                     Groups             = @()
                 }
 
-                $this.Store[$guid] = $user
+                $this.Store[$newGuid] = $user
                 return $user
             } -Force
 
@@ -906,6 +962,216 @@ Describe 'AD identity provider' {
             $result = $script:TestProvider.CreateIdentity('pwtest11', $attrs)
             $result | Should -Not -BeNullOrEmpty
             $result.IdentityKey | Should -Be 'pwtest11'
+        }
+    }
+
+    Context 'SamAccountName and UPN derivation from IdentityKey' {
+        BeforeAll {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            $script:DerivationTestProvider = $provider
+            $script:DerivationTestAdapter = $adapter
+        }
+
+        It 'Derives SamAccountName from IdentityKey when IdentityKey is SamAccountName-like' {
+            $attrs = @{
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            # Create the user directly via adapter to test derivation
+            $user = $script:DerivationTestAdapter.NewUser('derivetest1', $attrs, $true)
+            
+            # Verify the adapter derived SamAccountName from IdentityKey
+            $user.sAMAccountName | Should -Be 'derivetest1'
+        }
+
+        It 'Does not override explicit SamAccountName even when IdentityKey is SamAccountName-like' {
+            $attrs = @{
+                SamAccountName = 'explicit.sam'
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            # Create the user directly via adapter to test explicit value is respected
+            $user = $script:DerivationTestAdapter.NewUser('derivetest2', $attrs, $true)
+            
+            # Verify the explicit SamAccountName was used
+            $user.sAMAccountName | Should -Be 'explicit.sam'
+        }
+
+        It 'Throws when IdentityKey is UPN and SamAccountName is missing' {
+            $attrs = @{
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            # Should throw when trying to create with UPN IdentityKey but no SamAccountName
+            { $script:DerivationTestAdapter.NewUser('test.user@domain.com', $attrs, $true) } | 
+                Should -Throw "*SamAccountName is required when IdentityKey is a UPN*"
+        }
+
+        It 'Auto-sets UserPrincipalName when IdentityKey is UPN and UPN is missing' {
+            $attrs = @{
+                SamAccountName = 'derivetest3'
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            # Create with UPN IdentityKey and explicit SamAccountName
+            $user = $script:DerivationTestAdapter.NewUser('test.user@contoso.com', $attrs, $true)
+            
+            # Verify the UPN was auto-set from IdentityKey
+            $user.UserPrincipalName | Should -Be 'test.user@contoso.com'
+        }
+
+        It 'Does not override explicit UserPrincipalName even when IdentityKey is UPN' {
+            $attrs = @{
+                SamAccountName = 'derivetest4'
+                UserPrincipalName = 'explicit.upn@contoso.com'
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            # Create with UPN IdentityKey but explicit UPN in attributes
+            $user = $script:DerivationTestAdapter.NewUser('identitykey@contoso.com', $attrs, $true)
+            
+            # Verify the explicit UPN was used, not the IdentityKey
+            $user.UserPrincipalName | Should -Be 'explicit.upn@contoso.com'
+        }
+
+        It 'Throws when IdentityKey is GUID and SamAccountName is missing' {
+            $testGuid = [guid]::NewGuid().ToString()
+            $attrs = @{
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            # Should throw when trying to create with GUID IdentityKey but no SamAccountName
+            { $script:DerivationTestAdapter.NewUser($testGuid, $attrs, $true) } | 
+                Should -Throw "*SamAccountName is required when IdentityKey is a GUID*"
+        }
+    }
+
+    Context 'CN/RDN Name derivation' {
+        BeforeAll {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            $script:NameDerivationTestProvider = $provider
+            $script:NameDerivationTestAdapter = $adapter
+        }
+
+        It 'Uses explicit Name attribute for CN/RDN when provided' {
+            $attrs = @{
+                SamAccountName = 'nametest1'
+                Name = 'Explicit Name'
+                DisplayName = 'Display Name'
+                GivenName = 'Given'
+                Surname = 'Sur'
+            }
+
+            $user = $script:NameDerivationTestAdapter.NewUser('nametest1', $attrs, $true)
+            
+            # Verify the CN/RDN uses the explicit Name
+            $user.DistinguishedName | Should -BeLike 'CN=Explicit Name,*'
+        }
+
+        It 'Derives CN/RDN from DisplayName when Name is not provided' {
+            $attrs = @{
+                SamAccountName = 'nametest2'
+                DisplayName = 'John Doe Display'
+                GivenName = 'John'
+                Surname = 'Doe'
+            }
+
+            $user = $script:NameDerivationTestAdapter.NewUser('nametest2', $attrs, $true)
+            
+            # Verify the CN/RDN uses DisplayName
+            $user.DistinguishedName | Should -BeLike 'CN=John Doe Display,*'
+        }
+
+        It 'Derives CN/RDN from GivenName+Surname when Name and DisplayName are not provided' {
+            $attrs = @{
+                SamAccountName = 'nametest3'
+                GivenName = 'Jane'
+                Surname = 'Smith'
+            }
+
+            $user = $script:NameDerivationTestAdapter.NewUser('nametest3', $attrs, $true)
+            
+            # Verify the CN/RDN uses GivenName+Surname
+            $user.DistinguishedName | Should -BeLike 'CN=Jane Smith,*'
+        }
+
+        It 'Falls back to IdentityKey for CN/RDN when Name, DisplayName, and GivenName+Surname are not provided' {
+            $attrs = @{
+                SamAccountName = 'nametest4'
+            }
+
+            $user = $script:NameDerivationTestAdapter.NewUser('nametest4', $attrs, $true)
+            
+            # Verify the CN/RDN falls back to IdentityKey
+            $user.DistinguishedName | Should -BeLike 'CN=nametest4,*'
+        }
+
+        It 'Falls back to IdentityKey when only GivenName is provided (incomplete for combination)' {
+            $attrs = @{
+                SamAccountName = 'nametest5'
+                GivenName = 'OnlyGiven'
+            }
+
+            $user = $script:NameDerivationTestAdapter.NewUser('nametest5', $attrs, $true)
+            
+            # Verify the CN/RDN falls back to IdentityKey (not using incomplete GivenName)
+            $user.DistinguishedName | Should -BeLike 'CN=nametest5,*'
+        }
+
+        It 'Falls back to IdentityKey when only Surname is provided (incomplete for combination)' {
+            $attrs = @{
+                SamAccountName = 'nametest6'
+                Surname = 'OnlySurname'
+            }
+
+            $user = $script:NameDerivationTestAdapter.NewUser('nametest6', $attrs, $true)
+            
+            # Verify the CN/RDN falls back to IdentityKey (not using incomplete Surname)
+            $user.DistinguishedName | Should -BeLike 'CN=nametest6,*'
+        }
+    }
+
+    Context 'Path pass-through' {
+        BeforeAll {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            $script:PathTestProvider = $provider
+            $script:PathTestAdapter = $adapter
+        }
+
+        It 'Uses explicit Path attribute when provided' {
+            $attrs = @{
+                SamAccountName = 'pathtest1'
+                Path = 'OU=TestUsers,OU=Custom,DC=contoso,DC=com'
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            $user = $script:PathTestAdapter.NewUser('pathtest1', $attrs, $true)
+            
+            # Verify the Path was used
+            $user.DistinguishedName | Should -BeLike '*OU=TestUsers,OU=Custom,DC=contoso,DC=com'
+        }
+
+        It 'Uses default Path when not provided' {
+            $attrs = @{
+                SamAccountName = 'pathtest2'
+                GivenName = 'Test'
+                Surname = 'User'
+            }
+
+            $user = $script:PathTestAdapter.NewUser('pathtest2', $attrs, $true)
+            
+            # Verify the default Path was used
+            $user.DistinguishedName | Should -BeLike '*OU=Users,DC=domain,DC=local'
         }
     }
 }
