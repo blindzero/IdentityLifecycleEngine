@@ -14,18 +14,17 @@ function New-IdleAuthSessionBroker {
 
     .PARAMETER SessionMap
     Optional hashtable that maps session configurations to auth sessions. Each key is a hashtable
-    representing the AuthSessionOptions pattern, and each value is a typed session descriptor.
-
-    Values must be typed session descriptors:
-    - Hashtable: @{ Role = 'Admin' } = @{ AuthSessionType = 'Credential'; Session = $credential }
-    - PSCustomObject: @{ Role = 'Admin' } = [pscustomobject]@{ AuthSessionType = 'OAuth'; Session = $token }
+    representing the AuthSessionOptions pattern, and each value is either:
+    
+    - A direct credential/token (when -AuthSessionType is provided)
+    - A typed descriptor: @{ AuthSessionType = 'Credential'; Credential = $credential }
 
     Keys can include AuthSessionName for name-based routing:
-    - @{ AuthSessionName = 'AD'; Role = 'ADAdm' } -> @{ AuthSessionType = 'Credential'; Session = $admAD }
-    - @{ AuthSessionName = 'EXO' } -> @{ AuthSessionType = 'OAuth'; Session = $exoToken }
-    - @{ Server = 'AADConnect01' } -> @{ AuthSessionType = 'PSRemoting'; Session = $remoteSession }
-    - @{ Domain = 'SourceAD' } -> @{ AuthSessionType = 'Credential'; Session = $sourceCred }
-    - @{ Environment = 'Production' } -> @{ AuthSessionType = 'Credential'; Session = $prodCred }
+    - @{ AuthSessionName = 'AD'; Role = 'ADAdm' } -> $admCred or @{ AuthSessionType = 'Credential'; Credential = $admAD }
+    - @{ AuthSessionName = 'EXO' } -> $exoToken or @{ AuthSessionType = 'OAuth'; Credential = $exoToken }
+    - @{ Server = 'AADConnect01' } -> $remoteSession
+    - @{ Domain = 'SourceAD' } -> $sourceCred
+    - @{ Environment = 'Production' } -> $prodCred
 
     SessionMap is optional if DefaultAuthSession is provided.
 
@@ -33,56 +32,62 @@ function New-IdleAuthSessionBroker {
     Optional default auth session to return when no session options are provided or
     when the options don't match any entry in SessionMap.
 
-    Must be a typed session descriptor:
-    @{ AuthSessionType = 'Credential'; Session = $credential }
+    Can be a direct credential/token (when -AuthSessionType is provided) or a typed descriptor.
 
     At least one of SessionMap or DefaultAuthSession must be provided.
 
-    .EXAMPLE
-    # Simple single-credential broker
-    $broker = New-IdleAuthSessionBroker -DefaultAuthSession @{
-        AuthSessionType = 'Credential'
-        Session = $admCred
-    }
+    .PARAMETER AuthSessionType
+    Optional default authentication session type. When provided, allows simple (untyped) 
+    session values in SessionMap and DefaultAuthSession. When not provided, all values 
+    must be typed descriptors.
+
+    Valid values:
+    - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
+    - 'PSRemoting': PowerShell remoting execution context (e.g., Entra Connect)
+    - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
 
     .EXAMPLE
-    # AuthSessionName-based routing with roles
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
-        @{ AuthSessionName = 'AD'; Role = 'ADAdm' } = @{ AuthSessionType = 'Credential'; Session = $tier0Credential }
-        @{ AuthSessionName = 'AD'; Role = 'ADRead' } = @{ AuthSessionType = 'Credential'; Session = $readOnlyCredential }
-    } -DefaultAuthSession @{ AuthSessionType = 'Credential'; Session = $adminCredential }
+    # Simple single-credential broker (with AuthSessionType)
+    $broker = New-IdleAuthSessionBroker -DefaultAuthSession $admCred -AuthSessionType 'Credential'
 
     .EXAMPLE
-    # OAuth broker with token strings
+    # AuthSessionName-based routing with roles (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
-        @{ Role = 'Admin' } = @{ AuthSessionType = 'OAuth'; Session = $graphToken }
-    } -DefaultAuthSession @{ AuthSessionType = 'OAuth'; Session = $graphToken }
+        @{ AuthSessionName = 'AD'; Role = 'ADAdm' } = $tier0Credential
+        @{ AuthSessionName = 'AD'; Role = 'ADRead' } = $readOnlyCredential
+    } -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
     .EXAMPLE
-    # Domain-based broker for multi-forest scenarios
+    # OAuth broker with token strings (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
-        @{ Domain = 'SourceAD' } = @{ AuthSessionType = 'Credential'; Session = $sourceCred }
-        @{ Domain = 'TargetAD' } = @{ AuthSessionType = 'Credential'; Session = $targetCred }
-    }
+        @{ Role = 'Admin' } = $graphToken
+    } -DefaultAuthSession $graphToken -AuthSessionType 'OAuth'
 
     .EXAMPLE
-    # PSRemoting broker for Entra Connect directory sync
+    # Domain-based broker for multi-forest scenarios (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
-        @{ Server = 'AADConnect01' } = @{ AuthSessionType = 'PSRemoting'; Session = $remoteSessionCred }
-    }
+        @{ Domain = 'SourceAD' } = $sourceCred
+        @{ Domain = 'TargetAD' } = $targetCred
+    } -AuthSessionType 'Credential'
 
     .EXAMPLE
-    # Environment-based routing
+    # PSRemoting broker for Entra Connect directory sync (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
-        @{ Environment = 'Production' } = @{ AuthSessionType = 'Credential'; Session = $prodCred }
-        @{ Environment = 'Test' } = @{ AuthSessionType = 'Credential'; Session = $testCred }
-    } -DefaultAuthSession @{ AuthSessionType = 'Credential'; Session = $devCred }
+        @{ Server = 'AADConnect01' } = $remoteSessionCred
+    } -AuthSessionType 'PSRemoting'
 
     .EXAMPLE
-    # Mixed-type broker for AD (Credential) + EXO (OAuth)
+    # Environment-based routing (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
-        @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Session = $adCred }
-        @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Session = $exoToken }
+        @{ Environment = 'Production' } = $prodCred
+        @{ Environment = 'Test' } = $testCred
+    } -DefaultAuthSession $devCred -AuthSessionType 'Credential'
+
+    .EXAMPLE
+    # Mixed-type broker for AD (Credential) + EXO (OAuth) - typed descriptors
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $adCred }
+        @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $exoToken }
     }
 
     .OUTPUTS
@@ -97,7 +102,11 @@ function New-IdleAuthSessionBroker {
 
         [Parameter()]
         [AllowNull()]
-        [object] $DefaultAuthSession
+        [object] $DefaultAuthSession,
+
+        [Parameter()]
+        [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
+        [string] $AuthSessionType
     )
 
     # Validate: If SessionMap is empty/null, DefaultAuthSession must be provided
@@ -113,15 +122,9 @@ function New-IdleAuthSessionBroker {
             return $false
         }
 
-        # Check for hashtable with AuthSessionType and Session keys
+        # Only support hashtable format (not PSCustomObject)
         if ($value -is [hashtable]) {
-            return ($value.ContainsKey('AuthSessionType') -and $value.ContainsKey('Session'))
-        }
-
-        # Check for PSCustomObject with AuthSessionType and Session properties
-        if ($value -is [pscustomobject]) {
-            $properties = $value.PSObject.Properties.Name
-            return (($properties -contains 'AuthSessionType') -and ($properties -contains 'Session'))
+            return ($value.ContainsKey('AuthSessionType') -and $value.ContainsKey('Credential'))
         }
 
         return $false
@@ -129,28 +132,36 @@ function New-IdleAuthSessionBroker {
 
     # Helper function to normalize session value to internal format
     $normalizeSessionValue = {
-        param($value, $context)
+        param($value, $defaultType, $context)
 
         if ($null -eq $value) {
             return $null
         }
 
-        # Value must be typed
-        if (-not (& $isTypedSession $value)) {
-            throw "Session value in $context must be a typed session descriptor with 'AuthSessionType' and 'Session' properties. Example: @{ AuthSessionType = 'Credential'; Session = `$credential }"
+        # Check if value is typed
+        if (& $isTypedSession $value) {
+            $sessionType = $value.AuthSessionType
+            $credential = $value.Credential
+
+            # Validate the provided AuthSessionType
+            if ($sessionType -notin @('OAuth', 'PSRemoting', 'Credential')) {
+                throw "Invalid AuthSessionType '$sessionType' in $context. Valid values: 'OAuth', 'PSRemoting', 'Credential'."
+            }
+
+            return @{
+                AuthSessionType = $sessionType
+                Credential = $credential
+            }
         }
 
-        $sessionType = $value.AuthSessionType
-        $session = $value.Session
-
-        # Validate the provided AuthSessionType
-        if ($sessionType -notin @('OAuth', 'PSRemoting', 'Credential')) {
-            throw "Invalid AuthSessionType '$sessionType' in $context. Valid values: 'OAuth', 'PSRemoting', 'Credential'."
+        # Untyped value - use default type
+        if ([string]::IsNullOrEmpty($defaultType)) {
+            throw "Untyped session value found in $context. Either provide -AuthSessionType or use typed format: @{ AuthSessionType = '<type>'; Credential = `$value }"
         }
 
         return @{
-            AuthSessionType = $sessionType
-            Session = $session
+            AuthSessionType = $defaultType
+            Credential = $value
         }
     }
 
@@ -165,7 +176,7 @@ function New-IdleAuthSessionBroker {
             $patternDesc = ($pattern.Keys | ForEach-Object { "$_=$($pattern[$_])" }) -join ', '
             $context = "SessionMap entry { $patternDesc }"
 
-            $normalizedValue = & $normalizeSessionValue $value $context
+            $normalizedValue = & $normalizeSessionValue $value $AuthSessionType $context
             $normalizedSessionMap[$pattern] = $normalizedValue
         }
     }
@@ -173,13 +184,14 @@ function New-IdleAuthSessionBroker {
     # Normalize DefaultAuthSession
     $normalizedDefaultAuthSession = $null
     if ($null -ne $DefaultAuthSession) {
-        $normalizedDefaultAuthSession = & $normalizeSessionValue $DefaultAuthSession 'DefaultAuthSession'
+        $normalizedDefaultAuthSession = & $normalizeSessionValue $DefaultAuthSession $AuthSessionType 'DefaultAuthSession'
     }
 
     $broker = [pscustomobject]@{
         PSTypeName = 'IdLE.AuthSessionBroker'
         SessionMap = $normalizedSessionMap
         DefaultAuthSession = $normalizedDefaultAuthSession
+        AuthSessionType = $AuthSessionType
     }
 
     $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
@@ -200,9 +212,9 @@ function New-IdleAuthSessionBroker {
 
                 # Validate type before returning
                 $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
-                & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Session -SessionName '<default>'
+                & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName '<default>'
 
-                return $normalized.Session
+                return $normalized.Credential
             }
             throw "No default auth session configured."
         }
@@ -214,9 +226,9 @@ function New-IdleAuthSessionBroker {
 
                 # Validate type before returning
                 $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
-                & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Session -SessionName $Name
+                & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
 
-                return $normalized.Session
+                return $normalized.Credential
             }
             throw "No SessionMap configured and no default auth session available."
         }
@@ -302,9 +314,9 @@ function New-IdleAuthSessionBroker {
 
             # Validate type before returning
             $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
-            & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Session -SessionName $Name
+            & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
 
-            return $normalized.Session
+            return $normalized.Credential
         }
         
         # If multiple matches, this is ambiguous - fail with clear error
@@ -323,9 +335,9 @@ function New-IdleAuthSessionBroker {
 
             # Validate type before returning
             $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
-            & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Session -SessionName $Name
+            & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
 
-            return $normalized.Session
+            return $normalized.Credential
         }
 
         # No match and no default
