@@ -31,14 +31,15 @@ param(
     
     # Path to the leaver workflow
     [Parameter()]
-    [string] $WorkflowPath = './examples/workflows/templates/exo-leaver-mailbox-offboarding.psd1'
+    [string] $WorkflowPath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1')).Path
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Import IdLE module
-Import-Module ./src/IdLE/IdLE.psd1 -Force
+$idleModulePath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..' 'src' 'IdLE' 'IdLE.psd1')).Path
+Import-Module $idleModulePath -Force
 
 Write-Host "==> Enriching request with manager data from $DirectorySource..." -ForegroundColor Cyan
 
