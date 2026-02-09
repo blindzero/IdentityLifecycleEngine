@@ -116,6 +116,44 @@ $broker = New-IdleAuthSession -DefaultAuthSession $token -AuthSessionType 'OAuth
 # Rest is identical to delegated flow
 ```
 
+### Example: Device Code Flow (MFA-enabled environments)
+
+For environments requiring MFA, use Device Code Flow with an app registration and MSAL.PS.
+
+**Prerequisites:**
+- Install MSAL.PS module: `Install-Module MSAL.PS -Scope CurrentUser`
+- App registration with delegated permissions (e.g., `User.ReadWrite.All`, `Group.ReadWrite.All`)
+- App must allow public client flows (Authentication > Advanced settings > Allow public client flows: Yes)
+
+```powershell
+# Import MSAL.PS
+Import-Module MSAL.PS
+
+# Obtain token via Device Code Flow
+$clientId = "your-app-id"  # Application (client) ID from app registration
+$tenantId = "your-tenant-id"
+
+$token = Get-MsalToken `
+    -ClientId $clientId `
+    -TenantId $tenantId `
+    -Scopes "https://graph.microsoft.com/.default" `
+    -DeviceCode
+
+# Create broker with OAuth session type
+$broker = New-IdleAuthSession -DefaultAuthSession $token.AccessToken -AuthSessionType 'OAuth'
+
+# Create provider
+$provider = New-IdleEntraIDIdentityProvider
+
+# Use in plan
+$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+    Identity = $provider
+    AuthSessionBroker = $broker
+}
+```
+
+The Device Code Flow will display a code and URL for the user to authenticate in a browser, supporting MFA and conditional access policies.
+
 ### Example: Multi-Role Scenario
 
 ```powershell
