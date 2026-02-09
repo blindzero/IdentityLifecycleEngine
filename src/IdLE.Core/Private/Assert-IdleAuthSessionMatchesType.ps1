@@ -61,15 +61,14 @@ function Assert-IdleAuthSessionMatchesType {
                 $isValid = $true
             }
             elseif ($null -ne $Session) {
-                $psObj = [System.Management.Automation.PSObject]::AsPSObject($Session)
-
                 # Check for AccessToken property
-                if ($psObj.Properties['AccessToken']) {
+                $accessTokenProp = Get-Member -InputObject $Session -Name AccessToken -MemberType Properties -ErrorAction SilentlyContinue
+                if ($null -ne $accessTokenProp) {
                     $isValid = $true
                 }
                 else {
                     # Check for GetAccessToken() method
-                    $getTokenMethod = $psObj | Get-Member -Name GetAccessToken -MemberType Method -ErrorAction SilentlyContinue
+                    $getTokenMethod = Get-Member -InputObject $Session -Name GetAccessToken -MemberType Method -ErrorAction SilentlyContinue
                     if ($null -ne $getTokenMethod) {
                         $isValid = $true
                     }
@@ -90,24 +89,36 @@ but received [$actualType].
         }
 
         'PSRemoting' {
-            # Accept PSSession objects or PSCredential for PSRemoting scenarios
-            $validTypes = @(
-                [System.Management.Automation.Runspaces.PSSession]
-                [pscredential]
-            )
-
+            # Accept multiple PSRemoting session shapes:
+            # - [PSSession] PowerShell remoting session
+            # - [PSCredential] credential for establishing remote connection
+            # - object with InvokeCommand(CommandName, Parameters) method (DirectorySync provider pattern)
             $isValid = $false
-            foreach ($validType in $validTypes) {
-                if ($Session -is $validType) {
+
+            if ($Session -is [System.Management.Automation.Runspaces.PSSession]) {
+                $isValid = $true
+            }
+            elseif ($Session -is [pscredential]) {
+                $isValid = $true
+            }
+            elseif ($null -ne $Session) {
+                # Check for InvokeCommand method (remote execution handle pattern)
+                $psObj = [System.Management.Automation.PSObject]::AsPSObject($Session)
+                $invokeMethod = $psObj.Methods['InvokeCommand']
+                if ($null -ne $invokeMethod) {
                     $isValid = $true
-                    break
                 }
             }
 
             if (-not $isValid) {
                 $actualType = $Session.GetType().FullName
-                $expectedTypes = ($validTypes | ForEach-Object { "[$($_.FullName)]" }) -join ' or '
-                throw "Auth session validation failed for '$SessionName': Expected AuthSessionType='PSRemoting' requires $expectedTypes, but received [$actualType]."
+                throw @"
+Auth session validation failed for '$SessionName': Expected AuthSessionType='PSRemoting' requires one of:
+- [System.Management.Automation.Runspaces.PSSession]
+- [PSCredential]
+- object with InvokeCommand(CommandName, Parameters) method
+but received [$actualType].
+"@
             }
         }
     }

@@ -195,11 +195,15 @@ function New-IdleAuthSessionBroker {
         $normalizedDefaultAuthSession = & $normalizeSessionValue $DefaultAuthSession $AuthSessionType 'DefaultAuthSession'
     }
 
+    # Cache the validation function for performance (avoid repeated Get-Command calls per AcquireAuthSession invocation)
+    $validationScriptBlock = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
+
     $broker = [pscustomobject]@{
         PSTypeName = 'IdLE.AuthSessionBroker'
         SessionMap = $normalizedSessionMap
         DefaultAuthSession = $normalizedDefaultAuthSession
         AuthSessionType = $AuthSessionType
+        ValidateAuthSession = $validationScriptBlock
     }
 
     $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
@@ -219,8 +223,7 @@ function New-IdleAuthSessionBroker {
                 $normalized = $this.DefaultAuthSession
 
                 # Validate type before returning
-                $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
-                & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName '<default>'
+                & $this.ValidateAuthSession -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName '<default>'
 
                 return $normalized.Credential
             }
@@ -233,8 +236,7 @@ function New-IdleAuthSessionBroker {
                 $normalized = $this.DefaultAuthSession
 
                 # Validate type before returning
-                $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
-                & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
+                & $this.ValidateAuthSession -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
 
                 return $normalized.Credential
             }
@@ -321,8 +323,7 @@ function New-IdleAuthSessionBroker {
             $normalized = $matchingEntries[0].Value
 
             # Validate type before returning
-            $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
-            & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
+            & $this.ValidateAuthSession -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
 
             return $normalized.Credential
         }
@@ -342,8 +343,7 @@ function New-IdleAuthSessionBroker {
             $normalized = $this.DefaultAuthSession
 
             # Validate type before returning
-            $validationScript = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
-            & $validationScript -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
+            & $this.ValidateAuthSession -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
 
             return $normalized.Credential
         }

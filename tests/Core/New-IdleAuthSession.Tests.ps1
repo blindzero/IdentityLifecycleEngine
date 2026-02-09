@@ -147,13 +147,13 @@ Describe 'New-IdleAuthSession' {
             $session | Should -BeOfType [string]
         }
 
-        It 'throws when OAuth type receives non-string object' {
+        It 'throws when OAuth type receives invalid object type' {
             {
                 $broker = New-IdleAuthSession -SessionMap @{
-                    @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $testCred }
+                    @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = [datetime]::Now }
                 }
                 $broker.AcquireAuthSession('EXO', $null)
-            } | Should -Throw '*Expected AuthSessionType=''OAuth'' requires a*string*'
+            } | Should -Throw '*Expected AuthSessionType=''OAuth''*'
         }
     }
 
@@ -164,6 +164,9 @@ Describe 'New-IdleAuthSession' {
             
             $password2 = ConvertTo-SecureString 'Password2!' -AsPlainText -Force
             $cred2 = New-Object System.Management.Automation.PSCredential('EXOAdm', $password2)
+            
+            $password3 = ConvertTo-SecureString 'Password3!' -AsPlainText -Force
+            $cred3 = New-Object System.Management.Automation.PSCredential('ADRead', $password3)
         }
 
         It 'matches AuthSessionName without options' {
@@ -177,9 +180,6 @@ Describe 'New-IdleAuthSession' {
         }
 
         It 'matches AuthSessionName with matching options' {
-            $password3 = ConvertTo-SecureString 'Password3!' -AsPlainText -Force
-            $cred3 = New-Object System.Management.Automation.PSCredential('ADRead', $password3)
-
             $broker = New-IdleAuthSession -SessionMap @{
                 @{ AuthSessionName = 'AD'; Role = 'ADAdm' } = $cred1
                 @{ AuthSessionName = 'AD'; Role = 'ADRead' } = $cred3
@@ -187,6 +187,34 @@ Describe 'New-IdleAuthSession' {
             
             $session = $broker.AcquireAuthSession('AD', @{ Role = 'ADRead' })
             $session.UserName | Should -Be 'ADRead'
+        }
+
+        It 'falls back to default when AuthSessionName does not match' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = $cred1
+            } -DefaultAuthSession $testCred -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('EXO', $null)
+            $session.UserName | Should -Be 'TestUser'
+        }
+
+        It 'throws when AuthSessionName matches multiple entries (ambiguous)' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = $cred1
+                @{ AuthSessionName = 'AD' } = $cred3
+            } -AuthSessionType 'Credential'
+            
+            { $broker.AcquireAuthSession('AD', $null) } | Should -Throw '*Ambiguous*'
+        }
+
+        It 'prefers AuthSessionName match over Options-only match' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ Role = 'Admin' } = $testCred
+                @{ AuthSessionName = 'AD'; Role = 'Admin' } = $cred1
+            } -AuthSessionType 'Credential'
+            
+            $session = $broker.AcquireAuthSession('AD', @{ Role = 'Admin' })
+            $session.UserName | Should -Be 'ADAdm'
         }
 
         It 'supports Options-only routing when AuthSessionName is not in pattern' {
