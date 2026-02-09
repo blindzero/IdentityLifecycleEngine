@@ -39,7 +39,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     # In workflow definition (enable OOF):
     @{
         Name = 'Enable Out of Office'
-        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider        = 'ExchangeOnline'
             IdentityKey     = 'user@contoso.com'
@@ -56,7 +56,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     # In workflow definition (with ValueFrom for dynamic values):
     @{
         Name = 'Enable Out of Office for Leaver'
-        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider        = 'ExchangeOnline'
             IdentityKey     = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
@@ -73,7 +73,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     # In workflow definition (scheduled OOF):
     @{
         Name = 'Schedule Out of Office'
-        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider        = 'ExchangeOnline'
             IdentityKey     = 'user@contoso.com'
@@ -91,12 +91,48 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     # In workflow definition (disable OOF):
     @{
         Name = 'Disable Out of Office'
-        Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider    = 'ExchangeOnline'
             IdentityKey = 'user@contoso.com'
             Config      = @{
                 Mode = 'Disabled'
+            }
+        }
+    }
+
+    .EXAMPLE
+    # Template usage with dynamic manager attributes (Leaver scenario):
+    # Note: Templates are resolved during planning against the request object.
+    # Host must enrich request.DesiredState with manager data before calling New-IdlePlan.
+    
+    # Host-side enrichment (example):
+    # $user = Get-ADUser -Identity 'max.power' -Properties Manager
+    # $mgr = if ($user.Manager) {
+    #     Get-ADUser -Identity $user.Manager -Properties DisplayName, Mail
+    # } else {
+    #     # Fallback manager/contact to avoid null template values
+    #     [pscustomobject]@{
+    #         DisplayName = 'Service Desk'
+    #         Mail        = 'servicedesk@contoso.com'
+    #     }
+    # }
+    # $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver' -Actor $env:USERNAME -DesiredState @{
+    #   Manager = @{ DisplayName = $mgr.DisplayName; Mail = $mgr.Mail }
+    # }
+    
+    # Workflow step with template variables:
+    @{
+        Name = 'Set OOF with Manager Contact'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
+        With = @{
+            Provider        = 'ExchangeOnline'
+            IdentityKey     = 'max.power@contoso.com'
+            Config          = @{
+                Mode            = 'Enabled'
+                InternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.DisplayName}} ({{Request.DesiredState.Manager.Mail}}).'
+                ExternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.Mail}}.'
+                ExternalAudience = 'All'
             }
         }
     }

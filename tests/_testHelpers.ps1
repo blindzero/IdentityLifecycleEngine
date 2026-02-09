@@ -38,6 +38,19 @@ function Import-IdleTestModule {
 
     $directorySyncProviderManifestPath = Resolve-Path -Path (Join-Path (Get-RepoRootPath) 'src/IdLE.Provider.DirectorySync.EntraConnect/IdLE.Provider.DirectorySync.EntraConnect.psd1')
     Import-Module -Name $directorySyncProviderManifestPath -Force -ErrorAction Stop
+}
+
+function Import-IdleTestMailboxModule {
+    <#
+    .SYNOPSIS
+    Imports the IdLE.Steps.Mailbox module for tests that specifically need it.
+    
+    .DESCRIPTION
+    This is a separate function to avoid polluting all test sessions with the Mailbox module.
+    Only tests that specifically work with mailbox steps should call this.
+    #>
+    [CmdletBinding()]
+    param()
 
     $stepsMailboxManifestPath = Resolve-Path -Path (Join-Path (Get-RepoRootPath) 'src/IdLE.Steps.Mailbox/IdLE.Steps.Mailbox.psd1')
     Import-Module -Name $stepsMailboxManifestPath -Force -ErrorAction Stop

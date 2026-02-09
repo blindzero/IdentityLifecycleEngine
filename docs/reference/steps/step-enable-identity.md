@@ -1,15 +1,14 @@
-# EnableIdentity
+# IdLE.Step.EnableIdentity
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `EnableIdentity`
+- **Step Type**: `IdLE.Step.EnableIdentity`
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEnableIdentity`
 - **Idempotent**: `Yes`
-- **Required Capabilities**: `IdLE.Identity.Enable`
 
 ## Synopsis
 
@@ -47,7 +46,7 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'EnableIdentity Example'
+  Name = 'IdLE.Step.EnableIdentity Example'
   Type = 'IdLE.Step.EnableIdentity'
   With = @{
     IdentityKey          = 'user.name'
@@ -57,5 +56,5 @@ The following keys are required in the step's ``With`` configuration:
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
 - [Providers](../providers.md) - Available provider implementations

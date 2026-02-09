@@ -1,15 +1,14 @@
-# EnsureEntitlement
+# IdLE.Step.EnsureEntitlement
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `EnsureEntitlement`
+- **Step Type**: `IdLE.Step.EnsureEntitlement`
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepEnsureEntitlement`
 - **Idempotent**: `Yes`
-- **Required Capabilities**: `IdLE.Entitlement.List`, `IdLE.Entitlement.Grant`, `IdLE.Entitlement.Revoke`
 
 ## Synopsis
 
@@ -55,7 +54,7 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'EnsureEntitlement Example'
+  Name = 'IdLE.Step.EnsureEntitlement Example'
   Type = 'IdLE.Step.EnsureEntitlement'
   With = @{
     Entitlement          = @{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }
@@ -67,5 +66,5 @@ The following keys are required in the step's ``With`` configuration:
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
 - [Providers](../providers.md) - Available provider implementations

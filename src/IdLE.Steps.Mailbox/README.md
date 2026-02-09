@@ -8,7 +8,7 @@ Provider-agnostic mailbox step pack for IdLE.
 # Step example: Convert to shared mailbox
 @{
     Name = 'ConvertToSharedMailbox'
-    Type = 'IdLE.Step.Mailbox.Type.Ensure'
+    Type = 'IdLE.Step.Mailbox.EnsureType'
     With = @{
         Provider    = 'ExchangeOnline'
         IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
@@ -20,8 +20,8 @@ Provider-agnostic mailbox step pack for IdLE.
 ## Step Types
 
 - **IdLE.Step.Mailbox.GetInfo** - Read mailbox details
-- **IdLE.Step.Mailbox.Type.Ensure** - Convert mailbox type (User/Shared/Room/Equipment)
-- **IdLE.Step.Mailbox.OutOfOffice.Ensure** - Configure Out of Office settings
+- **IdLE.Step.Mailbox.EnsureType** - Convert mailbox type (User/Shared/Room/Equipment)
+- **IdLE.Step.Mailbox.EnsureOutOfOffice** - Configure Out of Office settings
 
 ## Documentation
 

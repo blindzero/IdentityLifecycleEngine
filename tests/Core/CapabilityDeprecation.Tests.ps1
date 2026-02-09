@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
+    Import-IdleTestMailboxModule
     
     # Import mailbox steps module for capability metadata
     $mailboxStepsPath = Join-Path $PSScriptRoot '..' '..' 'src' 'IdLE.Steps.Mailbox' 'IdLE.Steps.Mailbox.psd1'
@@ -32,7 +33,12 @@ Describe 'Capability Deprecation and Migration' {
             # Verify the workflow file exists
             $wfPath | Should -Exist
 
-            $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver'
+            $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver' -DesiredState @{
+                Manager = @{
+                    DisplayName = 'IT Support'
+                    Mail        = 'support@contoso.com'
+                }
+            }
             $providers = @{ MockProvider = $mockProvider }
 
             # Planning should succeed and emit a deprecation warning
@@ -67,7 +73,12 @@ Describe 'Capability Deprecation and Migration' {
             # Use a real workflow file
             $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1'
 
-            $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver'
+            $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver' -DesiredState @{
+                Manager = @{
+                    DisplayName = 'IT Support'
+                    Mail        = 'support@contoso.com'
+                }
+            }
             $providers = @{ MockProvider = $mockProvider }
 
             # Planning should succeed without deprecation warnings

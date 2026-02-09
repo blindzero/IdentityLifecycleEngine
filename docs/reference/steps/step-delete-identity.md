@@ -1,15 +1,14 @@
-# DeleteIdentity
+# IdLE.Step.DeleteIdentity
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `DeleteIdentity`
+- **Step Type**: `IdLE.Step.DeleteIdentity`
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepDeleteIdentity`
 - **Idempotent**: `Yes`
-- **Required Capabilities**: `IdLE.Identity.Delete`
 
 ## Synopsis
 
@@ -51,7 +50,7 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'DeleteIdentity Example'
+  Name = 'IdLE.Step.DeleteIdentity Example'
   Type = 'IdLE.Step.DeleteIdentity'
   With = @{
     IdentityKey          = 'user.name'
@@ -61,5 +60,5 @@ The following keys are required in the step's ``With`` configuration:
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
 - [Providers](../providers.md) - Available provider implementations

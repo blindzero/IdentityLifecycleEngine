@@ -1,15 +1,14 @@
-# MoveIdentity
+# IdLE.Step.MoveIdentity
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `MoveIdentity`
+- **Step Type**: `IdLE.Step.MoveIdentity`
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepMoveIdentity`
 - **Idempotent**: `Yes`
-- **Required Capabilities**: `IdLE.Identity.Move`
 
 ## Synopsis
 
@@ -48,7 +47,7 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'MoveIdentity Example'
+  Name = 'IdLE.Step.MoveIdentity Example'
   Type = 'IdLE.Step.MoveIdentity'
   With = @{
     IdentityKey          = 'user.name'
@@ -59,5 +58,5 @@ The following keys are required in the step's ``With`` configuration:
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Details on required capabilities
+- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
 - [Providers](../providers.md) - Available provider implementations
