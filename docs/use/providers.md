@@ -243,7 +243,8 @@ For workflows that need multiple providers with different authentication types:
 ```powershell
 # Obtain credentials and tokens
 $adCredential = Get-Credential -Message "Enter AD admin credentials"
-$exoToken = (Connect-AzAccount | Get-AzAccessToken -ResourceUrl "https://outlook.office365.com").Token
+Connect-AzAccount
+$exoToken = (Get-AzAccessToken -ResourceUrl "https://outlook.office365.com").Token
 
 # Create providers
 $adProvider = New-IdleADIdentityProvider
