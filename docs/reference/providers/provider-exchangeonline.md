@@ -220,6 +220,14 @@ if ($user.Manager) {
   $mgr = Get-ADUser -Identity $user.Manager -Properties DisplayName, Mail
 }
 
+# Provide fallback contact if no manager is found
+if (-not $mgr) {
+  $mgr = [PSCustomObject]@{
+    DisplayName = 'IT Support'
+    Mail        = 'support@contoso.com'
+  }
+}
+
 # 2. Build request with manager data in DesiredState
 $req = New-IdleLifecycleRequest `
   -LifecycleEvent 'Leaver' `
@@ -266,6 +274,14 @@ $user = Get-MgUser -UserId 'max.power@contoso.com' -Property 'Manager'
 $mgr = if ($user.Manager.Id) {
   Get-MgUser -UserId $user.Manager.Id -Property 'DisplayName', 'Mail'
 } else { $null }
+
+# Provide fallback contact if no manager is found
+if (-not $mgr) {
+  $mgr = [PSCustomObject]@{
+    DisplayName = 'IT Support'
+    Mail        = 'support@contoso.com'
+  }
+}
 
 $req = New-IdleLifecycleRequest `
   -LifecycleEvent 'Leaver' `

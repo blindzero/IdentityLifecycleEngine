@@ -716,33 +716,45 @@ if (-not $StepModules -or $StepModules.Count -eq 0) {
 }
 
 # Ensure step modules are loaded (Import-Module IdLE.psd1 does NOT load nested step modules automatically).
+# Always prefer repo-local modules to avoid importing different versions from PSModulePath.
 foreach ($m in $StepModules) {
     if (Get-Module -Name $m) {
-        continue
+        # Check if the loaded module is from the repo (not PSModulePath)
+        $loadedModule = Get-Module -Name $m
+        $isRepoModule = $loadedModule.ModuleBase -and $loadedModule.ModuleBase.StartsWith($repoRoot)
+        
+        if ($isRepoModule) {
+            Write-Verbose "Step module '$m' already loaded from repo: $($loadedModule.ModuleBase)"
+            continue
+        }
+        else {
+            Write-Verbose "Removing non-repo version of '$m' from: $($loadedModule.ModuleBase)"
+            Remove-Module -Name $m -Force -ErrorAction SilentlyContinue
+        }
     }
 
     Write-Verbose "Importing step module: $m"
 
-    try {
-        Import-Module -Name $m -Force -ErrorAction Stop
+    # Try repo-local module path first (prioritize over PSModulePath)
+    $candidatePsd1 = Join-Path -Path $repoRoot -ChildPath ("src/{0}/{0}.psd1" -f $m)
+    $candidatePsm1 = Join-Path -Path $repoRoot -ChildPath ("src/{0}/{0}.psm1" -f $m)
+
+    if (Test-Path -Path $candidatePsd1) {
+        Import-Module -Name $candidatePsd1 -Force -ErrorAction Stop
         continue
     }
+
+    if (Test-Path -Path $candidatePsm1) {
+        Import-Module -Name $candidatePsm1 -Force -ErrorAction Stop
+        continue
+    }
+
+    # Fall back to module name (PSModulePath) only if repo-local not found
+    try {
+        Import-Module -Name $m -Force -ErrorAction Stop
+    }
     catch {
-        # Fall back to repo-local module path pattern: ./src/<ModuleName>/<ModuleName>.psd1|psm1
-        $candidatePsd1 = Join-Path -Path $repoRoot -ChildPath ("src/{0}/{0}.psd1" -f $m)
-        $candidatePsm1 = Join-Path -Path $repoRoot -ChildPath ("src/{0}/{0}.psm1" -f $m)
-
-        if (Test-Path -Path $candidatePsd1) {
-            Import-Module -Name $candidatePsd1 -Force -ErrorAction Stop
-            continue
-        }
-
-        if (Test-Path -Path $candidatePsm1) {
-            Import-Module -Name $candidatePsm1 -Force -ErrorAction Stop
-            continue
-        }
-
-        throw "Step module '$m' could not be imported. Tried module name and repo paths: '$candidatePsd1', '$candidatePsm1'."
+        throw "Step module '$m' could not be imported. Tried repo paths: '$candidatePsd1', '$candidatePsm1'."
     }
 }
 
