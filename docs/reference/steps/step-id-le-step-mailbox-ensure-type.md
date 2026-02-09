@@ -1,11 +1,11 @@
-# MailboxTypeEnsure
+# IdLE.Step.Mailbox.EnsureType
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `MailboxTypeEnsure`
+- **Step Type**: `IdLE.Step.Mailbox.EnsureType`
 - **Module**: `IdLE.Steps.Mailbox`
 - **Implementation**: `Invoke-IdleStepMailboxTypeEnsure`
 - **Idempotent**: `Yes`
@@ -56,8 +56,8 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'MailboxTypeEnsure Example'
-  Type = 'IdLE.Step.MailboxTypeEnsure'
+  Name = 'IdLE.Step.Mailbox.EnsureType Example'
+  Type = 'IdLE.Step.Mailbox.EnsureType'
   With = @{
     IdentityKey          = 'user.name'
     MailboxType          = '<value>'

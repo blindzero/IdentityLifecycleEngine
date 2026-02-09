@@ -1,11 +1,11 @@
-# MailboxGetInfo
+# IdLE.Step.Mailbox.GetInfo
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `MailboxGetInfo`
+- **Step Type**: `IdLE.Step.Mailbox.GetInfo`
 - **Module**: `IdLE.Steps.Mailbox`
 - **Implementation**: `Invoke-IdleStepMailboxGetInfo`
 - **Idempotent**: `Unknown`
@@ -44,8 +44,8 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'MailboxGetInfo Example'
-  Type = 'IdLE.Step.MailboxGetInfo'
+  Name = 'IdLE.Step.Mailbox.GetInfo Example'
+  Type = 'IdLE.Step.Mailbox.GetInfo'
   With = @{
     IdentityKey          = 'user.name'
   }

@@ -167,6 +167,21 @@ function ConvertTo-IdleMdxSafeText {
 }
 
 function Get-IdleStepTypeFromCommandName {
+    <#
+    .SYNOPSIS
+    Resolves the canonical step type(s) for a command by loading and inverting the step registry.
+    
+    .DESCRIPTION
+    Instead of deriving step types from command names (which can be ambiguous),
+    this function loads the step registry script and inverts it to find the actual
+    registered step type(s).
+    
+    .PARAMETER CommandName
+    The step handler command name (e.g., 'Invoke-IdleStepMailboxOutOfOfficeEnsure').
+    
+    .OUTPUTS
+    Array of step type strings registered for this command, or empty array if not found.
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -174,12 +189,37 @@ function Get-IdleStepTypeFromCommandName {
         [string] $CommandName
     )
 
-    $m = [regex]::Match($CommandName, '^Invoke-IdleStep(?<Type>.+)$')
-    if (-not $m.Success) {
-        return $null
+    # Load the step registry script to access its mappings
+    $registryPath = Join-Path $script:repoRoot 'src' 'IdLE.Core' 'Private' 'Get-IdleStepRegistry.ps1'
+    
+    if (-not (Test-Path $registryPath)) {
+        Write-Warning "Step registry not found at: $registryPath"
+        return @()
     }
 
-    return $m.Groups['Type'].Value
+    # Read the registry file and extract step type → handler mappings
+    $registryContent = Get-Content -Path $registryPath -Raw
+    
+    # Scan for command name and find nearby step type
+    $lines = $registryContent -split "`n"
+    $stepTypes = @()
+    
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match "CommandName\s+'$([regex]::Escape($CommandName))'") {
+            # Look backwards for the step type in the ContainsKey check
+            for ($j = $i; $j -ge [Math]::Max(0, $i - 10); $j--) {
+                if ($lines[$j] -match "ContainsKey\('([^']+)'\)") {
+                    $stepType = $matches[1]
+                    if ($stepType -and $stepType -notlike '*$*') {
+                        $stepTypes += $stepType
+                        break
+                    }
+                }
+            }
+        }
+    }
+    
+    return $stepTypes | Select-Object -Unique
 }
 
 function Get-IdleHelpSafe {
@@ -418,10 +458,15 @@ function New-IdleStepDocModel {
     )
 
     $commandName = $CommandInfo.Name
-    $stepType = Get-IdleStepTypeFromCommandName -CommandName $commandName
-    if ([string]::IsNullOrWhiteSpace($stepType)) {
+    $stepTypes = @(Get-IdleStepTypeFromCommandName -CommandName $commandName)
+    
+    if ($stepTypes.Count -eq 0) {
+        Write-Warning "No step types found in registry for command: $commandName"
         return $null
     }
+
+    # Use the first (or only) step type as the primary
+    $stepType = $stepTypes[0]
 
     $moduleName = Get-IdleCommandModuleName -CommandInfo $CommandInfo
     $help = Get-IdleHelpSafe -CommandName $commandName
@@ -454,7 +499,7 @@ function New-IdleStepDocModel {
         $idempotent = 'Yes'
     }
 
-    # Get required capabilities from metadata catalog
+    # Get required capabilities from metadata catalog (use primary step type)
     $requiredCapabilities = @(Get-IdleStepRequiredCapabilities -StepType $stepType -ModuleName $moduleName)
 
     $slug = ConvertTo-IdleStepSlug -StepType $stepType
@@ -558,7 +603,8 @@ function New-IdleStepDetailPageContent {
     [void]$sb.AppendLine('```powershell')
     [void]$sb.AppendLine('@{')
     [void]$sb.AppendLine(("  Name = '{0} Example'" -f $Model.StepType))
-    [void]$sb.AppendLine(("  Type = 'IdLE.Step.{0}'" -f $Model.StepType))
+    # StepType already includes the full name (e.g., 'IdLE.Step.Mailbox.EnsureType')
+    [void]$sb.AppendLine(("  Type = '{0}'" -f $Model.StepType))
     [void]$sb.AppendLine('  With = @{')
     
     if ($Model.RequiredWithKeys.Count -gt 0) {
@@ -721,7 +767,15 @@ foreach ($m in $StepModules) {
     if (Get-Module -Name $m) {
         # Check if the loaded module is from the repo (not PSModulePath)
         $loadedModule = Get-Module -Name $m
-        $isRepoModule = $loadedModule.ModuleBase -and $loadedModule.ModuleBase.StartsWith($repoRoot)
+        
+        # Normalize paths for case-insensitive comparison (Windows compatibility)
+        $loadedModuleBase = if ($loadedModule.ModuleBase) {
+            [System.IO.Path]::GetFullPath($loadedModule.ModuleBase)
+        } else { '' }
+        $repoRootNormalized = [System.IO.Path]::GetFullPath($repoRoot)
+        
+        $isRepoModule = $loadedModuleBase -and 
+                        $loadedModuleBase.StartsWith($repoRootNormalized, [System.StringComparison]::OrdinalIgnoreCase)
         
         if ($isRepoModule) {
             Write-Verbose "Step module '$m' already loaded from repo: $($loadedModule.ModuleBase)"

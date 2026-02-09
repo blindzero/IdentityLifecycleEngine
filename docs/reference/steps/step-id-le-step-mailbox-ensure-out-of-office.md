@@ -1,11 +1,11 @@
-# MailboxOutOfOfficeEnsure
+# IdLE.Step.Mailbox.EnsureOutOfOffice
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `MailboxOutOfOfficeEnsure`
+- **Step Type**: `IdLE.Step.Mailbox.EnsureOutOfOffice`
 - **Module**: `IdLE.Steps.Mailbox`
 - **Implementation**: `Invoke-IdleStepMailboxOutOfOfficeEnsure`
 - **Idempotent**: `Yes`
@@ -60,8 +60,8 @@ The following keys are required in the step's ``With`` configuration:
 
 ```powershell
 @{
-  Name = 'MailboxOutOfOfficeEnsure Example'
-  Type = 'IdLE.Step.MailboxOutOfOfficeEnsure'
+  Name = 'IdLE.Step.Mailbox.EnsureOutOfOffice Example'
+  Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
   With = @{
     Config               = '<value>'
     IdentityKey          = 'user.name'
