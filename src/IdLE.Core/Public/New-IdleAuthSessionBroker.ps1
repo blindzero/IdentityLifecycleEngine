@@ -196,7 +196,8 @@ function New-IdleAuthSessionBroker {
     }
 
     # Cache the validation function for performance (avoid repeated Get-Command calls per AcquireAuthSession invocation)
-    $validationScriptBlock = (Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -ErrorAction Stop).ScriptBlock
+    $validationCommand = Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -CommandType Function -Module $MyInvocation.MyCommand.Module -ErrorAction Stop
+    $validationScriptBlock = $validationCommand.ScriptBlock
 
     $broker = [pscustomobject]@{
         PSTypeName = 'IdLE.AuthSessionBroker'
