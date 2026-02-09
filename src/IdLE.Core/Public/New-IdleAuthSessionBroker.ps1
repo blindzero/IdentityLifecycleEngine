@@ -14,30 +14,32 @@ function New-IdleAuthSessionBroker {
 
     .PARAMETER SessionMap
     Optional hashtable that maps session configurations to auth sessions. Each key is a hashtable
-    representing the AuthSessionOptions pattern, and each value is the auth session to return.
-    The value can be a PSCredential, token string, session object, or any object appropriate
-    for the AuthSessionType.
+    representing the AuthSessionOptions pattern, and each value is either:
+    
+    - A direct credential/token (when -AuthSessionType is provided)
+    - A typed descriptor: @{ AuthSessionType = 'Credential'; Credential = $credential }
 
     Keys can include AuthSessionName for name-based routing:
-    - @{ AuthSessionName = 'AD'; Role = 'ADAdm' } -> $admAD (AuthSessionName + Role routing)
-    - @{ AuthSessionName = 'EXO' } -> $exoToken (AuthSessionName-only routing)
-    - @{ Role = 'Tier0' } -> $tier0Credential (Options-only routing, legacy support)
-    - @{ Server = 'AADConnect01' } -> $remoteSession (for PSRemoting scenarios)
-    - @{ Domain = 'SourceAD' } -> $sourceCred (for multi-forest scenarios)
-    - @{ Environment = 'Production' } -> $prodCred (for environment-specific routing)
+    - @{ AuthSessionName = 'AD'; Role = 'ADAdm' } -> $admCred or @{ AuthSessionType = 'Credential'; Credential = $admAD }
+    - @{ AuthSessionName = 'EXO' } -> $exoToken or @{ AuthSessionType = 'OAuth'; Credential = $exoToken }
+    - @{ Server = 'AADConnect01' } -> $remoteSession
+    - @{ Domain = 'SourceAD' } -> $sourceCred
+    - @{ Environment = 'Production' } -> $prodCred
 
     SessionMap is optional if DefaultAuthSession is provided.
 
     .PARAMETER DefaultAuthSession
     Optional default auth session to return when no session options are provided or
-    when the options don't match any entry in SessionMap. Can be a PSCredential, token
-    string, session object, or any object appropriate for the AuthSessionType.
+    when the options don't match any entry in SessionMap.
+
+    Can be a direct credential/token (when -AuthSessionType is provided) or a typed descriptor.
 
     At least one of SessionMap or DefaultAuthSession must be provided.
 
     .PARAMETER AuthSessionType
-    Specifies the type of authentication session. This determines validation rules,
-    lifecycle management, and telemetry behavior.
+    Optional default authentication session type. When provided, allows simple (untyped) 
+    session values in SessionMap and DefaultAuthSession. When not provided, all values 
+    must be typed descriptors.
 
     Valid values:
     - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
@@ -45,46 +47,48 @@ function New-IdleAuthSessionBroker {
     - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
 
     .EXAMPLE
-    # Simple single-credential broker (no SessionMap required)
+    # Simple single-credential broker (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -DefaultAuthSession $admCred -AuthSessionType 'Credential'
 
-    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
-        Identity = New-IdleADIdentityProvider
-        AuthSessionBroker = $broker
-    }
-
     .EXAMPLE
-    # AuthSessionName-based routing with roles
+    # AuthSessionName-based routing with roles (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ AuthSessionName = 'AD'; Role = 'ADAdm' } = $tier0Credential
         @{ AuthSessionName = 'AD'; Role = 'ADRead' } = $readOnlyCredential
     } -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
     .EXAMPLE
-    # OAuth broker with token strings
+    # OAuth broker with token strings (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Role = 'Admin' } = $graphToken
     } -DefaultAuthSession $graphToken -AuthSessionType 'OAuth'
 
     .EXAMPLE
-    # Domain-based broker for multi-forest scenarios with Credential session type
+    # Domain-based broker for multi-forest scenarios (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Domain = 'SourceAD' } = $sourceCred
         @{ Domain = 'TargetAD' } = $targetCred
     } -AuthSessionType 'Credential'
 
     .EXAMPLE
-    # PSRemoting broker for Entra Connect directory sync
+    # PSRemoting broker for Entra Connect directory sync (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Server = 'AADConnect01' } = $remoteSessionCred
     } -AuthSessionType 'PSRemoting'
 
     .EXAMPLE
-    # Environment-based routing for multi-environment scenarios
+    # Environment-based routing (with AuthSessionType)
     $broker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Environment = 'Production' } = $prodCred
         @{ Environment = 'Test' } = $testCred
     } -DefaultAuthSession $devCred -AuthSessionType 'Credential'
+
+    .EXAMPLE
+    # Mixed-type broker for AD (Credential) + EXO (OAuth) - typed descriptors
+    $broker = New-IdleAuthSessionBroker -SessionMap @{
+        @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $adCred }
+        @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $exoToken }
+    }
 
     .OUTPUTS
     PSCustomObject with AcquireAuthSession method
@@ -100,7 +104,7 @@ function New-IdleAuthSessionBroker {
         [AllowNull()]
         [object] $DefaultAuthSession,
 
-        [Parameter(Mandatory)]
+        [Parameter()]
         [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
         [string] $AuthSessionType
     )
@@ -110,11 +114,97 @@ function New-IdleAuthSessionBroker {
         throw "SessionMap is empty or null. DefaultAuthSession must be provided when SessionMap is not used."
     }
 
+    # Helper function to detect if a value is a typed session descriptor
+    $isTypedSession = {
+        param($value)
+
+        if ($null -eq $value) {
+            return $false
+        }
+
+        # Only support hashtable format (not PSCustomObject)
+        if ($value -is [hashtable]) {
+            return ($value.ContainsKey('AuthSessionType') -and $value.ContainsKey('Credential'))
+        }
+
+        return $false
+    }
+
+    # Helper function to normalize session value to internal format
+    $normalizeSessionValue = {
+        param($value, $defaultType, $context)
+
+        if ($null -eq $value) {
+            return $null
+        }
+
+        # Check if value is typed
+        if (& $isTypedSession $value) {
+            $sessionType = $value.AuthSessionType
+            $credential = $value.Credential
+
+            # Validate the provided AuthSessionType
+            if ($sessionType -notin @('OAuth', 'PSRemoting', 'Credential')) {
+                throw "Invalid AuthSessionType '$sessionType' in $context. Valid values: 'OAuth', 'PSRemoting', 'Credential'."
+            }
+
+            return @{
+                AuthSessionType = $sessionType
+                Credential = $credential
+            }
+        }
+
+        # Untyped value - use default type
+        if ([string]::IsNullOrEmpty($defaultType)) {
+            throw "Untyped session value found in $context. Either provide -AuthSessionType or use typed format: @{ AuthSessionType = '<type>'; Credential = `$value }"
+        }
+
+        return @{
+            AuthSessionType = $defaultType
+            Credential = $value
+        }
+    }
+
+    # Normalize SessionMap entries
+    $normalizedSessionMap = @{}
+    if ($null -ne $SessionMap -and $SessionMap.Count -gt 0) {
+        foreach ($entry in $SessionMap.GetEnumerator()) {
+            $pattern = $entry.Key
+            $value = $entry.Value
+
+            # Validate SessionMap key type before using hashtable members
+            if ($null -eq $pattern -or -not ($pattern -is [hashtable])) {
+                $patternType = if ($null -eq $pattern) { 'null' } else { $pattern.GetType().FullName }
+                throw [System.ArgumentException]::new(
+                    "Invalid SessionMap key type '$patternType'. SessionMap keys must be hashtables representing the AuthSessionOptions pattern.",
+                    'SessionMap'
+                )
+            }
+            # Create a readable pattern description for error messages
+            $patternDesc = ($pattern.Keys | ForEach-Object { "$_=$($pattern[$_])" }) -join ', '
+            $context = "SessionMap entry { $patternDesc }"
+
+            $normalizedValue = & $normalizeSessionValue $value $AuthSessionType $context
+            $normalizedSessionMap[$pattern] = $normalizedValue
+        }
+    }
+
+    # Normalize DefaultAuthSession
+    $normalizedDefaultAuthSession = $null
+    if ($null -ne $DefaultAuthSession) {
+        $normalizedDefaultAuthSession = & $normalizeSessionValue $DefaultAuthSession $AuthSessionType 'DefaultAuthSession'
+    }
+
+    # Cache the validation function for performance (avoid repeated Get-Command calls per AcquireAuthSession invocation)
+    $validationCommand = Get-Command -Name 'Assert-IdleAuthSessionMatchesType' -CommandType Function -Module $MyInvocation.MyCommand.Module -ErrorAction Stop
+    $validationScriptBlock = $validationCommand.ScriptBlock
+
     $broker = [pscustomobject]@{
         PSTypeName = 'IdLE.AuthSessionBroker'
-        SessionMap = $SessionMap
-        DefaultAuthSession = $DefaultAuthSession
+        SessionMap = $normalizedSessionMap
+        DefaultAuthSession = $normalizedDefaultAuthSession
         AuthSessionType = $AuthSessionType
+        ValidateAuthSession = $validationScriptBlock
     }
 
     $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
@@ -128,17 +218,15 @@ function New-IdleAuthSessionBroker {
             [hashtable] $Options
         )
 
-        # TODO: Implement type-specific validation rules for AuthSessionType
-        # Current implementation allows all options for all session types
-        # Future enhancements may add:
-        # - OAuth: Validate token format, expiration, scopes
-        # - PSRemoting: Validate remote session state, connectivity
-        # - Credential: Validate credential format, domain membership
-
         # Empty string signals default session request
         if ([string]::IsNullOrEmpty($Name)) {
             if ($null -ne $this.DefaultAuthSession) {
-                return $this.DefaultAuthSession
+                $normalized = $this.DefaultAuthSession
+
+                # Validate type before returning
+                & $this.ValidateAuthSession -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName '<default>'
+
+                return $normalized.Credential
             }
             throw "No default auth session configured."
         }
@@ -146,7 +234,12 @@ function New-IdleAuthSessionBroker {
         # If SessionMap is null or empty, return default
         if ($null -eq $this.SessionMap -or $this.SessionMap.Count -eq 0) {
             if ($null -ne $this.DefaultAuthSession) {
-                return $this.DefaultAuthSession
+                $normalized = $this.DefaultAuthSession
+
+                # Validate type before returning
+                & $this.ValidateAuthSession -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
+
+                return $normalized.Credential
             }
             throw "No SessionMap configured and no default auth session available."
         }
@@ -228,7 +321,12 @@ function New-IdleAuthSessionBroker {
 
         # Return first match if exactly one found
         if ($matchingEntries.Count -eq 1) {
-            return $matchingEntries[0].Value
+            $normalized = $matchingEntries[0].Value
+
+            # Validate type before returning
+            & $this.ValidateAuthSession -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
+
+            return $normalized.Credential
         }
         
         # If multiple matches, this is ambiguous - fail with clear error
@@ -243,7 +341,12 @@ function New-IdleAuthSessionBroker {
 
         # No match found - fall back to default
         if ($null -ne $this.DefaultAuthSession) {
-            return $this.DefaultAuthSession
+            $normalized = $this.DefaultAuthSession
+
+            # Validate type before returning
+            & $this.ValidateAuthSession -AuthSessionType $normalized.AuthSessionType -Session $normalized.Credential -SessionName $Name
+
+            return $normalized.Credential
         }
 
         # No match and no default

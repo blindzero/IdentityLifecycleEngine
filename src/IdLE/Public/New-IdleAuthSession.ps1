@@ -25,8 +25,8 @@ function New-IdleAuthSession {
     Optional default auth session to return when no session options are provided.
 
     .PARAMETER AuthSessionType
-    Specifies the type of authentication session. This determines validation rules,
-    lifecycle management, and telemetry behavior.
+    Optional default authentication session type. When provided, allows simple (untyped) 
+    session values. When not provided, values must be typed descriptors.
 
     Valid values:
     - 'OAuth': Token-based authentication (e.g., Microsoft Graph, Exchange Online)
@@ -34,9 +34,15 @@ function New-IdleAuthSession {
     - 'Credential': Credential-based authentication (e.g., Active Directory, mock providers)
 
     .EXAMPLE
+    # Simple broker with single credential
+    $broker = New-IdleAuthSession -DefaultAuthSession $credential -AuthSessionType 'Credential'
+
+    .EXAMPLE
+    # Mixed-type broker for AD + EXO
     $broker = New-IdleAuthSession -SessionMap @{
-        @{ Role = 'Tier0' } = $tier0Credential
-    } -AuthSessionType 'Credential'
+        @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $adCred }
+        @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $token }
+    }
 
     .OUTPUTS
     PSCustomObject with AcquireAuthSession method
@@ -55,20 +61,21 @@ function New-IdleAuthSession {
         [AllowNull()]
         [object] $DefaultAuthSession,
 
-        [Parameter(Mandatory)]
+        [Parameter()]
         [ValidateSet('OAuth', 'PSRemoting', 'Credential')]
         [string] $AuthSessionType
     )
 
     # Delegate to IdLE.Core implementation.
-    $params = @{ 
-        AuthSessionType = $AuthSessionType
-    }
+    $params = @{}
     if ($PSBoundParameters.ContainsKey('SessionMap')) {
         $params['SessionMap'] = $SessionMap
     }
     if ($PSBoundParameters.ContainsKey('DefaultAuthSession')) {
         $params['DefaultAuthSession'] = $DefaultAuthSession
+    }
+    if ($PSBoundParameters.ContainsKey('AuthSessionType')) {
+        $params['AuthSessionType'] = $AuthSessionType
     }
     
     return IdLE.Core\New-IdleAuthSessionBroker @params
