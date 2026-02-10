@@ -1480,9 +1480,9 @@ Describe 'AD identity provider' {
             $updatedUser.Manager | Should -Be $managerUser.DistinguishedName
         }
 
-        It 'CreateIdentity throws when Manager sAMAccountName does not exist' {
-            # The fake adapter auto-creates users on lookup for contract test compatibility
-            # To test resolution failure, we need to use a GUID that doesn't exist
+        It 'CreateIdentity throws when Manager GUID does not exist' {
+            # The fake adapter auto-creates users on sAMAccountName/UPN lookup for contract test compatibility
+            # To test resolution failure, we use a non-existent GUID
             $nonExistentGuid = [guid]::NewGuid().ToString()
             
             $attrs = @{
