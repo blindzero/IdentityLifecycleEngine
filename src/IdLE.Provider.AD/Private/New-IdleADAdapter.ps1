@@ -140,6 +140,9 @@ function New-IdleADAdapter {
             [bool] $Enabled = $true
         )
 
+        # Create a local copy of Attributes to avoid mutating the caller's hashtable
+        $effectiveAttributes = $Attributes.Clone()
+
         # Classify IdentityKey: GUID, UPN, or SamAccountName-like
         $isGuid = $false
         $isUpn = $false
@@ -157,11 +160,11 @@ function New-IdleADAdapter {
         }
 
         # 1. Derive SamAccountName from IdentityKey if missing
-        $hasSamAccountName = $Attributes.ContainsKey('SamAccountName') -and -not [string]::IsNullOrWhiteSpace($Attributes['SamAccountName'])
+        $hasSamAccountName = $effectiveAttributes.ContainsKey('SamAccountName') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['SamAccountName'])
         
         if (-not $hasSamAccountName) {
             if ($isSamAccountNameLike) {
-                $Attributes['SamAccountName'] = $IdentityKey
+                $effectiveAttributes['SamAccountName'] = $IdentityKey
                 Write-Verbose "AD Provider: Derived SamAccountName='$IdentityKey' from IdentityKey (SamAccountName-like)"
             }
             elseif ($isUpn) {
@@ -173,28 +176,28 @@ function New-IdleADAdapter {
         }
 
         # 2. Auto-set UserPrincipalName when IdentityKey is a UPN
-        $hasUpn = $Attributes.ContainsKey('UserPrincipalName') -and -not [string]::IsNullOrWhiteSpace($Attributes['UserPrincipalName'])
+        $hasUpn = $effectiveAttributes.ContainsKey('UserPrincipalName') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['UserPrincipalName'])
         
         if (-not $hasUpn -and $isUpn) {
-            $Attributes['UserPrincipalName'] = $IdentityKey
+            $effectiveAttributes['UserPrincipalName'] = $IdentityKey
             Write-Verbose "AD Provider: Derived UserPrincipalName='$IdentityKey' from IdentityKey (UPN format)"
         }
 
         # 3. Derive CN/RDN Name with priority: Name > DisplayName > GivenName+Surname > IdentityKey
         $derivedName = $null
-        $hasExplicitName = $Attributes.ContainsKey('Name') -and -not [string]::IsNullOrWhiteSpace($Attributes['Name'])
+        $hasExplicitName = $effectiveAttributes.ContainsKey('Name') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['Name'])
         
         if ($hasExplicitName) {
-            $derivedName = $Attributes['Name']
+            $derivedName = $effectiveAttributes['Name']
             Write-Verbose "AD Provider: Using explicit Name='$derivedName' for CN/RDN"
         }
-        elseif ($Attributes.ContainsKey('DisplayName') -and -not [string]::IsNullOrWhiteSpace($Attributes['DisplayName'])) {
-            $derivedName = $Attributes['DisplayName']
+        elseif ($effectiveAttributes.ContainsKey('DisplayName') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['DisplayName'])) {
+            $derivedName = $effectiveAttributes['DisplayName']
             Write-Verbose "AD Provider: Derived CN/RDN Name='$derivedName' from DisplayName"
         }
-        elseif ($Attributes.ContainsKey('GivenName') -and -not [string]::IsNullOrWhiteSpace($Attributes['GivenName']) -and 
-                $Attributes.ContainsKey('Surname') -and -not [string]::IsNullOrWhiteSpace($Attributes['Surname'])) {
-            $derivedName = "$($Attributes['GivenName']) $($Attributes['Surname'])"
+        elseif ($effectiveAttributes.ContainsKey('GivenName') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['GivenName']) -and 
+                $effectiveAttributes.ContainsKey('Surname') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['Surname'])) {
+            $derivedName = "$($effectiveAttributes['GivenName']) $($effectiveAttributes['Surname'])"
             Write-Verbose "AD Provider: Derived CN/RDN Name='$derivedName' from GivenName+Surname"
         }
         else {
@@ -208,47 +211,47 @@ function New-IdleADAdapter {
             ErrorAction = 'Stop'
         }
 
-        if ($Attributes.ContainsKey('SamAccountName')) {
-            $params['SamAccountName'] = $Attributes['SamAccountName']
+        if ($effectiveAttributes.ContainsKey('SamAccountName')) {
+            $params['SamAccountName'] = $effectiveAttributes['SamAccountName']
         }
-        if ($Attributes.ContainsKey('UserPrincipalName')) {
-            $params['UserPrincipalName'] = $Attributes['UserPrincipalName']
+        if ($effectiveAttributes.ContainsKey('UserPrincipalName')) {
+            $params['UserPrincipalName'] = $effectiveAttributes['UserPrincipalName']
         }
-        if ($Attributes.ContainsKey('Path')) {
-            $params['Path'] = $Attributes['Path']
+        if ($effectiveAttributes.ContainsKey('Path')) {
+            $params['Path'] = $effectiveAttributes['Path']
         }
-        if ($Attributes.ContainsKey('GivenName')) {
-            $params['GivenName'] = $Attributes['GivenName']
+        if ($effectiveAttributes.ContainsKey('GivenName')) {
+            $params['GivenName'] = $effectiveAttributes['GivenName']
         }
-        if ($Attributes.ContainsKey('Surname')) {
-            $params['Surname'] = $Attributes['Surname']
+        if ($effectiveAttributes.ContainsKey('Surname')) {
+            $params['Surname'] = $effectiveAttributes['Surname']
         }
-        if ($Attributes.ContainsKey('DisplayName')) {
-            $params['DisplayName'] = $Attributes['DisplayName']
+        if ($effectiveAttributes.ContainsKey('DisplayName')) {
+            $params['DisplayName'] = $effectiveAttributes['DisplayName']
         }
-        if ($Attributes.ContainsKey('Description')) {
-            $params['Description'] = $Attributes['Description']
+        if ($effectiveAttributes.ContainsKey('Description')) {
+            $params['Description'] = $effectiveAttributes['Description']
         }
-        if ($Attributes.ContainsKey('Department')) {
-            $params['Department'] = $Attributes['Department']
+        if ($effectiveAttributes.ContainsKey('Department')) {
+            $params['Department'] = $effectiveAttributes['Department']
         }
-        if ($Attributes.ContainsKey('Title')) {
-            $params['Title'] = $Attributes['Title']
+        if ($effectiveAttributes.ContainsKey('Title')) {
+            $params['Title'] = $effectiveAttributes['Title']
         }
-        if ($Attributes.ContainsKey('EmailAddress')) {
-            $params['EmailAddress'] = $Attributes['EmailAddress']
+        if ($effectiveAttributes.ContainsKey('EmailAddress')) {
+            $params['EmailAddress'] = $effectiveAttributes['EmailAddress']
         }
 
         # Password handling: support SecureString, ProtectedString, and explicit PlainText
-        $hasAccountPassword = $Attributes.ContainsKey('AccountPassword')
-        $hasAccountPasswordAsPlainText = $Attributes.ContainsKey('AccountPasswordAsPlainText')
+        $hasAccountPassword = $effectiveAttributes.ContainsKey('AccountPassword')
+        $hasAccountPasswordAsPlainText = $effectiveAttributes.ContainsKey('AccountPasswordAsPlainText')
 
         if ($hasAccountPassword -and $hasAccountPasswordAsPlainText) {
             throw "Ambiguous password configuration: both 'AccountPassword' and 'AccountPasswordAsPlainText' are provided. Use only one."
         }
 
         if ($hasAccountPassword) {
-            $passwordValue = $Attributes['AccountPassword']
+            $passwordValue = $effectiveAttributes['AccountPassword']
 
             if ($null -eq $passwordValue) {
                 throw "AccountPassword: Value cannot be null. Provide a SecureString or ProtectedString (from ConvertFrom-SecureString)."
@@ -282,7 +285,7 @@ function New-IdleADAdapter {
         }
 
         if ($hasAccountPasswordAsPlainText) {
-            $plainTextPassword = $Attributes['AccountPasswordAsPlainText']
+            $plainTextPassword = $effectiveAttributes['AccountPasswordAsPlainText']
 
             if ($null -eq $plainTextPassword) {
                 throw "AccountPasswordAsPlainText: Value cannot be null. Provide a non-empty plaintext password string."
