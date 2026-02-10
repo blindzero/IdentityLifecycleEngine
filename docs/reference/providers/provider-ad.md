@@ -528,7 +528,7 @@ The following built-in steps in `IdLE.Steps.Common` work with the AD provider:
 - **IdLE.Step.DisableIdentity** - Disable user accounts
 - **IdLE.Step.EnableIdentity** - Enable user accounts
 - **IdLE.Step.MoveIdentity** - Move users between OUs
-- **IdLE.Step.DeleteIdentity** - Delete user accounts (requires `IdLE.Identity.Delete` capability)
+- **IdLE.Step.DeleteIdentity** - Delete user accounts (requires provider initialization with `-AllowDelete` switch)
 - **IdLE.Step.EnsureAttribute** - Set/update user attributes
 - **IdLE.Step.EnsureEntitlement** - Manage group memberships
 
