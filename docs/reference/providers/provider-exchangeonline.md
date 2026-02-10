@@ -365,6 +365,47 @@ IdLE provides stable idempotency for HTML messages by normalizing server-side ca
 }
 ```
 
+**Loading messages from external files:**
+
+For long or complex HTML messages, you can load content from external files using the `@{ FromFile = 'path' }` pattern:
+
+```powershell
+@{
+  Name = 'Set OOF with external templates'
+  Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
+  With = @{
+    Provider    = 'ExchangeOnline'
+    IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
+    Config      = @{
+      Mode            = 'Enabled'
+      MessageFormat   = 'Html'
+      InternalMessage = @{ FromFile = './templates/oof-internal.html' }
+      ExternalMessage = @{ FromFile = './templates/oof-external.html' }
+      ExternalAudience = 'All'
+    }
+  }
+}
+```
+
+**Template file example** (`./templates/oof-internal.html`):
+
+```html
+<p>This mailbox is no longer monitored.</p>
+<p>For urgent matters, please contact:</p>
+<ul>
+  <li><strong>Manager:</strong> <a href="mailto:{{Request.DesiredState.Manager.Mail}}">{{Request.DesiredState.Manager.DisplayName}}</a></li>
+  <li><strong>Service Desk:</strong> <a href="mailto:servicedesk@contoso.com">Service Desk</a></li>
+</ul>
+```
+
+**Notes on file loading:**
+
+- File paths can be absolute or relative (relative paths resolve from current working directory)
+- Template placeholders (`{{...}}`) work in both the file path and file content
+- Files must exist at planning time (when `New-IdlePlan` is called)
+- File content is loaded as UTF-8
+- This keeps workflows clean and allows reuse of message templates across multiple workflows
+
 ---
 
 ## Limitations and known issues
