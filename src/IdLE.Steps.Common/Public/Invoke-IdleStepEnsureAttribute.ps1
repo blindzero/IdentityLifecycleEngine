@@ -4,10 +4,15 @@ function Invoke-IdleStepEnsureAttribute {
     Ensures that an identity attribute matches the desired value.
 
     .DESCRIPTION
-    This is a provider-agnostic step. The host must supply a provider instance via
-    Context.Providers[<ProviderAlias>]. The provider must implement an EnsureAttribute
-    method with the signature (IdentityKey, Name, Value) and return an object that
-    contains a boolean property 'Changed'.
+    [DEPRECATED] This step type is deprecated. Use IdLE.Step.EnsureAttributes instead.
+
+    This is a compatibility wrapper that delegates to Invoke-IdleStepEnsureAttributes.
+    It converts the singular With.Name/With.Value syntax to the plural With.Attributes
+    hashtable format.
+
+    The host must supply a provider instance via Context.Providers[<ProviderAlias>].
+    The provider must implement an EnsureAttribute method with the signature
+    (IdentityKey, Name, Value) and return an object that contains a boolean property 'Changed'.
 
     The step is idempotent by design: it converges state to the desired value.
 
@@ -50,36 +55,28 @@ function Invoke-IdleStepEnsureAttribute {
         }
     }
 
-    $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'Identity' }
-
-    if (-not ($Context.PSObject.Properties.Name -contains 'Providers')) {
-        throw "Context does not contain a Providers hashtable."
+    # Convert singular syntax to plural format
+    $attributeName = [string]$with.Name
+    $attributeValue = $with.Value
+    
+    $pluralWith = $with.Clone()
+    $pluralWith.Remove('Name')
+    $pluralWith.Remove('Value')
+    $pluralWith['Attributes'] = @{
+        $attributeName = $attributeValue
     }
-    if ($null -eq $Context.Providers -or -not ($Context.Providers -is [hashtable])) {
-        throw "Context.Providers must be a hashtable."
+    
+    $pluralStep = [pscustomobject]@{
+        Name = $Step.Name
+        Type = 'IdLE.Step.EnsureAttributes'
+        With = $pluralWith
     }
-    if (-not $Context.Providers.ContainsKey($providerAlias)) {
-        throw "Provider '$providerAlias' was not supplied by the host."
-    }
-
-    $result = Invoke-IdleProviderMethod `
-        -Context $Context `
-        -With $with `
-        -ProviderAlias $providerAlias `
-        -MethodName 'EnsureAttribute' `
-        -MethodArguments @([string]$with.IdentityKey, [string]$with.Name, $with.Value)
-
-    $changed = $false
-    if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
-        $changed = [bool]$result.Changed
-    }
-
-    return [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = [string]$Step.Name
-        Type       = [string]$Step.Type
-        Status     = 'Completed'
-        Changed    = $changed
-        Error      = $null
-    }
+    
+    # Delegate to plural handler
+    $result = Invoke-IdleStepEnsureAttributes -Context $Context -Step $pluralStep
+    
+    # Preserve the original step type in the result
+    $result.Type = [string]$Step.Type
+    
+    return $result
 }

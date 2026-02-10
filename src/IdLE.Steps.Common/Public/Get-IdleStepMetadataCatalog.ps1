@@ -54,7 +54,13 @@ function Get-IdleStepMetadataCatalog {
     }
 
     # IdLE.Step.EnsureAttribute - requires identity attribute ensure capability
+    # [DEPRECATED] Use IdLE.Step.EnsureAttributes instead
     $catalog['IdLE.Step.EnsureAttribute'] = @{
+        RequiredCapabilities = @('IdLE.Identity.Attribute.Ensure')
+    }
+
+    # IdLE.Step.EnsureAttributes - requires identity attribute ensure capability
+    $catalog['IdLE.Step.EnsureAttributes'] = @{
         RequiredCapabilities = @('IdLE.Identity.Attribute.Ensure')
     }
 
