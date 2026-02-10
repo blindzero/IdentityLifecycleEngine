@@ -44,6 +44,99 @@ function New-IdleADAdapter {
         return $escaped
     } -Force
 
+    # Add Manager DN validation helper
+    $adapter | Add-Member -MemberType ScriptMethod -Name TestManagerDN -Value {
+        param(
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [object] $Value
+        )
+
+        if ($null -eq $Value) {
+            return $true
+        }
+
+        if ($Value -isnot [string]) {
+            throw "Manager must be a DistinguishedName (DN) string, but received type: $($Value.GetType().FullName)"
+        }
+
+        if ([string]::IsNullOrWhiteSpace($Value)) {
+            throw "Manager must be a DistinguishedName (DN) string, but received empty or whitespace-only value."
+        }
+
+        if (-not ($Value -match '=' -and $Value -match ',')) {
+            throw "Manager must be a DistinguishedName (DN). Expected format: 'CN=Name,OU=Unit,DC=domain,DC=com'. Received: '$Value'"
+        }
+
+        return $true
+    } -Force
+
+    # Add Manager DN resolution helper
+    # Accepts DN, GUID, UPN, or sAMAccountName and resolves to DN
+    $adapter | Add-Member -MemberType ScriptMethod -Name ResolveManagerDN -Value {
+        param(
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [object] $Value
+        )
+
+        if ($null -eq $Value) {
+            return $null
+        }
+
+        if ($Value -isnot [string]) {
+            throw "Manager must be a string (DN, GUID, UPN, or sAMAccountName), but received type: $($Value.GetType().FullName)"
+        }
+
+        if ([string]::IsNullOrWhiteSpace($Value)) {
+            throw "Manager cannot be an empty or whitespace-only string."
+        }
+
+        # Check if already a DN (contains = and ,)
+        if ($Value -match '=' -and $Value -match ',') {
+            # Already a DN, validate and return
+            $this.TestManagerDN($Value) | Out-Null
+            return $Value
+        }
+
+        # Try to resolve as GUID, UPN, or sAMAccountName
+        Write-Verbose "Manager value '$Value' is not a DN. Attempting to resolve to DN..."
+
+        # Try GUID format first
+        $guid = [System.Guid]::Empty
+        if ([System.Guid]::TryParse($Value, [ref]$guid)) {
+            try {
+                $managerUser = $this.GetUserByGuid($guid.ToString())
+                if ($null -ne $managerUser) {
+                    Write-Verbose "Resolved Manager GUID '$Value' to DN: $($managerUser.DistinguishedName)"
+                    return $managerUser.DistinguishedName
+                }
+            }
+            catch {
+                Write-Verbose "Failed to resolve Manager GUID '$Value': $_"
+            }
+            throw "Manager: Could not find user with GUID '$Value'."
+        }
+
+        # Try UPN format (contains @)
+        if ($Value -match '@') {
+            $managerUser = $this.GetUserByUpn($Value)
+            if ($null -ne $managerUser) {
+                Write-Verbose "Resolved Manager UPN '$Value' to DN: $($managerUser.DistinguishedName)"
+                return $managerUser.DistinguishedName
+            }
+            throw "Manager: Could not find user with UPN '$Value'."
+        }
+
+        # Fallback to sAMAccountName
+        $managerUser = $this.GetUserBySam($Value)
+        if ($null -ne $managerUser) {
+            Write-Verbose "Resolved Manager sAMAccountName '$Value' to DN: $($managerUser.DistinguishedName)"
+            return $managerUser.DistinguishedName
+        }
+        throw "Manager: Could not find user with sAMAccountName '$Value'."
+    } -Force
+
     $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
         param(
             [Parameter(Mandatory)]
@@ -56,7 +149,7 @@ function New-IdleADAdapter {
         $escapedUpn = $escapedUpn -replace '''', ''''''
         $params = @{
             Filter     = "UserPrincipalName -eq '$escapedUpn'"
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
+            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -85,7 +178,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Filter     = "sAMAccountName -eq '$escapedSam'"
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
+            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -110,7 +203,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Identity   = $Guid
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
+            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -241,6 +334,13 @@ function New-IdleADAdapter {
         if ($effectiveAttributes.ContainsKey('EmailAddress')) {
             $params['EmailAddress'] = $effectiveAttributes['EmailAddress']
         }
+        if ($effectiveAttributes.ContainsKey('Manager')) {
+            $managerValue = $effectiveAttributes['Manager']
+            $resolvedManagerDN = $this.ResolveManagerDN($managerValue)
+            if ($null -ne $resolvedManagerDN) {
+                $params['Manager'] = $resolvedManagerDN
+            }
+        }
 
         # Password handling: support SecureString, ProtectedString, and explicit PlainText
         $hasAccountPassword = $effectiveAttributes.ContainsKey('AccountPassword')
@@ -346,6 +446,14 @@ function New-IdleADAdapter {
             'Title' { $params['Title'] = $Value }
             'EmailAddress' { $params['EmailAddress'] = $Value }
             'UserPrincipalName' { $params['UserPrincipalName'] = $Value }
+            'Manager' {
+                # Expect $Value to be a normalized DN or $null.
+                if ($null -eq $Value) {
+                    $params['Clear'] = 'manager'
+                } else {
+                    $params['Manager'] = $Value
+                }
+            }
             default {
                 $params['Replace'] = @{ $AttributeName = $Value }
             }
