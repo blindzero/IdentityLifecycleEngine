@@ -75,6 +75,57 @@ Describe 'AD identity provider' {
                 return $true
             } -Force
 
+            # Add Manager DN resolution helper (matching real adapter)
+            $adapter | Add-Member -MemberType ScriptMethod -Name ResolveManagerDN -Value {
+                param(
+                    [Parameter(Mandatory)]
+                    [AllowNull()]
+                    [object] $Value
+                )
+
+                if ($null -eq $Value) {
+                    return $null
+                }
+
+                if ($Value -isnot [string]) {
+                    throw "Manager must be a string (DN, GUID, UPN, or sAMAccountName), but received type: $($Value.GetType().FullName)"
+                }
+
+                if ([string]::IsNullOrWhiteSpace($Value)) {
+                    throw "Manager cannot be an empty or whitespace-only string."
+                }
+
+                # Check if already a DN (contains = and ,)
+                if ($Value -match '=' -and $Value -match ',') {
+                    $this.TestManagerDN($Value) | Out-Null
+                    return $Value
+                }
+
+                # Try to resolve as GUID, UPN, or sAMAccountName
+                $guid = [System.Guid]::Empty
+                if ([System.Guid]::TryParse($Value, [ref]$guid)) {
+                    $managerUser = $this.GetUserByGuid($guid.ToString())
+                    if ($null -ne $managerUser) {
+                        return $managerUser.DistinguishedName
+                    }
+                    throw "Manager: Could not find user with GUID '$Value'."
+                }
+
+                if ($Value -match '@') {
+                    $managerUser = $this.GetUserByUpn($Value)
+                    if ($null -ne $managerUser) {
+                        return $managerUser.DistinguishedName
+                    }
+                    throw "Manager: Could not find user with UPN '$Value'."
+                }
+
+                $managerUser = $this.GetUserBySam($Value)
+                if ($null -ne $managerUser) {
+                    return $managerUser.DistinguishedName
+                }
+                throw "Manager: Could not find user with sAMAccountName '$Value'."
+            } -Force
+
             # Auto-creation behavior: The fake adapter auto-creates identities on lookup
             # to support provider contract tests (which expect this behavior from test providers).
             # This differs from the real AD adapter which will throw when an identity is not found.
@@ -226,9 +277,10 @@ Describe 'AD identity provider' {
                     }
                 }
 
-                # Manager validation (same as real adapter)
+                # Manager resolution (same as real adapter)
+                $resolvedManager = $null
                 if ($Attributes.ContainsKey('Manager')) {
-                    $this.TestManagerDN($Attributes['Manager']) | Out-Null
+                    $resolvedManager = $this.ResolveManagerDN($Attributes['Manager'])
                 }
 
                 $newGuid = [guid]::NewGuid().ToString()
@@ -249,7 +301,7 @@ Describe 'AD identity provider' {
                     Department         = $Attributes['Department']
                     Title              = $Attributes['Title']
                     EmailAddress       = $Attributes['EmailAddress']
-                    Manager            = $Attributes['Manager']
+                    Manager            = $resolvedManager
                     Groups             = @()
                 }
 
@@ -272,13 +324,13 @@ Describe 'AD identity provider' {
                     throw "User not found: $Identity"
                 }
 
-                # Handle Manager attribute with validation
+                # Handle Manager attribute with resolution
                 if ($AttributeName -eq 'Manager') {
-                    $this.TestManagerDN($Value) | Out-Null
+                    $resolvedManagerDN = $this.ResolveManagerDN($Value)
                     if ($null -eq $user.PSObject.Properties['Manager']) {
-                        $user | Add-Member -MemberType NoteProperty -Name 'Manager' -Value $Value -Force
+                        $user | Add-Member -MemberType NoteProperty -Name 'Manager' -Value $resolvedManagerDN -Force
                     } else {
-                        $user.Manager = $Value
+                        $user.Manager = $resolvedManagerDN
                     }
                     return
                 }
@@ -1211,13 +1263,17 @@ Describe 'AD identity provider' {
             $user.Manager | Should -Be 'CN=Jane Doe,OU=Managers,DC=contoso,DC=com'
         }
 
-        It 'CreateIdentity throws when Manager is not a DN format' {
+        It 'CreateIdentity throws when Manager GUID does not exist' {
+            # The fake adapter auto-creates users on sAMAccountName/UPN lookup for contract tests
+            # Use a non-existent GUID to test resolution failure
+            $nonExistentGuid = [guid]::NewGuid().ToString()
+            
             $attrs = @{
                 SamAccountName = 'managertest2'
-                Manager = 'InvalidFormat'
+                Manager = $nonExistentGuid  # Non-existent GUID
             }
 
-            { $script:ManagerTestAdapter.NewUser('managertest2', $attrs, $true) } | Should -Throw -ExpectedMessage '*Manager must be a DistinguishedName*'
+            { $script:ManagerTestAdapter.NewUser('managertest2', $attrs, $true) } | Should -Throw -ExpectedMessage '*Could not find user*'
         }
 
         It 'CreateIdentity throws when Manager is not a string' {
@@ -1226,7 +1282,7 @@ Describe 'AD identity provider' {
                 Manager = 12345
             }
 
-            { $script:ManagerTestAdapter.NewUser('managertest3', $attrs, $true) } | Should -Throw -ExpectedMessage '*Manager must be a DistinguishedName (DN) string*'
+            { $script:ManagerTestAdapter.NewUser('managertest3', $attrs, $true) } | Should -Throw -ExpectedMessage '*Manager must be a string*'
         }
 
         It 'CreateIdentity throws when Manager is empty string' {
@@ -1235,7 +1291,7 @@ Describe 'AD identity provider' {
                 Manager = '   '
             }
 
-            { $script:ManagerTestAdapter.NewUser('managertest4', $attrs, $true) } | Should -Throw -ExpectedMessage '*Manager must be a DistinguishedName (DN) string*'
+            { $script:ManagerTestAdapter.NewUser('managertest4', $attrs, $true) } | Should -Throw -ExpectedMessage '*Manager cannot be an empty*'
         }
 
         It 'EnsureAttribute sets Manager when valid DN is provided' {
@@ -1283,20 +1339,23 @@ Describe 'AD identity provider' {
             $updatedUser.Manager | Should -BeNullOrEmpty
         }
 
-        It 'EnsureAttribute throws when Manager value is not a DN format' {
+        It 'EnsureAttribute throws when Manager GUID does not exist' {
             $attrs = @{
                 SamAccountName = 'managertest7'
             }
             $user = $script:ManagerTestAdapter.NewUser('managertest7', $attrs, $true)
 
+            # Use a non-existent GUID to test resolution failure
+            $nonExistentGuid = [guid]::NewGuid().ToString()
+            
             { 
                 $script:ManagerTestProvider.EnsureAttribute(
                     'managertest7',
                     'Manager',
-                    'NotADN',
+                    $nonExistentGuid,  # Non-existent GUID
                     $null
                 )
-            } | Should -Throw -ExpectedMessage '*Manager must be a DistinguishedName*'
+            } | Should -Throw -ExpectedMessage '*Could not find user*'
         }
 
         It 'EnsureAttribute is idempotent when Manager is already set to target value' {
@@ -1334,6 +1393,104 @@ Describe 'AD identity provider' {
             )
 
             $result.Changed | Should -Be $false
+        }
+
+        It 'CreateIdentity resolves Manager from sAMAccountName' {
+            # First create a manager user
+            $managerAttrs = @{
+                SamAccountName = 'jsmith'
+                GivenName = 'Jane'
+                Surname = 'Smith'
+            }
+            $managerUser = $script:ManagerTestAdapter.NewUser('jsmith', $managerAttrs, $true)
+
+            # Create employee with manager specified by sAMAccountName
+            $attrs = @{
+                SamAccountName = 'managertest10'
+                Manager = 'jsmith'  # sAMAccountName instead of DN
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest10', $attrs, $true)
+            
+            # Verify Manager was resolved to DN
+            $user.Manager | Should -Be $managerUser.DistinguishedName
+        }
+
+        It 'CreateIdentity resolves Manager from UPN' {
+            # First create a manager user
+            $managerAttrs = @{
+                SamAccountName = 'bwilson'
+                UserPrincipalName = 'bwilson@domain.local'
+            }
+            $managerUser = $script:ManagerTestAdapter.NewUser('bwilson', $managerAttrs, $true)
+
+            # Create employee with manager specified by UPN
+            $attrs = @{
+                SamAccountName = 'managertest11'
+                Manager = 'bwilson@domain.local'  # UPN instead of DN
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest11', $attrs, $true)
+            
+            # Verify Manager was resolved to DN
+            $user.Manager | Should -Be $managerUser.DistinguishedName
+        }
+
+        It 'CreateIdentity resolves Manager from GUID' {
+            # First create a manager user
+            $managerAttrs = @{
+                SamAccountName = 'tjones'
+            }
+            $managerUser = $script:ManagerTestAdapter.NewUser('tjones', $managerAttrs, $true)
+
+            # Create employee with manager specified by GUID
+            $attrs = @{
+                SamAccountName = 'managertest12'
+                Manager = $managerUser.ObjectGuid.ToString()  # GUID instead of DN
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest12', $attrs, $true)
+            
+            # Verify Manager was resolved to DN
+            $user.Manager | Should -Be $managerUser.DistinguishedName
+        }
+
+        It 'EnsureAttribute resolves Manager from sAMAccountName' {
+            # Create a manager user
+            $managerAttrs = @{
+                SamAccountName = 'mdavis'
+            }
+            $managerUser = $script:ManagerTestAdapter.NewUser('mdavis', $managerAttrs, $true)
+
+            # Create employee without manager
+            $attrs = @{
+                SamAccountName = 'managertest13'
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest13', $attrs, $true)
+
+            # Set manager via sAMAccountName
+            $result = $script:ManagerTestProvider.EnsureAttribute(
+                'managertest13',
+                'Manager',
+                'mdavis',  # sAMAccountName instead of DN
+                $null
+            )
+
+            $result.Changed | Should -Be $true
+            
+            # Verify manager was resolved to DN
+            $updatedUser = $script:ManagerTestAdapter.Store[$user.ObjectGuid.ToString()]
+            $updatedUser.Manager | Should -Be $managerUser.DistinguishedName
+        }
+
+        It 'CreateIdentity throws when Manager sAMAccountName does not exist' {
+            # The fake adapter auto-creates users on lookup for contract test compatibility
+            # To test resolution failure, we need to use a GUID that doesn't exist
+            $nonExistentGuid = [guid]::NewGuid().ToString()
+            
+            $attrs = @{
+                SamAccountName = 'managertest14'
+                Manager = $nonExistentGuid  # Non-existent GUID
+            }
+
+            { $script:ManagerTestAdapter.NewUser('managertest14', $attrs, $true) } | Should -Throw -ExpectedMessage '*Could not find user*'
         }
     }
 }

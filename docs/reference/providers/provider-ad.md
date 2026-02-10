@@ -606,14 +606,24 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 ### Manager Attribute Handling
 
-The AD provider supports the `Manager` attribute for both `CreateIdentity` and `EnsureAttribute` operations.
+The AD provider supports the `Manager` attribute for both `CreateIdentity` and `EnsureAttribute` operations with automatic DN resolution.
 
-**Requirements:**
-- Manager value MUST be a Distinguished Name (DN) string
-- Format: `CN=Name,OU=Unit,DC=domain,DC=com`
-- Invalid formats will throw a validation error
+**Supported Input Formats:**
 
-**CreateIdentity with Manager:**
+The Manager value can be specified in multiple formats, which will be automatically resolved to a Distinguished Name (DN):
+
+- **Distinguished Name (DN)**: Direct DN string (no resolution needed)
+  - Example: `CN=Jane Smith,OU=Managers,DC=contoso,DC=local`
+- **GUID**: User's ObjectGuid (resolved to DN)
+  - Example: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+- **UPN**: UserPrincipalName (resolved to DN)
+  - Example: `jsmith@contoso.local`
+- **sAMAccountName**: Simple username (resolved to DN)
+  - Example: `jsmith`
+
+The provider automatically detects the format and resolves it to the manager's DN. If the manager cannot be found, an error is thrown with a clear message.
+
+**CreateIdentity with Manager (DN):**
 
 ```powershell
 @{
@@ -626,14 +636,33 @@ The AD provider supports the `Manager` attribute for both `CreateIdentity` and `
       GivenName = 'John'
       Surname = 'Doe'
       UserPrincipalName = 'jdoe@contoso.local'
-      Manager = 'CN=Jane Smith,OU=Managers,DC=contoso,DC=local'
+      Manager = 'CN=Jane Smith,OU=Managers,DC=contoso,DC=local'  # DN
     }
     AuthSessionName = 'ActiveDirectory'
   }
 }
 ```
 
-**Setting Manager via EnsureAttribute:**
+**CreateIdentity with Manager (sAMAccountName):**
+
+```powershell
+@{
+  Name = 'CreateUserWithManagerSam'
+  Type = 'IdLE.Step.CreateIdentity'
+  With = @{
+    Provider = 'Identity'
+    IdentityKey = 'jdoe'
+    Attributes = @{
+      GivenName = 'John'
+      Surname = 'Doe'
+      Manager = 'jsmith'  # Will be resolved to DN automatically
+    }
+    AuthSessionName = 'ActiveDirectory'
+  }
+}
+```
+
+**Setting Manager via EnsureAttribute (UPN):**
 
 ```powershell
 @{
@@ -643,7 +672,7 @@ The AD provider supports the `Manager` attribute for both `CreateIdentity` and `
     Provider = 'Identity'
     IdentityKey = 'jdoe'
     Name = 'Manager'
-    Value = 'CN=Jane Smith,OU=Managers,DC=contoso,DC=local'
+    Value = 'jsmith@contoso.local'  # UPN - will be resolved to DN
     AuthSessionName = 'ActiveDirectory'
   }
 }
@@ -666,6 +695,8 @@ To clear the Manager attribute, set the value to `$null`:
   }
 }
 ```
+
+**Note:** Clearing the Manager attribute using `$null` works correctly in PSD1 workflow files. PowerShell evaluates `$null` at load time.
 
 ### Complete example workflows
 
