@@ -348,6 +348,7 @@ function New-IdleExchangeOnlineProvider {
         $currentConfig = $this.GetOutOfOffice($mailbox.PrimarySmtpAddress, $AuthSession)
 
         # Idempotency check with message normalization for stable comparison
+        # Check all fields independently to detect any configuration drift
         $changed = $false
         
         # Check mode
@@ -356,7 +357,7 @@ function New-IdleExchangeOnlineProvider {
         }
         
         # Check internal message with normalization
-        if (-not $changed -and $Config.ContainsKey('InternalMessage')) {
+        if ($Config.ContainsKey('InternalMessage')) {
             # Use normalization to handle server-side HTML canonicalization
             $normalizedCurrent = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $currentConfig.InternalMessage
             $normalizedDesired = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $Config['InternalMessage']
@@ -366,7 +367,7 @@ function New-IdleExchangeOnlineProvider {
         }
         
         # Check external message with normalization
-        if (-not $changed -and $Config.ContainsKey('ExternalMessage')) {
+        if ($Config.ContainsKey('ExternalMessage')) {
             # Use normalization to handle server-side HTML canonicalization
             $normalizedCurrent = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $currentConfig.ExternalMessage
             $normalizedDesired = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $Config['ExternalMessage']
@@ -376,12 +377,12 @@ function New-IdleExchangeOnlineProvider {
         }
         
         # Check external audience
-        if (-not $changed -and $Config.ContainsKey('ExternalAudience') -and $currentConfig.ExternalAudience -ne $Config['ExternalAudience']) {
+        if ($Config.ContainsKey('ExternalAudience') -and $currentConfig.ExternalAudience -ne $Config['ExternalAudience']) {
             $changed = $true
         }
         
         # Check scheduled mode dates
-        if (-not $changed -and $mode -eq 'Scheduled') {
+        if ($mode -eq 'Scheduled') {
             # Compare dates (allow small tolerance for serialization differences)
             # Tolerance: 60 seconds to account for rounding during serialization/deserialization
             $dateComparisonToleranceSeconds = 60
