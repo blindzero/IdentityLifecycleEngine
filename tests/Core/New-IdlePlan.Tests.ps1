@@ -19,13 +19,23 @@ Describe 'New-IdlePlan' {
 '@
 
         $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        
+        # Create a dummy provider with the required capability for EnsureAttributes
+        $dummyProvider = [pscustomobject]@{
+            PSTypeName = 'IdLE.Provider.TestDummy'
+        }
+        $dummyProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+            return @('IdLE.Identity.Attribute.Ensure')
+        }
+        
         $providers = @{
             Dummy        = $true
+            Identity     = $dummyProvider
             StepRegistry = @{
                 'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
                 'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
             }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity', 'IdLE.Step.EnsureAttributes')
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
         }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 

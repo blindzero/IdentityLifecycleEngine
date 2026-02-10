@@ -1,32 +1,31 @@
-# IdLE.Step.EnsureAttribute
+# IdLE.Step.EnsureAttributes
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `IdLE.Step.EnsureAttribute`
+- **Step Type**: `IdLE.Step.EnsureAttributes`
 - **Module**: `IdLE.Steps.Common`
-- **Implementation**: `Invoke-IdleStepEnsureAttribute`
+- **Implementation**: `Invoke-IdleStepEnsureAttributes`
 - **Idempotent**: `Yes`
 
 ## Synopsis
 
-Ensures that an identity attribute matches the desired value.
+Ensures that multiple identity attributes match their desired values.
 
 ## Description
 
-[DEPRECATED] This step type is deprecated. Use IdLE.Step.EnsureAttributes instead.
-
-This is a compatibility wrapper that delegates to Invoke-IdleStepEnsureAttributes.
-It converts the singular With.Name/With.Value syntax to the plural With.Attributes
-hashtable format.
-
+This is a provider-agnostic step that can ensure multiple attributes in a single step.
 The host must supply a provider instance via Context.Providers[&lt;ProviderAlias&gt;].
-The provider must implement an EnsureAttribute method with the signature
-(IdentityKey, Name, Value) and return an object that contains a boolean property 'Changed'.
 
-The step is idempotent by design: it converges state to the desired value.
+Provider interaction strategy:
+
+1. If the provider implements EnsureAttributes(IdentityKey, AttributesHashtable), it is called once (fast path).
+
+2. Otherwise, the step falls back to calling EnsureAttribute(IdentityKey, Name, Value) for each attribute.
+
+The step is idempotent by design: it converges state to the desired values.
 
 Authentication:
 
@@ -45,20 +44,18 @@ The following keys are required in the step's ``With`` configuration:
 
 | Key | Required | Description |
 | --- | --- | --- |
+| `Attributes` | Yes | Hashtable of attributes to set |
 | `IdentityKey` | Yes | Unique identifier for the identity |
-| `Name` | Yes | Name of the attribute or property |
-| `Value` | Yes | Desired value to set |
 
 ## Example
 
 ```powershell
 @{
-  Name = 'IdLE.Step.EnsureAttribute Example'
-  Type = 'IdLE.Step.EnsureAttribute'
+  Name = 'IdLE.Step.EnsureAttributes Example'
+  Type = 'IdLE.Step.EnsureAttributes'
   With = @{
+    Attributes           = @{ GivenName = 'First'; Surname = 'Last' }
     IdentityKey          = 'user.name'
-    Name                 = 'AttributeName'
-    Value                = 'AttributeValue'
   }
 }
 ```
