@@ -473,11 +473,12 @@ Describe 'ExchangeOnline provider - Unit tests' {
             $normalized | Should -Be '<p>Test message</p>'
         }
 
-        It 'normalizes multiple spaces to single space' {
+        It 'normalizes excessive spaces conservatively' {
             $input = '<p>Test    message     here</p>'
             $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
             
-            $normalized | Should -Be '<p>Test message here</p>'
+            # 3+ spaces become 2 spaces (conservative normalization)
+            $normalized | Should -Be '<p>Test  message  here</p>'
         }
 
         It 'handles empty string input' {
