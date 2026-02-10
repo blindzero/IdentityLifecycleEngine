@@ -37,6 +37,11 @@ Out of Office Config shape (data-only hashtable):
 
 - ExternalAudience: 'None' | 'Known' | 'All' (optional, default provider-specific)
 
+- MessageFormat: 'Text' | 'Html' (optional, default 'Text')
+  When set to 'Html', messages are treated as HTML markup and passed through without modification.
+  When set to 'Text', messages are treated as plain text.
+  Providers may normalize HTML to ensure stable idempotency (e.g., handling server-side wrapping).
+
 Authentication:
 
 - If With.AuthSessionName is present, the step acquires an auth session via

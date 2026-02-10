@@ -1,7 +1,7 @@
 @{
     Name           = 'ExchangeOnline Leaver - Mailbox Offboarding'
     LifecycleEvent = 'Leaver'
-    Description    = 'Converts mailbox to shared, enables Out of Office with dynamic manager contact info, and optionally delegates access for offboarding users.'
+    Description    = 'Converts mailbox to shared, enables Out of Office with HTML-formatted dynamic manager contact info, and optionally delegates access for offboarding users.'
     Steps          = @(
         @{
             Name = 'GetMailboxInfo'
@@ -28,8 +28,19 @@
                 IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
                 Config      = @{
                     Mode            = 'Enabled'
-                    InternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.DisplayName}} ({{Request.DesiredState.Manager.Mail}}).'
-                    ExternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.Mail}}.'
+                    MessageFormat   = 'Html'
+                    InternalMessage = @'
+<p>This mailbox is no longer monitored.</p>
+<p>For urgent matters, please contact:</p>
+<ul>
+  <li><strong>Manager:</strong> <a href="mailto:{{Request.DesiredState.Manager.Mail}}">{{Request.DesiredState.Manager.DisplayName}}</a></li>
+  <li><strong>Service Desk:</strong> <a href="mailto:servicedesk@contoso.com">Service Desk</a></li>
+</ul>
+'@
+                    ExternalMessage = @'
+<p>This mailbox is no longer monitored.</p>
+<p>Please contact our <strong>Service Desk</strong> at <a href="mailto:servicedesk@contoso.com">servicedesk@contoso.com</a>.</p>
+'@
                     ExternalAudience = 'All'
                 }
             }

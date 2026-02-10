@@ -295,6 +295,76 @@ $req = New-IdleLifecycleRequest `
   }
 ```
 
+### HTML formatted Out of Office messages
+
+Exchange Online supports formatted automatic reply messages with HTML markup (bold, links, lists, line breaks). 
+IdLE provides stable idempotency for HTML messages by normalizing server-side canonicalization.
+
+**Example with HTML formatted messages:**
+
+```powershell
+@{
+  Name = 'Set formatted OOF for Leaver'
+  Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
+  With = @{
+    Provider    = 'ExchangeOnline'
+    IdentityKey = 'user@contoso.com'
+    Config      = @{
+      Mode            = 'Enabled'
+      MessageFormat   = 'Html'
+      InternalMessage = @'
+<p>This mailbox is no longer monitored.</p>
+<p>For urgent matters, please contact:</p>
+<ul>
+  <li><strong>Manager:</strong> <a href="mailto:manager@contoso.com">Jane Manager</a></li>
+  <li><strong>Service Desk:</strong> <a href="mailto:servicedesk@contoso.com">servicedesk@contoso.com</a></li>
+</ul>
+'@
+      ExternalMessage = @'
+<p>This mailbox is no longer monitored.</p>
+<p>Please contact our <strong>Service Desk</strong> at <a href="mailto:servicedesk@contoso.com">servicedesk@contoso.com</a>.</p>
+'@
+      ExternalAudience = 'All'
+    }
+  }
+}
+```
+
+**Idempotency behavior:**
+
+- When `MessageFormat = 'Html'`, the provider normalizes messages for comparison to handle Exchange server-side HTML canonicalization.
+- Common normalization operations include:
+  - Line ending normalization (CRLF ↔ LF)
+  - Removal of Exchange-added HTML wrappers (`<html>`, `<head>`, `<body>`)
+  - Whitespace normalization
+- This ensures workflows report `Changed = $false` on subsequent runs when the effective message content has not changed.
+
+**Combining HTML with template variables:**
+
+```powershell
+@{
+  Name = 'Set formatted OOF with dynamic manager'
+  Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
+  With = @{
+    Provider    = 'ExchangeOnline'
+    IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
+    Config      = @{
+      Mode            = 'Enabled'
+      MessageFormat   = 'Html'
+      InternalMessage = @'
+<p>This mailbox is no longer monitored.</p>
+<p>For urgent matters, please contact <a href="mailto:{{Request.DesiredState.Manager.Mail}}">{{Request.DesiredState.Manager.DisplayName}}</a>.</p>
+'@
+      ExternalMessage = @'
+<p>This mailbox is no longer monitored.</p>
+<p>Please contact our <strong>Service Desk</strong> at <a href="mailto:servicedesk@contoso.com">servicedesk@contoso.com</a>.</p>
+'@
+      ExternalAudience = 'All'
+    }
+  }
+}
+```
+
 ---
 
 ## Limitations and known issues
