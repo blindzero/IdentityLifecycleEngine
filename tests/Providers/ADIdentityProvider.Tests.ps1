@@ -125,35 +125,11 @@ Describe 'AD identity provider' {
             $adapter | Add-Member -MemberType ScriptMethod -Name NewUser -Value {
                 param([string]$IdentityKey, [hashtable]$Attributes, [bool]$Enabled)
                 
-                # Classify IdentityKey: GUID, UPN, or SamAccountName-like
-                $isGuid = $false
-                $isUpn = $false
-                $isSamAccountNameLike = $false
-
-                $guid = [System.Guid]::Empty
-                if ([System.Guid]::TryParse($IdentityKey, [ref]$guid)) {
-                    $isGuid = $true
-                }
-                elseif ($IdentityKey -match '@') {
-                    $isUpn = $true
-                }
-                else {
-                    $isSamAccountNameLike = $true
-                }
-
-                # 1. Derive SamAccountName from IdentityKey if missing
+                # Minimal behavior: require SamAccountName to be provided explicitly
                 $hasSamAccountName = $Attributes.ContainsKey('SamAccountName') -and -not [string]::IsNullOrWhiteSpace($Attributes['SamAccountName'])
                 
                 if (-not $hasSamAccountName) {
-                    if ($isSamAccountNameLike) {
-                        $Attributes['SamAccountName'] = $IdentityKey
-                    }
-                    elseif ($isUpn) {
-                        throw "SamAccountName is required when IdentityKey is a UPN. IdentityKey='$IdentityKey' appears to be a UPN (contains '@'). Please provide an explicit 'SamAccountName' in Attributes."
-                    }
-                    elseif ($isGuid) {
-                        throw "SamAccountName is required when IdentityKey is a GUID. IdentityKey='$IdentityKey' is a GUID. Please provide an explicit 'SamAccountName' in Attributes."
-                    }
+                    throw "SamAccountName is required when creating a new user in the test adapter. Please provide a 'SamAccountName' entry in Attributes."
                 }
 
                 # 2. Auto-set UserPrincipalName when IdentityKey is a UPN
