@@ -441,17 +441,11 @@ function New-IdleEntraIDAdapter {
         )
 
         $uri = "$($this.BaseUri)/users/$ObjectId/revokeSignInSessions"
-        
-        try {
-            $response = $this.InvokeGraphRequest('POST', $uri, $AccessToken, $null)
-            # Graph returns { "@odata.context": "...", "value": true/false }
-            # The value indicates whether sessions were revoked
-            return $response
-        }
-        catch {
-            # If user not found or other errors, let them propagate
-            throw
-        }
+
+        $response = $this.InvokeGraphRequest('POST', $uri, $AccessToken, $null)
+        # Graph returns { "@odata.context": "...", "value": true/false }
+        # The value indicates whether sessions were revoked
+        return $response
     } -Force
 
     return $adapter
