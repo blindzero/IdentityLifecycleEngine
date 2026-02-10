@@ -447,11 +447,11 @@ function New-IdleADAdapter {
             'EmailAddress' { $params['EmailAddress'] = $Value }
             'UserPrincipalName' { $params['UserPrincipalName'] = $Value }
             'Manager' {
-                $resolvedManagerDN = $this.ResolveManagerDN($Value)
-                if ($null -eq $resolvedManagerDN) {
+                # Expect $Value to be a normalized DN or $null.
+                if ($null -eq $Value) {
                     $params['Clear'] = 'manager'
                 } else {
-                    $params['Manager'] = $resolvedManagerDN
+                    $params['Manager'] = $Value
                 }
             }
             default {
