@@ -44,6 +44,33 @@ function New-IdleADAdapter {
         return $escaped
     } -Force
 
+    # Add Manager DN validation helper
+    $adapter | Add-Member -MemberType ScriptMethod -Name TestManagerDN -Value {
+        param(
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [object] $Value
+        )
+
+        if ($null -eq $Value) {
+            return $true
+        }
+
+        if ($Value -isnot [string]) {
+            throw "Manager must be a DistinguishedName (DN) string, but received type: $($Value.GetType().FullName)"
+        }
+
+        if ([string]::IsNullOrWhiteSpace($Value)) {
+            throw "Manager must be a DistinguishedName (DN) string, but received empty or whitespace-only value."
+        }
+
+        if (-not ($Value -match '=' -and $Value -match ',')) {
+            throw "Manager must be a DistinguishedName (DN). Expected format: 'CN=Name,OU=Unit,DC=domain,DC=com'. Received: '$Value'"
+        }
+
+        return $true
+    } -Force
+
     $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
         param(
             [Parameter(Mandatory)]
@@ -56,7 +83,7 @@ function New-IdleADAdapter {
         $escapedUpn = $escapedUpn -replace '''', ''''''
         $params = @{
             Filter     = "UserPrincipalName -eq '$escapedUpn'"
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
+            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -85,7 +112,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Filter     = "sAMAccountName -eq '$escapedSam'"
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
+            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -110,7 +137,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Identity   = $Guid
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName')
+            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -241,6 +268,11 @@ function New-IdleADAdapter {
         if ($effectiveAttributes.ContainsKey('EmailAddress')) {
             $params['EmailAddress'] = $effectiveAttributes['EmailAddress']
         }
+        if ($effectiveAttributes.ContainsKey('Manager')) {
+            $managerValue = $effectiveAttributes['Manager']
+            $this.TestManagerDN($managerValue) | Out-Null
+            $params['Manager'] = $managerValue
+        }
 
         # Password handling: support SecureString, ProtectedString, and explicit PlainText
         $hasAccountPassword = $effectiveAttributes.ContainsKey('AccountPassword')
@@ -346,6 +378,14 @@ function New-IdleADAdapter {
             'Title' { $params['Title'] = $Value }
             'EmailAddress' { $params['EmailAddress'] = $Value }
             'UserPrincipalName' { $params['UserPrincipalName'] = $Value }
+            'Manager' {
+                $this.TestManagerDN($Value) | Out-Null
+                if ($null -eq $Value) {
+                    $params['Clear'] = 'manager'
+                } else {
+                    $params['Manager'] = $Value
+                }
+            }
             default {
                 $params['Replace'] = @{ $AttributeName = $Value }
             }

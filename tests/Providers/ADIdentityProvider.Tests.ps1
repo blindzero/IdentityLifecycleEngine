@@ -48,6 +48,33 @@ Describe 'AD identity provider' {
                 Store      = $store
             }
 
+            # Add Manager DN validation helper (matching real adapter)
+            $adapter | Add-Member -MemberType ScriptMethod -Name TestManagerDN -Value {
+                param(
+                    [Parameter(Mandatory)]
+                    [AllowNull()]
+                    [object] $Value
+                )
+
+                if ($null -eq $Value) {
+                    return $true
+                }
+
+                if ($Value -isnot [string]) {
+                    throw "Manager must be a DistinguishedName (DN) string, but received type: $($Value.GetType().FullName)"
+                }
+
+                if ([string]::IsNullOrWhiteSpace($Value)) {
+                    throw "Manager must be a DistinguishedName (DN) string, but received empty or whitespace-only value."
+                }
+
+                if (-not ($Value -match '=' -and $Value -match ',')) {
+                    throw "Manager must be a DistinguishedName (DN). Expected format: 'CN=Name,OU=Unit,DC=domain,DC=com'. Received: '$Value'"
+                }
+
+                return $true
+            } -Force
+
             # Auto-creation behavior: The fake adapter auto-creates identities on lookup
             # to support provider contract tests (which expect this behavior from test providers).
             # This differs from the real AD adapter which will throw when an identity is not found.
@@ -79,6 +106,7 @@ Describe 'AD identity provider' {
                     Department         = $null
                     Title              = $null
                     EmailAddress       = $null
+                    Manager            = $null
                     Groups             = @()
                 }
                 $this.Store[$guid] = $user
@@ -108,6 +136,7 @@ Describe 'AD identity provider' {
                     Department         = $null
                     Title              = $null
                     EmailAddress       = $null
+                    Manager            = $null
                     Groups             = @()
                 }
                 $this.Store[$guid] = $user
@@ -197,6 +226,11 @@ Describe 'AD identity provider' {
                     }
                 }
 
+                # Manager validation (same as real adapter)
+                if ($Attributes.ContainsKey('Manager')) {
+                    $this.TestManagerDN($Attributes['Manager']) | Out-Null
+                }
+
                 $newGuid = [guid]::NewGuid().ToString()
                 $sam = $Attributes['SamAccountName']
                 $upn = if ($Attributes.ContainsKey('UserPrincipalName')) { $Attributes['UserPrincipalName'] } else { "$sam@domain.local" }
@@ -215,6 +249,7 @@ Describe 'AD identity provider' {
                     Department         = $Attributes['Department']
                     Title              = $Attributes['Title']
                     EmailAddress       = $Attributes['EmailAddress']
+                    Manager            = $Attributes['Manager']
                     Groups             = @()
                 }
 
@@ -235,6 +270,17 @@ Describe 'AD identity provider' {
 
                 if ($null -eq $user) {
                     throw "User not found: $Identity"
+                }
+
+                # Handle Manager attribute with validation
+                if ($AttributeName -eq 'Manager') {
+                    $this.TestManagerDN($Value) | Out-Null
+                    if ($null -eq $user.PSObject.Properties['Manager']) {
+                        $user | Add-Member -MemberType NoteProperty -Name 'Manager' -Value $Value -Force
+                    } else {
+                        $user.Manager = $Value
+                    }
+                    return
                 }
 
                 # Handle known properties
@@ -1141,6 +1187,153 @@ Describe 'AD identity provider' {
             
             # Verify the default Path was used
             $user.DistinguishedName | Should -BeLike '*OU=Users,DC=domain,DC=local'
+        }
+    }
+
+    Context 'Manager attribute handling' {
+        BeforeAll {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            $script:ManagerTestProvider = $provider
+            $script:ManagerTestAdapter = $adapter
+        }
+
+        It 'CreateIdentity sets Manager when valid DN is provided' {
+            $attrs = @{
+                SamAccountName = 'managertest1'
+                GivenName = 'Test'
+                Surname = 'User'
+                Manager = 'CN=Jane Doe,OU=Managers,DC=contoso,DC=com'
+            }
+
+            $user = $script:ManagerTestAdapter.NewUser('managertest1', $attrs, $true)
+            
+            $user.Manager | Should -Be 'CN=Jane Doe,OU=Managers,DC=contoso,DC=com'
+        }
+
+        It 'CreateIdentity throws when Manager is not a DN format' {
+            $attrs = @{
+                SamAccountName = 'managertest2'
+                Manager = 'InvalidFormat'
+            }
+
+            { $script:ManagerTestAdapter.NewUser('managertest2', $attrs, $true) } | Should -Throw -ExpectedMessage '*Manager must be a DistinguishedName*'
+        }
+
+        It 'CreateIdentity throws when Manager is not a string' {
+            $attrs = @{
+                SamAccountName = 'managertest3'
+                Manager = 12345
+            }
+
+            { $script:ManagerTestAdapter.NewUser('managertest3', $attrs, $true) } | Should -Throw -ExpectedMessage '*Manager must be a DistinguishedName (DN) string*'
+        }
+
+        It 'CreateIdentity throws when Manager is empty string' {
+            $attrs = @{
+                SamAccountName = 'managertest4'
+                Manager = '   '
+            }
+
+            { $script:ManagerTestAdapter.NewUser('managertest4', $attrs, $true) } | Should -Throw -ExpectedMessage '*Manager must be a DistinguishedName (DN) string*'
+        }
+
+        It 'EnsureAttribute sets Manager when valid DN is provided' {
+            # Create user without manager
+            $attrs = @{
+                SamAccountName = 'managertest5'
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest5', $attrs, $true)
+
+            # Set manager via EnsureAttribute (use sAMAccountName as IdentityKey)
+            $result = $script:ManagerTestProvider.EnsureAttribute(
+                'managertest5',
+                'Manager',
+                'CN=John Smith,OU=Managers,DC=contoso,DC=com',
+                $null
+            )
+
+            $result.Changed | Should -Be $true
+            
+            # Verify manager was set
+            $updatedUser = $script:ManagerTestAdapter.Store[$user.ObjectGuid.ToString()]
+            $updatedUser.Manager | Should -Be 'CN=John Smith,OU=Managers,DC=contoso,DC=com'
+        }
+
+        It 'EnsureAttribute clears Manager when Value is $null' {
+            # Create user with manager
+            $attrs = @{
+                SamAccountName = 'managertest6'
+                Manager = 'CN=Jane Doe,OU=Managers,DC=contoso,DC=com'
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest6', $attrs, $true)
+
+            # Clear manager via EnsureAttribute (use sAMAccountName as IdentityKey)
+            $result = $script:ManagerTestProvider.EnsureAttribute(
+                'managertest6',
+                'Manager',
+                $null,
+                $null
+            )
+
+            $result.Changed | Should -Be $true
+            
+            # Verify manager was cleared
+            $updatedUser = $script:ManagerTestAdapter.Store[$user.ObjectGuid.ToString()]
+            $updatedUser.Manager | Should -BeNullOrEmpty
+        }
+
+        It 'EnsureAttribute throws when Manager value is not a DN format' {
+            $attrs = @{
+                SamAccountName = 'managertest7'
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest7', $attrs, $true)
+
+            { 
+                $script:ManagerTestProvider.EnsureAttribute(
+                    'managertest7',
+                    'Manager',
+                    'NotADN',
+                    $null
+                )
+            } | Should -Throw -ExpectedMessage '*Manager must be a DistinguishedName*'
+        }
+
+        It 'EnsureAttribute is idempotent when Manager is already set to target value' {
+            # Create user with manager
+            $attrs = @{
+                SamAccountName = 'managertest8'
+                Manager = 'CN=Jane Doe,OU=Managers,DC=contoso,DC=com'
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest8', $attrs, $true)
+
+            # Set same manager again (use sAMAccountName as IdentityKey)
+            $result = $script:ManagerTestProvider.EnsureAttribute(
+                'managertest8',
+                'Manager',
+                'CN=Jane Doe,OU=Managers,DC=contoso,DC=com',
+                $null
+            )
+
+            $result.Changed | Should -Be $false
+        }
+
+        It 'EnsureAttribute is idempotent when Manager is already cleared' {
+            # Create user without manager
+            $attrs = @{
+                SamAccountName = 'managertest9'
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest9', $attrs, $true)
+
+            # Clear manager (already cleared) (use sAMAccountName as IdentityKey)
+            $result = $script:ManagerTestProvider.EnsureAttribute(
+                'managertest9',
+                'Manager',
+                $null,
+                $null
+            )
+
+            $result.Changed | Should -Be $false
         }
     }
 }
