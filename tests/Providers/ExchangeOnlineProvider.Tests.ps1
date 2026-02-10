@@ -392,5 +392,119 @@ Describe 'ExchangeOnline provider - Unit tests' {
             $oofConfig = $provider.GetOutOfOffice('user11@contoso.com', $null)
             $oofConfig.ExternalAudience | Should -Be 'All'
         }
+
+        It 'handles HTML normalization for stable idempotency' {
+            Add-TestMailbox -PrimarySmtpAddress 'user12@contoso.com'
+            
+            # Set initial OOF with plain HTML message
+            $initialConfig = @{
+                Mode            = 'Enabled'
+                InternalMessage = '<p>Out of office</p>'
+                ExternalMessage = 'Currently unavailable'
+            }
+            $provider.EnsureOutOfOffice('user12@contoso.com', $initialConfig, $null) | Out-Null
+            
+            # Simulate Exchange wrapping the message in HTML/body tags
+            $wrappedMessage = "<html><head></head><body>`r`n<p>Out of office</p>`r`n</body></html>"
+            $fakeAdapter.Store.AutoReply['user12@contoso.com']['InternalMessage'] = $wrappedMessage
+            
+            # Re-run with same logical message (should be idempotent)
+            $result = $provider.EnsureOutOfOffice('user12@contoso.com', $initialConfig, $null)
+            
+            # Should detect no change despite server-side wrapping
+            $result.Changed | Should -Be $false
+        }
+
+        It 'handles line ending normalization for stable idempotency' {
+            Add-TestMailbox -PrimarySmtpAddress 'user13@contoso.com'
+            
+            # Set initial OOF with LF line endings
+            $messageWithLF = "Line 1`nLine 2`nLine 3"
+            $initialConfig = @{
+                Mode            = 'Enabled'
+                InternalMessage = $messageWithLF
+            }
+            $provider.EnsureOutOfOffice('user13@contoso.com', $initialConfig, $null) | Out-Null
+            
+            # Simulate Exchange returning CRLF line endings
+            $messageWithCRLF = "Line 1`r`nLine 2`r`nLine 3"
+            $fakeAdapter.Store.AutoReply['user13@contoso.com']['InternalMessage'] = $messageWithCRLF
+            
+            # Re-run with LF message (should be idempotent)
+            $result = $provider.EnsureOutOfOffice('user13@contoso.com', $initialConfig, $null)
+            
+            # Should detect no change despite line ending differences
+            $result.Changed | Should -Be $false
+        }
+    }
+
+    Context 'Normalize-IdleExchangeOnlineAutoReplyMessage' {
+        BeforeAll {
+            # Import the private normalization function for direct testing
+            $repoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
+            $normalizeFunctionPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\Private\Normalize-IdleExchangeOnlineAutoReplyMessage.ps1'
+            
+            if (-not (Test-Path -LiteralPath $normalizeFunctionPath -PathType Leaf)) {
+                throw "Normalize-IdleExchangeOnlineAutoReplyMessage script not found at: $normalizeFunctionPath"
+            }
+            
+            # Dot-source the private function
+            . $normalizeFunctionPath
+        }
+        
+        It 'removes HTML wrappers' {
+            $input = '<html><head></head><body><p>Test message</p></body></html>'
+            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            
+            $normalized | Should -Be '<p>Test message</p>'
+        }
+
+        It 'normalizes CRLF to LF' {
+            $input = "Line 1`r`nLine 2`r`nLine 3"
+            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            
+            $normalized | Should -Be "Line 1`nLine 2`nLine 3"
+        }
+
+        It 'trims leading and trailing whitespace' {
+            $input = "   <p>Test message</p>   `n`n"
+            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            
+            $normalized | Should -Be '<p>Test message</p>'
+        }
+
+        It 'normalizes excessive spaces conservatively' {
+            $input = '<p>Test    message     here</p>'
+            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            
+            # 3+ spaces become 2 spaces (conservative normalization)
+            $normalized | Should -Be '<p>Test  message  here</p>'
+        }
+
+        It 'handles empty string input' {
+            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message ''
+            
+            $normalized | Should -Be ''
+        }
+
+        It 'handles null input' {
+            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $null
+            
+            $normalized | Should -Be ''
+        }
+
+        It 'removes DOCTYPE declarations' {
+            $input = '<!DOCTYPE html><html><body><p>Test</p></body></html>'
+            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            
+            $normalized | Should -Be '<p>Test</p>'
+        }
+
+        It 'preserves intentional HTML formatting' {
+            $input = '<p>This is <strong>important</strong> and <a href="mailto:test@example.com">contact us</a>.</p>'
+            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            
+            $normalized | Should -Be '<p>This is <strong>important</strong> and <a href="mailto:test@example.com">contact us</a>.</p>'
+        }
     }
 }

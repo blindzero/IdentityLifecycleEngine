@@ -347,21 +347,42 @@ function New-IdleExchangeOnlineProvider {
         # Get current config for idempotency check
         $currentConfig = $this.GetOutOfOffice($mailbox.PrimarySmtpAddress, $AuthSession)
 
-        # Simple idempotency check: if mode matches and messages match, skip update
+        # Idempotency check with message normalization for stable comparison
+        # Check all fields independently to detect any configuration drift
         $changed = $false
+        
+        # Check mode
         if ($currentConfig.Mode -ne $mode) {
             $changed = $true
         }
-        elseif ($Config.ContainsKey('InternalMessage') -and $currentConfig.InternalMessage -ne $Config['InternalMessage']) {
+        
+        # Check internal message with normalization
+        if ($Config.ContainsKey('InternalMessage')) {
+            # Use normalization to handle server-side HTML canonicalization
+            $normalizedCurrent = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $currentConfig.InternalMessage
+            $normalizedDesired = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $Config['InternalMessage']
+            if ($normalizedCurrent -ne $normalizedDesired) {
+                $changed = $true
+            }
+        }
+        
+        # Check external message with normalization
+        if ($Config.ContainsKey('ExternalMessage')) {
+            # Use normalization to handle server-side HTML canonicalization
+            $normalizedCurrent = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $currentConfig.ExternalMessage
+            $normalizedDesired = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $Config['ExternalMessage']
+            if ($normalizedCurrent -ne $normalizedDesired) {
+                $changed = $true
+            }
+        }
+        
+        # Check external audience
+        if ($Config.ContainsKey('ExternalAudience') -and $currentConfig.ExternalAudience -ne $Config['ExternalAudience']) {
             $changed = $true
         }
-        elseif ($Config.ContainsKey('ExternalMessage') -and $currentConfig.ExternalMessage -ne $Config['ExternalMessage']) {
-            $changed = $true
-        }
-        elseif ($Config.ContainsKey('ExternalAudience') -and $currentConfig.ExternalAudience -ne $Config['ExternalAudience']) {
-            $changed = $true
-        }
-        elseif ($mode -eq 'Scheduled') {
+        
+        # Check scheduled mode dates
+        if ($mode -eq 'Scheduled') {
             # Compare dates (allow small tolerance for serialization differences)
             # Tolerance: 60 seconds to account for rounding during serialization/deserialization
             $dateComparisonToleranceSeconds = 60

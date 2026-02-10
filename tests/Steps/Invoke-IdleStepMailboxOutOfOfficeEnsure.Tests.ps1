@@ -214,4 +214,33 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
         $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
         { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
     }
+    
+    It 'accepts MessageFormat = Text' {
+        $step = $script:StepTemplate
+        $step.With.Config.MessageFormat = 'Text'
+        
+        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
+        $result = & $handler -Context $script:Context -Step $step
+        
+        $result.Status | Should -Be 'Completed'
+    }
+    
+    It 'accepts MessageFormat = Html' {
+        $step = $script:StepTemplate
+        $step.With.Config.MessageFormat = 'Html'
+        
+        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
+        $result = & $handler -Context $script:Context -Step $step
+        
+        $result.Status | Should -Be 'Completed'
+    }
+    
+    It 'throws when MessageFormat is invalid' {
+        $step = $script:StepTemplate
+        $step.With.Config.MessageFormat = 'InvalidFormat'
+        
+        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
+        { & $handler -Context $script:Context -Step $step } |
+            Should -Throw "*MessageFormat to be one of: Text, Html*"
+    }
 }

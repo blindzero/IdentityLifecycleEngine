@@ -18,6 +18,10 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     - InternalMessage: string (optional)
     - ExternalMessage: string (optional)
     - ExternalAudience: 'None' | 'Known' | 'All' (optional, default provider-specific)
+    - MessageFormat: 'Text' | 'Html' (optional, default 'Text')
+      When set to 'Html', messages are treated as HTML markup and passed through without modification.
+      When set to 'Text', messages are treated as plain text.
+      Providers may normalize HTML to ensure stable idempotency (e.g., handling server-side wrapping).
 
     Authentication:
     - If With.AuthSessionName is present, the step acquires an auth session via
@@ -48,6 +52,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
                 InternalMessage = 'I am out of office.'
                 ExternalMessage = 'I am currently unavailable.'
                 ExternalAudience = 'All'
+                MessageFormat   = 'Text'
             }
         }
     }
@@ -97,6 +102,24 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
             IdentityKey = 'user@contoso.com'
             Config      = @{
                 Mode = 'Disabled'
+            }
+        }
+    }
+
+    .EXAMPLE
+    # In workflow definition (HTML formatted message):
+    @{
+        Name = 'Enable Out of Office with HTML'
+        Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
+        With = @{
+            Provider    = 'ExchangeOnline'
+            IdentityKey = 'user@contoso.com'
+            Config      = @{
+                Mode            = 'Enabled'
+                MessageFormat   = 'Html'
+                InternalMessage = '<p>I am out of office.</p><p>For urgent matters, contact <a href="mailto:manager@contoso.com">my manager</a>.</p>'
+                ExternalMessage = '<p>I am currently unavailable.</p><p>Please contact our <strong>Service Desk</strong> at servicedesk@contoso.com.</p>'
+                ExternalAudience = 'All'
             }
         }
     }
@@ -187,6 +210,14 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     foreach ($key in $config.Keys) {
         if ($config[$key] -is [ScriptBlock]) {
             throw "Mailbox.OutOfOffice.Ensure With.Config must not contain ScriptBlocks. Found ScriptBlock in key '$key'."
+        }
+    }
+
+    # Validate MessageFormat if provided
+    if ($config.ContainsKey('MessageFormat')) {
+        $validFormats = @('Text', 'Html')
+        if ($config.MessageFormat -notin $validFormats) {
+            throw "Mailbox.OutOfOffice.Ensure requires With.Config.MessageFormat to be one of: $($validFormats -join ', '). Got: $($config.MessageFormat)"
         }
     }
 
