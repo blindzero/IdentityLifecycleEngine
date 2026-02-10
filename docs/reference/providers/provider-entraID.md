@@ -307,41 +307,25 @@ This provider has **no provider-specific option bag**. All configuration is done
 
 ## Required Microsoft Graph Permissions
 
-This section lists the Microsoft Graph API permissions required for each step type supported by this provider.
+This section lists the Microsoft Graph API permissions required for each step type supported by this provider. The same permissions apply for both delegated (user context) and application (app-only) permissions.
 
 ### Permissions by Step Type
 
-| Step Type | Delegated Permissions | Application Permissions | Notes |
-|-----------|----------------------|------------------------|-------|
-| `IdLE.Step.CreateIdentity` | `User.ReadWrite.All` | `User.ReadWrite.All` | Requires write permissions to create users |
-| `IdLE.Step.DisableIdentity` | `User.ReadWrite.All` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
-| `IdLE.Step.EnableIdentity` | `User.ReadWrite.All` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
-| `IdLE.Step.EnsureAttribute` | `User.ReadWrite.All` | `User.ReadWrite.All` | Modifies user properties (displayName, department, etc.) |
-| `IdLE.Step.DeleteIdentity` | `User.ReadWrite.All` | `User.ReadWrite.All` | Requires `AllowDelete = $true` on provider |
-| `IdLE.Step.RevokeIdentitySessions` | `User.RevokeSessions.All` | `User.RevokeSessions.All` | Security-sensitive; invalidates all active sessions |
-| `IdLE.Step.EnsureEntitlement` | `Group.Read.All`<br/>`GroupMember.ReadWrite.All` | `Group.Read.All`<br/>`GroupMember.ReadWrite.All` | Lists and modifies group memberships |
+| Step Type | Required Permissions | Notes |
+|-----------|---------------------|-------|
+| `IdLE.Step.CreateIdentity` | `User.ReadWrite.All` | Requires write permissions to create users |
+| `IdLE.Step.DisableIdentity` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
+| `IdLE.Step.EnableIdentity` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
+| `IdLE.Step.EnsureAttribute` | `User.ReadWrite.All` | Modifies user properties (displayName, department, etc.) |
+| `IdLE.Step.DeleteIdentity` | `User.ReadWrite.All` | Requires `AllowDelete = $true` on provider |
+| `IdLE.Step.RevokeIdentitySessions` | `User.RevokeSessions.All` | Security-sensitive; invalidates all active sessions |
+| `IdLE.Step.EnsureEntitlement` | `Group.Read.All`<br/>`GroupMember.ReadWrite.All` | Lists and modifies group memberships |
 
-### Recommended Baseline Permissions
-
-For most Joiner/Mover/Leaver workflows, grant these permissions:
-
-**Delegated Permissions:**
-- `User.Read.All` - Read user information (identity resolution)
-- `User.ReadWrite.All` - Create, update, disable, enable, and delete users
-- `Group.Read.All` - List group memberships
-- `GroupMember.ReadWrite.All` - Add/remove group members
-- `User.RevokeSessions.All` - Revoke sign-in sessions (Leaver workflows)
-
-**Application Permissions:**
-- Same as delegated permissions above
-
-**Note**: Application permissions require admin consent in the tenant. Grant only the permissions you need based on the workflow steps you will use.
-
-### Permission Scope Notes
-
-- **`User.RevokeSessions.All`**: Security-sensitive operation. Ensure appropriate approval processes are in place before granting. Only required if using `IdLE.Step.RevokeIdentitySessions`.
-- **`User.ReadWrite.All`**: Broad permission covering most identity lifecycle operations. Consider organizational policies for least-privilege access.
-- **Read permissions**: `User.Read.All` is included in `User.ReadWrite.All`, but explicitly listed for clarity.
+**Notes:**
+- Application permissions require admin consent in the tenant
+- `User.Read.All` is included in `User.ReadWrite.All` for identity resolution
+- Grant only the permissions you need based on the workflow steps you will use
+- `User.RevokeSessions.All` is security-sensitive; ensure appropriate approval processes are in place before granting
 
 ---
 
