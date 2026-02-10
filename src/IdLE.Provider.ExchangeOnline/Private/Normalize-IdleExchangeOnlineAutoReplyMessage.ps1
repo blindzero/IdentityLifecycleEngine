@@ -72,13 +72,15 @@ function Normalize-IdleExchangeOnlineAutoReplyMessage {
     # 3. Trim leading/trailing whitespace (including newlines)
     $normalized = $normalized.Trim()
 
-    # 4. Normalize multiple consecutive whitespace characters (spaces, tabs, newlines) to single space
+    # 4. Normalize multiple consecutive whitespace characters (spaces, tabs) to single space
     # This handles cases where Exchange might add extra whitespace
-    # Only apply inside HTML tags (between > and <) to avoid breaking intentional formatting
-    # For simplicity, normalize all sequences of 2+ spaces/tabs to single space
+    # NOTE: This may affect intentional spacing in preformatted HTML elements (<pre>, <code>).
+    # For typical OOF messages (paragraphs, links, lists), this is acceptable.
+    # Normalize all sequences of 2+ spaces/tabs to single space
     $normalized = $normalized -replace '[ \t]{2,}', ' '
 
-    # 5. Remove empty lines (multiple consecutive newlines)
+    # 5. Normalize excessive empty lines (3+ consecutive newlines to 2)
+    # Preserves intentional double line breaks while removing excessive spacing
     $normalized = $normalized -replace '\n{3,}', "`n`n"
 
     # 6. Final trim to remove any whitespace introduced by previous operations
