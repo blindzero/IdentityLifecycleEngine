@@ -725,12 +725,12 @@ function New-IdleEntraIDIdentityProvider {
         # Call the adapter to revoke sign-in sessions
         $response = $this.Adapter.RevokeSignInSessions($userId, $accessToken)
 
-        # Graph returns a response indicating whether sessions were revoked
-        # We consider this operation as always "changed" when successful,
-        # as there's no reliable way to know if sessions existed before revocation
+        # Graph returns a response with a 'value' property indicating whether sessions were revoked
+        # value=true means active sessions existed and were revoked
+        # value=false means there were no active sessions to revoke
         $changed = $true
         
-        # If response contains a value property, use it to determine if changes occurred
+        # Pass through the actual Graph API response for accurate Changed status
         if ($null -ne $response -and ($response.PSObject.Properties.Name -contains 'value')) {
             $changed = [bool]$response.value
         }

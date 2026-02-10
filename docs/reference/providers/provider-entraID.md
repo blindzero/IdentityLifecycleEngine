@@ -428,7 +428,7 @@ All operations are idempotent:
 | Grant membership | If already a member, returns `Changed=$false` |
 | Revoke membership | If not a member, returns `Changed=$false` |
 | Set attribute | If already at desired value, returns `Changed=$false` |
-| Revoke sessions | Always returns `Changed=$true` when successful (no state to check) |
+| Revoke sessions | Returns `Changed` based on Graph API response (true if sessions existed, false if none to revoke) |
 
 ### Session Revocation Behavior
 
@@ -438,8 +438,8 @@ The `RevokeSessions` operation invalidates all active sign-in sessions and refre
 
 - **Immediate effect**: Sign-in sessions are invalidated, forcing re-authentication on the next request
 - **Propagation delay**: Due to token caching and Conditional Access Evaluation (CAE), there may be a short delay (typically a few minutes) before all sessions are terminated
-- **Changed flag**: The operation reports `Changed=$true` when successful, as there's no reliable way to determine the pre-revocation state
-- **Idempotency**: Safe to call multiple times; subsequent calls succeed but have no additional effect
+- **Changed flag**: The operation passes through the Graph API response: `Changed=$true` if active sessions were revoked, `Changed=$false` if there were no active sessions to revoke
+- **Idempotency**: Safe to call multiple times; if no active sessions exist, returns `Changed=$false`
 - **No account state change**: This operation does NOT disable the account; use `DisableIdentity` separately if account disabling is also required
 
 **Workflow pattern for Leaver scenarios:**
