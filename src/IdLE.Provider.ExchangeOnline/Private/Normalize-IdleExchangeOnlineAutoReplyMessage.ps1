@@ -62,8 +62,8 @@ function Normalize-IdleExchangeOnlineAutoReplyMessage {
     $normalized = $normalized -replace '(?i)<html[^>]*>', ''
     $normalized = $normalized -replace '(?i)</html>', ''
 
-    # Remove <head>...</head> sections entirely
-    $normalized = $normalized -replace '(?is)<head[^>]*>.*?</head>', ''
+    # Remove <head> wrapper tags while preserving their inner content
+    $normalized = $normalized -replace '(?is)<head[^>]*>\s*(.*?)\s*</head>', '$1'
 
     # Remove <body> opening and closing tags (with optional attributes)
     $normalized = $normalized -replace '(?i)<body[^>]*>', ''
