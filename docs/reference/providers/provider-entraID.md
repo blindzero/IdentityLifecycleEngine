@@ -21,6 +21,7 @@ sidebar_label: Entra ID
   - Create, read, update, disable, enable, and delete (opt-in) user accounts in Microsoft Entra ID
   - Set and update user attributes (givenName, surname, department, jobTitle, etc.)
   - List group memberships and manage group entitlements (grant/revoke)
+  - Revoke active sign-in sessions (refresh tokens) for user accounts
   - Resolve identities by objectId (GUID), UserPrincipalName (UPN), or mail address
 - **Out of scope / non-goals:**
   - Establishing authentication or obtaining Graph access tokens (handled by host-provided broker)
@@ -49,6 +50,7 @@ sidebar_label: Entra ID
   - `IdLE.Identity.Attribute.Ensure` - Set/update identity attributes
   - `IdLE.Identity.Disable` - Disable user accounts
   - `IdLE.Identity.Enable` - Enable user accounts
+  - `IdLE.Identity.RevokeSessions` - Revoke active sign-in sessions
   - `IdLE.Entitlement.List` - List group memberships
   - `IdLE.Entitlement.Grant` - Add group membership
   - `IdLE.Entitlement.Revoke` - Remove group membership
@@ -305,25 +307,25 @@ This provider has **no provider-specific option bag**. All configuration is done
 
 ## Required Microsoft Graph Permissions
 
-### Delegated Permissions (User Context)
+This section lists the Microsoft Graph API permissions required for each step type supported by this provider. The same permissions apply for both delegated (user context) and application (app-only) permissions.
 
-Minimum required:
+### Permissions by Step Type
 
-- `User.Read.All` (read user information)
-- `User.ReadWrite.All` (create/update/delete users)
-- `Group.Read.All` (list group memberships)
-- `GroupMember.ReadWrite.All` (add/remove group members)
+| Step Type | Required Permissions | Notes |
+|-----------|---------------------|-------|
+| `IdLE.Step.CreateIdentity` | `User.ReadWrite.All` | Requires write permissions to create users |
+| `IdLE.Step.DisableIdentity` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
+| `IdLE.Step.EnableIdentity` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
+| `IdLE.Step.EnsureAttribute` | `User.ReadWrite.All` | Modifies user properties (displayName, department, etc.) |
+| `IdLE.Step.DeleteIdentity` | `User.ReadWrite.All` | Requires `AllowDelete = $true` on provider |
+| `IdLE.Step.RevokeIdentitySessions` | `User.RevokeSessions.All` | Security-sensitive; invalidates all active sessions |
+| `IdLE.Step.EnsureEntitlement` | `Group.Read.All`<br/>`GroupMember.ReadWrite.All` | Lists and modifies group memberships |
 
-### Application Permissions (App-Only Context)
-
-Minimum required (same as delegated):
-
-- `User.Read.All`
-- `User.ReadWrite.All`
-- `Group.Read.All`
-- `GroupMember.ReadWrite.All`
-
-**Note**: Application permissions require admin consent in the tenant.
+**Notes:**
+- Application permissions require admin consent in the tenant
+- `User.Read.All` is included in `User.ReadWrite.All` for identity resolution
+- Grant only the permissions you need based on the workflow steps you will use
+- `User.RevokeSessions.All` is security-sensitive; ensure appropriate approval processes are in place before granting
 
 ---
 
@@ -426,6 +428,46 @@ All operations are idempotent:
 | Grant membership | If already a member, returns `Changed=$false` |
 | Revoke membership | If not a member, returns `Changed=$false` |
 | Set attribute | If already at desired value, returns `Changed=$false` |
+| Revoke sessions | Returns `Changed` based on Graph API response (true if sessions existed, false if none to revoke) |
+
+### Session Revocation Behavior
+
+The `RevokeSessions` operation invalidates all active sign-in sessions and refresh tokens for a user account. This is typically used in Leaver workflows after disabling an account to ensure immediate sign-out.
+
+**Important characteristics:**
+
+- **Immediate effect**: Sign-in sessions are invalidated, forcing re-authentication on the next request
+- **Propagation delay**: Due to token caching and Conditional Access Evaluation (CAE), there may be a short delay (typically a few minutes) before all sessions are terminated
+- **Changed flag**: The operation passes through the Graph API response: `Changed=$true` if active sessions were revoked, `Changed=$false` if there were no active sessions to revoke
+- **Idempotency**: Safe to call multiple times; if no active sessions exist, returns `Changed=$false`
+- **No account state change**: This operation does NOT disable the account; use `DisableIdentity` separately if account disabling is also required
+
+**Workflow pattern for Leaver scenarios:**
+
+```powershell
+Steps = @(
+    @{
+        Name = 'DisableAccount'
+        Type = 'IdLE.Step.DisableIdentity'
+        With = @{
+            Provider = 'Identity'
+            AuthSessionName = 'MicrosoftGraph'
+            IdentityKey = '{{Request.Input.UserObjectId}}'
+        }
+    }
+    @{
+        Name = 'RevokeActiveSessions'
+        Type = 'IdLE.Step.RevokeIdentitySessions'
+        With = @{
+            Provider = 'Identity'
+            AuthSessionName = 'MicrosoftGraph'
+            IdentityKey = '{{Request.Input.UserObjectId}}'
+        }
+    }
+)
+```
+
+**Note**: The `DisableIdentity` step does NOT automatically revoke sessions. Session revocation must be explicitly requested via the `RevokeIdentitySessions` step.
 
 ### Error mapping and retry behavior
 
@@ -570,6 +612,7 @@ The provider works with these built-in IdLE steps:
 - `IdLE.Step.EnsureAttribute`
 - `IdLE.Step.DisableIdentity`
 - `IdLE.Step.EnableIdentity`
+- `IdLE.Step.RevokeIdentitySessions` (revokes active sign-in sessions)
 - `IdLE.Step.DeleteIdentity` (when `AllowDelete = $true`)
 - `IdLE.Step.EnsureEntitlement`
 

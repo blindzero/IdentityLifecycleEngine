@@ -53,5 +53,6 @@ Export-ModuleMember -Function @(
     'Invoke-IdleStepDisableIdentity',
     'Invoke-IdleStepEnableIdentity',
     'Invoke-IdleStepMoveIdentity',
-    'Invoke-IdleStepDeleteIdentity'
+    'Invoke-IdleStepDeleteIdentity',
+    'Invoke-IdleStepRevokeIdentitySessions'
 )

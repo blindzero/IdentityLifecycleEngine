@@ -429,5 +429,24 @@ function New-IdleEntraIDAdapter {
         }
     } -Force
 
+    $adapter | Add-Member -MemberType ScriptMethod -Name RevokeSignInSessions -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $ObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $uri = "$($this.BaseUri)/users/$ObjectId/revokeSignInSessions"
+
+        $response = $this.InvokeGraphRequest('POST', $uri, $AccessToken, $null)
+        # Graph returns { "@odata.context": "...", "value": true/false }
+        # The value indicates whether sessions were revoked
+        return $response
+    } -Force
+
     return $adapter
 }

@@ -1,7 +1,7 @@
 @{
     Name           = 'EntraID Leaver - Offboarding with Optional Delete'
     LifecycleEvent = 'Leaver'
-    Description    = 'Disables user account and optionally deletes (requires AllowDelete provider flag).'
+    Description    = 'Disables user account, revokes active sessions, and optionally deletes (requires AllowDelete provider flag).'
     Steps          = @(
         @{
             Name = 'RevokeAllGroupMemberships'
@@ -38,6 +38,15 @@
         @{
             Name = 'DisableAccount'
             Type = 'IdLE.Step.DisableIdentity'
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.Input.UserObjectId}}'
+            }
+        }
+        @{
+            Name = 'RevokeActiveSessions'
+            Type = 'IdLE.Step.RevokeIdentitySessions'
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }

@@ -230,6 +230,7 @@ Describe 'EntraID identity provider - Capabilities' {
         $caps | Should -Contain 'IdLE.Identity.Attribute.Ensure'
         $caps | Should -Contain 'IdLE.Identity.Disable'
         $caps | Should -Contain 'IdLE.Identity.Enable'
+        $caps | Should -Contain 'IdLE.Identity.RevokeSessions'
         $caps | Should -Contain 'IdLE.Entitlement.List'
         $caps | Should -Contain 'IdLE.Entitlement.Grant'
         $caps | Should -Contain 'IdLE.Entitlement.Revoke'
@@ -794,5 +795,149 @@ Describe 'EntraID identity provider - Entitlement operations' {
 
         @($afterGrant | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
         @($afterRevoke | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
+    }
+}
+
+Describe 'EntraID identity provider - RevokeSessions' {
+    BeforeAll {
+        # Create a fake adapter that tracks revocation calls
+        $fakeAdapter = [pscustomobject]@{
+            PSTypeName          = 'IdLE.EntraIDAdapter.Fake'
+            RevocationCallLog   = @()
+            RevocationResponses = @{}
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+            param($ObjectId, $AccessToken)
+            return @{
+                id                = $ObjectId
+                userPrincipalName = "$ObjectId@test.local"
+                accountEnabled    = $true
+            }
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+            param($Upn, $AccessToken)
+            return @{
+                id                = 'test-user-id'
+                userPrincipalName = $Upn
+                accountEnabled    = $true
+            }
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
+            param($Mail, $AccessToken)
+            return @{
+                id                = 'test-user-id'
+                mail              = $Mail
+                userPrincipalName = "$Mail"
+                accountEnabled    = $true
+            }
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RevokeSignInSessions -Value {
+            param($ObjectId, $AccessToken)
+            $this.RevocationCallLog += @{
+                ObjectId    = $ObjectId
+                AccessToken = $AccessToken
+                Timestamp   = [datetime]::UtcNow
+            }
+            # Return a response that simulates Graph API behavior
+            if ($this.RevocationResponses.ContainsKey($ObjectId)) {
+                return $this.RevocationResponses[$ObjectId]
+            }
+            return [pscustomobject]@{
+                '@odata.context' = 'https://graph.microsoft.com/v1.0/$metadata#Edm.Boolean'
+                value            = $true
+            }
+        }
+
+        $script:RevokeAdapter = $fakeAdapter
+        $script:RevokeProvider = New-IdleEntraIDIdentityProvider -Adapter $script:RevokeAdapter
+    }
+
+    It 'Advertises IdLE.Identity.RevokeSessions capability' {
+        $caps = $script:RevokeProvider.GetCapabilities()
+        $caps | Should -Contain 'IdLE.Identity.RevokeSessions'
+    }
+
+    It 'Exposes RevokeSessions method' {
+        $script:RevokeProvider.PSObject.Methods.Name | Should -Contain 'RevokeSessions'
+    }
+
+    It 'RevokeSessions calls adapter with correct user ID' {
+        $userId = [guid]::NewGuid().ToString()
+        $script:RevokeAdapter.RevocationCallLog = @()
+        
+        $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+        
+        $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
+        $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be $userId
+    }
+
+    It 'RevokeSessions returns ProviderResult with correct shape' {
+        $userId = [guid]::NewGuid().ToString()
+        
+        $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+        
+        $result | Should -Not -BeNullOrEmpty
+        $result.PSObject.TypeNames[0] | Should -Be 'IdLE.ProviderResult'
+        $result.Operation | Should -Be 'RevokeSessions'
+        $result.IdentityKey | Should -Be $userId
+        $result.PSObject.Properties.Name | Should -Contain 'Changed'
+    }
+
+    It 'RevokeSessions reports Changed=true when Graph returns value=true' {
+        $userId = [guid]::NewGuid().ToString()
+        $script:RevokeAdapter.RevocationResponses[$userId] = [pscustomobject]@{
+            value = $true
+        }
+        
+        $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+        
+        $result.Changed | Should -Be $true
+    }
+
+    It 'RevokeSessions reports Changed=false when Graph returns value=false' {
+        $userId = [guid]::NewGuid().ToString()
+        $script:RevokeAdapter.RevocationResponses[$userId] = [pscustomobject]@{
+            value = $false
+        }
+        
+        $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+        
+        $result.Changed | Should -Be $false
+    }
+
+    It 'RevokeSessions resolves identity by UPN' {
+        $upn = 'test.user@contoso.com'
+        $script:RevokeAdapter.RevocationCallLog = @()
+        
+        $result = $script:RevokeProvider.RevokeSessions($upn, 'fake-token')
+        
+        $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
+        $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be 'test-user-id'
+    }
+
+    It 'RevokeSessions resolves identity by mail' {
+        $mail = 'test.user@contoso.com'
+        $script:RevokeAdapter.RevocationCallLog = @()
+        
+        $result = $script:RevokeProvider.RevokeSessions($mail, 'fake-token')
+        
+        $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
+        $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be 'test-user-id'
+    }
+
+    It 'RevokeSessions accepts AuthSession object' {
+        $userId = [guid]::NewGuid().ToString()
+        $authSession = [pscustomobject]@{
+            AccessToken = 'session-token'
+        }
+        
+        $result = $script:RevokeProvider.RevokeSessions($userId, $authSession)
+        
+        $result | Should -Not -BeNullOrEmpty
+        $result.Operation | Should -Be 'RevokeSessions'
     }
 }
