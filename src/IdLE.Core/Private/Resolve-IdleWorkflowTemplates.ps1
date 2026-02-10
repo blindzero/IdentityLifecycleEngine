@@ -11,14 +11,6 @@ function Resolve-IdleWorkflowTemplates {
     - Steps[*].With (including nested structures)
     - OnFailureSteps[*].With (including nested structures)
 
-    Special patterns:
-    - @{ FromFile = 'path/to/file.txt' }: Loads file content as a string
-      * Supports template placeholders in the file path
-      * Supports template placeholders within the file content
-      * Relative paths are resolved from the current working directory
-      * File must exist at planning time
-      * File content is loaded as UTF-8
-
     .PARAMETER Value
     The value to process (hashtable, array, string, or scalar).
 
@@ -66,53 +58,8 @@ function Resolve-IdleWorkflowTemplates {
         return $Value
     }
 
-    # Hashtables/dictionaries: check for special patterns first
+    # Hashtables/dictionaries: recurse on values
     if ($Value -is [System.Collections.IDictionary]) {
-        # Special pattern: @{ FromFile = 'path/to/file' }
-        # Load file content and return as string
-        if ($Value.Count -eq 1 -and $Value.ContainsKey('FromFile')) {
-            $filePath = $Value['FromFile']
-            
-            if ($null -eq $filePath -or [string]::IsNullOrWhiteSpace($filePath)) {
-                throw [System.ArgumentException]::new(
-                    ("FromFile error in step '{0}': File path cannot be null or empty." -f $StepName),
-                    'Workflow'
-                )
-            }
-            
-            # Resolve template placeholders in the file path (e.g., @{ FromFile = '{{Request.DesiredState.TemplatePath}}' })
-            $resolvedPath = Resolve-IdleTemplateString -Value ([string]$filePath) -Request $Request -StepName $StepName
-            
-            # Convert to absolute path if relative
-            if (-not [System.IO.Path]::IsPathRooted($resolvedPath)) {
-                # Relative paths are resolved from the current working directory
-                $resolvedPath = Join-Path -Path (Get-Location).Path -ChildPath $resolvedPath
-            }
-            
-            # Validate file exists
-            if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
-                throw [System.ArgumentException]::new(
-                    ("FromFile error in step '{0}': File not found at path '{1}'." -f $StepName, $resolvedPath),
-                    'Workflow'
-                )
-            }
-            
-            # Load file content as UTF-8 string
-            try {
-                $fileContent = Get-Content -LiteralPath $resolvedPath -Raw -Encoding UTF8 -ErrorAction Stop
-                
-                # Resolve any template placeholders within the loaded file content
-                return Resolve-IdleTemplateString -Value $fileContent -Request $Request -StepName $StepName
-            }
-            catch {
-                throw [System.ArgumentException]::new(
-                    ("FromFile error in step '{0}': Failed to read file '{1}'. {2}" -f $StepName, $resolvedPath, $_.Exception.Message),
-                    'Workflow'
-                )
-            }
-        }
-        
-        # General hashtable: recurse on values
         $resolved = @{}
         foreach ($key in $Value.Keys) {
             $resolved[$key] = Resolve-IdleWorkflowTemplates -Value $Value[$key] -Request $Request -StepName $StepName

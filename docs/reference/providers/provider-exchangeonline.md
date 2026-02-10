@@ -365,13 +365,32 @@ IdLE provides stable idempotency for HTML messages by normalizing server-side ca
 }
 ```
 
-**Loading messages from external files:**
+**Loading messages from external files (host-side approach):**
 
-For long or complex HTML messages, you can load content from external files using the `@{ FromFile = 'path' }` pattern:
+For long or complex HTML messages, you can load content from external files in your host script before creating the plan:
 
 ```powershell
+# Host script - load templates before planning
+$internalMessageTemplate = Get-Content -Path './templates/oof-internal.html' -Raw -Encoding UTF8
+$externalMessageTemplate = Get-Content -Path './templates/oof-external.html' -Raw -Encoding UTF8
+
+# Build request with template content
+$req = New-IdleLifecycleRequest `
+  -LifecycleEvent 'Leaver' `
+  -Actor $env:USERNAME `
+  -Input @{ UserPrincipalName = 'user@contoso.com' } `
+  -DesiredState @{
+    InternalOOFMessage = $internalMessageTemplate
+    ExternalOOFMessage = $externalMessageTemplate
+    Manager = @{
+      DisplayName = 'Jane Manager'
+      Mail        = 'jmanager@contoso.com'
+    }
+  }
+
+# Workflow definition references the loaded content
 @{
-  Name = 'Set OOF with external templates'
+  Name = 'Set OOF with templates'
   Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
   With = @{
     Provider    = 'ExchangeOnline'
@@ -379,8 +398,8 @@ For long or complex HTML messages, you can load content from external files usin
     Config      = @{
       Mode            = 'Enabled'
       MessageFormat   = 'Html'
-      InternalMessage = @{ FromFile = './templates/oof-internal.html' }
-      ExternalMessage = @{ FromFile = './templates/oof-external.html' }
+      InternalMessage = '{{Request.DesiredState.InternalOOFMessage}}'
+      ExternalMessage = '{{Request.DesiredState.ExternalOOFMessage}}'
       ExternalAudience = 'All'
     }
   }
@@ -398,13 +417,7 @@ For long or complex HTML messages, you can load content from external files usin
 </ul>
 ```
 
-**Notes on file loading:**
-
-- File paths can be absolute or relative (relative paths resolve from current working directory)
-- Template placeholders (`{{...}}`) work in both the file path and file content
-- Files must exist at planning time (when `New-IdlePlan` is called)
-- File content is loaded as UTF-8
-- This keeps workflows clean and allows reuse of message templates across multiple workflows
+This approach keeps workflow definitions clean, allows template reuse, and maintains the data-only principle by loading files at the host level before planning.
 
 ---
 
