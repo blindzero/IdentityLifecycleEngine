@@ -604,6 +604,69 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 }
 ```
 
+### Manager Attribute Handling
+
+The AD provider supports the `Manager` attribute for both `CreateIdentity` and `EnsureAttribute` operations.
+
+**Requirements:**
+- Manager value MUST be a Distinguished Name (DN) string
+- Format: `CN=Name,OU=Unit,DC=domain,DC=com`
+- Invalid formats will throw a validation error
+
+**CreateIdentity with Manager:**
+
+```powershell
+@{
+  Name = 'CreateUserWithManager'
+  Type = 'IdLE.Step.CreateIdentity'
+  With = @{
+    Provider = 'Identity'
+    IdentityKey = 'jdoe'
+    Attributes = @{
+      GivenName = 'John'
+      Surname = 'Doe'
+      UserPrincipalName = 'jdoe@contoso.local'
+      Manager = 'CN=Jane Smith,OU=Managers,DC=contoso,DC=local'
+    }
+    AuthSessionName = 'ActiveDirectory'
+  }
+}
+```
+
+**Setting Manager via EnsureAttribute:**
+
+```powershell
+@{
+  Name = 'SetManager'
+  Type = 'IdLE.Step.EnsureAttribute'
+  With = @{
+    Provider = 'Identity'
+    IdentityKey = 'jdoe'
+    Name = 'Manager'
+    Value = 'CN=Jane Smith,OU=Managers,DC=contoso,DC=local'
+    AuthSessionName = 'ActiveDirectory'
+  }
+}
+```
+
+**Clearing Manager:**
+
+To clear the Manager attribute, set the value to `$null`:
+
+```powershell
+@{
+  Name = 'ClearManager'
+  Type = 'IdLE.Step.EnsureAttribute'
+  With = @{
+    Provider = 'Identity'
+    IdentityKey = 'jdoe'
+    Name = 'Manager'
+    Value = $null
+    AuthSessionName = 'ActiveDirectory'
+  }
+}
+```
+
 ### Complete example workflows
 
 Complete example workflows are available in the repository:
