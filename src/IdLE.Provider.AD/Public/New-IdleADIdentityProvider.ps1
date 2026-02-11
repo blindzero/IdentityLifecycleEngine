@@ -447,6 +447,12 @@ function New-IdleADIdentityProvider {
             $enabled = [bool]$Attributes['Enabled']
         }
 
+        # Extract AllowPlainTextPasswordOutput before passing to adapter
+        $allowPlainTextOutput = $false
+        if ($Attributes.ContainsKey('AllowPlainTextPasswordOutput')) {
+            $allowPlainTextOutput = [bool]$Attributes['AllowPlainTextPasswordOutput']
+        }
+
         $user = $adapter.NewUser($IdentityKey, $Attributes, $enabled)
 
         # Emit observability event
@@ -472,12 +478,6 @@ function New-IdleADIdentityProvider {
             
             # Always include ProtectedString for reveal path (DPAPI-scoped)
             $result | Add-Member -MemberType NoteProperty -Name 'GeneratedAccountPasswordProtected' -Value $passwordInfo.ProtectedString
-            
-            # Check for explicit opt-in to plaintext output
-            $allowPlainTextOutput = $false
-            if ($Attributes.ContainsKey('AllowPlainTextPasswordOutput')) {
-                $allowPlainTextOutput = [bool]$Attributes['AllowPlainTextPasswordOutput']
-            }
             
             if ($allowPlainTextOutput) {
                 # Include plaintext password only when explicitly requested

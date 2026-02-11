@@ -46,6 +46,12 @@ Describe 'AD identity provider' {
             $adapter = [pscustomobject]@{
                 PSTypeName = 'FakeADAdapter'
                 Store      = $store
+                PasswordGenerationFallbackMinLength = 24
+                PasswordGenerationRequireUpper = $true
+                PasswordGenerationRequireLower = $true
+                PasswordGenerationRequireDigit = $true
+                PasswordGenerationRequireSpecial = $true
+                PasswordGenerationSpecialCharSet = '!@#$%&*+-_=?'
             }
 
             # Add Manager DN validation helper (matching real adapter)
@@ -1681,7 +1687,133 @@ Describe 'AD identity provider' {
 
     Context 'Password generation and controlled output' {
         BeforeAll {
-            $adapter = New-FakeADAdapter
+            # Create a fake adapter WITHOUT auto-creation behavior for password generation tests
+            # Auto-creation breaks these tests because CreateIdentity checks if user exists first
+            $store = @{}
+
+            $adapter = [pscustomobject]@{
+                PSTypeName = 'FakeADAdapter'
+                Store      = $store
+                PasswordGenerationFallbackMinLength = 24
+                PasswordGenerationRequireUpper = $true
+                PasswordGenerationRequireLower = $true
+                PasswordGenerationRequireDigit = $true
+                PasswordGenerationRequireSpecial = $true
+                PasswordGenerationSpecialCharSet = '!@#$%&*+-_=?'
+            }
+
+            # Add lookup methods WITHOUT auto-creation
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+                param([string]$Upn)
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].UserPrincipalName -eq $Upn) {
+                        return $this.Store[$key]
+                    }
+                }
+                return $null
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserBySam -Value {
+                param([string]$SamAccountName)
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].sAMAccountName -eq $SamAccountName) {
+                        return $this.Store[$key]
+                    }
+                }
+                return $null
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByGuid -Value {
+                param([string]$Guid)
+                if ($this.Store.ContainsKey($Guid)) {
+                    return $this.Store[$Guid]
+                }
+                return $null
+            } -Force
+
+            # Add NewUser method with password generation support
+            $adapter | Add-Member -MemberType ScriptMethod -Name NewUser -Value {
+                param([string]$IdentityKey, [hashtable]$Attributes, [bool]$Enabled)
+                
+                $hasSamAccountName = $Attributes.ContainsKey('SamAccountName') -and -not [string]::IsNullOrWhiteSpace($Attributes['SamAccountName'])
+                
+                if (-not $hasSamAccountName) {
+                    throw "SamAccountName is required when creating a new user in the test adapter. Please provide a 'SamAccountName' entry in Attributes."
+                }
+
+                # Derive CN/RDN Name
+                $derivedName = $IdentityKey
+                if ($Attributes.ContainsKey('Name') -and -not [string]::IsNullOrWhiteSpace($Attributes['Name'])) {
+                    $derivedName = $Attributes['Name']
+                }
+                elseif ($Attributes.ContainsKey('DisplayName') -and -not [string]::IsNullOrWhiteSpace($Attributes['DisplayName'])) {
+                    $derivedName = $Attributes['DisplayName']
+                }
+                elseif ($Attributes.ContainsKey('GivenName') -and -not [string]::IsNullOrWhiteSpace($Attributes['GivenName']) -and 
+                        $Attributes.ContainsKey('Surname') -and -not [string]::IsNullOrWhiteSpace($Attributes['Surname'])) {
+                    $derivedName = "$($Attributes['GivenName']) $($Attributes['Surname'])"
+                }
+                
+                # Password handling with generation support
+                $hasAccountPassword = $Attributes.ContainsKey('AccountPassword')
+                $hasAccountPasswordAsPlainText = $Attributes.ContainsKey('AccountPasswordAsPlainText')
+                $generatedPasswordInfo = $null
+
+                if ($hasAccountPassword -and $hasAccountPasswordAsPlainText) {
+                    throw "Ambiguous password configuration: both 'AccountPassword' and 'AccountPasswordAsPlainText' are provided. Use only one."
+                }
+
+                if (-not $hasAccountPassword -and -not $hasAccountPasswordAsPlainText -and $Enabled) {
+                    # Simulate password generation
+                    $fakePassword = 'FakeGenerated123!@#'
+                    $securePassword = ConvertTo-SecureString -String $fakePassword -AsPlainText -Force
+                    $protectedPassword = ConvertFrom-SecureString -SecureString $securePassword
+                    
+                    $generatedPasswordInfo = [pscustomobject]@{
+                        PSTypeName       = 'IdLE.ADPassword'
+                        PlainText        = $fakePassword
+                        SecureString     = $securePassword
+                        ProtectedString  = $protectedPassword
+                        UsedPolicy       = 'Fallback'
+                        MinLength        = 24
+                        RequiredUpper    = $true
+                        RequiredLower    = $true
+                        RequiredDigit    = $true
+                        RequiredSpecial  = $true
+                    }
+                }
+
+                $newGuid = [guid]::NewGuid().ToString()
+                $sam = $Attributes['SamAccountName']
+                $upn = if ($Attributes.ContainsKey('UserPrincipalName')) { $Attributes['UserPrincipalName'] } else { "$sam@domain.local" }
+                $path = if ($Attributes.ContainsKey('Path')) { $Attributes['Path'] } else { 'OU=Users,DC=domain,DC=local' }
+
+                $user = [pscustomobject]@{
+                    ObjectGuid         = [guid]$newGuid
+                    sAMAccountName     = $sam
+                    UserPrincipalName  = $upn
+                    DistinguishedName  = "CN=$derivedName,$path"
+                    Enabled            = $Enabled
+                    GivenName          = $Attributes['GivenName']
+                    Surname            = $Attributes['Surname']
+                    DisplayName        = $Attributes['DisplayName']
+                    Description        = $Attributes['Description']
+                    Department         = $Attributes['Department']
+                    Title              = $Attributes['Title']
+                    EmailAddress       = $Attributes['EmailAddress']
+                    Manager            = $null
+                    Groups             = @()
+                }
+
+                # Attach password generation info if generated
+                if ($null -ne $generatedPasswordInfo) {
+                    $user | Add-Member -MemberType NoteProperty -Name '_GeneratedPasswordInfo' -Value $generatedPasswordInfo -Force
+                }
+
+                $this.Store[$newGuid] = $user
+                return $user
+            } -Force
+
             $provider = New-IdleADIdentityProvider -Adapter $adapter
             $script:PasswordTestProvider = $provider
             $script:PasswordTestAdapter = $adapter
