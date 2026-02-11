@@ -160,5 +160,57 @@ Describe 'Copy-IdleRedactedObject - deterministic redaction utility' {
             $copy.settings.AccountPasswordAsPlainText | Should -Be '[REDACTED]'
             $copy.settings.enabled | Should -Be $true
         }
+
+        It 'redacts GeneratedAccountPasswordPlainText key' {
+            $input = @{
+                userName = 'testuser'
+                GeneratedAccountPasswordPlainText = 'GeneratedPlainTextPassword123!'
+                otherField = 'visible'
+            }
+
+            $copy = Copy-IdleRedactedObject -Value $input
+
+            $copy.userName | Should -Be 'testuser'
+            $copy.GeneratedAccountPasswordPlainText | Should -Be '[REDACTED]'
+            $copy.otherField | Should -Be 'visible'
+        }
+
+        It 'redacts GeneratedAccountPasswordProtected key' {
+            $input = @{
+                userName = 'testuser'
+                GeneratedAccountPasswordProtected = '76492d1116743f0423413b16050a5345MgB8AHcAYwBVAG0AawBlAEoAZgBMAGIARABlAEIASQBvAA=='
+                otherField = 'visible'
+            }
+
+            $copy = Copy-IdleRedactedObject -Value $input
+
+            $copy.userName | Should -Be 'testuser'
+            $copy.GeneratedAccountPasswordProtected | Should -Be '[REDACTED]'
+            $copy.otherField | Should -Be 'visible'
+        }
+
+        It 'redacts generated password fields in nested structures' {
+            $input = @{
+                result = @{
+                    IdentityKey = 'user@contoso.com'
+                    GeneratedAccountPasswordPlainText = 'PlainPassword'
+                    GeneratedAccountPasswordProtected = 'ProtectedPassword'
+                    Changed = $true
+                }
+                metadata = [pscustomobject]@{
+                    GeneratedAccountPasswordPlainText = 'AnotherPlain'
+                    timestamp = '2024-01-01'
+                }
+            }
+
+            $copy = Copy-IdleRedactedObject -Value $input
+
+            $copy.result.IdentityKey | Should -Be 'user@contoso.com'
+            $copy.result.GeneratedAccountPasswordPlainText | Should -Be '[REDACTED]'
+            $copy.result.GeneratedAccountPasswordProtected | Should -Be '[REDACTED]'
+            $copy.result.Changed | Should -Be $true
+            $copy.metadata.GeneratedAccountPasswordPlainText | Should -Be '[REDACTED]'
+            $copy.metadata.timestamp | Should -Be '2024-01-01'
+        }
     }
 }

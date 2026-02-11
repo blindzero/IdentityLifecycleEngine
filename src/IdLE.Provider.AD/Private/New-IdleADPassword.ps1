@@ -88,6 +88,13 @@ function New-IdleADPassword {
     $requireSpecial = $FallbackRequireSpecial
     $specialCharSet = $FallbackSpecialCharSet
 
+    # Validate special character set if special characters are required
+    if ($requireSpecial -and ([string]::IsNullOrEmpty($specialCharSet) -or $specialCharSet.Length -eq 0)) {
+        # Fall back to a safe default character set if none provided
+        $specialCharSet = '!@#$%&*+-_=?'
+        Write-Verbose "AD Password Generation: Special characters required but FallbackSpecialCharSet is empty. Using default: '$specialCharSet'"
+    }
+
     try {
         $params = @{
             ErrorAction = 'Stop'
