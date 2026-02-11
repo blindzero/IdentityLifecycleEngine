@@ -405,6 +405,14 @@ function New-IdleADAdapter {
             $params['AccountPassword'] = ConvertTo-SecureString -String $plainTextPassword -AsPlainText -Force
         }
 
+        # Handle OtherAttributes for custom LDAP attributes
+        if ($effectiveAttributes.ContainsKey('OtherAttributes')) {
+            $otherAttrs = $effectiveAttributes['OtherAttributes']
+            if ($null -ne $otherAttrs -and $otherAttrs.Count -gt 0) {
+                $params['OtherAttributes'] = $otherAttrs
+            }
+        }
+
         if ($null -ne $this.Credential) {
             $params['Credential'] = $this.Credential
         }

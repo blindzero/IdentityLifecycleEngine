@@ -361,6 +361,9 @@ function New-IdleADIdentityProvider {
             [object] $AuthSession
         )
 
+        # Validate attributes against contract (strict mode - will throw on unsupported attributes)
+        $validationResult = Test-IdleADAttributeContract -Attributes $Attributes -Operation 'CreateIdentity'
+
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
         try {
@@ -385,6 +388,17 @@ function New-IdleADIdentityProvider {
         }
 
         $null = $adapter.NewUser($IdentityKey, $Attributes, $enabled)
+
+        # Emit observability event
+        if ($null -ne $this.EventSink) {
+            $eventData = @{
+                IdentityKey = $IdentityKey
+                Requested   = $validationResult.Requested
+                Applied     = $validationResult.Supported
+                Ignored     = $validationResult.Unsupported
+            }
+            $this.EventSink.WriteEvent('Provider.AD.CreateIdentity.AttributesApplied', 'Attributes applied during identity creation', 'CreateIdentity', $eventData)
+        }
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
@@ -463,6 +477,9 @@ function New-IdleADIdentityProvider {
             [object] $AuthSession
         )
 
+        # Validate attribute against contract (strict mode - will throw on unsupported attributes)
+        $validationResult = Test-IdleADAttributeContract -Operation 'EnsureAttribute' -AttributeName $Name
+
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
@@ -476,6 +493,17 @@ function New-IdleADIdentityProvider {
         if ($currentValue -ne $Value) {
             $adapter.SetUser($user.DistinguishedName, $Name, $Value)
             $changed = $true
+
+            # Emit observability event
+            if ($null -ne $this.EventSink) {
+                $eventData = @{
+                    IdentityKey  = $IdentityKey
+                    AttributeName = $Name
+                    OldValue     = $currentValue
+                    NewValue     = $Value
+                }
+                $this.EventSink.WriteEvent('Provider.AD.EnsureAttribute.AttributeChanged', "Attribute '$Name' changed", 'EnsureAttribute', $eventData)
+            }
         }
 
         return [pscustomobject]@{
