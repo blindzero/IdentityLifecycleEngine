@@ -15,6 +15,7 @@
                     DisplayName       = 'New User'
                     Description       = 'New employee account'
                     Path              = 'OU=Joiners,OU=Users,DC=contoso,DC=local'
+                    Enabled           = $true
                     OtherAttributes   = @{
                         # Custom LDAP attributes for organization-specific needs
                         employeeType        = 'Employee'

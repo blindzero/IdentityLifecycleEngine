@@ -17,6 +17,9 @@ function Copy-IdleRedactedObject {
 
     # Default key list aligned with Issue #48 acceptance criteria.
     # Keep this list conservative (exact match) to avoid accidental over-redaction.
+    # Note: These fields are redacted when objects pass through logging/eventing paths.
+    # They do NOT prevent direct access when explicitly requested (e.g., AllowPlainTextPasswordOutput).
+    # Redaction protects against accidental leakage, not intentional access by callers.
     $defaultKeys = @(
         'password',
         'passphrase',
