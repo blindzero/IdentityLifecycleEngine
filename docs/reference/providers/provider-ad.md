@@ -323,19 +323,6 @@ In workflow definitions, steps specify which auth context to use via `AuthSessio
 ```powershell
 @{
     Type = 'IdLE.Step.EnsureAttributes'
-    Name = 'SetPrivilegedAttribute'
-    With = @{
-        IdentityKey = 'user@domain.com'
-        Attributes = @{
-            AdminCount = 1
-        }
-        AuthSessionName = 'ActiveDirectory'
-        AuthSessionOptions = @{ Role = 'Tier0' }  # Broker returns Tier0 credential
-    }
-}
-
-@{
-    Type = 'IdLE.Step.EnsureAttributes'
     Name = 'SetDepartment'
     With = @{
         IdentityKey = 'user@domain.com'
