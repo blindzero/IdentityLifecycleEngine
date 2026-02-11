@@ -47,14 +47,15 @@
         }
         @{
             Name = 'ClearManager'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Type = 'IdLE.Step.EnsureAttributes'
             With = @{
                 Provider           = 'Identity'
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = @{ ValueFrom = 'Request.Input.UserObjectId' }
-                Name               = 'Manager'
-                Value              = $null
+                Attributes         = @{
+                    Manager = $null
+                }
             }
         }
         @{

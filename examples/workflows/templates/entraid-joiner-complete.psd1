@@ -49,7 +49,7 @@
         }
         @{
             Name = 'SetManagerAttribute'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Type = 'IdLE.Step.EnsureAttributes'
             Condition = @{
                 All = @(
                     @{
@@ -61,8 +61,9 @@
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.Input.UserPrincipalName}}'
-                Name               = 'Manager'
-                Value              = '{{Request.Input.ManagerId}}'
+                Attributes         = @{
+                    Manager = '{{Request.Input.ManagerId}}'
+                }
             }
         }
         @{

@@ -142,8 +142,8 @@ Describe 'Module manifests and public surface' {
             # Accept both unqualified (global export) and module-qualified (nested) formats
             $registry['IdLE.Step.EmitEvent'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEmitEvent$'
 
-            $registry.ContainsKey('IdLE.Step.EnsureAttribute') | Should -BeTrue
-            $registry['IdLE.Step.EnsureAttribute'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEnsureAttribute$'
+            $registry.ContainsKey('IdLE.Step.EnsureAttributes') | Should -BeTrue
+            $registry['IdLE.Step.EnsureAttributes'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEnsureAttributes$'
 
             $registry.ContainsKey('IdLE.Step.EnsureEntitlement') | Should -BeTrue
             $registry['IdLE.Step.EnsureEntitlement'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEnsureEntitlement$'
@@ -269,7 +269,7 @@ Describe 'Module manifests and public surface' {
 
         $exported = (Get-Command -Module IdLE.Steps.Common).Name
         $exported | Should -Contain 'Invoke-IdleStepEmitEvent'
-        $exported | Should -Contain 'Invoke-IdleStepEnsureAttribute'
+        $exported | Should -Contain 'Invoke-IdleStepEnsureAttributes'
         $exported | Should -Contain 'Invoke-IdleStepEnsureEntitlement'
     }
 

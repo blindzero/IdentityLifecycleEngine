@@ -23,22 +23,14 @@
             }
         },
         @{
-            Name = 'Set Department'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Name = 'Set Department and Title'
+            Type = 'IdLE.Step.EnsureAttributes'
             With = @{
                 IdentityKey = 'newuser@contoso.local'
-                Name        = 'Department'
-                Value       = 'IT'
-                Provider    = 'Identity'
-            }
-        },
-        @{
-            Name = 'Set Title'
-            Type = 'IdLE.Step.EnsureAttribute'
-            With = @{
-                IdentityKey = 'newuser@contoso.local'
-                Name        = 'Title'
-                Value       = 'Software Engineer'
+                Attributes  = @{
+                    Department = 'IT'
+                    Title      = 'Software Engineer'
+                }
                 Provider    = 'Identity'
             }
         },

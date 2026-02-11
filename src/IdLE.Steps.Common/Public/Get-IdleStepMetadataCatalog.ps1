@@ -53,8 +53,8 @@ function Get-IdleStepMetadataCatalog {
         RequiredCapabilities = @('IdLE.Identity.Move')
     }
 
-    # IdLE.Step.EnsureAttribute - requires identity attribute ensure capability
-    $catalog['IdLE.Step.EnsureAttribute'] = @{
+    # IdLE.Step.EnsureAttributes - requires identity attribute ensure capability
+    $catalog['IdLE.Step.EnsureAttributes'] = @{
         RequiredCapabilities = @('IdLE.Identity.Attribute.Ensure')
     }
 

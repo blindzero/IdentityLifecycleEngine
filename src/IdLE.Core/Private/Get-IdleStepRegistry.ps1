@@ -114,10 +114,10 @@ function Get-IdleStepRegistry {
         }
     }
 
-    if (-not $registry.ContainsKey('IdLE.Step.EnsureAttribute')) {
-        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepEnsureAttribute' -ModuleName 'IdLE.Steps.Common'
+    if (-not $registry.ContainsKey('IdLE.Step.EnsureAttributes')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepEnsureAttributes' -ModuleName 'IdLE.Steps.Common'
         if (-not [string]::IsNullOrWhiteSpace($handler)) {
-            $registry['IdLE.Step.EnsureAttribute'] = $handler
+            $registry['IdLE.Step.EnsureAttributes'] = $handler
         }
     }
 

@@ -14,25 +14,16 @@
             }
         }
         @{
-            Name = 'ClearManager'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Name = 'ClearManagerAndUpdateDisplayName'
+            Type = 'IdLE.Step.EnsureAttributes'
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.Input.UserObjectId}}'
-                Name               = 'Manager'
-                Value              = $null
-            }
-        }
-        @{
-            Name = 'UpdateDisplayNameWithLeaver'
-            Type = 'IdLE.Step.EnsureAttribute'
-            With = @{
-                AuthSessionName    = 'MicrosoftGraph'
-                AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
-                Name               = 'DisplayName'
-                Value              = '{{Request.Input.DisplayName}} (LEAVER)'
+                Attributes         = @{
+                    Manager     = $null
+                    DisplayName = '{{Request.Input.DisplayName}} (LEAVER)'
+                }
             }
         }
         @{

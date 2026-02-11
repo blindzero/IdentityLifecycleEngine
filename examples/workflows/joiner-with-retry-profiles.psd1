@@ -55,12 +55,13 @@
 
         @{
             Name         = 'Set manager attribute'
-            Type         = 'IdLE.Step.EnsureAttribute'
+            Type         = 'IdLE.Step.EnsureAttributes'
             Description  = 'Set manager reference in Entra ID'
             RetryProfile = 'GraphAPI'
             With         = @{
-                AttributeName = 'manager'
-                Value         = '{{Request.Data.ManagerId}}'
+                Attributes = @{
+                    manager = '{{Request.Data.ManagerId}}'
+                }
             }
         }
     )

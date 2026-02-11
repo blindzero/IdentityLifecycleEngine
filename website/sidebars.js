@@ -85,7 +85,7 @@ const sidebars = {
             'reference/steps/step-disable-identity',
             'reference/steps/step-enable-identity',
             'reference/steps/step-emit-event',
-            'reference/steps/step-ensure-attribute',
+            'reference/steps/step-ensure-attributes',
             'reference/steps/step-ensure-entitlement',
             'reference/steps/step-move-identity',
             'reference/steps/step-trigger-directory-sync',

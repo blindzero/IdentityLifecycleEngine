@@ -11,11 +11,12 @@
         }
         @{
             Name = 'Ensure Department'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Type = 'IdLE.Step.EnsureAttributes'
             With = @{ 
                 IdentityKey = 'user1'
-                Name        = 'Department'
-                Value       = 'IT'
+                Attributes  = @{
+                    Department = 'IT'
+                }
                 Provider    = 'Identity'
             }
         }

@@ -3,24 +3,16 @@
     LifecycleEvent = 'Mover'
     Steps          = @(
         @{
-            Name = 'Update Department'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Name = 'Update Department and Title'
+            Type = 'IdLE.Step.EnsureAttributes'
             With = @{
                 IdentityKey = 'existinguser@contoso.local'
-                Name        = 'Department'
-                Value       = 'Sales'
+                Attributes  = @{
+                    Department = 'Sales'
+                    Title      = 'Sales Manager'
+                }
                 # Provider alias - can be customized when host creates the provider hashtable.
                 # Examples: 'Identity', 'SourceAD', 'TargetAD', 'SystemX', etc.
-                Provider    = 'Identity'
-            }
-        },
-        @{
-            Name = 'Update Title'
-            Type = 'IdLE.Step.EnsureAttribute'
-            With = @{
-                IdentityKey = 'existinguser@contoso.local'
-                Name        = 'Title'
-                Value       = 'Sales Manager'
                 Provider    = 'Identity'
             }
         },
