@@ -269,7 +269,7 @@ Describe 'Module manifests and public surface' {
 
         $exported = (Get-Command -Module IdLE.Steps.Common).Name
         $exported | Should -Contain 'Invoke-IdleStepEmitEvent'
-        $exported | Should -Contain 'Invoke-IdleStepEnsureAttribute'
+        $exported | Should -Contain 'Invoke-IdleStepEnsureAttributes'
         $exported | Should -Contain 'Invoke-IdleStepEnsureEntitlement'
     }
 

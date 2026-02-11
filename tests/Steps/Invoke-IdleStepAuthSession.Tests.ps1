@@ -59,15 +59,14 @@ Describe 'IdLE.Steps - Auth Session Routing' {
                 Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
-                    Name = 'Department'
-                    Value = 'IT'
+                    Attributes = @{ Department = 'IT' }
                     AuthSessionName = 'ActiveDirectory'
                     AuthSessionOptions = @{ Role = 'Tier0' }
                 }
             }
 
             # Act
-            $result = Invoke-IdleStepEnsureAttribute -Context $context -Step $step
+            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
 
             # Assert
             $result | Should -Not -BeNullOrEmpty
@@ -120,13 +119,12 @@ Describe 'IdLE.Steps - Auth Session Routing' {
                 Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
-                    Name = 'Department'
-                    Value = 'IT'
+                    Attributes = @{ Department = 'IT' }
                 }
             }
 
             # Act
-            $result = Invoke-IdleStepEnsureAttribute -Context $context -Step $step
+            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
 
             # Assert
             $result | Should -Not -BeNullOrEmpty
@@ -179,14 +177,13 @@ Describe 'IdLE.Steps - Auth Session Routing' {
                 Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
-                    Name = 'Department'
-                    Value = 'IT'
+                    Attributes = @{ Department = 'IT' }
                     AuthSessionName = 'ActiveDirectory'
                 }
             }
 
             # Act
-            $result = Invoke-IdleStepEnsureAttribute -Context $context -Step $step
+            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
 
             # Assert
             $result | Should -Not -BeNullOrEmpty
@@ -242,14 +239,13 @@ Describe 'IdLE.Steps - Auth Session Routing' {
                 Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
-                    Name = 'Department'
-                    Value = 'IT'
+                    Attributes = @{ Department = 'IT' }
                     AuthSessionName = 'ActiveDirectory'
                 }
             }
 
             # Act
-            $result = Invoke-IdleStepEnsureAttribute -Context $context -Step $step
+            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
 
             # Assert
             $result | Should -Not -BeNullOrEmpty
@@ -283,15 +279,14 @@ Describe 'IdLE.Steps - Auth Session Routing' {
                 Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
-                    Name = 'Department'
-                    Value = 'IT'
+                    Attributes = @{ Department = 'IT' }
                     AuthSessionName = 'ActiveDirectory'
                     AuthSessionOptions = 'invalid-string'
                 }
             }
 
             # Act & Assert
-            { Invoke-IdleStepEnsureAttribute -Context $context -Step $step } |
+            { Invoke-IdleStepEnsureAttributes -Context $context -Step $step } |
                 Should -Throw '*AuthSessionOptions*hashtable*'
         }
 
@@ -344,14 +339,13 @@ Describe 'IdLE.Steps - Auth Session Routing' {
                 Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
-                    Name = 'Department'
-                    Value = 'IT'
+                    Attributes = @{ Department = 'IT' }
                     # No AuthSessionName - should still try to acquire default session
                 }
             }
 
             # Act
-            $result = Invoke-IdleStepEnsureAttribute -Context $context -Step $step
+            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
 
             # Assert
             $result | Should -Not -BeNullOrEmpty
@@ -388,14 +382,13 @@ Describe 'IdLE.Steps - Auth Session Routing' {
                 Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
-                    Name = 'Department'
-                    Value = 'IT'
+                    Attributes = @{ Department = 'IT' }
                     AuthSessionName = 'ActiveDirectory'  # Explicitly set but no broker
                 }
             }
 
             # Act & Assert
-            { Invoke-IdleStepEnsureAttribute -Context $context -Step $step } |
+            { Invoke-IdleStepEnsureAttributes -Context $context -Step $step } |
                 Should -Throw '*AuthSessionName*AcquireAuthSession*'
         }
     }
