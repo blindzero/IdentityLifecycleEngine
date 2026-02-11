@@ -390,7 +390,7 @@ function New-IdleADIdentityProvider {
         $null = $adapter.NewUser($IdentityKey, $Attributes, $enabled)
 
         # Emit observability event
-        if ($null -ne $this.EventSink) {
+        if ($this.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $this.EventSink) {
             $eventData = @{
                 IdentityKey = $IdentityKey
                 Requested   = $validationResult.Requested
@@ -495,7 +495,7 @@ function New-IdleADIdentityProvider {
             $changed = $true
 
             # Emit observability event
-            if ($null -ne $this.EventSink) {
+            if ($this.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $this.EventSink) {
                 $eventData = @{
                     IdentityKey  = $IdentityKey
                     AttributeName = $Name

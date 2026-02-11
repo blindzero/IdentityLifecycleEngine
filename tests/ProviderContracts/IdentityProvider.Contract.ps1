@@ -66,7 +66,8 @@ function Invoke-IdleIdentityProviderContractTests {
         It 'EnsureAttribute returns a stable result shape' {
             $id = "contract-$([guid]::NewGuid().ToString('N'))"
 
-            $result = $script:Provider.EnsureAttribute($id, 'contractKey', 'contractValue')
+            # Use 'Description' - a common attribute supported by most identity providers
+            $result = $script:Provider.EnsureAttribute($id, 'Description', 'contractValue')
 
             $result | Should -Not -BeNullOrEmpty
             $result.PSObject.Properties.Name | Should -Contain 'Changed'
