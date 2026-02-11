@@ -229,6 +229,7 @@ Describe 'AD identity provider' {
                 # Password handling validation (same as real adapter)
                 $hasAccountPassword = $Attributes.ContainsKey('AccountPassword')
                 $hasAccountPasswordAsPlainText = $Attributes.ContainsKey('AccountPasswordAsPlainText')
+                $generatedPasswordInfo = $null
 
                 if ($hasAccountPassword -and $hasAccountPasswordAsPlainText) {
                     throw "Ambiguous password configuration: both 'AccountPassword' and 'AccountPasswordAsPlainText' are provided. Use only one."
@@ -260,8 +261,7 @@ Describe 'AD identity provider' {
                         throw "AccountPassword: Expected a SecureString or ProtectedString (string from ConvertFrom-SecureString), but received type: $($passwordValue.GetType().FullName)"
                     }
                 }
-
-                if ($hasAccountPasswordAsPlainText) {
+                elseif ($hasAccountPasswordAsPlainText) {
                     $plainTextPassword = $Attributes['AccountPasswordAsPlainText']
 
                     if ($null -eq $plainTextPassword) {
@@ -274,6 +274,25 @@ Describe 'AD identity provider' {
 
                     if ([string]::IsNullOrWhiteSpace($plainTextPassword)) {
                         throw "AccountPasswordAsPlainText: Password cannot be null or empty."
+                    }
+                }
+                elseif ($Enabled) {
+                    # Simulate password generation when enabled and no password provided
+                    $fakePassword = 'FakeGenerated123!@#'
+                    $securePassword = ConvertTo-SecureString -String $fakePassword -AsPlainText -Force
+                    $protectedPassword = ConvertFrom-SecureString -SecureString $securePassword
+                    
+                    $generatedPasswordInfo = [pscustomobject]@{
+                        PSTypeName       = 'IdLE.ADPassword'
+                        PlainText        = $fakePassword
+                        SecureString     = $securePassword
+                        ProtectedString  = $protectedPassword
+                        UsedPolicy       = 'Fallback'
+                        MinLength        = 24
+                        RequiredUpper    = $true
+                        RequiredLower    = $true
+                        RequiredDigit    = $true
+                        RequiredSpecial  = $true
                     }
                 }
 
@@ -303,6 +322,11 @@ Describe 'AD identity provider' {
                     EmailAddress       = $Attributes['EmailAddress']
                     Manager            = $resolvedManager
                     Groups             = @()
+                }
+
+                # Attach password generation info if generated
+                if ($null -ne $generatedPasswordInfo) {
+                    $user | Add-Member -MemberType NoteProperty -Name '_GeneratedPasswordInfo' -Value $generatedPasswordInfo -Force
                 }
 
                 $this.Store[$newGuid] = $user
@@ -1652,6 +1676,153 @@ Describe 'AD identity provider' {
         It 'EnsureAttribute rejects OtherAttributes' {
             { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', @{}) } | 
                 Should -Throw -ExpectedMessage '*Unsupported attribute*'
+        }
+    }
+
+    Context 'Password generation and controlled output' {
+        BeforeAll {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            $script:PasswordTestProvider = $provider
+            $script:PasswordTestAdapter = $adapter
+        }
+
+        It 'Generates password when enabled and no password provided' {
+            $attrs = @{
+                SamAccountName = 'pwdtest1'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest1', $attrs)
+            
+            # Verify password was generated
+            $result.PasswordGenerated | Should -BeTrue
+            $result.GeneratedAccountPasswordProtected | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Does not generate password when disabled and no password provided' {
+            $attrs = @{
+                SamAccountName = 'pwdtest2'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $false
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest2', $attrs)
+            
+            # Verify password was not generated
+            $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
+            $result.PSObject.Properties.Name | Should -Not -Contain 'GeneratedAccountPasswordProtected'
+        }
+
+        It 'Does not include plaintext password by default' {
+            $attrs = @{
+                SamAccountName = 'pwdtest3'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest3', $attrs)
+            
+            # Verify plaintext password is not included
+            $result.PSObject.Properties.Name | Should -Not -Contain 'GeneratedAccountPasswordPlainText'
+        }
+
+        It 'Includes plaintext password when AllowPlainTextPasswordOutput is true' {
+            $attrs = @{
+                SamAccountName = 'pwdtest4'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+                AllowPlainTextPasswordOutput = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest4', $attrs)
+            
+            # Verify plaintext password is included
+            $result.GeneratedAccountPasswordPlainText | Should -Not -BeNullOrEmpty
+            $result.GeneratedAccountPasswordPlainText | Should -BeOfType [string]
+        }
+
+        It 'Does not generate password when AccountPassword is provided' {
+            $securePassword = ConvertTo-SecureString -String 'ExplicitPassword123!' -AsPlainText -Force
+            $attrs = @{
+                SamAccountName = 'pwdtest5'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+                AccountPassword = $securePassword
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest5', $attrs)
+            
+            # Verify password was not generated (explicit password provided)
+            $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
+        }
+
+        It 'Does not generate password when AccountPasswordAsPlainText is provided' {
+            $attrs = @{
+                SamAccountName = 'pwdtest6'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+                AccountPasswordAsPlainText = 'ExplicitPassword123!'
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest6', $attrs)
+            
+            # Verify password was not generated (explicit password provided)
+            $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
+        }
+
+        It 'Includes policy information when password is generated' {
+            $attrs = @{
+                SamAccountName = 'pwdtest7'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest7', $attrs)
+            
+            # Verify policy information is included
+            $result.PasswordGenerationPolicyUsed | Should -Not -BeNullOrEmpty
+            $result.PasswordGenerationPolicyUsed | Should -BeIn @('DomainPolicy', 'Fallback')
+        }
+
+        It 'Accepts ResetOnFirstLogin attribute' {
+            $attrs = @{
+                SamAccountName = 'pwdtest8'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+                ResetOnFirstLogin = $false
+            }
+
+            # Should not throw when ResetOnFirstLogin is provided
+            { $script:PasswordTestProvider.CreateIdentity('pwdtest8', $attrs) } | Should -Not -Throw
+        }
+
+        It 'Generated password can be revealed using ProtectedString' {
+            $attrs = @{
+                SamAccountName = 'pwdtest9'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest9', $attrs)
+            
+            # Verify ProtectedString can be converted back to SecureString
+            $protectedString = $result.GeneratedAccountPasswordProtected
+            { ConvertTo-SecureString -String $protectedString } | Should -Not -Throw
+            
+            # Verify conversion works
+            $secure = ConvertTo-SecureString -String $protectedString
+            $secure | Should -BeOfType [securestring]
         }
     }
 }
