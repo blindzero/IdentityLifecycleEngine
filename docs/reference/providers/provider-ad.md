@@ -119,11 +119,17 @@ Follow the principle of least privilege - grant only the permissions required fo
 
 ## Installation and Import
 
-The AD provider is automatically imported when you import the main IdLE module:
+The AD provider is a **standalone provider module** that must be imported separately:
 
 ```powershell
-Import-Module IdLE
+# Import the AD provider module
+Import-Module .\src\IdLE.Provider.AD\IdLE.Provider.AD.psd1
+
+# Or if installed from PowerShell Gallery:
+Import-Module IdLE.Provider.AD
 ```
+
+**Note:** The AD provider requires `IdLE.Core` to be available. When using IdLE in development mode (from the repository), import the main `IdLE` module first, which automatically loads the required dependencies. When using published packages from PowerShell Gallery, module dependencies are resolved automatically.
 
 This makes `New-IdleADIdentityProvider` available in your session.
 

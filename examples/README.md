@@ -13,7 +13,6 @@ Workflows that run out-of-the-box with `IdLE.Provider.Mock`. These are fully fun
 
 **Workflows:**
 - `joiner-minimal.psd1` — minimal workflow with a single EmitEvent step
-- `joiner-minimal-ensureattribute.psd1` — demonstrates EnsureAttributes step with a single attribute
 - `joiner-minimal-ensureattributes.psd1` — demonstrates EnsureAttributes step with multiple attributes
 - `joiner-ensureentitlement.psd1` — demonstrates EnsureEntitlement step for group assignment
 - `joiner-with-condition.psd1` — demonstrates conditional step execution
@@ -127,7 +126,6 @@ Hosts can optionally stream events live by providing `-EventSink` as an object i
 | Workflow File | Category | Runnable with Mock | Required Providers | External Prerequisites |
 |---------------|----------|--------------------|--------------------|------------------------|
 | joiner-minimal.psd1 | Mock | ✅ Yes | Identity (Mock) | None |
-| joiner-minimal-ensureattribute.psd1 | Mock | ✅ Yes | Identity (Mock) | None |
 | joiner-minimal-ensureattributes.psd1 | Mock | ✅ Yes | Identity (Mock) | None |
 | joiner-ensureentitlement.psd1 | Mock | ✅ Yes | Identity (Mock) | None |
 | joiner-with-condition.psd1 | Mock | ✅ Yes | Identity (Mock) | None |
