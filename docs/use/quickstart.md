@@ -105,7 +105,7 @@ The mock provider below can be used with workflows that use following Step Types
 
 - IdLE.Step.EmitEvent
 - IdLE.Step.ReadIdentity
-- IdLE.Step.EnsureAttribute
+- IdLE.Step.EnsureAttributes
 - IdLE.Step.DisableIdentity
 - IdLE.Step.EnableIdentity
 - IdLE.Step.EnsureEntitlement

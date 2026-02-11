@@ -104,11 +104,12 @@ function Invoke-IdleStepEnsureAttributes {
         if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Attributes')) {
             $attributeResults = $result.Attributes
         } else {
-            # Otherwise, create a simple summary
+            # Provider doesn't return per-attribute details, so we can't determine individual attribute changes
+            # Report overall status but mark individual attribute change status as unknown
             foreach ($key in $attributes.Keys) {
                 $attributeResults += @{
                     Name    = $key
-                    Changed = $anyChanged
+                    Changed = $anyChanged  # Overall result - individual changes unknown without provider details
                     Error   = $null
                 }
             }

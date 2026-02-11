@@ -115,7 +115,9 @@ This provider has no additional data-only option keys beyond its constructor par
 ### Idempotency and consistency
 
 - **Idempotent operations:** Partial
-  - `EnsureAttributes` is idempotent (returns `Changed = $false` when already converged).
+  - `EnsureAttributes` step is idempotent (returns `Changed = $false` when already converged).
+    - The step calls the provider's `EnsureAttributes` method if available (batch operation).
+    - Otherwise, it falls back to calling `EnsureAttribute` for each attribute individually.
   - `DisableIdentity` is idempotent.
   - Entitlement grant/revoke are idempotent by Kind+Id.
   - `GetIdentity` creates missing identities on demand (test convenience).
