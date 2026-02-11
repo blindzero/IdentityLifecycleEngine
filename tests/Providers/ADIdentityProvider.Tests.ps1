@@ -1576,7 +1576,7 @@ Describe 'AD identity provider' {
         }
 
         It 'EnsureAttribute succeeds with supported attributes' {
-            $supportedAttrs = @('GivenName', 'Surname', 'DisplayName', 'Description', 'Department', 'Title', 'EmailAddress', 'UserPrincipalName')
+            $supportedAttrs = @('GivenName', 'Surname', 'DisplayName', 'Description', 'Department', 'Title', 'EmailAddress', 'UserPrincipalName', 'Manager')
 
             foreach ($attr in $supportedAttrs) {
                 { $script:ValidationTestProvider.EnsureAttribute('validationtest1', $attr, 'TestValue') } | Should -Not -Throw

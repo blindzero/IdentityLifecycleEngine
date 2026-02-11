@@ -395,7 +395,6 @@ function New-IdleADIdentityProvider {
                 IdentityKey = $IdentityKey
                 Requested   = $validationResult.Requested
                 Applied     = $validationResult.Supported
-                Ignored     = $validationResult.Unsupported
             }
             $this.EventSink.WriteEvent('Provider.AD.CreateIdentity.AttributesApplied', 'Attributes applied during identity creation', 'CreateIdentity', $eventData)
         }
