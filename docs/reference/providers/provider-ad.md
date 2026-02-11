@@ -255,10 +255,133 @@ This design ensures workflows can be re-run safely without causing duplicate ope
 
 ---
 
+## Attribute contracts
+
+The AD provider enforces strict validation of attributes to ensure fail-fast behavior and prevent silent failures.
+
+### CreateIdentity - Supported attributes
+
+The following attributes are supported when creating identities via `CreateIdentity`:
+
+#### Identity attributes
+- `SamAccountName` (string) - User logon name (pre-Windows 2000)
+- `UserPrincipalName` (string) - User principal name (email-style logon)
+- `Path` (string) - DistinguishedName of the OU where the user should be created
+
+#### Name attributes
+- `Name` (string) - Full name (CN/RDN)
+- `GivenName` (string) - First name
+- `Surname` (string) - Last name
+- `DisplayName` (string) - Display name
+
+#### Organizational attributes
+- `Description` (string) - User description
+- `Department` (string) - Department
+- `Title` (string) - Job title
+
+#### Contact attributes
+- `EmailAddress` (string) - Email address
+
+#### Relationship attributes
+- `Manager` (string) - Manager DN, GUID, UPN, or sAMAccountName (auto-resolved to DN)
+
+#### Password attributes
+- `AccountPassword` (SecureString or ProtectedString) - Password as SecureString or DPAPI-protected string
+- `AccountPasswordAsPlainText` (string) - Plaintext password (explicit opt-in, automatically redacted in events)
+
+:::warning
+Only one password attribute can be used at a time. Using both `AccountPassword` and `AccountPasswordAsPlainText` will throw an error.
+:::
+
+#### State attributes
+- `Enabled` (boolean) - Account enabled state (default: `$true`)
+
+#### Extension container
+- `OtherAttributes` (hashtable) - Custom LDAP attributes not covered by named parameters
+  - Must be a hashtable
+  - Keys are interpreted as LDAP attribute names and are validated by the underlying AD cmdlets at runtime
+  - Values must use types supported by the AD cmdlets for `-OtherAttributes` (for example: string, string[], byte[])
+
+**Example:**
+```powershell
+$attrs = @{
+    GivenName       = 'John'
+    Surname         = 'Doe'
+    DisplayName     = 'John Doe'
+    Department      = 'IT'
+    Title           = 'Engineer'
+    EmailAddress    = 'john.doe@example.com'
+    OtherAttributes = @{
+        extensionAttribute1 = 'CustomValue'
+        employeeType        = 'Contractor'
+    }
+}
+```
+
+### EnsureAttribute - Supported attributes
+
+The following attributes are supported when updating identities via `EnsureAttribute`:
+
+#### Name attributes
+- `GivenName` (string) - First name
+- `Surname` (string) - Last name
+- `DisplayName` (string) - Display name
+
+#### Organizational attributes
+- `Description` (string) - User description
+- `Department` (string) - Department
+- `Title` (string) - Job title
+
+#### Contact attributes
+- `EmailAddress` (string) - Email address
+
+#### Identity attributes
+- `UserPrincipalName` (string) - User principal name
+
+#### Relationship attributes
+- `Manager` (string) - Manager DN, GUID, UPN, or sAMAccountName (auto-resolved to DN)
+
+:::info
+**Note:** Custom LDAP attributes (via `OtherAttributes`) are not supported in `EnsureAttribute`. They can only be set during identity creation via `CreateIdentity`.
+
+Password, Path, Name, and Enabled attributes are also CreateIdentity-only and cannot be modified via `EnsureAttribute`.
+:::
+
+### Validation behavior
+
+**Strict mode (default):**
+- Unsupported attribute keys cause an immediate error
+- Error messages list the unsupported attributes and provide guidance
+- No silent attribute dropping
+
+**Example error:**
+```
+AD Provider: Unsupported attributes in CreateIdentity operation.
+Unsupported attributes: InvalidAttr1, InvalidAttr2
+
+Supported attributes for CreateIdentity:
+  - Identity: SamAccountName, UserPrincipalName, Path
+  - Name: Name, GivenName, Surname, DisplayName
+  - Organization: Description, Department, Title
+  - Contact: EmailAddress
+  - Relationship: Manager
+  - Password: AccountPassword, AccountPasswordAsPlainText
+  - State: Enabled
+  - Extension: OtherAttributes (hashtable of LDAP attributes)
+
+To set custom LDAP attributes, use the 'OtherAttributes' container.
+```
+
+---
+
 ## Observability
 
-- **Events emitted by provider (if any):**
-  - Steps emit events via the execution context; provider operations are traced through step events
+- **Events emitted by provider:**
+  - `Provider.AD.CreateIdentity.AttributesRequested` - Emitted after identity creation with requested attributes
+  - `Provider.AD.EnsureAttribute.AttributeChanged` - Emitted when an attribute is modified
+- **Event data includes:**
+  - Requested attributes (for CreateIdentity)
+  - Old and new values (for attribute changes in EnsureAttribute)
 - **Sensitive data redaction:** Credential objects and secure strings are not included in operation results or events
 
 ---
