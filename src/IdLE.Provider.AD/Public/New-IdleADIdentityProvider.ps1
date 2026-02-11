@@ -394,9 +394,8 @@ function New-IdleADIdentityProvider {
             $eventData = @{
                 IdentityKey = $IdentityKey
                 Requested   = $validationResult.Requested
-                Applied     = $validationResult.Supported
             }
-            $this.EventSink.WriteEvent('Provider.AD.CreateIdentity.AttributesApplied', 'Attributes applied during identity creation', 'CreateIdentity', $eventData)
+            $this.EventSink.WriteEvent('Provider.AD.CreateIdentity.AttributesRequested', 'Attributes requested during identity creation', 'CreateIdentity', $eventData)
         }
 
         return [pscustomobject]@{
@@ -490,7 +489,13 @@ function New-IdleADIdentityProvider {
 
         $changed = $false
         if ($currentValue -ne $Value) {
-            $adapter.SetUser($user.DistinguishedName, $Name, $Value)
+            # Special handling for Manager attribute - resolve to DN
+            $valueToSet = $Value
+            if ($Name -eq 'Manager' -and $null -ne $Value) {
+                $valueToSet = $adapter.ResolveManagerDN($Value)
+            }
+            
+            $adapter.SetUser($user.DistinguishedName, $Name, $valueToSet)
             $changed = $true
 
             # Emit observability event

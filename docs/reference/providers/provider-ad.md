@@ -299,8 +299,8 @@ Only one password attribute can be used at a time. Using both `AccountPassword` 
 #### Extension container
 - `OtherAttributes` (hashtable) - Custom LDAP attributes not covered by named parameters
   - Must be a hashtable
-  - Keys must be valid LDAP attribute names
-  - Values must be compatible with AD cmdlets (string, array of strings, etc.)
+  - Keys are interpreted as LDAP attribute names and are validated by the underlying AD cmdlets at runtime
+  - Values must use types supported by the AD cmdlets for `-OtherAttributes` (for example: string, string[], byte[])
 
 **Example:**
 ```powershell
@@ -377,12 +377,11 @@ To set custom LDAP attributes, use the 'OtherAttributes' container.
 ## Observability
 
 - **Events emitted by provider:**
-  - `Provider.AD.CreateIdentity.AttributesApplied` - Emitted after identity creation with attribute details
+  - `Provider.AD.CreateIdentity.AttributesRequested` - Emitted after identity creation with requested attributes
   - `Provider.AD.EnsureAttribute.AttributeChanged` - Emitted when an attribute is modified
 - **Event data includes:**
-  - Requested attributes
-  - Applied attributes
-  - Old and new values (for attribute changes)
+  - Requested attributes (for CreateIdentity)
+  - Old and new values (for attribute changes in EnsureAttribute)
 - **Sensitive data redaction:** Credential objects and secure strings are not included in operation results or events
 
 ---

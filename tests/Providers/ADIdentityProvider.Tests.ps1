@@ -1480,6 +1480,63 @@ Describe 'AD identity provider' {
             $updatedUser.Manager | Should -Be $managerUser.DistinguishedName
         }
 
+        It 'EnsureAttribute resolves Manager from UPN' {
+            # Create a manager user
+            $managerAttrs = @{
+                SamAccountName = 'lwilson'
+                UserPrincipalName = 'lwilson@contoso.com'
+            }
+            $managerUser = $script:ManagerTestAdapter.NewUser('lwilson@contoso.com', $managerAttrs, $true)
+
+            # Create employee without manager
+            $attrs = @{
+                SamAccountName = 'managertest15'
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest15', $attrs, $true)
+
+            # Set manager via UPN
+            $result = $script:ManagerTestProvider.EnsureAttribute(
+                'managertest15',
+                'Manager',
+                'lwilson@contoso.com',  # UPN instead of DN
+                $null
+            )
+
+            $result.Changed | Should -Be $true
+            
+            # Verify manager was resolved to DN
+            $updatedUser = $script:ManagerTestAdapter.Store[$user.ObjectGuid.ToString()]
+            $updatedUser.Manager | Should -Be $managerUser.DistinguishedName
+        }
+
+        It 'EnsureAttribute resolves Manager from GUID' {
+            # Create a manager user
+            $managerAttrs = @{
+                SamAccountName = 'kthompson'
+            }
+            $managerUser = $script:ManagerTestAdapter.NewUser('kthompson', $managerAttrs, $true)
+
+            # Create employee without manager
+            $attrs = @{
+                SamAccountName = 'managertest16'
+            }
+            $user = $script:ManagerTestAdapter.NewUser('managertest16', $attrs, $true)
+
+            # Set manager via GUID
+            $result = $script:ManagerTestProvider.EnsureAttribute(
+                'managertest16',
+                'Manager',
+                $managerUser.ObjectGuid.ToString(),  # GUID instead of DN
+                $null
+            )
+
+            $result.Changed | Should -Be $true
+            
+            # Verify manager was resolved to DN
+            $updatedUser = $script:ManagerTestAdapter.Store[$user.ObjectGuid.ToString()]
+            $updatedUser.Manager | Should -Be $managerUser.DistinguishedName
+        }
+
         It 'CreateIdentity throws when Manager GUID does not exist' {
             # The fake adapter auto-creates users on sAMAccountName/UPN lookup for contract test compatibility
             # To test resolution failure, we use a non-existent GUID

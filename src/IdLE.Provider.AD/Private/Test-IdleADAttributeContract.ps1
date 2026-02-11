@@ -65,15 +65,14 @@ function Test-IdleADAttributeContract {
             $errorMessage = "AD Provider: Unsupported attributes in CreateIdentity operation.`n"
             $errorMessage += "Unsupported attributes: $($unsupportedKeys -join ', ')`n`n"
             $errorMessage += "Supported attributes for CreateIdentity:`n"
-            $errorMessage += "  - Identity: SamAccountName, UserPrincipalName, Path`n"
-            $errorMessage += "  - Name: Name, GivenName, Surname, DisplayName`n"
-            $errorMessage += "  - Organization: Description, Department, Title`n"
-            $errorMessage += "  - Contact: EmailAddress`n"
-            $errorMessage += "  - Relationship: Manager`n"
-            $errorMessage += "  - Password: AccountPassword, AccountPasswordAsPlainText`n"
-            $errorMessage += "  - State: Enabled`n"
-            $errorMessage += "  - Extension: OtherAttributes (hashtable of LDAP attributes)`n`n"
-            $errorMessage += "To set custom LDAP attributes, use the 'OtherAttributes' container."
+            
+            # Generate supported attributes list from contract
+            $supportedAttributesList = ($supportedKeys | Sort-Object | ForEach-Object { "  - $_" }) -join "`n"
+            $errorMessage += "$supportedAttributesList`n`n"
+            
+            if ('OtherAttributes' -in $supportedKeys) {
+                $errorMessage += "To set custom LDAP attributes, use the 'OtherAttributes' container."
+            }
 
             throw $errorMessage
         }
@@ -103,13 +102,13 @@ function Test-IdleADAttributeContract {
             $errorMessage = "AD Provider: Unsupported attribute in EnsureAttribute operation.`n"
             $errorMessage += "Attribute: $AttributeName`n`n"
             $errorMessage += "Supported attributes for EnsureAttribute:`n"
-            $errorMessage += "  - Name: GivenName, Surname, DisplayName`n"
-            $errorMessage += "  - Organization: Description, Department, Title`n"
-            $errorMessage += "  - Contact: EmailAddress`n"
-            $errorMessage += "  - Identity: UserPrincipalName`n"
-            $errorMessage += "  - Relationship: Manager`n`n"
-            $errorMessage += "Note: Custom LDAP attributes are not supported in EnsureAttribute.`n"
-            $errorMessage += "For custom attributes, use CreateIdentity with OtherAttributes or direct provider methods."
+            
+            # Generate supported attributes list from contract
+            $supportedAttributesList = ($supportedKeys | Sort-Object | ForEach-Object { "  - $_" }) -join "`n"
+            $errorMessage += "$supportedAttributesList`n`n"
+            
+            $errorMessage += "Note: Custom LDAP attributes and password attributes are not supported in EnsureAttribute.`n"
+            $errorMessage += "For custom attributes, use CreateIdentity with OtherAttributes."
 
             throw $errorMessage
         }
