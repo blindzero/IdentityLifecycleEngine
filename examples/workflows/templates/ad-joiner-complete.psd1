@@ -15,6 +15,12 @@
                     DisplayName       = 'New User'
                     Description       = 'New employee account'
                     Path              = 'OU=Joiners,OU=Users,DC=contoso,DC=local'
+                    OtherAttributes   = @{
+                        # Custom LDAP attributes for organization-specific needs
+                        employeeType        = 'Employee'
+                        extensionAttribute1 = 'EMPL-2024-001'
+                        company             = 'Contoso Ltd'
+                    }
                 }
                 # Provider alias - references the key in the provider hashtable.
                 # The host chooses this name when creating the provider hashtable.
