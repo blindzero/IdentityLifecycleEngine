@@ -4,8 +4,8 @@
     Steps          = @(
         @{
             Name = 'Ensure Department'
-            Type = 'IdLE.Step.EnsureAttribute'
-            With = @{ IdentityKey = 'user1'; Name = 'Department'; Value = 'IT'; Provider = 'Identity' }
+            Type = 'IdLE.Step.EnsureAttributes'
+            With = @{ IdentityKey = 'user1'; Attributes = @{ Department = 'IT' }; Provider = 'Identity' }
         },
         @{
             Name = 'Assign demo group'

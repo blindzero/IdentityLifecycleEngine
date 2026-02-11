@@ -47,7 +47,6 @@ if (Test-Path -Path $PublicPath) {
 Export-ModuleMember -Function @(
     'Get-IdleStepMetadataCatalog',
     'Invoke-IdleStepEmitEvent',
-    'Invoke-IdleStepEnsureAttribute',
     'Invoke-IdleStepEnsureAttributes',
     'Invoke-IdleStepEnsureEntitlement',
     'Invoke-IdleStepCreateIdentity',

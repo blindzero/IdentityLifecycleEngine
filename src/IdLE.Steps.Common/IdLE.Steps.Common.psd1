@@ -13,7 +13,6 @@
     FunctionsToExport = @(
         'Get-IdleStepMetadataCatalog',
         'Invoke-IdleStepEmitEvent',
-        'Invoke-IdleStepEnsureAttribute',
         'Invoke-IdleStepEnsureAttributes',
         'Invoke-IdleStepEnsureEntitlement',
         'Invoke-IdleStepCreateIdentity',

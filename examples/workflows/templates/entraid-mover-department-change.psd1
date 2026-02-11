@@ -5,18 +5,19 @@
     Steps          = @(
         @{
             Name = 'UpdateDepartmentAttributes'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Type = 'IdLE.Step.EnsureAttributes'
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.Input.UserObjectId}}'
-                Name               = 'Department'
-                Value              = '{{Request.Input.NewDepartment}}'
+                Attributes         = @{
+                    Department = '{{Request.Input.NewDepartment}}'
+                }
             }
         }
         @{
             Name = 'UpdateJobTitle'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Type = 'IdLE.Step.EnsureAttributes'
             Condition = @{
                 All = @(
                     @{
@@ -28,13 +29,14 @@
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.Input.UserObjectId}}'
-                Name               = 'JobTitle'
-                Value              = '{{Request.Input.NewJobTitle}}'
+                Attributes         = @{
+                    JobTitle = '{{Request.Input.NewJobTitle}}'
+                }
             }
         }
         @{
             Name = 'UpdateOfficeLocation'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Type = 'IdLE.Step.EnsureAttributes'
             Condition = @{
                 All = @(
                     @{
@@ -46,8 +48,9 @@
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.Input.UserObjectId}}'
-                Name               = 'OfficeLocation'
-                Value              = '{{Request.Input.NewOfficeLocation}}'
+                Attributes         = @{
+                    OfficeLocation = '{{Request.Input.NewOfficeLocation}}'
+                }
             }
         }
         @{
@@ -75,7 +78,7 @@
         }
         @{
             Name = 'UpdateManager'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Type = 'IdLE.Step.EnsureAttributes'
             Condition = @{
                 All = @(
                     @{
@@ -87,8 +90,9 @@
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.Input.UserObjectId}}'
-                Name               = 'Manager'
-                Value              = '{{Request.Input.NewManagerId}}'
+                Attributes         = @{
+                    Manager = '{{Request.Input.NewManagerId}}'
+                }
             }
         }
         @{

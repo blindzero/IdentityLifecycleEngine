@@ -14,11 +14,12 @@
         },
         @{
             Name = 'Update Description with termination date'
-            Type = 'IdLE.Step.EnsureAttribute'
+            Type = 'IdLE.Step.EnsureAttributes'
             With = @{
                 IdentityKey = 'leavinguser@contoso.local'
-                Name        = 'Description'
-                Value       = 'Terminated 2026-01-18'
+                Attributes  = @{
+                    Description = 'Terminated 2026-01-18'
+                }
                 Provider    = 'Identity'
             }
         },

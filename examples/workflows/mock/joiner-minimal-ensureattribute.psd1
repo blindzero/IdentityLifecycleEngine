@@ -1,5 +1,5 @@
 @{
-  Name           = 'Joiner - Minimal (EnsureAttribute)'
+  Name           = 'Joiner - Minimal (EnsureAttributes)'
   LifecycleEvent = 'Joiner'
 
   Steps          = @(
@@ -13,12 +13,13 @@
 
     @{
       Name = 'Ensure Department'
-      Type = 'IdLE.Step.EnsureAttribute'
+      Type = 'IdLE.Step.EnsureAttributes'
       With = @{
         Provider    = 'Identity'
         IdentityKey = 'user1'
-        Name        = 'Department'
-        Value       = 'IT'
+        Attributes  = @{
+          Department = 'IT'
+        }
       }
     }
 
