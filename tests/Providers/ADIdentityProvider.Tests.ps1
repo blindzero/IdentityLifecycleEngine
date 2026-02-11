@@ -1493,4 +1493,108 @@ Describe 'AD identity provider' {
             { $script:ManagerTestAdapter.NewUser('managertest14', $attrs, $true) } | Should -Throw -ExpectedMessage '*Could not find user*'
         }
     }
+
+    Context 'Attribute validation (strict mode)' {
+        BeforeAll {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            $script:ValidationTestProvider = $provider
+            $script:ValidationTestAdapter = $adapter
+        }
+
+        It 'CreateIdentity throws when unsupported attribute is provided' {
+            $attrs = @{
+                GivenName = 'Test'
+                Surname = 'User'
+                InvalidAttribute = 'ShouldFail'
+            }
+
+            { $script:ValidationTestProvider.CreateIdentity('validationtest1', $attrs) } | 
+                Should -Throw -ExpectedMessage '*Unsupported attributes*'
+        }
+
+        It 'CreateIdentity error message lists unsupported attributes' {
+            $attrs = @{
+                GivenName = 'Test'
+                InvalidAttr1 = 'Value1'
+                InvalidAttr2 = 'Value2'
+            }
+
+            { $script:ValidationTestProvider.CreateIdentity('validationtest2', $attrs) } | 
+                Should -Throw -ExpectedMessage '*InvalidAttr1*'
+        }
+
+        It 'CreateIdentity succeeds with all supported attributes' {
+            $attrs = @{
+                SamAccountName = 'validationtest3'
+                UserPrincipalName = 'test3@example.com'
+                GivenName = 'Test'
+                Surname = 'User'
+                DisplayName = 'Test User'
+                Description = 'Test Description'
+                Department = 'IT'
+                Title = 'Engineer'
+                EmailAddress = 'test@example.com'
+                Enabled = $true
+            }
+
+            { $script:ValidationTestProvider.CreateIdentity('validationtest3', $attrs) } | Should -Not -Throw
+        }
+
+        It 'CreateIdentity accepts OtherAttributes hashtable' {
+            $attrs = @{
+                GivenName = 'Test'
+                Surname = 'User'
+                OtherAttributes = @{
+                    extensionAttribute1 = 'CustomValue1'
+                    employeeType = 'Contractor'
+                }
+            }
+
+            { $script:ValidationTestProvider.CreateIdentity('validationtest4', $attrs) } | Should -Not -Throw
+        }
+
+        It 'CreateIdentity throws when OtherAttributes is not a hashtable' {
+            $attrs = @{
+                GivenName = 'Test'
+                Surname = 'User'
+                OtherAttributes = 'NotAHashtable'
+            }
+
+            { $script:ValidationTestProvider.CreateIdentity('validationtest5', $attrs) } | 
+                Should -Throw -ExpectedMessage '*OtherAttributes*must be a hashtable*'
+        }
+
+        It 'EnsureAttribute throws when unsupported attribute is requested' {
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'InvalidAttribute', 'Value') } | 
+                Should -Throw -ExpectedMessage '*Unsupported attribute*'
+        }
+
+        It 'EnsureAttribute error message lists the unsupported attribute' {
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'CustomLdapAttr', 'Value') } | 
+                Should -Throw -ExpectedMessage '*CustomLdapAttr*'
+        }
+
+        It 'EnsureAttribute succeeds with supported attributes' {
+            $supportedAttrs = @('GivenName', 'Surname', 'DisplayName', 'Description', 'Department', 'Title', 'EmailAddress', 'UserPrincipalName')
+
+            foreach ($attr in $supportedAttrs) {
+                { $script:ValidationTestProvider.EnsureAttribute('validationtest1', $attr, 'TestValue') } | Should -Not -Throw
+            }
+        }
+
+        It 'EnsureAttribute rejects CreateIdentity-only attributes' {
+            $createOnlyAttrs = @('Path', 'AccountPassword', 'AccountPasswordAsPlainText', 'Enabled')
+
+            foreach ($attr in $createOnlyAttrs) {
+                { $script:ValidationTestProvider.EnsureAttribute('validationtest1', $attr, 'TestValue') } | 
+                    Should -Throw -ExpectedMessage '*Unsupported attribute*'
+            }
+        }
+
+        It 'EnsureAttribute rejects OtherAttributes' {
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', @{}) } | 
+                Should -Throw -ExpectedMessage '*Unsupported attribute*'
+        }
+    }
 }
