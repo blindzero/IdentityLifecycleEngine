@@ -89,34 +89,29 @@ function Invoke-IdleStepEnsureAttributes {
     
     if ($hasEnsureAttributes) {
         # Fast path: call EnsureAttributes once
-        try {
-            $result = Invoke-IdleProviderMethod `
-                -Context $Context `
-                -With $with `
-                -ProviderAlias $providerAlias `
-                -MethodName 'EnsureAttributes' `
-                -MethodArguments @([string]$with.IdentityKey, $attributes)
-            
-            if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
-                $anyChanged = [bool]$result.Changed
-            }
-            
-            # If provider returns per-attribute details, use them
-            if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Attributes')) {
-                $attributeResults = $result.Attributes
-            } else {
-                # Otherwise, create a simple summary
-                foreach ($key in $attributes.Keys) {
-                    $attributeResults += @{
-                        Name    = $key
-                        Changed = $anyChanged
-                        Error   = $null
-                    }
+        $result = Invoke-IdleProviderMethod `
+            -Context $Context `
+            -With $with `
+            -ProviderAlias $providerAlias `
+            -MethodName 'EnsureAttributes' `
+            -MethodArguments @([string]$with.IdentityKey, $attributes)
+        
+        if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
+            $anyChanged = [bool]$result.Changed
+        }
+        
+        # If provider returns per-attribute details, use them
+        if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Attributes')) {
+            $attributeResults = $result.Attributes
+        } else {
+            # Otherwise, create a simple summary
+            foreach ($key in $attributes.Keys) {
+                $attributeResults += @{
+                    Name    = $key
+                    Changed = $anyChanged
+                    Error   = $null
                 }
             }
-        }
-        catch {
-            throw
         }
     }
     else {
@@ -149,11 +144,7 @@ function Invoke-IdleStepEnsureAttributes {
                 }
             }
             catch {
-                $attributeResults += @{
-                    Name    = $attrName
-                    Changed = $false
-                    Error   = $_.Exception.Message
-                }
+
                 throw
             }
         }
