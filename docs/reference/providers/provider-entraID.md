@@ -525,12 +525,83 @@ These attributes can be set via `CreateIdentity` and `EnsureAttributes`:
 | `OfficeLocation` | `officeLocation` | Office location |
 | `CompanyName` | `companyName` | Company name |
 | `MailNickname` | `mailNickname` | Mail alias (auto-generated if not provided) |
-| `PasswordProfile` | `passwordProfile` | Password policy for new users |
+| `PasswordProfile` | `passwordProfile` | Password policy for new users (create only) |
 | `Enabled` | `accountEnabled` | Account enabled state |
 
 ### Password Policy (Create Only)
 
-When creating users, provide a `PasswordProfile`:
+#### Automatic Password Generation
+
+When creating users without providing a `PasswordProfile`, the provider automatically generates a secure initial password using GUID format (e.g., `3f2504e0-4f89-11d3-9a0c-0305e82c3301`). GUID passwords:
+
+- Satisfy Entra ID complexity requirements (mixed case, digits, special characters)
+- Are 36 characters long
+- Set `forceChangePasswordNextSignIn = $true` by default (user must change on first login)
+
+**Generated password is returned** in the result with controlled output options:
+
+```powershell
+# Default: secure ProtectedString output
+$result = $provider.CreateIdentity('newuser@contoso.com', @{
+    UserPrincipalName = 'newuser@contoso.com'
+    DisplayName = 'New User'
+    # No PasswordProfile provided - password auto-generated
+})
+
+# Access the generated password
+$result.PasswordGenerated                    # $true
+$result.PasswordGenerationMethod             # 'GUID'
+$result.GeneratedAccountPasswordProtected    # DPAPI-scoped ProtectedString
+```
+
+#### Reveal Path
+
+To reveal the password from ProtectedString when needed:
+
+```powershell
+$protectedPwd = $result.GeneratedAccountPasswordProtected
+$securePwd = ConvertTo-SecureString -String $protectedPwd
+$plainPwd = [pscredential]::new('x', $securePwd).GetNetworkCredential().Password
+```
+
+:::warning DPAPI Scope
+ProtectedString uses Windows DPAPI and can only be decrypted by the same Windows user on the same machine. Do not transfer ProtectedStrings across machines or user contexts.
+:::
+
+#### Opt-in Plaintext Output
+
+For scenarios requiring immediate plaintext access (e.g., displaying to onboarding staff), set `AllowPlainTextPasswordOutput = $true`:
+
+```powershell
+$result = $provider.CreateIdentity('user@contoso.com', @{
+    UserPrincipalName = 'user@contoso.com'
+    DisplayName = 'User Name'
+    AllowPlainTextPasswordOutput = $true
+})
+
+# Plaintext is included in result (redacted from logs/events)
+$plainPwd = $result.GeneratedAccountPasswordPlainText
+```
+
+:::danger Security Warning
+Results containing `GeneratedAccountPasswordPlainText` must not be persisted to disk, logs, or databases. The value is automatically redacted from engine events and exports but is accessible in the immediate result object. Handle with care.
+:::
+
+#### Control Password Reset Requirement
+
+By default, generated passwords require change on first sign-in. To disable this (e.g., for service accounts):
+
+```powershell
+$result = $provider.CreateIdentity('serviceaccount@contoso.com', @{
+    UserPrincipalName = 'serviceaccount@contoso.com'
+    DisplayName = 'Service Account'
+    ForceChangePasswordNextSignIn = $false
+})
+```
+
+#### Explicit Password
+
+When creating users, you can provide an explicit `PasswordProfile`:
 
 ```powershell
 $attributes = @{
@@ -543,7 +614,7 @@ $attributes = @{
 }
 ```
 
-If not provided, a random password is generated with `forceChangePasswordNextSignIn = $true`.
+When `PasswordProfile` is explicitly provided, no password generation occurs and no password information is returned in the result.
 
 ## Paging
 
