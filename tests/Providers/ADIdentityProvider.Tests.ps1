@@ -1921,8 +1921,9 @@ Describe 'AD identity provider' {
             $result = $script:PasswordTestProvider.CreateIdentity('pwdtest7', $attrs)
             
             # Verify policy information is included
+            # Note: Fake adapter always uses 'Fallback' policy; real adapter would use 'DomainPolicy' when available
             $result.PasswordGenerationPolicyUsed | Should -Not -BeNullOrEmpty
-            $result.PasswordGenerationPolicyUsed | Should -BeIn @('DomainPolicy', 'Fallback')
+            $result.PasswordGenerationPolicyUsed | Should -Be 'Fallback'
         }
 
         It 'Accepts ResetOnFirstLogin attribute' {

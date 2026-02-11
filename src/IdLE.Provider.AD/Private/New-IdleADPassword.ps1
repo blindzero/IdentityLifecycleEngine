@@ -101,7 +101,9 @@ function New-IdleADPassword {
         if ($null -ne $domainPolicy) {
             $policySource = 'DomainPolicy'
             
-            # Use domain policy minimum length
+            # Use domain policy minimum length, but enforce fallback as minimum baseline
+            # This ensures generated passwords meet at least the provider's configured minimum,
+            # even if domain policy allows shorter passwords (defense in depth)
             if ($domainPolicy.MinPasswordLength -gt 0) {
                 $minLength = [Math]::Max($domainPolicy.MinPasswordLength, $FallbackMinLength)
             }
