@@ -316,7 +316,7 @@ This section lists the Microsoft Graph API permissions required for each step ty
 | `IdLE.Step.CreateIdentity` | `User.ReadWrite.All` | Requires write permissions to create users |
 | `IdLE.Step.DisableIdentity` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
 | `IdLE.Step.EnableIdentity` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
-| `IdLE.Step.EnsureAttribute` | `User.ReadWrite.All` | Modifies user properties (displayName, department, etc.) |
+| `IdLE.Step.EnsureAttributes` | `User.ReadWrite.All` | Modifies user properties (displayName, department, etc.) |
 | `IdLE.Step.DeleteIdentity` | `User.ReadWrite.All` | Requires `AllowDelete = $true` on provider |
 | `IdLE.Step.RevokeIdentitySessions` | `User.RevokeSessions.All` | Security-sensitive; invalidates all active sessions |
 | `IdLE.Step.EnsureEntitlement` | `Group.Read.All`<br/>`GroupMember.ReadWrite.All` | Lists and modifies group memberships |
@@ -511,7 +511,7 @@ Transient errors include metadata in the exception message:
 
 ### Identity Attributes
 
-These attributes can be set via `CreateIdentity` and `EnsureAttribute`:
+These attributes can be set via `CreateIdentity` and `EnsureAttributes`:
 
 | Attribute | Graph Property | Notes |
 |-----------|---------------|-------|
@@ -609,7 +609,7 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 The provider works with these built-in IdLE steps:
 
 - `IdLE.Step.CreateIdentity`
-- `IdLE.Step.EnsureAttribute`
+- `IdLE.Step.EnsureAttributes`
 - `IdLE.Step.DisableIdentity`
 - `IdLE.Step.EnableIdentity`
 - `IdLE.Step.RevokeIdentitySessions` (revokes active sign-in sessions)

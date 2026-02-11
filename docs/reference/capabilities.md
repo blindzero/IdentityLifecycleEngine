@@ -114,7 +114,7 @@ Steps require capabilities, but **capabilities are not step names**.
 
 Examples of step type identifiers (not capabilities):
 
-- `IdLE.Step.EnsureAttribute`
+- `IdLE.Step.EnsureAttributes`
 - `IdLE.Step.DisableIdentity`
 
 If you need a mapping between step types and required capabilities, document that mapping next to the

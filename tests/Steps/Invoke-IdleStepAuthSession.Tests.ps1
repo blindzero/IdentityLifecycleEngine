@@ -56,7 +56,7 @@ Describe 'IdLE.Steps - Auth Session Routing' {
             $step = [pscustomobject]@{
                 PSTypeName = 'IdLE.Step'
                 Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttribute'
+                Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
                     Name = 'Department'
@@ -117,7 +117,7 @@ Describe 'IdLE.Steps - Auth Session Routing' {
             $step = [pscustomobject]@{
                 PSTypeName = 'IdLE.Step'
                 Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttribute'
+                Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
                     Name = 'Department'
@@ -176,7 +176,7 @@ Describe 'IdLE.Steps - Auth Session Routing' {
             $step = [pscustomobject]@{
                 PSTypeName = 'IdLE.Step'
                 Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttribute'
+                Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
                     Name = 'Department'
@@ -239,7 +239,7 @@ Describe 'IdLE.Steps - Auth Session Routing' {
             $step = [pscustomobject]@{
                 PSTypeName = 'IdLE.Step'
                 Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttribute'
+                Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
                     Name = 'Department'
@@ -280,7 +280,7 @@ Describe 'IdLE.Steps - Auth Session Routing' {
             $step = [pscustomobject]@{
                 PSTypeName = 'IdLE.Step'
                 Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttribute'
+                Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
                     Name = 'Department'
@@ -341,7 +341,7 @@ Describe 'IdLE.Steps - Auth Session Routing' {
             $step = [pscustomobject]@{
                 PSTypeName = 'IdLE.Step'
                 Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttribute'
+                Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
                     Name = 'Department'
@@ -385,7 +385,7 @@ Describe 'IdLE.Steps - Auth Session Routing' {
             $step = [pscustomobject]@{
                 PSTypeName = 'IdLE.Step'
                 Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttribute'
+                Type = 'IdLE.Step.EnsureAttributes'
                 With = @{
                     IdentityKey = 'testuser'
                     Name = 'Department'

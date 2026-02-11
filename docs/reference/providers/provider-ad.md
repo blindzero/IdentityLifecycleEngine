@@ -322,24 +322,26 @@ In workflow definitions, steps specify which auth context to use via `AuthSessio
 
 ```powershell
 @{
-    Type = 'IdLE.Step.EnsureAttribute'
+    Type = 'IdLE.Step.EnsureAttributes'
     Name = 'SetPrivilegedAttribute'
     With = @{
         IdentityKey = 'user@domain.com'
-        Name = 'AdminCount'
-        Value = 1
+        Attributes = @{
+            AdminCount = 1
+        }
         AuthSessionName = 'ActiveDirectory'
         AuthSessionOptions = @{ Role = 'Tier0' }  # Broker returns Tier0 credential
     }
 }
 
 @{
-    Type = 'IdLE.Step.EnsureAttribute'
+    Type = 'IdLE.Step.EnsureAttributes'
     Name = 'SetDepartment'
     With = @{
         IdentityKey = 'user@domain.com'
-        Name = 'Department'
-        Value = 'IT'
+        Attributes = @{
+            Department = 'IT'
+        }
         AuthSessionName = 'ActiveDirectory'
         AuthSessionOptions = @{ Role = 'Admin' }  # Broker returns Admin credential
     }
@@ -529,7 +531,7 @@ The following built-in steps in `IdLE.Steps.Common` work with the AD provider:
 - **IdLE.Step.EnableIdentity** - Enable user accounts
 - **IdLE.Step.MoveIdentity** - Move users between OUs
 - **IdLE.Step.DeleteIdentity** - Delete user accounts (requires provider initialization with `-AllowDelete` switch)
-- **IdLE.Step.EnsureAttribute** - Set/update user attributes
+- **IdLE.Step.EnsureAttributes** - Set/update user attributes
 - **IdLE.Step.EnsureEntitlement** - Manage group memberships
 
 Step metadata (including required capabilities) is provided by step pack modules (`IdLE.Steps.Common`) and used for plan-time validation.
@@ -662,17 +664,18 @@ The provider automatically detects the format and resolves it to the manager's D
 }
 ```
 
-**Setting Manager via EnsureAttribute (UPN):**
+**Setting Manager via EnsureAttributes (UPN):**
 
 ```powershell
 @{
   Name = 'SetManager'
-  Type = 'IdLE.Step.EnsureAttribute'
+  Type = 'IdLE.Step.EnsureAttributes'
   With = @{
     Provider = 'Identity'
     IdentityKey = 'jdoe'
-    Name = 'Manager'
-    Value = 'jsmith@contoso.local'  # UPN - will be resolved to DN
+    Attributes = @{
+      Manager = 'jsmith@contoso.local'  # UPN - will be resolved to DN
+    }
     AuthSessionName = 'ActiveDirectory'
   }
 }
@@ -685,12 +688,13 @@ To clear the Manager attribute, set the value to `$null`:
 ```powershell
 @{
   Name = 'ClearManager'
-  Type = 'IdLE.Step.EnsureAttribute'
+  Type = 'IdLE.Step.EnsureAttributes'
   With = @{
     Provider = 'Identity'
     IdentityKey = 'jdoe'
-    Name = 'Manager'
-    Value = $null
+    Attributes = @{
+      Manager = $null
+    }
     AuthSessionName = 'ActiveDirectory'
   }
 }

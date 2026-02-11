@@ -102,7 +102,7 @@ Get-Command -Module IdLE
 `IdLE` is the **baseline** entrypoint. It declares `IdLE.Core` and `IdLE.Steps.Common` as dependencies:
 
 - **IdLE.Core** — the workflow engine (step-agnostic)
-- **IdLE.Steps.Common** — first-party built-in steps (e.g. `IdLE.Step.EmitEvent`, `IdLE.Step.EnsureAttribute`)
+- **IdLE.Steps.Common** — first-party built-in steps (e.g. `IdLE.Step.EmitEvent`, `IdLE.Step.EnsureAttributes`)
 
 **PowerShell Gallery installation:**
 PowerShell automatically installs and imports these dependencies when you `Install-Module IdLE` and `Import-Module IdLE`.

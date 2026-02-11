@@ -10,7 +10,6 @@
 | [IdLE.Step.DisableIdentity](steps/step-disable-identity.md) | ``IdLE.Steps.Common`` | Disables an identity in the target system. |
 | [IdLE.Step.EmitEvent](steps/step-emit-event.md) | ``IdLE.Steps.Common`` | Emits a custom event (demo step). |
 | [IdLE.Step.EnableIdentity](steps/step-enable-identity.md) | ``IdLE.Steps.Common`` | Enables an identity in the target system. |
-| [IdLE.Step.EnsureAttribute](steps/step-ensure-attribute.md) | ``IdLE.Steps.Common`` | Ensures that an identity attribute matches the desired value. |
 | [IdLE.Step.EnsureAttributes](steps/step-ensure-attributes.md) | ``IdLE.Steps.Common`` | Ensures that multiple identity attributes match their desired values. |
 | [IdLE.Step.EnsureEntitlement](steps/step-ensure-entitlement.md) | ``IdLE.Steps.Common`` | Ensures that an entitlement assignment is present or absent for an identity. |
 | [IdLE.Step.Mailbox.EnsureOutOfOffice](steps/step-mailbox-ensure-out-of-office.md) | ``IdLE.Steps.Mailbox`` | Ensures that a mailbox Out of Office (OOF) configuration matches the desired state. |

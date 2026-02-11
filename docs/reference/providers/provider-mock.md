@@ -115,7 +115,7 @@ This provider has no additional data-only option keys beyond its constructor par
 ### Idempotency and consistency
 
 - **Idempotent operations:** Partial
-  - `EnsureAttribute` is idempotent (returns `Changed = $false` when already converged).
+  - `EnsureAttributes` is idempotent (returns `Changed = $false` when already converged).
   - `DisableIdentity` is idempotent.
   - Entitlement grant/revoke are idempotent by Kind+Id.
   - `GetIdentity` creates missing identities on demand (test convenience).
@@ -159,12 +159,13 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
   Steps = @(
     @{
       Name = 'Ensure department'
-      Type = 'IdLE.Step.EnsureAttribute'
+      Type = 'IdLE.Step.EnsureAttributes'
       With = @{
         Provider    = 'Identity'
         IdentityKey = 'user1'
-        Name        = 'Department'
-        Value       = 'IT'
+        Attributes  = @{
+          Department = 'IT'
+        }
       }
     }
   )
