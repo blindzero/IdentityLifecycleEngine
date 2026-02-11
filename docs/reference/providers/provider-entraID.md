@@ -534,7 +534,7 @@ These attributes can be set via `CreateIdentity` and `EnsureAttributes`:
 
 When creating users without providing a `PasswordProfile`, the provider automatically generates a secure initial password using GUID format (e.g., `3f2504e0-4f89-11d3-9a0c-0305e82c3301`). GUID passwords:
 
-- Satisfy Entra ID complexity requirements (mixed case, digits, special characters)
+- Satisfy Entra ID default password complexity requirements while consisting of lowercase letters, digits, and hyphens (`[a-f0-9-]`)
 - Are 36 characters long
 - Set `forceChangePasswordNextSignIn = $true` by default (user must change on first login)
 

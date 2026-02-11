@@ -165,17 +165,24 @@ function New-IdleADPassword {
     # Calculate remaining length after required characters
     $remainingLength = $minLength - $requiredChars.Count
 
-    # Generate remaining random characters
+    # Generate remaining random characters using a cryptographically secure RNG
     $randomChars = @()
     for ($i = 0; $i -lt $remainingLength; $i++) {
-        $randomChars += $charPool[(Get-Random -Minimum 0 -Maximum $charPool.Length)]
+        $index = [System.Security.Cryptography.RandomNumberGenerator]::GetInt32(0, $charPool.Length)
+        $randomChars += $charPool[$index]
     }
 
     # Combine required and random characters
     $allChars = $requiredChars + $randomChars
 
-    # Shuffle the characters to randomize position of required characters
-    $shuffledChars = $allChars | Sort-Object { Get-Random }
+    # Shuffle the characters to randomize position of required characters (Fisher–Yates, CSPRNG-driven)
+    for ($i = $allChars.Count - 1; $i -gt 0; $i--) {
+        $j = [System.Security.Cryptography.RandomNumberGenerator]::GetInt32(0, $i + 1)
+        $temp = $allChars[$i]
+        $allChars[$i] = $allChars[$j]
+        $allChars[$j] = $temp
+    }
+    $shuffledChars = $allChars
 
     # Join to create the password
     $plainTextPassword = -join $shuffledChars
