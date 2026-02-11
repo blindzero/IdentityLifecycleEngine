@@ -29,6 +29,24 @@ function New-IdleADIdentityProvider {
     When $true, the provider advertises the Delete capability and allows identity deletion.
     Default is $false for safety.
 
+    .PARAMETER PasswordGenerationFallbackMinLength
+    Fallback minimum password length when domain policy cannot be read. Default is 24.
+
+    .PARAMETER PasswordGenerationRequireUpper
+    Fallback requirement for uppercase characters in generated passwords. Default is $true.
+
+    .PARAMETER PasswordGenerationRequireLower
+    Fallback requirement for lowercase characters in generated passwords. Default is $true.
+
+    .PARAMETER PasswordGenerationRequireDigit
+    Fallback requirement for digit characters in generated passwords. Default is $true.
+
+    .PARAMETER PasswordGenerationRequireSpecial
+    Fallback requirement for special characters in generated passwords. Default is $true.
+
+    .PARAMETER PasswordGenerationSpecialCharSet
+    Set of special characters to use in generated passwords. Default is '!@#$%&*+-_=?'.
+
     .PARAMETER Adapter
     Internal parameter for dependency injection during testing. Allows unit tests to inject
     a fake AD adapter without requiring a real Active Directory environment.
@@ -36,6 +54,13 @@ function New-IdleADIdentityProvider {
     .EXAMPLE
     # Use integrated authentication (run-as)
     $provider = New-IdleADIdentityProvider
+    $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
+        Identity = $provider
+    }
+
+    .EXAMPLE
+    # Custom password generation fallback configuration
+    $provider = New-IdleADIdentityProvider -PasswordGenerationFallbackMinLength 32 -PasswordGenerationSpecialCharSet '!@#$%^&*()'
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = $provider
     }
@@ -83,6 +108,24 @@ function New-IdleADIdentityProvider {
         [switch] $AllowDelete,
 
         [Parameter()]
+        [int] $PasswordGenerationFallbackMinLength = 24,
+
+        [Parameter()]
+        [bool] $PasswordGenerationRequireUpper = $true,
+
+        [Parameter()]
+        [bool] $PasswordGenerationRequireLower = $true,
+
+        [Parameter()]
+        [bool] $PasswordGenerationRequireDigit = $true,
+
+        [Parameter()]
+        [bool] $PasswordGenerationRequireSpecial = $true,
+
+        [Parameter()]
+        [string] $PasswordGenerationSpecialCharSet = '!@#$%&*+-_=?',
+
+        [Parameter()]
         [AllowNull()]
         [object] $Adapter
     )
@@ -99,7 +142,12 @@ function New-IdleADIdentityProvider {
     }
 
     if ($null -eq $Adapter) {
-        $Adapter = New-IdleADAdapter
+        $Adapter = New-IdleADAdapter -PasswordGenerationFallbackMinLength $PasswordGenerationFallbackMinLength `
+            -PasswordGenerationRequireUpper $PasswordGenerationRequireUpper `
+            -PasswordGenerationRequireLower $PasswordGenerationRequireLower `
+            -PasswordGenerationRequireDigit $PasswordGenerationRequireDigit `
+            -PasswordGenerationRequireSpecial $PasswordGenerationRequireSpecial `
+            -PasswordGenerationSpecialCharSet $PasswordGenerationSpecialCharSet
     }
 
     $convertToEntitlement = {
@@ -208,6 +256,12 @@ function New-IdleADIdentityProvider {
         Name        = 'ADIdentityProvider'
         Adapter     = $Adapter
         AllowDelete = [bool]$AllowDelete
+        PasswordGenerationFallbackMinLength = $PasswordGenerationFallbackMinLength
+        PasswordGenerationRequireUpper = $PasswordGenerationRequireUpper
+        PasswordGenerationRequireLower = $PasswordGenerationRequireLower
+        PasswordGenerationRequireDigit = $PasswordGenerationRequireDigit
+        PasswordGenerationRequireSpecial = $PasswordGenerationRequireSpecial
+        PasswordGenerationSpecialCharSet = $PasswordGenerationSpecialCharSet
     }
 
     # Helper method to extract credential from AuthSession and create effective adapter
@@ -257,7 +311,13 @@ function New-IdleADIdentityProvider {
                 }
                 throw $errorMsg
             }
-            return New-IdleADAdapter -Credential $credential
+            return New-IdleADAdapter -Credential $credential `
+                -PasswordGenerationFallbackMinLength $this.PasswordGenerationFallbackMinLength `
+                -PasswordGenerationRequireUpper $this.PasswordGenerationRequireUpper `
+                -PasswordGenerationRequireLower $this.PasswordGenerationRequireLower `
+                -PasswordGenerationRequireDigit $this.PasswordGenerationRequireDigit `
+                -PasswordGenerationRequireSpecial $this.PasswordGenerationRequireSpecial `
+                -PasswordGenerationSpecialCharSet $this.PasswordGenerationSpecialCharSet
         }
 
         return $this.Adapter
@@ -387,7 +447,7 @@ function New-IdleADIdentityProvider {
             $enabled = [bool]$Attributes['Enabled']
         }
 
-        $null = $adapter.NewUser($IdentityKey, $Attributes, $enabled)
+        $user = $adapter.NewUser($IdentityKey, $Attributes, $enabled)
 
         # Emit observability event
         if ($this.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $this.EventSink) {
@@ -398,12 +458,41 @@ function New-IdleADIdentityProvider {
             $this.EventSink.WriteEvent('Provider.AD.CreateIdentity.AttributesRequested', 'Attributes requested during identity creation', 'CreateIdentity', $eventData)
         }
 
-        return [pscustomobject]@{
+        # Build result with optional password generation info
+        $result = [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'CreateIdentity'
             IdentityKey = $IdentityKey
             Changed     = $true
         }
+
+        # Handle password generation output (if password was generated)
+        if ($null -ne $user.PSObject.Properties['_GeneratedPasswordInfo']) {
+            $passwordInfo = $user._GeneratedPasswordInfo
+            
+            # Always include ProtectedString for reveal path (DPAPI-scoped)
+            $result | Add-Member -MemberType NoteProperty -Name 'GeneratedAccountPasswordProtected' -Value $passwordInfo.ProtectedString
+            
+            # Check for explicit opt-in to plaintext output
+            $allowPlainTextOutput = $false
+            if ($Attributes.ContainsKey('AllowPlainTextPasswordOutput')) {
+                $allowPlainTextOutput = [bool]$Attributes['AllowPlainTextPasswordOutput']
+            }
+            
+            if ($allowPlainTextOutput) {
+                # Include plaintext password only when explicitly requested
+                $result | Add-Member -MemberType NoteProperty -Name 'GeneratedAccountPasswordPlainText' -Value $passwordInfo.PlainText
+                Write-Verbose "AD Provider: Plaintext password output enabled (AllowPlainTextPasswordOutput=true)"
+            }
+            
+            # Add metadata about password generation
+            $result | Add-Member -MemberType NoteProperty -Name 'PasswordGenerated' -Value $true
+            $result | Add-Member -MemberType NoteProperty -Name 'PasswordGenerationPolicyUsed' -Value $passwordInfo.UsedPolicy
+            
+            Write-Verbose "AD Provider: Password was generated using $($passwordInfo.UsedPolicy) policy"
+        }
+
+        return $result
     } -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name DeleteIdentity -Value {

@@ -53,6 +53,8 @@ function Get-IdleADAttributeContract {
             # Password Attributes
             AccountPassword          = @{ Target = 'Parameter'; Type = 'SecureString|String'; Required = $false }
             AccountPasswordAsPlainText = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            ResetOnFirstLogin        = @{ Target = 'Parameter'; Type = 'Boolean'; Required = $false }
+            AllowPlainTextPasswordOutput = @{ Target = 'Parameter'; Type = 'Boolean'; Required = $false }
             
             # State Attributes
             Enabled                  = @{ Target = 'Parameter'; Type = 'Boolean'; Required = $false }

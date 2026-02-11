@@ -9,6 +9,24 @@ function New-IdleADAdapter {
 
     .PARAMETER Credential
     Optional PSCredential for AD operations. If not provided, uses integrated auth.
+
+    .PARAMETER PasswordGenerationFallbackMinLength
+    Fallback minimum password length when domain policy cannot be read. Default is 24.
+
+    .PARAMETER PasswordGenerationRequireUpper
+    Fallback requirement for uppercase characters in generated passwords. Default is $true.
+
+    .PARAMETER PasswordGenerationRequireLower
+    Fallback requirement for lowercase characters in generated passwords. Default is $true.
+
+    .PARAMETER PasswordGenerationRequireDigit
+    Fallback requirement for digit characters in generated passwords. Default is $true.
+
+    .PARAMETER PasswordGenerationRequireSpecial
+    Fallback requirement for special characters in generated passwords. Default is $true.
+
+    .PARAMETER PasswordGenerationSpecialCharSet
+    Set of special characters to use in generated passwords. Default is '!@#$%&*+-_=?'.
     
     .NOTES
     PSScriptAnalyzer suppression: This function intentionally uses ConvertTo-SecureString -AsPlainText
@@ -20,12 +38,36 @@ function New-IdleADAdapter {
     param(
         [Parameter()]
         [AllowNull()]
-        [PSCredential] $Credential
+        [PSCredential] $Credential,
+
+        [Parameter()]
+        [int] $PasswordGenerationFallbackMinLength = 24,
+
+        [Parameter()]
+        [bool] $PasswordGenerationRequireUpper = $true,
+
+        [Parameter()]
+        [bool] $PasswordGenerationRequireLower = $true,
+
+        [Parameter()]
+        [bool] $PasswordGenerationRequireDigit = $true,
+
+        [Parameter()]
+        [bool] $PasswordGenerationRequireSpecial = $true,
+
+        [Parameter()]
+        [string] $PasswordGenerationSpecialCharSet = '!@#$%&*+-_=?'
     )
 
     $adapter = [pscustomobject]@{
         PSTypeName = 'IdLE.ADAdapter'
         Credential = $Credential
+        PasswordGenerationFallbackMinLength = $PasswordGenerationFallbackMinLength
+        PasswordGenerationRequireUpper = $PasswordGenerationRequireUpper
+        PasswordGenerationRequireLower = $PasswordGenerationRequireLower
+        PasswordGenerationRequireDigit = $PasswordGenerationRequireDigit
+        PasswordGenerationRequireSpecial = $PasswordGenerationRequireSpecial
+        PasswordGenerationSpecialCharSet = $PasswordGenerationSpecialCharSet
     }
 
     # Add LDAP filter escaping as a ScriptMethod to make it available in the adapter's scope
@@ -342,9 +384,10 @@ function New-IdleADAdapter {
             }
         }
 
-        # Password handling: support SecureString, ProtectedString, and explicit PlainText
+        # Password handling: support SecureString, ProtectedString, explicit PlainText, and auto-generation
         $hasAccountPassword = $effectiveAttributes.ContainsKey('AccountPassword')
         $hasAccountPasswordAsPlainText = $effectiveAttributes.ContainsKey('AccountPasswordAsPlainText')
+        $generatedPasswordInfo = $null
 
         if ($hasAccountPassword -and $hasAccountPasswordAsPlainText) {
             throw "Ambiguous password configuration: both 'AccountPassword' and 'AccountPasswordAsPlainText' are provided. Use only one."
@@ -383,8 +426,7 @@ function New-IdleADAdapter {
                 throw "AccountPassword: Expected a SecureString or ProtectedString (string from ConvertFrom-SecureString), but received type: $($passwordValue.GetType().FullName)"
             }
         }
-
-        if ($hasAccountPasswordAsPlainText) {
+        elseif ($hasAccountPasswordAsPlainText) {
             $plainTextPassword = $effectiveAttributes['AccountPasswordAsPlainText']
 
             if ($null -eq $plainTextPassword) {
@@ -404,6 +446,41 @@ function New-IdleADAdapter {
             # The value is redacted from logs/events via Copy-IdleRedactedObject.
             $params['AccountPassword'] = ConvertTo-SecureString -String $plainTextPassword -AsPlainText -Force
         }
+        elseif ($Enabled) {
+            # Mode 4: Auto-generate password when enabled and no password provided
+            # Generate a policy-compliant password
+            Write-Verbose "AD Provider: No password provided for enabled account. Generating policy-compliant password..."
+            
+            $passwordGenParams = @{
+                FallbackMinLength = $this.PasswordGenerationFallbackMinLength
+                FallbackRequireUpper = $this.PasswordGenerationRequireUpper
+                FallbackRequireLower = $this.PasswordGenerationRequireLower
+                FallbackRequireDigit = $this.PasswordGenerationRequireDigit
+                FallbackRequireSpecial = $this.PasswordGenerationRequireSpecial
+                FallbackSpecialCharSet = $this.PasswordGenerationSpecialCharSet
+            }
+            
+            if ($null -ne $this.Credential) {
+                $passwordGenParams['Credential'] = $this.Credential
+            }
+            
+            $generatedPasswordInfo = New-IdleADPassword @passwordGenParams
+            $params['AccountPassword'] = $generatedPasswordInfo.SecureString
+            
+            Write-Verbose "AD Provider: Generated password using $($generatedPasswordInfo.UsedPolicy) policy (MinLength=$($generatedPasswordInfo.MinLength))"
+        }
+
+        # Handle ResetOnFirstLogin (ChangePasswordAtLogon)
+        # Default to true when a password was set or generated, unless explicitly overridden
+        $resetOnFirstLogin = $true
+        if ($effectiveAttributes.ContainsKey('ResetOnFirstLogin')) {
+            $resetOnFirstLogin = [bool]$effectiveAttributes['ResetOnFirstLogin']
+        }
+
+        # Only set ChangePasswordAtLogon if a password was provided or generated
+        if ($hasAccountPassword -or $hasAccountPasswordAsPlainText -or ($null -ne $generatedPasswordInfo)) {
+            $params['ChangePasswordAtLogon'] = $resetOnFirstLogin
+        }
 
         # Handle OtherAttributes for custom LDAP attributes
         if ($effectiveAttributes.ContainsKey('OtherAttributes')) {
@@ -418,6 +495,13 @@ function New-IdleADAdapter {
         }
 
         $user = New-ADUser @params -PassThru
+        
+        # Return user with optional password generation info
+        if ($null -ne $generatedPasswordInfo) {
+            # Attach password generation info to user object for caller to access
+            $user | Add-Member -MemberType NoteProperty -Name '_GeneratedPasswordInfo' -Value $generatedPasswordInfo -Force
+        }
+        
         return $user
     } -Force
 
