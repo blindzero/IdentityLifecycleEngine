@@ -15,6 +15,23 @@
                     DisplayName       = 'New User'
                     Description       = 'New employee account'
                     Path              = 'OU=Joiners,OU=Users,DC=contoso,DC=local'
+                    
+                    # Enable account to trigger automatic password generation
+                    # When Enabled = $true and no password is provided, the provider automatically:
+                    # - Reads domain password policy via Get-ADDefaultDomainPasswordPolicy
+                    # - Falls back to configurable rules if policy cannot be read
+                    # - Generates a compliant password (min length 24, complexity enabled)
+                    # - Returns GeneratedAccountPasswordProtected (DPAPI-scoped) by default
+                    Enabled           = $true
+                    
+                    # Optional: Request plaintext password in result (for displaying to onboarding staff)
+                    # WARNING: Results containing plaintext must not be persisted to disk/logs
+                    # AllowPlainTextPasswordOutput = $true
+                    
+                    # Optional: Disable password reset on first login (default: $true)
+                    # Useful for hybrid scenarios where remote login may require stable password
+                    # ResetOnFirstLogin = $false
+                    
                     OtherAttributes   = @{
                         # Custom LDAP attributes for organization-specific needs
                         employeeType        = 'Employee'
@@ -27,6 +44,15 @@
                 # If omitted, defaults to 'Identity'.
                 Provider    = 'Identity'
             }
+            # After execution, when password was generated, the result will contain:
+            # - PasswordGenerated: $true
+            # - PasswordGenerationPolicyUsed: 'DomainPolicy' or 'Fallback'
+            # - GeneratedAccountPasswordProtected: DPAPI-scoped ProtectedString (safe for reveal)
+            # - GeneratedAccountPasswordPlainText: (only if AllowPlainTextPasswordOutput = $true)
+            #
+            # To reveal the password from ProtectedString:
+            # $secure = ConvertTo-SecureString -String $result.GeneratedAccountPasswordProtected
+            # $plain = [pscredential]::new('x', $secure).GetNetworkCredential().Password
         },
         @{
             Name = 'Set Department and Title'

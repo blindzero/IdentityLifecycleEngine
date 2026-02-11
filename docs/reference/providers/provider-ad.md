@@ -288,10 +288,111 @@ The following attributes are supported when creating identities via `CreateIdent
 #### Password attributes
 - `AccountPassword` (SecureString or ProtectedString) - Password as SecureString or DPAPI-protected string
 - `AccountPasswordAsPlainText` (string) - Plaintext password (explicit opt-in, automatically redacted in events)
+- `ResetOnFirstLogin` (boolean) - Require password change on first login (default: `$true` when password is set/generated)
+- `AllowPlainTextPasswordOutput` (boolean) - Include plaintext password in result (opt-in, default: `$false`)
 
 :::warning
 Only one password attribute can be used at a time. Using both `AccountPassword` and `AccountPasswordAsPlainText` will throw an error.
 :::
+
+##### Automatic Password Generation
+
+When creating enabled accounts (`Enabled = $true`) without providing a password, the provider automatically generates a policy-compliant password:
+
+1. **Domain Policy Query**: Attempts to read domain password policy via `Get-ADDefaultDomainPasswordPolicy`
+2. **Fallback Configuration**: Uses provider-configured fallback rules if policy cannot be read
+3. **Defense in Depth**: Enforces fallback minimum length as baseline even when domain policy allows weaker passwords
+4. **Complexity Requirements**: Generates passwords with uppercase, lowercase, digits, and special characters
+
+**Provider Configuration** (optional fallback parameters):
+```powershell
+$provider = New-IdleADIdentityProvider `
+    -PasswordGenerationFallbackMinLength 32 `
+    -PasswordGenerationRequireUpper $true `
+    -PasswordGenerationRequireLower $true `
+    -PasswordGenerationRequireDigit $true `
+    -PasswordGenerationRequireSpecial $true `
+    -PasswordGenerationSpecialCharSet '!@#$%^&*()'
+```
+
+**Default fallback values**:
+- `PasswordGenerationFallbackMinLength`: 24
+- `PasswordGenerationRequire{Upper,Lower,Digit,Special}`: `$true`
+- `PasswordGenerationSpecialCharSet`: `'!@#$%&*+-_=?'`
+
+##### Password Output Control
+
+By default, generated passwords are returned as **ProtectedString** (DPAPI-scoped) for secure reveal:
+
+```powershell
+# Default: secure ProtectedString output
+$result = $provider.CreateIdentity('jdoe@contoso.com', @{
+    SamAccountName = 'jdoe'
+    GivenName      = 'John'
+    Surname        = 'Doe'
+    Enabled        = $true
+})
+
+# Password was generated
+$result.PasswordGenerated                    # $true
+$result.PasswordGenerationPolicyUsed         # 'DomainPolicy' or 'Fallback'
+$result.GeneratedAccountPasswordProtected    # DPAPI-scoped ProtectedString
+```
+
+**Reveal Path** (decrypt ProtectedString when needed):
+```powershell
+$protectedPwd = $result.GeneratedAccountPasswordProtected
+$securePwd = ConvertTo-SecureString -String $protectedPwd
+$plainPwd = [pscredential]::new('x', $securePwd).GetNetworkCredential().Password
+```
+
+:::warning DPAPI Scope
+ProtectedString uses Windows DPAPI and can only be decrypted by the same Windows user on the same machine. Do not transfer ProtectedStrings across machines or user contexts.
+:::
+
+**Opt-in Plaintext Output**:
+
+For scenarios requiring immediate plaintext access (e.g., displaying to onboarding staff), set `AllowPlainTextPasswordOutput = $true`:
+
+```powershell
+$result = $provider.CreateIdentity('jsmith@contoso.com', @{
+    SamAccountName               = 'jsmith'
+    GivenName                    = 'Jane'
+    Surname                      = 'Smith'
+    Enabled                      = $true
+    AllowPlainTextPasswordOutput = $true
+})
+
+# Plaintext is included in result (redacted from logs/events)
+$plainPwd = $result.GeneratedAccountPasswordPlainText
+```
+
+:::danger Security Warning
+Results containing `GeneratedAccountPasswordPlainText` must not be persisted to disk, logs, or databases. The value is automatically redacted from engine events and exports but is accessible in the immediate result object. Handle with care.
+:::
+
+##### Reset on First Login
+
+Control whether users must change password on first login:
+
+- `ResetOnFirstLogin` (boolean) - Default: `$true` when password is set/generated
+  - Maps to AD "User must change password at next logon"
+  - Can be explicitly set to `$false` for scenarios like hybrid remote login
+
+```powershell
+# Default: user must change password on first login
+$result = $provider.CreateIdentity('user@contoso.com', @{
+    SamAccountName = 'user1'
+    Enabled        = $true
+})
+
+# Disable reset requirement
+$result = $provider.CreateIdentity('admin@contoso.com', @{
+    SamAccountName      = 'admin1'
+    Enabled             = $true
+    ResetOnFirstLogin   = $false
+})
+```
 
 #### State attributes
 - `Enabled` (boolean) - Account enabled state (default: `$true`)

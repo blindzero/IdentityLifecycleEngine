@@ -941,3 +941,163 @@ Describe 'EntraID identity provider - RevokeSessions' {
         $result.Operation | Should -Be 'RevokeSessions'
     }
 }
+
+Describe 'EntraID identity provider - Password generation' {
+    BeforeAll {
+        # Create a fake adapter for password generation tests
+        $fakeAdapter = [pscustomobject]@{
+            PSTypeName = 'IdLE.EntraIDAdapter.Fake'
+            Store      = @{}
+            LastCreatePayload = $null
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+            param($ObjectId, $AccessToken)
+            return $null
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+            param($Upn, $AccessToken)
+            return $null
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
+            param($Mail, $AccessToken)
+            return $null
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name CreateUser -Value {
+            param($Payload, $AccessToken)
+            
+            # Store the payload for inspection
+            $this.LastCreatePayload = $Payload
+            
+            $id = [guid]::NewGuid().ToString()
+            return @{
+                id                = $id
+                userPrincipalName = $Payload.userPrincipalName
+                displayName       = $Payload.displayName
+                accountEnabled    = $Payload.accountEnabled
+            }
+        } -Force
+
+        $provider = New-IdleEntraIDIdentityProvider -Adapter $fakeAdapter
+        $script:PasswordTestProvider = $provider
+        $script:PasswordTestAdapter = $fakeAdapter
+    }
+
+    It 'Generates password when no PasswordProfile is provided' {
+        $attrs = @{
+            UserPrincipalName = 'newuser@contoso.com'
+            DisplayName = 'New User'
+        }
+
+        $result = $script:PasswordTestProvider.CreateIdentity('newuser@contoso.com', $attrs, 'fake-token')
+        
+        # Verify password was generated
+        $result.PasswordGenerated | Should -BeTrue
+        $result.GeneratedAccountPasswordProtected | Should -Not -BeNullOrEmpty
+        $result.PasswordGenerationMethod | Should -Be 'GUID'
+    }
+
+    It 'Does not include plaintext password by default' {
+        $attrs = @{
+            UserPrincipalName = 'user@contoso.com'
+            DisplayName = 'User'
+        }
+
+        $result = $script:PasswordTestProvider.CreateIdentity('user@contoso.com', $attrs, 'fake-token')
+        
+        # Verify plaintext password is not included
+        $result.PSObject.Properties.Name | Should -Not -Contain 'GeneratedAccountPasswordPlainText'
+    }
+
+    It 'Includes plaintext password when AllowPlainTextPasswordOutput is true' {
+        $attrs = @{
+            UserPrincipalName = 'user2@contoso.com'
+            DisplayName = 'User 2'
+            AllowPlainTextPasswordOutput = $true
+        }
+
+        $result = $script:PasswordTestProvider.CreateIdentity('user2@contoso.com', $attrs, 'fake-token')
+        
+        # Verify plaintext password is included
+        $result.GeneratedAccountPasswordPlainText | Should -Not -BeNullOrEmpty
+        $result.GeneratedAccountPasswordPlainText | Should -BeOfType [string]
+        
+        # Verify it's a GUID format
+        { [guid]::Parse($result.GeneratedAccountPasswordPlainText) } | Should -Not -Throw
+    }
+
+    It 'Does not generate password when PasswordProfile is provided' {
+        $attrs = @{
+            UserPrincipalName = 'user3@contoso.com'
+            DisplayName = 'User 3'
+            PasswordProfile = @{
+                password = 'Explicit@Pass123!'
+                forceChangePasswordNextSignIn = $true
+            }
+        }
+
+        $result = $script:PasswordTestProvider.CreateIdentity('user3@contoso.com', $attrs, 'fake-token')
+        
+        # Verify password was not generated (explicit password provided)
+        $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
+    }
+
+    It 'Sets forceChangePasswordNextSignIn to true by default' {
+        $attrs = @{
+            UserPrincipalName = 'user4@contoso.com'
+            DisplayName = 'User 4'
+        }
+
+        $result = $script:PasswordTestProvider.CreateIdentity('user4@contoso.com', $attrs, 'fake-token')
+        
+        # Verify the payload sent to adapter
+        $script:PasswordTestAdapter.LastCreatePayload.passwordProfile.forceChangePasswordNextSignIn | Should -BeTrue
+    }
+
+    It 'Allows ForceChangePasswordNextSignIn to be set to false' {
+        $attrs = @{
+            UserPrincipalName = 'serviceaccount@contoso.com'
+            DisplayName = 'Service Account'
+            ForceChangePasswordNextSignIn = $false
+        }
+
+        $result = $script:PasswordTestProvider.CreateIdentity('serviceaccount@contoso.com', $attrs, 'fake-token')
+        
+        # Verify the payload sent to adapter
+        $script:PasswordTestAdapter.LastCreatePayload.passwordProfile.forceChangePasswordNextSignIn | Should -BeFalse
+    }
+
+    It 'Generated password can be revealed using ProtectedString' {
+        $attrs = @{
+            UserPrincipalName = 'user5@contoso.com'
+            DisplayName = 'User 5'
+        }
+
+        $result = $script:PasswordTestProvider.CreateIdentity('user5@contoso.com', $attrs, 'fake-token')
+        
+        # Verify ProtectedString can be converted back to SecureString
+        $protectedString = $result.GeneratedAccountPasswordProtected
+        { ConvertTo-SecureString -String $protectedString } | Should -Not -Throw
+        
+        # Verify conversion works
+        $secure = ConvertTo-SecureString -String $protectedString
+        $secure | Should -BeOfType [securestring]
+    }
+
+    It 'Generated password is a valid GUID' {
+        $attrs = @{
+            UserPrincipalName = 'user6@contoso.com'
+            DisplayName = 'User 6'
+            AllowPlainTextPasswordOutput = $true
+        }
+
+        $result = $script:PasswordTestProvider.CreateIdentity('user6@contoso.com', $attrs, 'fake-token')
+        
+        # Verify the generated password is a valid GUID
+        $plainPwd = $result.GeneratedAccountPasswordPlainText
+        { [guid]::Parse($plainPwd) } | Should -Not -Throw
+    }
+}

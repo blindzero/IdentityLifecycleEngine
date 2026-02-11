@@ -87,6 +87,7 @@ function New-IdleEntraIDIdentityProvider {
     See docs/reference/providers/provider-entraID.md for detailed permission requirements.
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '', Justification = 'Used only for generated passwords that need to be returned to caller; conversion is necessary for ProtectedString output')]
     param(
         [Parameter()]
         [switch] $AllowDelete,
@@ -468,15 +469,29 @@ function New-IdleEntraIDIdentityProvider {
         }
 
         # Password policy for new users
+        $generatedPassword = $null
+        $passwordWasGenerated = $false
+        
         if ($Attributes.ContainsKey('PasswordProfile')) {
             $payload['passwordProfile'] = $Attributes['PasswordProfile']
         }
         else {
+            # Generate initial password (GUID format - compliant with Entra ID requirements)
+            $generatedPassword = [System.Guid]::NewGuid().ToString()
+            $passwordWasGenerated = $true
+            
             # Default: force change on first sign-in
-            $payload['passwordProfile'] = @{
-                forceChangePasswordNextSignIn = $true
-                password                      = [System.Guid]::NewGuid().ToString()
+            $forceChange = $true
+            if ($Attributes.ContainsKey('ForceChangePasswordNextSignIn')) {
+                $forceChange = [bool]$Attributes['ForceChangePasswordNextSignIn']
             }
+            
+            $payload['passwordProfile'] = @{
+                forceChangePasswordNextSignIn = $forceChange
+                password                      = $generatedPassword
+            }
+            
+            Write-Verbose "Entra ID Provider: Generated initial password (GUID format)"
         }
 
         # Optional attributes
@@ -494,12 +509,43 @@ function New-IdleEntraIDIdentityProvider {
 
         $this.Adapter.CreateUser($payload, $accessToken) | Out-Null
 
-        return [pscustomobject]@{
+        # Build result with optional password generation info
+        $result = [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
             Operation   = 'CreateIdentity'
             IdentityKey = $IdentityKey
             Changed     = $true
         }
+
+        # Handle password generation output (if password was generated)
+        if ($passwordWasGenerated -and $null -ne $generatedPassword) {
+            # Convert to SecureString and ProtectedString for controlled output
+            $securePassword = ConvertTo-SecureString -String $generatedPassword -AsPlainText -Force
+            $protectedPassword = ConvertFrom-SecureString -SecureString $securePassword
+            
+            # Always include ProtectedString for reveal path (DPAPI-scoped)
+            $result | Add-Member -MemberType NoteProperty -Name 'GeneratedAccountPasswordProtected' -Value $protectedPassword
+            
+            # Check for explicit opt-in to plaintext output
+            $allowPlainTextOutput = $false
+            if ($Attributes.ContainsKey('AllowPlainTextPasswordOutput')) {
+                $allowPlainTextOutput = [bool]$Attributes['AllowPlainTextPasswordOutput']
+            }
+            
+            if ($allowPlainTextOutput) {
+                # Include plaintext password only when explicitly requested
+                $result | Add-Member -MemberType NoteProperty -Name 'GeneratedAccountPasswordPlainText' -Value $generatedPassword
+                Write-Verbose "Entra ID Provider: Plaintext password output enabled (AllowPlainTextPasswordOutput=true)"
+            }
+            
+            # Add metadata about password generation
+            $result | Add-Member -MemberType NoteProperty -Name 'PasswordGenerated' -Value $true
+            $result | Add-Member -MemberType NoteProperty -Name 'PasswordGenerationMethod' -Value 'GUID'
+            
+            Write-Verbose "Entra ID Provider: Password was generated using GUID method"
+        }
+
+        return $result
     } -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name DeleteIdentity -Value {

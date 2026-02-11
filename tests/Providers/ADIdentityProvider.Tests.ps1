@@ -46,6 +46,12 @@ Describe 'AD identity provider' {
             $adapter = [pscustomobject]@{
                 PSTypeName = 'FakeADAdapter'
                 Store      = $store
+                PasswordGenerationFallbackMinLength = 24
+                PasswordGenerationRequireUpper = $true
+                PasswordGenerationRequireLower = $true
+                PasswordGenerationRequireDigit = $true
+                PasswordGenerationRequireSpecial = $true
+                PasswordGenerationSpecialCharSet = '!@#$%&*+-_=?'
             }
 
             # Add Manager DN validation helper (matching real adapter)
@@ -229,6 +235,7 @@ Describe 'AD identity provider' {
                 # Password handling validation (same as real adapter)
                 $hasAccountPassword = $Attributes.ContainsKey('AccountPassword')
                 $hasAccountPasswordAsPlainText = $Attributes.ContainsKey('AccountPasswordAsPlainText')
+                $generatedPasswordInfo = $null
 
                 if ($hasAccountPassword -and $hasAccountPasswordAsPlainText) {
                     throw "Ambiguous password configuration: both 'AccountPassword' and 'AccountPasswordAsPlainText' are provided. Use only one."
@@ -260,8 +267,7 @@ Describe 'AD identity provider' {
                         throw "AccountPassword: Expected a SecureString or ProtectedString (string from ConvertFrom-SecureString), but received type: $($passwordValue.GetType().FullName)"
                     }
                 }
-
-                if ($hasAccountPasswordAsPlainText) {
+                elseif ($hasAccountPasswordAsPlainText) {
                     $plainTextPassword = $Attributes['AccountPasswordAsPlainText']
 
                     if ($null -eq $plainTextPassword) {
@@ -274,6 +280,25 @@ Describe 'AD identity provider' {
 
                     if ([string]::IsNullOrWhiteSpace($plainTextPassword)) {
                         throw "AccountPasswordAsPlainText: Password cannot be null or empty."
+                    }
+                }
+                elseif ($Enabled) {
+                    # Simulate password generation when enabled and no password provided
+                    $fakePassword = 'FakeGenerated123!@#'
+                    $securePassword = ConvertTo-SecureString -String $fakePassword -AsPlainText -Force
+                    $protectedPassword = ConvertFrom-SecureString -SecureString $securePassword
+                    
+                    $generatedPasswordInfo = [pscustomobject]@{
+                        PSTypeName       = 'IdLE.ADPassword'
+                        PlainText        = $fakePassword
+                        SecureString     = $securePassword
+                        ProtectedString  = $protectedPassword
+                        UsedPolicy       = 'Fallback'
+                        MinLength        = 24
+                        RequiredUpper    = $true
+                        RequiredLower    = $true
+                        RequiredDigit    = $true
+                        RequiredSpecial  = $true
                     }
                 }
 
@@ -303,6 +328,11 @@ Describe 'AD identity provider' {
                     EmailAddress       = $Attributes['EmailAddress']
                     Manager            = $resolvedManager
                     Groups             = @()
+                }
+
+                # Attach password generation info if generated
+                if ($null -ne $generatedPasswordInfo) {
+                    $user | Add-Member -MemberType NoteProperty -Name '_GeneratedPasswordInfo' -Value $generatedPasswordInfo -Force
                 }
 
                 $this.Store[$newGuid] = $user
@@ -1652,6 +1682,280 @@ Describe 'AD identity provider' {
         It 'EnsureAttribute rejects OtherAttributes' {
             { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', @{}) } | 
                 Should -Throw -ExpectedMessage '*Unsupported attribute*'
+        }
+    }
+
+    Context 'Password generation and controlled output' {
+        BeforeAll {
+            # Create a fake adapter WITHOUT auto-creation behavior for password generation tests
+            # Auto-creation breaks these tests because CreateIdentity checks if user exists first
+            $store = @{}
+
+            $adapter = [pscustomobject]@{
+                PSTypeName = 'FakeADAdapter'
+                Store      = $store
+                PasswordGenerationFallbackMinLength = 24
+                PasswordGenerationRequireUpper = $true
+                PasswordGenerationRequireLower = $true
+                PasswordGenerationRequireDigit = $true
+                PasswordGenerationRequireSpecial = $true
+                PasswordGenerationSpecialCharSet = '!@#$%&*+-_=?'
+            }
+
+            # Add lookup methods WITHOUT auto-creation
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+                param([string]$Upn)
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].UserPrincipalName -eq $Upn) {
+                        return $this.Store[$key]
+                    }
+                }
+                return $null
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserBySam -Value {
+                param([string]$SamAccountName)
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].sAMAccountName -eq $SamAccountName) {
+                        return $this.Store[$key]
+                    }
+                }
+                return $null
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserByGuid -Value {
+                param([string]$Guid)
+                if ($this.Store.ContainsKey($Guid)) {
+                    return $this.Store[$Guid]
+                }
+                return $null
+            } -Force
+
+            # Add NewUser method with password generation support
+            $adapter | Add-Member -MemberType ScriptMethod -Name NewUser -Value {
+                param([string]$IdentityKey, [hashtable]$Attributes, [bool]$Enabled)
+                
+                $hasSamAccountName = $Attributes.ContainsKey('SamAccountName') -and -not [string]::IsNullOrWhiteSpace($Attributes['SamAccountName'])
+                
+                if (-not $hasSamAccountName) {
+                    throw "SamAccountName is required when creating a new user in the test adapter. Please provide a 'SamAccountName' entry in Attributes."
+                }
+
+                # Derive CN/RDN Name
+                $derivedName = $IdentityKey
+                if ($Attributes.ContainsKey('Name') -and -not [string]::IsNullOrWhiteSpace($Attributes['Name'])) {
+                    $derivedName = $Attributes['Name']
+                }
+                elseif ($Attributes.ContainsKey('DisplayName') -and -not [string]::IsNullOrWhiteSpace($Attributes['DisplayName'])) {
+                    $derivedName = $Attributes['DisplayName']
+                }
+                elseif ($Attributes.ContainsKey('GivenName') -and -not [string]::IsNullOrWhiteSpace($Attributes['GivenName']) -and 
+                        $Attributes.ContainsKey('Surname') -and -not [string]::IsNullOrWhiteSpace($Attributes['Surname'])) {
+                    $derivedName = "$($Attributes['GivenName']) $($Attributes['Surname'])"
+                }
+                
+                # Password handling with generation support
+                $hasAccountPassword = $Attributes.ContainsKey('AccountPassword')
+                $hasAccountPasswordAsPlainText = $Attributes.ContainsKey('AccountPasswordAsPlainText')
+                $generatedPasswordInfo = $null
+
+                if ($hasAccountPassword -and $hasAccountPasswordAsPlainText) {
+                    throw "Ambiguous password configuration: both 'AccountPassword' and 'AccountPasswordAsPlainText' are provided. Use only one."
+                }
+
+                if (-not $hasAccountPassword -and -not $hasAccountPasswordAsPlainText -and $Enabled) {
+                    # Simulate password generation
+                    $fakePassword = 'FakeGenerated123!@#'
+                    $securePassword = ConvertTo-SecureString -String $fakePassword -AsPlainText -Force
+                    $protectedPassword = ConvertFrom-SecureString -SecureString $securePassword
+                    
+                    $generatedPasswordInfo = [pscustomobject]@{
+                        PSTypeName       = 'IdLE.ADPassword'
+                        PlainText        = $fakePassword
+                        SecureString     = $securePassword
+                        ProtectedString  = $protectedPassword
+                        UsedPolicy       = 'Fallback'
+                        MinLength        = 24
+                        RequiredUpper    = $true
+                        RequiredLower    = $true
+                        RequiredDigit    = $true
+                        RequiredSpecial  = $true
+                    }
+                }
+
+                $newGuid = [guid]::NewGuid().ToString()
+                $sam = $Attributes['SamAccountName']
+                $upn = if ($Attributes.ContainsKey('UserPrincipalName')) { $Attributes['UserPrincipalName'] } else { "$sam@domain.local" }
+                $path = if ($Attributes.ContainsKey('Path')) { $Attributes['Path'] } else { 'OU=Users,DC=domain,DC=local' }
+
+                $user = [pscustomobject]@{
+                    ObjectGuid         = [guid]$newGuid
+                    sAMAccountName     = $sam
+                    UserPrincipalName  = $upn
+                    DistinguishedName  = "CN=$derivedName,$path"
+                    Enabled            = $Enabled
+                    GivenName          = $Attributes['GivenName']
+                    Surname            = $Attributes['Surname']
+                    DisplayName        = $Attributes['DisplayName']
+                    Description        = $Attributes['Description']
+                    Department         = $Attributes['Department']
+                    Title              = $Attributes['Title']
+                    EmailAddress       = $Attributes['EmailAddress']
+                    Manager            = $null
+                    Groups             = @()
+                }
+
+                # Attach password generation info if generated
+                if ($null -ne $generatedPasswordInfo) {
+                    $user | Add-Member -MemberType NoteProperty -Name '_GeneratedPasswordInfo' -Value $generatedPasswordInfo -Force
+                }
+
+                $this.Store[$newGuid] = $user
+                return $user
+            } -Force
+
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+            $script:PasswordTestProvider = $provider
+            $script:PasswordTestAdapter = $adapter
+        }
+
+        It 'Generates password when enabled and no password provided' {
+            $attrs = @{
+                SamAccountName = 'pwdtest1'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest1', $attrs)
+            
+            # Verify password was generated
+            $result.PasswordGenerated | Should -BeTrue
+            $result.GeneratedAccountPasswordProtected | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Does not generate password when disabled and no password provided' {
+            $attrs = @{
+                SamAccountName = 'pwdtest2'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $false
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest2', $attrs)
+            
+            # Verify password was not generated
+            $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
+            $result.PSObject.Properties.Name | Should -Not -Contain 'GeneratedAccountPasswordProtected'
+        }
+
+        It 'Does not include plaintext password by default' {
+            $attrs = @{
+                SamAccountName = 'pwdtest3'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest3', $attrs)
+            
+            # Verify plaintext password is not included
+            $result.PSObject.Properties.Name | Should -Not -Contain 'GeneratedAccountPasswordPlainText'
+        }
+
+        It 'Includes plaintext password when AllowPlainTextPasswordOutput is true' {
+            $attrs = @{
+                SamAccountName = 'pwdtest4'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+                AllowPlainTextPasswordOutput = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest4', $attrs)
+            
+            # Verify plaintext password is included
+            $result.GeneratedAccountPasswordPlainText | Should -Not -BeNullOrEmpty
+            $result.GeneratedAccountPasswordPlainText | Should -BeOfType [string]
+        }
+
+        It 'Does not generate password when AccountPassword is provided' {
+            $securePassword = ConvertTo-SecureString -String 'ExplicitPassword123!' -AsPlainText -Force
+            $attrs = @{
+                SamAccountName = 'pwdtest5'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+                AccountPassword = $securePassword
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest5', $attrs)
+            
+            # Verify password was not generated (explicit password provided)
+            $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
+        }
+
+        It 'Does not generate password when AccountPasswordAsPlainText is provided' {
+            $attrs = @{
+                SamAccountName = 'pwdtest6'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+                AccountPasswordAsPlainText = 'ExplicitPassword123!'
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest6', $attrs)
+            
+            # Verify password was not generated (explicit password provided)
+            $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
+        }
+
+        It 'Includes policy information when password is generated' {
+            $attrs = @{
+                SamAccountName = 'pwdtest7'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest7', $attrs)
+            
+            # Verify policy information is included
+            # Note: Fake adapter always uses 'Fallback' policy; real adapter would use 'DomainPolicy' when available
+            $result.PasswordGenerationPolicyUsed | Should -Not -BeNullOrEmpty
+            $result.PasswordGenerationPolicyUsed | Should -Be 'Fallback'
+        }
+
+        It 'Accepts ResetOnFirstLogin attribute' {
+            $attrs = @{
+                SamAccountName = 'pwdtest8'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+                ResetOnFirstLogin = $false
+            }
+
+            # Should not throw when ResetOnFirstLogin is provided
+            { $script:PasswordTestProvider.CreateIdentity('pwdtest8', $attrs) } | Should -Not -Throw
+        }
+
+        It 'Generated password can be revealed using ProtectedString' {
+            $attrs = @{
+                SamAccountName = 'pwdtest9'
+                GivenName = 'Test'
+                Surname = 'User'
+                Enabled = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('pwdtest9', $attrs)
+            
+            # Verify ProtectedString can be converted back to SecureString
+            $protectedString = $result.GeneratedAccountPasswordProtected
+            { ConvertTo-SecureString -String $protectedString } | Should -Not -Throw
+            
+            # Verify conversion works
+            $secure = ConvertTo-SecureString -String $protectedString
+            $secure | Should -BeOfType [securestring]
         }
     }
 }
