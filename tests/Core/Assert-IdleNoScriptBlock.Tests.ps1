@@ -161,8 +161,9 @@ Describe 'Assert-IdleNoScriptBlock' {
             }
             $broker.PSObject.TypeNames.Insert(0, 'IdLE.AuthSessionBroker')
 
-            { Assert-IdleNoScriptBlock -InputObject $broker -Path 'Broker' } | 
-                Should -Throw -ExceptionType ([System.ArgumentException]) -ExpectedMessage '*ScriptBlocks are not allowed*Broker.MaliciousProperty*'
+            {
+                Assert-IdleNoScriptBlock -InputObject $broker -Path 'Broker'
+            } | Should -Throw -ExceptionType ([System.ArgumentException]) -ExpectedMessage '*ScriptBlocks are not allowed*Broker.MaliciousProperty*'
         }
 
         It 'allows IdLE.AuthSessionBroker without ScriptBlock properties' {
