@@ -55,6 +55,10 @@ Key points:
 - Options are data-only (ScriptBlocks rejected)
 - The broker handles caching, interactive auth policy, and secret management
 
+**Security:**
+- AuthSessionBroker is a **trusted extension point** provided by the host
+- See **[Security and Trust Boundaries](../about/security.md)** for the complete trust model and ScriptBlock handling rules
+
 For detailed contract specifications and usage patterns, see:
 
 **→ [Providers and Contracts](../extend/providers.md)** — Complete provider contracts and AuthSessionBroker details

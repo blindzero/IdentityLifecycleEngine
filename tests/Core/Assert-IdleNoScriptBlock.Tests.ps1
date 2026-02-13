@@ -151,15 +151,84 @@ Describe 'Assert-IdleNoScriptBlock' {
         }
     }
 
-    Context 'Trusted type exemptions' {
-        It 'allows IdLE.AuthSessionBroker with internal ScriptBlock' {
+    Context 'Trust boundary enforcement' {
+        It 'rejects IdLE.AuthSessionBroker with ScriptBlock properties' {
+            # AuthSessionBroker should no longer have ScriptBlock exemption
+            # Any ScriptBlock properties in broker objects should be rejected
             $broker = [pscustomobject]@{
                 PSTypeName = 'IdLE.AuthSessionBroker'
-                ValidateAuthSession = { param($s) return $true }
+                MaliciousProperty = { Write-Host "malicious code" }
+            }
+            $broker.PSObject.TypeNames.Insert(0, 'IdLE.AuthSessionBroker')
+
+            { Assert-IdleNoScriptBlock -InputObject $broker -Path 'Broker' } | 
+                Should -Throw -ExceptionType ([System.ArgumentException]) -ExpectedMessage '*ScriptBlocks are not allowed*Broker.MaliciousProperty*'
+        }
+
+        It 'allows IdLE.AuthSessionBroker without ScriptBlock properties' {
+            # Broker objects created by New-IdleAuthSessionBroker should pass validation
+            $broker = [pscustomobject]@{
+                PSTypeName = 'IdLE.AuthSessionBroker'
+                SessionMap = @{}
+                DefaultAuthSession = $null
+                AuthSessionType = 'Credential'
             }
             $broker.PSObject.TypeNames.Insert(0, 'IdLE.AuthSessionBroker')
 
             { Assert-IdleNoScriptBlock -InputObject $broker -Path 'Broker' } | Should -Not -Throw
+        }
+
+        It 'rejects workflow configuration with ScriptBlock' {
+            $workflow = @{
+                Name = 'TestWorkflow'
+                LifecycleEvent = 'Joiner'
+                Steps = @(
+                    @{
+                        Name = 'Step1'
+                        Type = 'Test.Step'
+                        With = @{
+                            Action = { Invoke-MaliciousCode }
+                        }
+                    }
+                )
+            }
+
+            { Assert-IdleNoScriptBlock -InputObject $workflow -Path 'Workflow' } |
+                Should -Throw -ExceptionType ([System.ArgumentException])
+            
+            try {
+                Assert-IdleNoScriptBlock -InputObject $workflow -Path 'Workflow'
+            }
+            catch {
+                $_.Exception.Message | Should -Match 'Workflow\.Steps\[0\]\.With\.Action'
+            }
+        }
+
+        It 'rejects provider map with ScriptBlock' {
+            $providerMap = @{
+                Identity = [pscustomobject]@{
+                    Provider = 'MockProvider'
+                    MaliciousCallback = { Write-Host "malicious" }
+                }
+            }
+
+            { Assert-IdleNoScriptBlock -InputObject $providerMap -Path 'ProviderMap' } |
+                Should -Throw -ExceptionType ([System.ArgumentException]) -ExpectedMessage '*ScriptBlocks are not allowed*'
+        }
+
+        It 'rejects lifecycle request with ScriptBlock in DesiredState' {
+            $request = @{
+                LifecycleEvent = 'Joiner'
+                CorrelationId = 'test-123'
+                DesiredState = @{
+                    Identity = @{
+                        BadProperty = { Get-Credential }
+                    }
+                }
+            }
+
+            { Assert-IdleNoScriptBlock -InputObject $request -Path 'Request' } |
+                Should -Throw -ExceptionType ([System.ArgumentException]) -ExpectedMessage '*ScriptBlocks are not allowed*Request.DesiredState.Identity.BadProperty*'
         }
     }
 

@@ -39,10 +39,6 @@ function Assert-IdleNoScriptBlock {
     }
     Assert-IdleNoScriptBlock -InputObject $data -Path 'Input'
     # Throws: ScriptBlocks are not allowed in request data. Found at: Input.Setting
-
-    .NOTES
-    The function includes an exemption for IdLE.AuthSessionBroker objects,
-    which contain internal ScriptBlocks as part of their implementation.
     #>
     [CmdletBinding()]
     param(
@@ -84,12 +80,6 @@ function Assert-IdleNoScriptBlock {
 
     # PSCustomObject (walk note properties)
     if ($InputObject -is [pscustomobject]) {
-        # Exempt trusted IdLE types that legitimately contain ScriptBlocks
-        # AuthSessionBroker contains ValidateAuthSession scriptblock which is an internal implementation detail
-        if ($InputObject.PSTypeNames -contains 'IdLE.AuthSessionBroker') {
-            return
-        }
-        
         foreach ($p in $InputObject.PSObject.Properties) {
             if ($p.MemberType -eq 'NoteProperty') {
                 # PSPropertyInfo does not expose "InputObject" here; the value is in .Value.
