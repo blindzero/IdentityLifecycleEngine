@@ -11,6 +11,8 @@ Because IdLE is an orchestration engine, it must be explicit about **what is tru
 
 ## Trust boundaries
 
+IdLE enforces a strict trust boundary between **untrusted data inputs** and **trusted extension points**.
+
 ### Untrusted inputs (data-only)
 
 These inputs may come from users, CI pipelines, or external systems and **must be treated as untrusted**:
@@ -23,16 +25,16 @@ These inputs may come from users, CI pipelines, or external systems and **must b
 
 **Rule:** Untrusted inputs must be *data-only*. They must not contain ScriptBlocks or other executable objects.
 
-IdLE enforces this by rejecting ScriptBlocks when importing workflow definitions and by validating inputs at runtime.
+IdLE enforces this by:
+- Rejecting ScriptBlocks when importing workflow definitions
+- Validating inputs at runtime using `Assert-IdleNoScriptBlock`
+- Recursively scanning all hashtables, arrays, and PSCustomObjects for ScriptBlocks
 
-IdLE assumes these inputs are **data only**. Dynamic / executable content must be rejected.
-
-Current enforcement principles:
-
-- Workflow definitions must be static data structures (hashtables/arrays/strings/numbers/bools).
-- ScriptBlocks inside workflow definitions are rejected.
-- Event sinks must be objects with a `WriteEvent(event)` method. ScriptBlock sinks are rejected.
-- Step registry handlers must be **function names (strings)**. ScriptBlock handlers are rejected.
+**Implementation:**
+- The `Assert-IdleNoScriptBlock` function is the single, authoritative validator for this boundary
+- It performs deep recursive validation with no type exemptions
+- All workflow configuration, lifecycle requests, step parameters, and provider maps are validated
+- Validation failures include the exact path to the offending ScriptBlock for debugging
 
 ### Trusted extension points (code)
 
@@ -41,16 +43,27 @@ These inputs are provided by the host and are **privileged** because they determ
 - Step registry (maps `Step.Type` to a handler function name)
 - Provider modules / provider objects (system-specific adapters)
 - External event sinks (streaming events)
+- **AuthSessionBroker** (host-provided authentication orchestration)
 
 **Rule:** Only trusted code should populate these extension points.
+
+These extension points may contain ScriptMethods (e.g., the `AcquireAuthSession` method on AuthSessionBroker objects) but should not contain ScriptBlock *properties* that could be confused with data.
+
+**AuthSessionBroker Trust Model:**
+- The broker is a **trusted extension point** provided by the host
+- It orchestrates authentication without embedding secrets in workflows
+- Broker objects may contain ScriptMethods (e.g., `AcquireAuthSession`) as part of their interface
+- Broker objects must **not** contain ScriptBlock properties; all logic should be in methods or direct function calls
+- Authentication options passed to `AcquireAuthSession` are validated as data-only (no ScriptBlocks)
 
 ## Secure defaults
 
 IdLE applies secure defaults to reduce accidental code execution:
 
 - Workflow configuration is loaded as data and ScriptBlocks are rejected.
-- Event streaming uses an object-based contract (`WriteEvent(event)`); ScriptBlock event sinks are rejected.
 - Step registry handlers must be function names (strings); ScriptBlock handlers are rejected.
+- Event streaming uses an object-based contract (`WriteEvent(event)`); ScriptBlock event sinks are rejected.
+- AuthSessionBroker objects should not contain ScriptBlock properties; use ScriptMethods or direct function calls instead.
 
 ## Redaction at output boundaries
 
