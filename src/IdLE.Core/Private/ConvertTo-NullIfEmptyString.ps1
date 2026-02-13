@@ -5,14 +5,14 @@ function ConvertTo-NullIfEmptyString {
     param(
         [Parameter()]
         [AllowNull()]
-        [string] $Value
+        [object] $Value
     )
 
     if ($null -eq $Value) {
         return $null
     }
 
-    if ([string]::IsNullOrWhiteSpace($Value)) {
+    if ($Value -is [string] -and [string]::IsNullOrWhiteSpace($Value)) {
         return $null
     }
 
