@@ -19,33 +19,6 @@ function Resolve-IdleStepMetadataCatalog {
 
     $catalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    # Helper: Validate a single capability identifier format.
-    function Test-IdleCapabilityIdentifier {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [string] $Capability,
-
-            [Parameter(Mandatory)]
-            [string] $StepType,
-
-            [Parameter(Mandatory)]
-            [string] $SourceName
-        )
-
-        $cap = $Capability.Trim()
-        if ([string]::IsNullOrWhiteSpace($cap)) {
-            return
-        }
-
-        if ($cap -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
-            throw [System.ArgumentException]::new(
-                "$SourceName entry for step type '$StepType' declares invalid capability '$cap'. Expected dot-separated segments like 'IdLE.Identity.Read'.",
-                'Providers'
-            )
-        }
-    }
-
     # Helper: Validate RequiredCapabilities value.
     function Test-IdleRequiredCapabilities {
         [CmdletBinding()]
@@ -66,7 +39,13 @@ function Resolve-IdleStepMetadataCatalog {
         }
 
         if ($Value -is [string]) {
-            Test-IdleCapabilityIdentifier -Capability $Value -StepType $StepType -SourceName $SourceName
+            $cap = ConvertTo-IdleCapabilityIdentifier -Value $Value
+            if ($null -ne $cap -and -not (Test-IdleCapabilityIdentifier -Capability $cap)) {
+                throw [System.ArgumentException]::new(
+                    "$SourceName entry for step type '$StepType' declares invalid capability '$cap'. Expected dot-separated segments like 'IdLE.Identity.Read'.",
+                    'Providers'
+                )
+            }
             return
         }
 
@@ -91,7 +70,17 @@ function Resolve-IdleStepMetadataCatalog {
                     )
                 }
 
-                Test-IdleCapabilityIdentifier -Capability $c -StepType $StepType -SourceName $SourceName
+                $cap = ConvertTo-IdleCapabilityIdentifier -Value $c
+                if ($null -eq $cap) {
+                    continue
+                }
+
+                if (-not (Test-IdleCapabilityIdentifier -Capability $cap)) {
+                    throw [System.ArgumentException]::new(
+                        "$SourceName entry for step type '$StepType' declares invalid capability '$cap'. Expected dot-separated segments like 'IdLE.Identity.Read'.",
+                        'Providers'
+                    )
+                }
             }
             return
         }

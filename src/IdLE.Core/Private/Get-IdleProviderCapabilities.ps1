@@ -81,8 +81,8 @@ function Get-IdleProviderCapabilities {
             continue
         }
 
-        $s = ($c -as [string]).Trim()
-        if ([string]::IsNullOrWhiteSpace($s)) {
+        $s = ConvertTo-IdleCapabilityIdentifier -Value $c
+        if ($null -eq $s) {
             continue
         }
 
@@ -91,7 +91,7 @@ function Get-IdleProviderCapabilities {
         # - no whitespace
         # - starts with a letter
         # Example: 'IdLE.Entitlement.Write', 'IdLE.Identity.Attribute.Ensure'
-        if ($s -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
+        if (-not (Test-IdleCapabilityIdentifier -Capability $s)) {
             throw "Provider capability '$s' is invalid. Expected dot-separated segments like 'IdLE.Identity.Read' or 'IdLE.Entitlement.Write'."
         }
 
