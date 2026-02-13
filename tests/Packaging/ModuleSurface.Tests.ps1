@@ -286,95 +286,128 @@ Describe 'Module manifests and public surface' {
 
     Context 'Internal module import warnings' {
         It 'IdLE.Core emits warning when imported directly' {
-            $existingModule = Get-Module -Name IdLE.Core
-            if ($existingModule) {
-                Set-ItResult -Skipped -Because "IdLE.Core is already loaded; cannot test direct import warning"
-                return
+            $srcPath = Split-Path (Split-Path $corePsd1 -Parent) -Parent
+            $pathSeparator = [System.IO.Path]::PathSeparator
+            $paths = $env:PSModulePath -split [regex]::Escape($pathSeparator)
+
+            $filteredPaths = foreach ($path in $paths) {
+                if (-not $path) { continue }
+                $resolvedPath = Resolve-Path -Path $path -ErrorAction SilentlyContinue
+                $resolvedSrc = Resolve-Path -Path $srcPath -ErrorAction SilentlyContinue
+                if ($resolvedPath -and $resolvedSrc -and $resolvedPath.Path -eq $resolvedSrc.Path) { continue }
+                $path
             }
-            
-            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
-            $originalPSModulePath = $env:PSModulePath
-            try {
-                $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
-                # Remove src/ from PSModulePath to ensure warning is triggered
-                # corePsd1 is like /repo/src/IdLE.Core/IdLE.Core.psd1, so go up two levels to get /repo/src
-                $srcPath = Split-Path (Split-Path $corePsd1 -Parent) -Parent
-                $env:PSModulePath = ($env:PSModulePath -split [System.IO.Path]::PathSeparator | Where-Object { $_ -ne $srcPath }) -join [System.IO.Path]::PathSeparator
-                
-                # Import and capture warning output
-                $output = Import-Module $corePsd1 -Force 3>&1 | Out-String
-                
-                $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
-                $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
-                $output | Should -Match '\$env:IDLE_ALLOW_INTERNAL_IMPORT' -Because "Warning should show correct PowerShell syntax for bypass"
-            }
-            finally {
-                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
-                $env:PSModulePath = $originalPSModulePath
-                Remove-Module IdLE.Core -Force -ErrorAction SilentlyContinue
-            }
+
+            $corePsd1Escaped = $corePsd1 -replace "'", "''"
+            $script = @"
+
+`$warnings = & { Import-Module '$corePsd1Escaped' -Force -WarningAction Continue } 3>&1 |
+    Where-Object { `$_ -is [System.Management.Automation.WarningRecord] }
+
+if (`$warnings) {
+    (`$warnings | ForEach-Object { `$_.ToString() }) -join "`n"
+} else {
+    ''
+}
+"@
+
+            $result = Invoke-IdleIsolatedPwsh -Script $script -Environment @{
+                IDLE_ALLOW_INTERNAL_IMPORT = ''
+                PSModulePath = ($filteredPaths -join $pathSeparator)
+            } -WorkingDirectory $repoRoot
+
+            $result.ExitCode | Should -Be 0
+            $output = ($result.StdOut + $result.StdErr).Trim()
+            $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
+            $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
+            $output | Should -Match '\$env:IDLE_ALLOW_INTERNAL_IMPORT' -Because "Warning should show correct PowerShell syntax for bypass"
         }
 
         It 'IdLE.Core does not emit warning when IDLE_ALLOW_INTERNAL_IMPORT is set' {
-            $existingModule = Get-Module -Name IdLE.Core
-            if ($existingModule) {
-                Set-ItResult -Skipped -Because "IdLE.Core is already loaded; cannot test bypass"
-                return
-            }
-            
-            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
-            try {
-                $env:IDLE_ALLOW_INTERNAL_IMPORT = '1'
-                
-                # Import and capture warning output
-                $output = Import-Module $corePsd1 -Force 3>&1 | Out-String
-                
-                $output | Should -BeNullOrEmpty -Because "Internal module should not emit warning when bypass is set"
-            }
-            finally {
-                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
-                Remove-Module IdLE.Core -Force -ErrorAction SilentlyContinue
-            }
+            $corePsd1Escaped = $corePsd1 -replace "'", "''"
+            $script = @"
+
+`$warnings = & { Import-Module '$corePsd1Escaped' -Force -WarningAction Continue } 3>&1 |
+    Where-Object { `$_ -is [System.Management.Automation.WarningRecord] }
+
+if (`$warnings) {
+    (`$warnings | ForEach-Object { `$_.ToString() }) -join "`n"
+} else {
+    ''
+}
+"@
+
+            $result = Invoke-IdleIsolatedPwsh -Script $script -Environment @{
+                IDLE_ALLOW_INTERNAL_IMPORT = '1'
+            } -WorkingDirectory $repoRoot
+
+            $result.ExitCode | Should -Be 0
+            ($result.StdOut + $result.StdErr).Trim() | Should -BeNullOrEmpty -Because "Internal module should not emit warning when bypass is set"
         }
 
         It 'IdLE.Steps.Common emits warning when imported directly' {
-            $existingModule = Get-Module -Name IdLE.Steps.Common
-            if ($existingModule) {
-                Set-ItResult -Skipped -Because "IdLE.Steps.Common is already loaded; cannot test direct import warning"
-                return
+            $srcPath = Split-Path (Split-Path $stepsPsd1 -Parent) -Parent
+            $pathSeparator = [System.IO.Path]::PathSeparator
+            $paths = $env:PSModulePath -split [regex]::Escape($pathSeparator)
+
+            $filteredPaths = foreach ($path in $paths) {
+                if (-not $path) { continue }
+                $resolvedPath = Resolve-Path -Path $path -ErrorAction SilentlyContinue
+                $resolvedSrc = Resolve-Path -Path $srcPath -ErrorAction SilentlyContinue
+                if ($resolvedPath -and $resolvedSrc -and $resolvedPath.Path -eq $resolvedSrc.Path) { continue }
+                $path
             }
-            
-            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
-            try {
-                $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
-                
-                # Import and capture warning output
-                $output = Import-Module $stepsPsd1 -Force 3>&1 | Out-String
-                
-                $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
-                $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
-                $output | Should -Match '\$env:IDLE_ALLOW_INTERNAL_IMPORT' -Because "Warning should show correct PowerShell syntax for bypass"
-            }
-            finally {
-                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
-                Remove-Module IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
-            }
+
+            $corePsd1Escaped = $corePsd1 -replace "'", "''"
+            $stepsPsd1Escaped = $stepsPsd1 -replace "'", "''"
+            $script = @"
+
+`$env:IDLE_ALLOW_INTERNAL_IMPORT = '1'
+Import-Module '$corePsd1Escaped' -Force -WarningAction SilentlyContinue | Out-Null
+`$env:IDLE_ALLOW_INTERNAL_IMPORT = ''
+
+`$warnings = & { Import-Module '$stepsPsd1Escaped' -Force -WarningAction Continue } 3>&1 |
+    Where-Object { `$_ -is [System.Management.Automation.WarningRecord] }
+
+if (`$warnings) {
+    (`$warnings | ForEach-Object { `$_.ToString() }) -join "`n"
+} else {
+    ''
+}
+"@
+
+            $result = Invoke-IdleIsolatedPwsh -Script $script -Environment @{
+                IDLE_ALLOW_INTERNAL_IMPORT = ''
+                PSModulePath = ($filteredPaths -join $pathSeparator)
+            } -WorkingDirectory $repoRoot
+
+            $result.ExitCode | Should -Be 0
+            $output = ($result.StdOut + $result.StdErr).Trim()
+            $output | Should -Not -BeNullOrEmpty -Because "Internal module should emit warning on direct import"
+            $output | Should -Match "internal.*unsupported.*IdLE.*instead" -Because "Warning should indicate module is internal and suggest importing IdLE"
+            $output | Should -Match '\$env:IDLE_ALLOW_INTERNAL_IMPORT' -Because "Warning should show correct PowerShell syntax for bypass"
         }
         
         It 'IdLE meta-module does not emit internal module warnings' {
-            $originalValue = $env:IDLE_ALLOW_INTERNAL_IMPORT
-            try {
-                $env:IDLE_ALLOW_INTERNAL_IMPORT = $null
-                
-                # Import and capture warning output
-                $output = Import-Module $idlePsd1 -Force 3>&1 | Out-String
-                
-                $output | Should -BeNullOrEmpty -Because "IdLE meta-module should suppress internal module warnings via ScriptsToProcess"
-            }
-            finally {
-                $env:IDLE_ALLOW_INTERNAL_IMPORT = $originalValue
-                Remove-Module IdLE -Force -ErrorAction SilentlyContinue
-            }
+            $idlePsd1Escaped = $idlePsd1 -replace "'", "''"
+            $script = @"
+
+`$warnings = & { Import-Module '$idlePsd1Escaped' -Force -WarningAction Continue } 3>&1 |
+    Where-Object { `$_ -is [System.Management.Automation.WarningRecord] }
+
+if (`$warnings) {
+    (`$warnings | ForEach-Object { `$_.ToString() }) -join "`n"
+} else {
+    ''
+}
+"@
+
+            $result = Invoke-IdleIsolatedPwsh -Script $script -Environment @{
+                IDLE_ALLOW_INTERNAL_IMPORT = ''
+            } -WorkingDirectory $repoRoot
+
+            $result.ExitCode | Should -Be 0
+            ($result.StdOut + $result.StdErr).Trim() | Should -BeNullOrEmpty -Because "IdLE meta-module should suppress internal module warnings via ScriptsToProcess"
         }
     }
 }

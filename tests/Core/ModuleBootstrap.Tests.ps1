@@ -106,9 +106,16 @@ Describe 'IdLE Module Bootstrap for Repo/Zip Layouts' {
         }
 
         It 'Does not modify PSModulePath when IdLE is imported from a non-repo layout' {
-            # This test would require mocking a different installation layout
-            # For now, we skip it as it's hard to test without actually installing the module
-            Set-ItResult -Skipped -Because 'Requires non-repo installation layout'
+            $moduleRoot = Join-Path -Path $TestDrive -ChildPath 'psmodules'
+            $layout = New-IdleTestModuleLayout -DestinationRoot $moduleRoot
+
+            $idleManifest = Join-Path -Path $layout.Root -ChildPath 'IdLE\IdLE.psd1'
+            $originalPSModulePath = $env:PSModulePath
+
+            Import-Module $idleManifest -Force -ErrorAction Stop
+
+            $env:PSModulePath | Should -Be $originalPSModulePath
+            Remove-Module IdLE -Force -ErrorAction SilentlyContinue
         }
     }
 

@@ -109,28 +109,23 @@ AfterAll {
 
 Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 
-    It 'rejects ExecutionOptions with invalid type' -Skip {
-        # Note: PowerShell parameter type validation catches this before our validation,
-        # so this test is skipped. The validation still exists and would catch it if
-        # the parameter type was changed to [object].
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'test.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+    It 'rejects ExecutionOptions with invalid type (parameter binding)' {
+        $wfPath = New-IdleTestWorkflowFile -Content @'
 @{
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
   Steps          = @()
 }
 '@
-
-        $req = New-IdleRequest -LifecycleEvent 'Joiner'
+        
+        $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-        { Invoke-IdlePlan -Plan $plan -ExecutionOptions 'invalid' } | Should -Throw -ExpectedMessage '*must be a hashtable or IDictionary*'
+        { Invoke-IdlePlan -Plan $plan -ExecutionOptions 'invalid' } | Should -Throw -ExpectedMessage '*Cannot convert*Hashtable*'
     }
 
     It 'rejects ExecutionOptions with ScriptBlocks' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'test.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        $wfPath = New-IdleTestWorkflowFile -Content @'
 @{
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
@@ -138,7 +133,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 }
 '@
 
-        $req = New-IdleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
         $providers = @{ StepRegistry = @{} }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
@@ -150,8 +145,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
     }
 
     It 'rejects RetryProfile with invalid MaxAttempts' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'test.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        $wfPath = New-IdleTestWorkflowFile -Content @'
 @{
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
@@ -159,7 +153,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 }
 '@
 
-        $req = New-IdleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
         $providers = @{ StepRegistry = @{} }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
@@ -173,8 +167,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
     }
 
     It 'rejects DefaultRetryProfile that does not exist' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'test.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        $wfPath = New-IdleTestWorkflowFile -Content @'
 @{
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
@@ -182,7 +175,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 }
 '@
 
-        $req = New-IdleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
         $providers = @{ StepRegistry = @{} }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
@@ -197,8 +190,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
     }
 
     It 'rejects MaxDelayMilliseconds less than engine default InitialDelayMilliseconds' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'test.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        $wfPath = New-IdleTestWorkflowFile -Content @'
 @{
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
@@ -206,7 +198,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 }
 '@
 
-        $req = New-IdleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
         $providers = @{ StepRegistry = @{} }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
