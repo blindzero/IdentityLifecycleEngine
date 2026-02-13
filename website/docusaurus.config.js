@@ -58,9 +58,10 @@ const config = {
           editUrl: `https://github.com/${repoOwner}/${repoName}/edit/main/`,
           exclude: [
             '**/develop/**',
-            '_*template.md',
+            '**/_*template.md',
             '**/index.md',
-            'index.md'], 
+            'index.md', 
+            '**/extend/**'],
         },
         
         blog: false, // Disable blog plugin - maybe enable later
