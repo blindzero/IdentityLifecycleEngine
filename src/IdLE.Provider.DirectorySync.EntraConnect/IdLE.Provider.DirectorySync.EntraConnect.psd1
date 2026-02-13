@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Provider.DirectorySync.EntraConnect.psm1'
-    ModuleVersion = '0.9.3'
+    ModuleVersion = '0.9.4'
     GUID              = 'a1b2c3d4-5e6f-7890-abcd-ef1234567890'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'

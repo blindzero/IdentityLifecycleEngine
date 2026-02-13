@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Provider.AD.psm1'
-    ModuleVersion = '0.9.3'
+    ModuleVersion = '0.9.4'
     GUID              = '8a7f3c2e-9b4d-4e1a-a8c6-5f9d2b1e3a4c'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
