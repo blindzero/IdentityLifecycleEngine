@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Steps.Mailbox.psm1'
-    ModuleVersion = '0.9.3'
+    ModuleVersion = '0.9.4'
     GUID              = 'f7e6d5c4-b3a2-9180-7e6f-5d4c3b2a1908'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
