@@ -60,8 +60,10 @@ const config = {
             '**/develop/**',
             '**/_*template.md',
             '**/index.md',
-            'index.md', 
-            '**/extend/**'],
+            'index.md',
+            'extend/events.md',
+            'extend/providers.md',
+            'extend/steps.md'],
         },
         
         blog: false, // Disable blog plugin - maybe enable later
