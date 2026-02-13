@@ -81,6 +81,18 @@ Steps must:
 - not perform authentication
 - write only declared `State.*` outputs
 
+### ScriptBlock Validation in Steps
+
+**All step implementations must validate their inputs using the centralized helper:**
+
+```powershell
+Assert-IdleNoScriptBlock -InputObject $config -Path 'With.Config'
+```
+
+- Do not implement custom ScriptBlock checks
+- Use `Assert-IdleNoScriptBlock` from `IdLE.Core` for consistent enforcement
+- The helper recursively validates hashtables, arrays, and PSCustomObjects
+
 ---
 
 ## Providers
