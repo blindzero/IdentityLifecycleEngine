@@ -25,10 +25,10 @@ Authoritative docs:
 
 - `README.md` (high-level)
 - `docs/index.md` (documentation entry point)
-- `docs/advanced/security.md` (trust boundaries)
-- `docs/advanced/provider-capabilities.md` (Capability rules)
-- `docs/reference/providers-and-contracts.md` (Provider contracts)
-- `docs/reference/steps-and-metadata.md` (Step metadata/capabilities usage)
+- `docs/about/security.md` (trust boundaries)
+- `docs/reference/capabilities.md` (Capability rules)
+- `docs/extend/providers.md` (Provider contracts)
+- `docs/extend/steps.md` (Step metadata/capabilities usage)
 
 ---
 
@@ -108,7 +108,7 @@ Use the single event contract:
 
 - `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`
 - This is the runtime contract used by steps/providers through the execution context.
-- External event sinks (host implementations) must follow the guidance in `docs/reference/events-and-observability.md` (object-based event payload), but the engine-facing API remains `Context.EventSink.WriteEvent(...)`.
+- External event sinks (host implementations) must follow the guidance in `docs/extend/events.md` (object-based event payload), but the engine-facing API remains `Context.EventSink.WriteEvent(...)`.
 
 Do not introduce alternative eventing APIs unless explicitly planned and documented.
 
@@ -116,7 +116,7 @@ Do not introduce alternative eventing APIs unless explicitly planned and documen
 
 ## 5. Testing expectations
 
-Follow `docs/advanced/testing.md` and `CONTRIBUTING.md`.
+Follow `docs/develop/testing.md` and `CONTRIBUTING.md`.
 
 - Use **Pester** for tests.
 - Unit tests must not call live systems.
@@ -142,12 +142,12 @@ Do **not** edit generated files by hand—regenerate via the repository tools as
 
 ## 7. Security and trust boundaries
 
-Follow `docs/advanced/security.md`.
+Follow `docs/about/security.md`.
 
 - Treat workflow definitions and lifecycle requests as **untrusted inputs**
 - Reject executable objects in untrusted inputs (e.g., ScriptBlocks)
 - Treat step registry, providers, and external event sinks as **trusted extension points**, but validate their shapes
-- Authentication material (credentials/tokens) is considered secret input and must not be logged or emitted in events; redact at output boundaries as documented in `docs/advanced/security.md`
+- Authentication material (credentials/tokens) is considered secret input and must not be logged or emitted in events; redact at output boundaries as documented in `docs/about/security.md`
 
 ---
 
@@ -162,10 +162,26 @@ Before proposing or finalizing a PR, ensure:
 - [ ] Generated docs regenerated if required (`docs/reference/*`)
 - [ ] No concept or extensibility rules violated (`docs/about/concepts.md`, `docs/extend/extensibility.md`)
 - [ ] No security boundary regressions (`docs/about/security.md`)
+- [ ] Security vulnerabilities addressed (see `SECURITY.md` for reporting)
 
 ---
 
-## 9. Where to put new guidance for agents
+## 9. Conflict resolution
+
+If any guidance in this document conflicts with other repository documents:
+
+- The more specific document takes precedence
+- If the conflict is unclear, open an issue to resolve it
+
+Document precedence (from most to least specific):
+
+1. Domain-specific docs (`docs/extend/*`, `docs/develop/*`, `docs/about/*`)
+2. Policy docs at repo root (`STYLEGUIDE.md`, `CONTRIBUTING.md`, `SECURITY.md`)
+3. This document (`AGENTS.md`)
+
+---
+
+## 10. Where to put new guidance for agents
 
 - General, cross-cutting agent rules → `AGENTS.md` (repo root)
 - Code style details → `STYLEGUIDE.md`
@@ -173,10 +189,15 @@ Before proposing or finalizing a PR, ensure:
 - Concept decisions → `docs/about/concepts.md`
 - Extensibility decisions → `docs/extend/extensibility.md`
 - Security boundaries → `docs/about/security.md`
+- Testing guidance → `docs/develop/testing.md`
+- Capability rules → `docs/reference/capabilities.md`
+- Event patterns → `docs/extend/events.md`
+- Provider contracts → `docs/extend/providers.md`
+- Step metadata → `docs/extend/steps.md`
 
 ---
 
-## 10. When in doubt
+## 11. When in doubt
 
 Prefer:
 
