@@ -68,11 +68,6 @@ Delete an identity/account (hard deprovision). Typically irreversible; steps sho
 #### `IdLE.Identity.Attribute.Ensure`
 Ensure one or more attributes on an identity match desired state (set/clear/replace). Provider decides how to map logical attribute names to system fields.
 
-### Identity attributes
-
-#### `IdLE.Identity.Attribute.Ensure`
-Ensure one or more attributes on an identity match desired state (set/clear/replace). Provider decides how to map logical attribute names to system fields.
-
 ### Entitlements
 
 #### `IdLE.Entitlement.List`
