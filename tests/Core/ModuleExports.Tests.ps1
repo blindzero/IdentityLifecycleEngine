@@ -62,6 +62,57 @@ Describe 'Module Export Consistency' {
                 }
             }
         }
+
+        It 'Exported IdLE.Core functions have comment-based help (Synopsis + Description + Examples + Parameters)' {
+            $commands = Get-Command -Module IdLE.Core -CommandType Function
+            $commands | Should -Not -BeNullOrEmpty
+
+            foreach ($cmd in $commands) {
+                $help = Get-Help -Name $cmd.Name -ErrorAction Stop
+
+                # Synopsis
+                $help.Synopsis | Should -Not -BeNullOrEmpty -Because "Function '$($cmd.Name)' should have a Synopsis"
+
+                # Description (can be structured)
+                $descText =
+                    if ($help.Description -and $help.Description.Text) { ($help.Description.Text -join "`n").Trim() }
+                    else { '' }
+
+                $descText | Should -Not -BeNullOrEmpty -Because "Function '$($cmd.Name)' should have a Description"
+
+                # Examples (can also be structured)
+                $exampleCount =
+                    if ($help.Examples -and $help.Examples.Example) {
+                        @($help.Examples.Example).Count
+                    }
+                    else {
+                        0
+                    }
+
+                $exampleCount | Should -BeGreaterThan 0 -Because "Function '$($cmd.Name)' should have at least one Example"
+
+                # Parameters - check that each non-common parameter has documentation
+                # Common parameters (Debug, ErrorAction, etc.) are automatically documented by PowerShell
+                $commonParameters = @(
+                    'Verbose', 'Debug', 'ErrorAction', 'WarningAction', 'InformationAction',
+                    'ErrorVariable', 'WarningVariable', 'InformationVariable', 'OutVariable',
+                    'OutBuffer', 'PipelineVariable', 'ProgressAction'
+                )
+
+                $cmdParameters = @($cmd.Parameters.Keys | Where-Object { $_ -notin $commonParameters })
+                
+                if ($cmdParameters.Count -gt 0) {
+                    $helpParameters = @()
+                    if ($help.parameters -and $help.parameters.parameter) {
+                        $helpParameters = @($help.parameters.parameter | ForEach-Object { $_.name })
+                    }
+
+                    foreach ($paramName in $cmdParameters) {
+                        $helpParameters | Should -Contain $paramName -Because "Function '$($cmd.Name)' should have .PARAMETER documentation for parameter '$paramName'"
+                    }
+                }
+            }
+        }
     }
 
     Context 'IdLE meta-module exports' {
