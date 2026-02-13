@@ -32,6 +32,11 @@ function Invoke-IdlePlanObject {
 
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.ExecutionResult)
+
+    .EXAMPLE
+    $result = Invoke-IdlePlanObject -Plan $plan -Providers $providers
+
+    Executes a plan with the specified provider registry and returns an execution result.
     #>
     [CmdletBinding()]
     param(

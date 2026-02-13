@@ -24,6 +24,11 @@ function New-IdlePlanObject {
 
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.Plan)
+
+    .EXAMPLE
+    $plan = New-IdlePlanObject -WorkflowPath ./workflows/joiner.psd1 -Request $request -Providers $providers
+
+    Builds a plan from a workflow definition and lifecycle request with the specified provider registry.
     #>
     [CmdletBinding()]
     param(

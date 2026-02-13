@@ -15,6 +15,11 @@ function Test-IdleWorkflowDefinitionObject {
 
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.WorkflowDefinition)
+
+    .EXAMPLE
+    $workflow = Test-IdleWorkflowDefinitionObject -WorkflowPath ./workflows/joiner.psd1
+
+    Loads and validates a workflow definition, ensuring it is data-only and schema-compliant.
     #>
     [CmdletBinding()]
     param(
