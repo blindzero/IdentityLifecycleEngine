@@ -63,31 +63,34 @@ Describe 'Module Export Consistency' {
             }
         }
 
-        It 'New-IdleLifecycleRequestObject has comment-based help (Synopsis + Description + Examples)' {
-            $cmd = Get-Command -Name 'New-IdleLifecycleRequestObject' -Module IdLE.Core -ErrorAction Stop
+        It 'Exported IdLE.Core functions have comment-based help (Synopsis + Description + Examples)' {
+            $commands = Get-Command -Module IdLE.Core -CommandType Function
+            $commands | Should -Not -BeNullOrEmpty
 
-            $help = Get-Help -Name $cmd.Name -ErrorAction Stop
+            foreach ($cmd in $commands) {
+                $help = Get-Help -Name $cmd.Name -ErrorAction Stop
 
-            # Synopsis
-            $help.Synopsis | Should -Not -BeNullOrEmpty -Because "Function '$($cmd.Name)' should have a Synopsis"
+                # Synopsis
+                $help.Synopsis | Should -Not -BeNullOrEmpty -Because "Function '$($cmd.Name)' should have a Synopsis"
 
-            # Description (can be structured)
-            $descText =
-                if ($help.Description -and $help.Description.Text) { ($help.Description.Text -join "`n").Trim() }
-                else { '' }
+                # Description (can be structured)
+                $descText =
+                    if ($help.Description -and $help.Description.Text) { ($help.Description.Text -join "`n").Trim() }
+                    else { '' }
 
-            $descText | Should -Not -BeNullOrEmpty -Because "Function '$($cmd.Name)' should have a Description"
+                $descText | Should -Not -BeNullOrEmpty -Because "Function '$($cmd.Name)' should have a Description"
 
-            # Examples (can also be structured)
-            $exampleCount =
-                if ($help.Examples -and $help.Examples.Example) {
-                    @($help.Examples.Example).Count
-                }
-                else {
-                    0
-                }
+                # Examples (can also be structured)
+                $exampleCount =
+                    if ($help.Examples -and $help.Examples.Example) {
+                        @($help.Examples.Example).Count
+                    }
+                    else {
+                        0
+                    }
 
-            $exampleCount | Should -BeGreaterThan 0 -Because "Function '$($cmd.Name)' should have at least one Example"
+                $exampleCount | Should -BeGreaterThan 0 -Because "Function '$($cmd.Name)' should have at least one Example"
+            }
         }
     }
 
