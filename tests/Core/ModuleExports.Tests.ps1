@@ -63,7 +63,7 @@ Describe 'Module Export Consistency' {
             }
         }
 
-        It 'Exported IdLE.Core functions have comment-based help (Synopsis + Description + Examples)' {
+        It 'Exported IdLE.Core functions have comment-based help (Synopsis + Description + Examples + Parameters)' {
             $commands = Get-Command -Module IdLE.Core -CommandType Function
             $commands | Should -Not -BeNullOrEmpty
 
@@ -90,6 +90,27 @@ Describe 'Module Export Consistency' {
                     }
 
                 $exampleCount | Should -BeGreaterThan 0 -Because "Function '$($cmd.Name)' should have at least one Example"
+
+                # Parameters - check that each non-common parameter has documentation
+                # Common parameters (Debug, ErrorAction, etc.) are automatically documented by PowerShell
+                $commonParameters = @(
+                    'Verbose', 'Debug', 'ErrorAction', 'WarningAction', 'InformationAction',
+                    'ErrorVariable', 'WarningVariable', 'InformationVariable', 'OutVariable',
+                    'OutBuffer', 'PipelineVariable', 'ProgressAction'
+                )
+
+                $cmdParameters = @($cmd.Parameters.Keys | Where-Object { $_ -notin $commonParameters })
+                
+                if ($cmdParameters.Count -gt 0) {
+                    $helpParameters = @()
+                    if ($help.parameters -and $help.parameters.parameter) {
+                        $helpParameters = @($help.parameters.parameter | ForEach-Object { $_.name })
+                    }
+
+                    foreach ($paramName in $cmdParameters) {
+                        $helpParameters | Should -Contain $paramName -Because "Function '$($cmd.Name)' should have .PARAMETER documentation for parameter '$paramName'"
+                    }
+                }
             }
         }
     }
