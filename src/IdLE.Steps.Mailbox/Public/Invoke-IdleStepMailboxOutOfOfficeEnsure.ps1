@@ -207,11 +207,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     }
 
     # Security: reject ScriptBlocks in Config (data-only constraint)
-    foreach ($key in $config.Keys) {
-        if ($config[$key] -is [ScriptBlock]) {
-            throw "Mailbox.OutOfOffice.Ensure With.Config must not contain ScriptBlocks. Found ScriptBlock in key '$key'."
-        }
-    }
+    Assert-IdleNoScriptBlock -InputObject $config -Path 'With.Config'
 
     # Validate MessageFormat if provided
     if ($config.ContainsKey('MessageFormat')) {

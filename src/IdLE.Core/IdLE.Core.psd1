@@ -9,14 +9,15 @@
     HelpInfoUri       = 'https://blindzero.github.io/IdentityLifecycleEngine/'
 
     FunctionsToExport = @(
-        'New-IdleLifecycleRequestObject',
-        'Test-IdleWorkflowDefinitionObject',
-        'New-IdlePlanObject',
-        'Invoke-IdlePlanObject',
+        'Assert-IdleNoScriptBlock',
         'Export-IdlePlanObject',
-        'New-IdleAuthSessionBroker',
+        'Invoke-IdlePlanObject',
         'Invoke-IdleProviderMethod',
-        'Test-IdleProviderMethodParameter'
+        'New-IdleAuthSessionBroker',
+        'New-IdleLifecycleRequestObject',
+        'New-IdlePlanObject',
+        'Test-IdleProviderMethodParameter',
+        'Test-IdleWorkflowDefinitionObject'
     )
     CmdletsToExport   = @()
     AliasesToExport   = @()

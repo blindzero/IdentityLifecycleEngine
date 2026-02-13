@@ -140,7 +140,19 @@ Steps receive inputs from the workflow under `Inputs` and may reference:
 - `State.*`
 - `Policy.*` (optional root, host-defined)
 
-Avoid executing code from configuration. Keep inputs data-only.
+### Security: Data-only constraint
+
+**All step inputs must be data-only and must not contain ScriptBlocks.**
+
+Step implementations MUST validate their inputs using the centralized helper:
+
+```powershell
+Assert-IdleNoScriptBlock -InputObject $config -Path 'With.Config'
+```
+
+The `Assert-IdleNoScriptBlock` function is exported from `IdLE.Core` and recursively validates hashtables, arrays, and PSCustomObjects.
+
+**Do not implement custom ScriptBlock validation.** Use the centralized helper to ensure consistent enforcement across all steps.
 
 ---
 

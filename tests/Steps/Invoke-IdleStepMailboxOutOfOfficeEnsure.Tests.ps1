@@ -197,7 +197,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
         
         $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
         { & $handler -Context $script:Context -Step $step } |
-            Should -Throw "*must not contain ScriptBlocks*"
+            Should -Throw "*ScriptBlocks are not allowed*"
     }
     
     It 'throws when provider is missing' {
