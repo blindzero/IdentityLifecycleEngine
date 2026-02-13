@@ -44,7 +44,7 @@ function New-IdleLifecycleRequestObject {
     Creates a minimal Joiner request with auto-generated CorrelationId and empty IdentityKeys/DesiredState.
 
     .EXAMPLE
-    $request = New-IdleLifecycleRequestObject -LifecycleEvent 'Joiner' -CorrelationId (New-Guid).Guid -IdentityKeys @{ EmployeeId = '12345'; Department = 'Engineering' } -DesiredState @{ MailNickname = 'jdoe'; Title = 'Engineer' }
+    $request = New-IdleLifecycleRequestObject -LifecycleEvent 'Joiner' -CorrelationId (New-Guid).Guid -IdentityKeys @{ EmployeeId = '12345' } -DesiredState @{ Department = 'Engineering'; MailNickname = 'jdoe'; Title = 'Engineer' }
 
     Creates a Joiner request with specific identity keys and desired state attributes for a typical onboarding workflow.
 
