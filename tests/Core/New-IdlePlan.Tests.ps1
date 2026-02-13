@@ -18,7 +18,7 @@ Describe 'New-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
         
         # Create a dummy provider with the required capability for EnsureAttributes
         $dummyProvider = [pscustomobject]@{
@@ -86,7 +86,7 @@ Describe 'New-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
         $providers = @{
             Dummy        = $true
             StepRegistry = @{
@@ -126,7 +126,7 @@ Describe 'New-IdlePlan' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver'
+        $req = New-IdleRequest -LifecycleEvent 'Leaver'
 
         try {
             New-IdlePlan -WorkflowPath $wfPath -Request $req | Out-Null
@@ -137,3 +137,4 @@ Describe 'New-IdlePlan' {
         }
     }
 }
+

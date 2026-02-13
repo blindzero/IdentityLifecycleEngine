@@ -9,7 +9,7 @@ Describe 'IdLE public API surface' {
     It 'Expected commands exist' {
         $expected = @(
             'Invoke-IdlePlan',
-            'New-IdleLifecycleRequest',
+            'New-IdleRequest',
             'New-IdlePlan',
             'Test-IdleWorkflow'
         )
@@ -49,3 +49,4 @@ Describe 'IdLE public API surface' {
         }
     }
 }
+

@@ -18,7 +18,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
 
         # Create a minimal workflow to trigger catalog resolution
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-builtin.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
         
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -39,7 +39,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
     It 'merges catalogs from multiple step packs deterministically' {
         # Create workflows that use steps from both Common and DirectorySync
         $wfPathDirSync = Join-Path -Path $fixturesPath -ChildPath 'joiner-with-dirsync.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
         
         $provider = [pscustomobject]@{ Name = 'DirSyncProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -61,7 +61,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
     It 'allows host to supplement with new step types not in step packs' {
         # Create a workflow with a custom step type
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-no-metadata.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
         
         $provider = [pscustomobject]@{ Name = 'CustomProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -88,7 +88,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
 
     It 'rejects host override attempt of step pack metadata (DuplicateStepTypeMetadata)' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-builtin.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -118,7 +118,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
 
     It 'validates metadata does not contain ScriptBlocks (host supplement)' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-no-metadata.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -145,7 +145,7 @@ Describe 'New-IdlePlan - step metadata catalog integration' {
 
     It 'fails fast with MissingStepTypeMetadata when step type has no metadata' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-no-metadata.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         # Provide a custom StepRegistry for the unknown step type
         $providers = @{
@@ -168,7 +168,7 @@ Describe 'New-IdlePlan - step metadata catalog integration' {
 
     It 'derives capabilities from step pack metadata (IdLE.Step.DisableIdentity)' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-builtin.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -188,7 +188,7 @@ Describe 'New-IdlePlan - step metadata catalog integration' {
 
     It 'derives capabilities from DirectorySync step pack (IdLE.Step.TriggerDirectorySync)' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-with-dirsync.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $provider = [pscustomobject]@{ Name = 'DirSyncProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -210,7 +210,7 @@ Describe 'New-IdlePlan - step metadata catalog integration' {
 
     It 'validates OnFailureSteps capabilities from metadata' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-onfailure.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -230,7 +230,7 @@ Describe 'New-IdlePlan - step metadata catalog integration' {
 
     It 'validates entitlement capabilities from metadata' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-entitlements.psd1'
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         try {
             New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{} | Out-Null
@@ -257,3 +257,4 @@ Describe 'New-IdlePlan - step metadata catalog integration' {
         $plan.Steps[0].RequiresCapabilities | Should -Contain 'IdLE.Entitlement.Revoke'
     }
 }
+

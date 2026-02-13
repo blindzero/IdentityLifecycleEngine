@@ -5,7 +5,7 @@ online version:
 schema: 2.0.0
 ---
 
-# New-IdleLifecycleRequest
+# New-IdleRequest
 
 ## SYNOPSIS
 Creates a lifecycle request object.
@@ -13,7 +13,7 @@ Creates a lifecycle request object.
 ## SYNTAX
 
 ```
-New-IdleLifecycleRequest [-LifecycleEvent] &lt;String&gt; [[-CorrelationId] &lt;String&gt;] [[-Actor] &lt;String&gt;]
+New-IdleRequest [-LifecycleEvent] &lt;String&gt; [[-CorrelationId] &lt;String&gt;] [[-Actor] &lt;String&gt;]
  [[-IdentityKeys] &lt;Hashtable&gt;] [[-DesiredState] &lt;Hashtable&gt;] [[-Changes] &lt;Hashtable&gt;]
  [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
@@ -30,7 +30,7 @@ Changes is optional and stays $null when omitted.
 
 ### EXAMPLE 1
 ```
-New-IdleLifecycleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
+New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
 ```
 
 ## PARAMETERS

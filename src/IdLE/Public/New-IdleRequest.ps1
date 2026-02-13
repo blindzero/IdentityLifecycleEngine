@@ -1,4 +1,4 @@
-function New-IdleLifecycleRequest {
+function New-IdleRequest {
     <#
     .SYNOPSIS
     Creates a lifecycle request object.
@@ -27,7 +27,7 @@ function New-IdleLifecycleRequest {
     Optional hashtable describing changes (typically used for Mover lifecycle events).
 
     .EXAMPLE
-    New-IdleLifecycleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
+    New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
 
     .OUTPUTS
     IdleLifecycleRequest
@@ -55,5 +55,6 @@ function New-IdleLifecycleRequest {
     )
 
     # Use core-exported factory to construct the domain object. Keeps domain model inside IdLE.Core.
-    New-IdleLifecycleRequestObject @PSBoundParameters
+    New-IdleRequestObject @PSBoundParameters
 }
+

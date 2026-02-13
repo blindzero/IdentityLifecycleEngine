@@ -35,7 +35,7 @@ Describe 'Mock example workflows' {
         foreach ($file in $mockWorkflows) {
             $workflow = Import-PowerShellDataFile -Path $file.FullName
             $lifecycleEvent = if ($workflow.ContainsKey('LifecycleEvent')) { $workflow.LifecycleEvent } else { 'Joiner' }
-            $request = New-IdleLifecycleRequest -LifecycleEvent $lifecycleEvent -Actor 'test-user'
+            $request = New-IdleRequest -LifecycleEvent $lifecycleEvent -Actor 'test-user'
             
             { New-IdlePlan -WorkflowPath $file.FullName -Request $request -Providers $providers } | Should -Not -Throw
         }
@@ -49,7 +49,7 @@ Describe 'Mock example workflows' {
         foreach ($file in $mockWorkflows) {
             $workflow = Import-PowerShellDataFile -Path $file.FullName
             $lifecycleEvent = if ($workflow.ContainsKey('LifecycleEvent')) { $workflow.LifecycleEvent } else { 'Joiner' }
-            $request = New-IdleLifecycleRequest -LifecycleEvent $lifecycleEvent -Actor 'test-user'
+            $request = New-IdleRequest -LifecycleEvent $lifecycleEvent -Actor 'test-user'
             
             $plan = New-IdlePlan -WorkflowPath $file.FullName -Request $request -Providers $providers
             $result = Invoke-IdlePlan -Plan $plan -Providers $providers
@@ -79,3 +79,4 @@ Describe 'Template example workflows' {
         }
     }
 }
+

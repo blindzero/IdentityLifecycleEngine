@@ -28,7 +28,7 @@ Describe 'Invoke-IdlePlan - StepRegistry' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         # Intentionally no Providers.StepRegistry here.
@@ -44,3 +44,4 @@ Describe 'Invoke-IdlePlan - StepRegistry' {
         ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
     }
 }
+

@@ -33,7 +33,7 @@ Describe 'Capability Deprecation and Migration' {
             # Verify the workflow file exists
             $wfPath | Should -Exist
 
-            $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver' -DesiredState @{
+            $req = New-IdleRequest -LifecycleEvent 'Leaver' -DesiredState @{
                 Manager = @{
                     DisplayName = 'IT Support'
                     Mail        = 'support@contoso.com'
@@ -73,7 +73,7 @@ Describe 'Capability Deprecation and Migration' {
             # Use a real workflow file
             $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1'
 
-            $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver' -DesiredState @{
+            $req = New-IdleRequest -LifecycleEvent 'Leaver' -DesiredState @{
                 Manager = @{
                     DisplayName = 'IT Support'
                     Mail        = 'support@contoso.com'
@@ -97,3 +97,4 @@ Describe 'Capability Deprecation and Migration' {
         }
     }
 }
+

@@ -11,7 +11,7 @@ function New-IdlePlan {
     Path to the workflow definition file (PSD1).
 
     .PARAMETER Request
-    The lifecycle request object created by New-IdleLifecycleRequest.
+    The lifecycle request object created by New-IdleRequest.
 
     .PARAMETER Providers
     Provider registry/collection passed through to planning. (Structure to be defined later.)
@@ -40,3 +40,4 @@ function New-IdlePlan {
     # Keep meta module thin: delegate planning to IdLE.Core.
     return New-IdlePlanObject -WorkflowPath $WorkflowPath -Request $Request -Providers $Providers
 }
+

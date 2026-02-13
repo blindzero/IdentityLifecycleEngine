@@ -129,7 +129,7 @@ else {
     }
 }
 
-$request = New-IdleLifecycleRequest `
+$request = New-IdleRequest `
     -LifecycleEvent 'Leaver' `
     -Actor $env:USERNAME `
     -Input @{
@@ -204,3 +204,4 @@ foreach ($step in $result.Steps) {
 
 Write-Host ""
 Write-Host "==> Done." -ForegroundColor Cyan
+

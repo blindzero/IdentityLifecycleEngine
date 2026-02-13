@@ -47,7 +47,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -79,7 +79,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $planProviders = @{
             StepRegistry = @{
@@ -121,7 +121,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         # Build plan with providers, then remove Providers property to simulate exported plan scenario
         $providers = @{
@@ -151,7 +151,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -179,7 +179,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry  = @{
@@ -208,7 +208,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -248,7 +248,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         # Create a PSCustomObject-shaped provider registry (not a hashtable)
         $providersObject = [pscustomobject]@{
@@ -269,3 +269,4 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
         $result.Steps[0].Status | Should -Be 'Completed'
     }
 }
+

@@ -28,7 +28,7 @@
 
     FunctionsToExport = @(
         'Test-IdleWorkflow',
-        'New-IdleLifecycleRequest',
+        'New-IdleRequest',
         'New-IdlePlan',
         'Invoke-IdlePlan',
         'Export-IdlePlan',
@@ -49,3 +49,4 @@
         }
     }
 }
+

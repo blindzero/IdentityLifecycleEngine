@@ -54,7 +54,7 @@ Describe 'Module manifests and public surface' {
         $expected = @(
             'Invoke-IdlePlan'
             'New-IdleAuthSession'
-            'New-IdleLifecycleRequest'
+            'New-IdleRequest'
             'New-IdlePlan'
             'Test-IdleWorkflow'
             'Export-IdlePlan'
@@ -82,7 +82,7 @@ Describe 'Module manifests and public surface' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -378,3 +378,4 @@ Describe 'Module manifests and public surface' {
         }
     }
 }
+

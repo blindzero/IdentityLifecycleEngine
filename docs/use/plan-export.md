@@ -46,7 +46,7 @@ For the exact format and normative rules, see [Plan Export Specification](../ref
 
 ```powershell
 # Example only. Adjust parameters to your environment.
-$request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ EmployeeId = 'jdoe' }
+$request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ EmployeeId = 'jdoe' }
 $providers = @{ Identity = New-IdleMockIdentityProvider }
 $plan = New-IdlePlan -WorkflowPath './workflows/joiner.psd1' -Request $request -Providers $providers
 Export-IdlePlan -Plan $plan -Path './artifacts/joiner.plan.json'
@@ -72,3 +72,4 @@ Plan export can be used as a build artifact:
 - Generate a plan export from a known input set.
 - Validate the export with schema checks (if available).
 - Compare against a known-good baseline (golden file) to detect unexpected drift.
+

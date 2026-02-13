@@ -119,7 +119,7 @@ Describe 'IdLE Module Bootstrap for Repo/Zip Layouts' {
             
             $expectedCmdlets = @(
                 'Test-IdleWorkflow',
-                'New-IdleLifecycleRequest',
+                'New-IdleRequest',
                 'New-IdlePlan',
                 'Invoke-IdlePlan',
                 'Export-IdlePlan',
@@ -140,7 +140,8 @@ Describe 'IdLE Module Bootstrap for Repo/Zip Layouts' {
             
             # IdLE.Core should be imported internally (may not be visible in Get-Module)
             # Test by using a cmdlet that depends on IdLE.Core
-            { Get-Command New-IdleLifecycleRequest -ErrorAction Stop } | Should -Not -Throw
+            { Get-Command New-IdleRequest -ErrorAction Stop } | Should -Not -Throw
         }
     }
 }
+

@@ -83,7 +83,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest `
+        $req = New-IdleRequest `
             -LifecycleEvent 'Leaver' `
             -Actor 'admin@contoso.com' `
             -DesiredState @{
@@ -142,7 +142,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest `
+        $req = New-IdleRequest `
             -LifecycleEvent 'Leaver' `
             -Actor 'admin@contoso.com' `
             -DesiredState @{
@@ -185,7 +185,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest `
+        $req = New-IdleRequest `
             -LifecycleEvent 'Leaver' `
             -Actor 'admin@contoso.com' `
             -DesiredState @{
@@ -214,3 +214,4 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
         $mailbox.OOFInternalMessage | Should -Be 'Contact Alice Brown'
     }
 }
+

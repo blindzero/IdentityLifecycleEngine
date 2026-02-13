@@ -122,7 +122,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         { Invoke-IdlePlan -Plan $plan -ExecutionOptions 'invalid' } | Should -Throw -ExpectedMessage '*must be a hashtable or IDictionary*'
@@ -138,7 +138,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
         $providers = @{ StepRegistry = @{} }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
@@ -159,7 +159,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
         $providers = @{ StepRegistry = @{} }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
@@ -182,7 +182,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
         $providers = @{ StepRegistry = @{} }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
@@ -206,7 +206,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions validation' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
         $providers = @{ StepRegistry = @{} }
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
@@ -240,7 +240,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions with RetryProfiles' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -270,7 +270,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions with RetryProfiles' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -313,7 +313,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions with RetryProfiles' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -351,7 +351,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions with RetryProfiles' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -389,7 +389,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions with RetryProfiles' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -458,7 +458,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions with RetryProfiles' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -487,3 +487,4 @@ Describe 'Invoke-IdlePlan - ExecutionOptions with RetryProfiles' {
         Remove-Module -Name $failingModuleName -Force -ErrorAction SilentlyContinue
     }
 }
+

@@ -89,7 +89,7 @@ Describe 'Test-IdleWorkflow' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver'
+        $req = New-IdleRequest -LifecycleEvent 'Leaver'
 
         try {
             Test-IdleWorkflow -WorkflowPath $wfPath -Request $req | Out-Null
@@ -100,3 +100,4 @@ Describe 'Test-IdleWorkflow' {
         }
     }
 }
+

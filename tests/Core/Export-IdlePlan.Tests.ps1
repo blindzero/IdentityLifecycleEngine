@@ -32,7 +32,7 @@ Describe 'Export-IdlePlan' {
 '@
 
             # IMPORTANT: Provide request intent payload so the export can include request.input.
-            $req = New-IdleLifecycleRequest `
+            $req = New-IdleRequest `
                 -LifecycleEvent 'Joiner' `
                 -CorrelationId  $cid `
                 -IdentityKeys   ([ordered]@{ userId = 'jdoe' }) `
@@ -76,7 +76,7 @@ Describe 'Export-IdlePlan' {
 }
 '@
 
-            $req = New-IdleLifecycleRequest `
+            $req = New-IdleRequest `
                 -LifecycleEvent 'Joiner' `
                 -CorrelationId  $cid `
                 -IdentityKeys   ([ordered]@{ userId = 'jdoe' })
@@ -111,7 +111,7 @@ Describe 'Export-IdlePlan' {
 }
 '@
 
-            $req = New-IdleLifecycleRequest `
+            $req = New-IdleRequest `
                 -LifecycleEvent 'Joiner' `
                 -CorrelationId  $cid `
                 -IdentityKeys   ([ordered]@{ userId = 'jdoe' })
@@ -126,3 +126,4 @@ Describe 'Export-IdlePlan' {
         }
     }
 }
+

@@ -161,7 +161,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
       # Create a dummy provider with the required capability for EnsureAttributes
       $dummyProvider = [pscustomobject]@{
@@ -221,7 +221,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
       $providers = @{
           StepRegistry = @{
@@ -259,7 +259,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
       $providers = @{
           StepRegistry = @{
@@ -286,7 +286,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
       $providers = @{
           StepRegistry = @{
@@ -312,7 +312,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
       $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
       $providers = @{
@@ -345,7 +345,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -395,7 +395,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -436,7 +436,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -470,7 +470,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
       { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
     }
@@ -491,7 +491,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+      $req = New-IdleRequest -LifecycleEvent 'Joiner'
       { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
     }
 
@@ -756,7 +756,7 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -774,3 +774,4 @@ Describe 'Invoke-IdlePlan' {
         $result.Steps[0].Name | Should -Be 'LegacyStep'
     }
 }
+

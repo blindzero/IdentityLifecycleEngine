@@ -56,7 +56,7 @@ InModuleScope IdLE.Core {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         $providers = @{
@@ -94,7 +94,7 @@ InModuleScope IdLE.Core {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
         $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
         $providers = @{

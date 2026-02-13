@@ -263,7 +263,7 @@ foreach ($wf in $selected) {
         Write-Host ""
         Write-DemoHeader "Plan"
         $lifecycleEvent = Get-IdleLifecycleEventFromWorkflowName -Name $wf.Name
-        $request = New-IdleLifecycleRequest -LifecycleEvent $lifecycleEvent -Actor 'example-user'
+        $request = New-IdleRequest -LifecycleEvent $lifecycleEvent -Actor 'example-user'
         $plan = New-IdlePlan -WorkflowPath $wf.Path -Request $request -Providers $providers
         Write-Host ("Plan created: LifecycleEvent={0} | Steps={1}" -f $lifecycleEvent, ($plan.Steps | Measure-Object).Count)
 
@@ -305,3 +305,4 @@ if ($selected.Count -gt 1 -or $Repeat -gt 1) {
         ForEach-Object { [pscustomobject]@{ Status = $_.Name; Count = $_.Count } } |
         Format-Table -AutoSize
 }
+

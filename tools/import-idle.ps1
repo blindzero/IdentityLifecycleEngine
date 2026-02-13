@@ -20,7 +20,7 @@ Get-Module -All IdLE* |
 # Verify public API surface
 $expectedCommands = @(
     'Invoke-IdlePlan',
-    'New-IdleLifecycleRequest',
+    'New-IdleRequest',
     'New-IdlePlan',
     'Test-IdleWorkflow'
 )
@@ -46,3 +46,4 @@ foreach ($wf in $workflowPaths) {
 }
 
 Write-Host "All example workflows validated successfully." -ForegroundColor Green
+

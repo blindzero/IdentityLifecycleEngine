@@ -110,7 +110,7 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -146,7 +146,7 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
 }
 '@
 
-        $req  = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -164,3 +164,4 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
         Should -Invoke -ModuleName IdLE.Core -CommandName Start-Sleep -Times 0
     }
 }
+

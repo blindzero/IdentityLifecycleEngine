@@ -9,7 +9,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     It 'fails fast when a step type has no metadata entry (MissingStepTypeMetadata)' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-no-metadata.psd1'
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         # Provide a custom StepRegistry for the unknown step type
         $providers = @{
@@ -31,7 +31,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     It 'derives capabilities from built-in step metadata' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-builtin.psd1'
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -52,7 +52,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     It 'fails fast when required capabilities are missing' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-missing-caps.psd1'
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         try {
             New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{} | Out-Null
@@ -68,7 +68,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     It 'rejects host override attempt of step pack metadata (DuplicateStepTypeMetadata)' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-override.psd1'
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -97,7 +97,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     It 'validates OnFailureSteps capabilities from metadata' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-onfailure.psd1'
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
         $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -118,7 +118,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     It 'validates entitlement capabilities from metadata' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-entitlements.psd1'
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         try {
             New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{} | Out-Null
@@ -148,7 +148,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     It 'rejects metadata with ScriptBlock values' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-scriptblock.psd1'
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -173,7 +173,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     It 'rejects invalid metadata shapes' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-invalid.psd1'
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -196,7 +196,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
     It 'rejects invalid capability identifiers' {
         $wfPath = Join-Path -Path $fixturesPath -ChildPath 'joiner-invalid-cap.psd1'
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+        $req = New-IdleRequest -LifecycleEvent 'Joiner'
 
         $providers = @{
             StepRegistry = @{
@@ -218,3 +218,4 @@ Describe 'New-IdlePlan - required provider capabilities' {
         }
     }
 }
+

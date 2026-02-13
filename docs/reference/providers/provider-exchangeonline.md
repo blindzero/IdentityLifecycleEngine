@@ -229,7 +229,7 @@ if (-not $mgr) {
 }
 
 # 2. Build request with manager data in DesiredState
-$req = New-IdleLifecycleRequest `
+$req = New-IdleRequest `
   -LifecycleEvent 'Leaver' `
   -Actor $env:USERNAME `
   -Input @{ UserPrincipalName = 'max.power@contoso.com' } `
@@ -283,7 +283,7 @@ if (-not $mgr) {
   }
 }
 
-$req = New-IdleLifecycleRequest `
+$req = New-IdleRequest `
   -LifecycleEvent 'Leaver' `
   -Actor $env:USERNAME `
   -Input @{ UserPrincipalName = 'max.power@contoso.com' } `
@@ -375,7 +375,7 @@ $internalMessageTemplate = Get-Content -Path './templates/oof-internal.html' -Ra
 $externalMessageTemplate = Get-Content -Path './templates/oof-external.html' -Raw -Encoding UTF8
 
 # Build request with template content
-$req = New-IdleLifecycleRequest `
+$req = New-IdleRequest `
   -LifecycleEvent 'Leaver' `
   -Actor $env:USERNAME `
   -Input @{ UserPrincipalName = 'user@contoso.com' } `
@@ -433,3 +433,4 @@ This approach keeps workflow definitions clean, allows template reuse, and maint
 - **Unit tests:** `tests/Providers/ExchangeOnlineProvider.Tests.ps1`
 - **Contract tests:** Provider contract tests validate implementation compliance
 - **Known CI constraints:** Tests use mock cmdlet layer; no live Exchange Online calls in CI
+

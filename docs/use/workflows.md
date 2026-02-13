@@ -188,7 +188,7 @@ When you create a lifecycle request, you provide data in the request object (via
 **Creating a request with values:**
 
 ```powershell
-$req = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+$req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{
     UserPrincipalName = 'jdoe@example.com'
     DisplayName       = 'John Doe'
     GivenName         = 'John'
@@ -306,3 +306,4 @@ Typical validation rules:
 - required keys must exist
 - condition schemas must be valid
 - `*From` paths must reference allowed roots
+
