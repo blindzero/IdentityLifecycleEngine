@@ -62,6 +62,33 @@ Describe 'Module Export Consistency' {
                 }
             }
         }
+
+        It 'New-IdleLifecycleRequestObject has comment-based help (Synopsis + Description + Examples)' {
+            $cmd = Get-Command -Name 'New-IdleLifecycleRequestObject' -Module IdLE.Core -ErrorAction Stop
+
+            $help = Get-Help -Name $cmd.Name -ErrorAction Stop
+
+            # Synopsis
+            $help.Synopsis | Should -Not -BeNullOrEmpty -Because "Function '$($cmd.Name)' should have a Synopsis"
+
+            # Description (can be structured)
+            $descText =
+                if ($help.Description -and $help.Description.Text) { ($help.Description.Text -join "`n").Trim() }
+                else { '' }
+
+            $descText | Should -Not -BeNullOrEmpty -Because "Function '$($cmd.Name)' should have a Description"
+
+            # Examples (can also be structured)
+            $exampleCount =
+                if ($help.Examples -and $help.Examples.Example) {
+                    @($help.Examples.Example).Count
+                }
+                else {
+                    0
+                }
+
+            $exampleCount | Should -BeGreaterThan 0 -Because "Function '$($cmd.Name)' should have at least one Example"
+        }
     }
 
     Context 'IdLE meta-module exports' {
