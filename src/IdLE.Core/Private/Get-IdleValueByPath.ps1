@@ -15,10 +15,8 @@ function Get-IdleValueByPath {
     foreach ($segment in ($Path -split '\.')) {
         if ($null -eq $current) { return $null }
 
-        $prop = $current.PSObject.Properties[$segment]
-        if ($null -eq $prop) { return $null }
-
-        $current = $prop.Value
+        $current = Get-IdlePropertyValue -Object $current -Name $segment
+        if ($null -eq $current) { return $null }
     }
 
     return $current
