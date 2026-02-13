@@ -48,13 +48,7 @@ function Resolve-IdleWorkflowTemplates {
     }
 
     # Primitives: return as-is
-    if ($Value -is [int] -or
-        $Value -is [long] -or
-        $Value -is [double] -or
-        $Value -is [decimal] -or
-        $Value -is [bool] -or
-        $Value -is [datetime] -or
-        $Value -is [guid]) {
+    if (Test-IdlePrimitiveValue -Value $Value) {
         return $Value
     }
 
@@ -68,7 +62,7 @@ function Resolve-IdleWorkflowTemplates {
     }
 
     # Arrays/lists: recurse on items
-    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+    if (Test-IdleEnumerableValue -Value $Value) {
         $resolved = @()
         foreach ($item in $Value) {
             $resolved += Resolve-IdleWorkflowTemplates -Value $item -Request $Request -StepName $StepName

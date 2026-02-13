@@ -127,36 +127,9 @@ function Resolve-IdleTemplateString {
             }
         }
 
-        # Resolve the value (using custom logic that handles hashtables)
+        # Resolve the value (shared path resolver handles hashtables and objects)
         $contextWrapper = [pscustomobject]@{ Request = $Request }
-        $current = $contextWrapper
-        foreach ($segment in ($targetPath -split '\.')) {
-            if ($null -eq $current) {
-                $resolvedValue = $null
-                break
-            }
-
-            # Handle hashtables/dictionaries
-            if ($current -is [System.Collections.IDictionary]) {
-                if ($current.ContainsKey($segment)) {
-                    $current = $current[$segment]
-                }
-                else {
-                    $current = $null
-                }
-            }
-            # Handle PSCustomObjects and class instances
-            else {
-                $prop = $current.PSObject.Properties[$segment]
-                if ($null -eq $prop) {
-                    $current = $null
-                }
-                else {
-                    $current = $prop.Value
-                }
-            }
-        }
-        $resolvedValue = $current
+        $resolvedValue = Get-IdleValueByPath -Object $contextWrapper -Path $targetPath
 
         # Fail fast on null/missing values
         if ($null -eq $resolvedValue) {
