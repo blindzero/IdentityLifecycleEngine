@@ -66,114 +66,120 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
         }
     }
 
-    It 'calls provider RevokeSessions method with correct identity key' {
-        $step = $script:StepTemplate
-        $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
+    Context 'Behavior' {
+        It 'calls provider RevokeSessions method with correct identity key' {
+            $step = $script:StepTemplate
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
 
-        $result = & $handler -Context $script:Context -Step $step
+            $result = & $handler -Context $script:Context -Step $step
 
-        $result.Status | Should -Be 'Completed'
-        $result.Changed | Should -Be $true
-        $script:FakeProvider.CallLog.Count | Should -Be 1
-        $script:FakeProvider.CallLog[0].IdentityKey | Should -Be 'user@contoso.com'
-    }
-
-    It 'returns StepResult with correct shape' {
-        $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-        $result = & $handler -Context $script:Context -Step $script:StepTemplate
-
-        $result | Should -Not -BeNullOrEmpty
-        $result.PSObject.TypeNames[0] | Should -Be 'IdLE.StepResult'
-        $result.Name | Should -Be 'Revoke sessions'
-        $result.Type | Should -Be 'IdLE.Step.RevokeIdentitySessions'
-        $result.Status | Should -Be 'Completed'
-        $result.PSObject.Properties.Name | Should -Contain 'Changed'
-        $result.PSObject.Properties.Name | Should -Contain 'Error'
-        $result.Error | Should -BeNullOrEmpty
-    }
-
-    It 'acquires auth session when AuthSessionName is provided' {
-        $step = $script:StepTemplate
-        $step.With.AuthSessionName = 'MicrosoftGraph'
-        $step.With.AuthSessionOptions = @{ Role = 'Admin' }
-
-        $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-        $result = & $handler -Context $script:Context -Step $step
-
-        $result.Status | Should -Be 'Completed'
-        $script:FakeProvider.CallLog.Count | Should -Be 1
-        $script:FakeProvider.CallLog[0].AuthSession | Should -Not -BeNullOrEmpty
-        $script:FakeProvider.CallLog[0].AuthSession.SessionName | Should -Be 'MicrosoftGraph'
-    }
-
-    It 'throws when With.IdentityKey is missing' {
-        $step = $script:StepTemplate
-        $step.With.Remove('IdentityKey')
-
-        $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-        { & $handler -Context $script:Context -Step $step } | Should -Throw '*requires With.IdentityKey*'
-    }
-
-    It 'throws when provider is missing' {
-        $script:Context.Providers.Clear()
-
-        $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-        { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw '*Provider*was not supplied*'
-    }
-
-    It 'throws when provider does not support RevokeSessions method' {
-        # Create a provider without RevokeSessions support
-        $unsupportedProvider = [pscustomobject]@{
-            PSTypeName = 'IdLE.Provider.FakeWithoutRevoke'
-        }
-        $unsupportedProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-            return @('IdLE.Identity.Read')
+            $result.Status | Should -Be 'Completed'
+            $result.Changed | Should -Be $true
+            $script:FakeProvider.CallLog.Count | Should -Be 1
+            $script:FakeProvider.CallLog[0].IdentityKey | Should -Be 'user@contoso.com'
         }
 
-        $script:Context.Providers['Identity'] = $unsupportedProvider
+        It 'returns StepResult with correct shape' {
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
+            $result = & $handler -Context $script:Context -Step $script:StepTemplate
 
-        $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-        { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+            $result | Should -Not -BeNullOrEmpty
+            $result.PSObject.TypeNames[0] | Should -Be 'IdLE.StepResult'
+            $result.Name | Should -Be 'Revoke sessions'
+            $result.Type | Should -Be 'IdLE.Step.RevokeIdentitySessions'
+            $result.Status | Should -Be 'Completed'
+            $result.PSObject.Properties.Name | Should -Contain 'Changed'
+            $result.PSObject.Properties.Name | Should -Contain 'Error'
+            $result.Error | Should -BeNullOrEmpty
+        }
+
+        It 'respects Changed flag from provider result' {
+            $script:FakeProvider | Add-Member -MemberType ScriptMethod -Name RevokeSessions -Value {
+                param($IdentityKey, $AuthSession)
+                return [pscustomobject]@{
+                    PSTypeName  = 'IdLE.ProviderResult'
+                    Operation   = 'RevokeSessions'
+                    IdentityKey = $IdentityKey
+                    Changed     = $false
+                }
+            } -Force
+
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
+            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+
+            $result.Changed | Should -Be $false
+        }
     }
 
-    It 'respects Changed flag from provider result' {
-        # Modify provider to return Changed=false
-        $script:FakeProvider | Add-Member -MemberType ScriptMethod -Name RevokeSessions -Value {
-            param($IdentityKey, $AuthSession)
-            return [pscustomobject]@{
-                PSTypeName  = 'IdLE.ProviderResult'
-                Operation   = 'RevokeSessions'
-                IdentityKey = $IdentityKey
-                Changed     = $false
+    Context 'Auth session acquisition' {
+        It 'acquires auth session when AuthSessionName is provided' {
+            $step = $script:StepTemplate
+            $step.With.AuthSessionName = 'MicrosoftGraph'
+            $step.With.AuthSessionOptions = @{ Role = 'Admin' }
+
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+            $script:FakeProvider.CallLog.Count | Should -Be 1
+            $script:FakeProvider.CallLog[0].AuthSession | Should -Not -BeNullOrEmpty
+            $script:FakeProvider.CallLog[0].AuthSession.SessionName | Should -Be 'MicrosoftGraph'
+        }
+    }
+
+    Context 'Validation' {
+        It 'throws when With.IdentityKey is missing' {
+            $step = $script:StepTemplate
+            $step.With.Remove('IdentityKey')
+
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
+            { & $handler -Context $script:Context -Step $step } | Should -Throw '*requires With.IdentityKey*'
+        }
+
+        It 'throws when provider is missing' {
+            $script:Context.Providers.Clear()
+
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
+            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw '*Provider*was not supplied*'
+        }
+
+        It 'throws when provider does not support RevokeSessions method' {
+            $unsupportedProvider = [pscustomobject]@{
+                PSTypeName = 'IdLE.Provider.FakeWithoutRevoke'
             }
-        } -Force
+            $unsupportedProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+                return @('IdLE.Identity.Read')
+            }
 
-        $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-        $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $script:Context.Providers['Identity'] = $unsupportedProvider
 
-        $result.Changed | Should -Be $false
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
+            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+        }
     }
 
-    It 'uses default provider alias "Identity" when not specified' {
-        $step = $script:StepTemplate
-        $step.With.Remove('Provider')
+    Context 'Provider selection' {
+        It 'uses default provider alias "Identity" when not specified' {
+            $step = $script:StepTemplate
+            $step.With.Remove('Provider')
 
-        $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-        $result = & $handler -Context $script:Context -Step $step
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
+            $result = & $handler -Context $script:Context -Step $step
 
-        $result.Status | Should -Be 'Completed'
-        $script:FakeProvider.CallLog.Count | Should -Be 1
-    }
+            $result.Status | Should -Be 'Completed'
+            $script:FakeProvider.CallLog.Count | Should -Be 1
+        }
 
-    It 'supports custom provider alias' {
-        $script:Context.Providers['CustomEntra'] = $script:FakeProvider
-        $step = $script:StepTemplate
-        $step.With.Provider = 'CustomEntra'
+        It 'supports custom provider alias' {
+            $script:Context.Providers['CustomEntra'] = $script:FakeProvider
+            $step = $script:StepTemplate
+            $step.With.Provider = 'CustomEntra'
 
-        $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-        $result = & $handler -Context $script:Context -Step $step
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
+            $result = & $handler -Context $script:Context -Step $step
 
-        $result.Status | Should -Be 'Completed'
-        $script:FakeProvider.CallLog.Count | Should -Be 1
+            $result.Status | Should -Be 'Completed'
+            $script:FakeProvider.CallLog.Count | Should -Be 1
+        }
     }
 }

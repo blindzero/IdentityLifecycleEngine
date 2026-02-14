@@ -76,74 +76,75 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
         }
     }
     
-    It 'converts mailbox type and reports Changed = true' {
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-        $result = & $handler -Context $script:Context -Step $script:StepTemplate
-        
-        $result.Status | Should -Be 'Completed'
-        $result.Changed | Should -Be $true
-        
-        # Verify mailbox was updated
-        $script:Provider.Store['user@contoso.com']['Type'] | Should -Be 'Shared'
-    }
-    
-    It 'is idempotent when mailbox already has desired type' {
-        # Set mailbox to Shared first
-        $script:Provider.Store['user@contoso.com']['Type'] = 'Shared'
-        
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-        $result = & $handler -Context $script:Context -Step $script:StepTemplate
-        
-        $result.Status | Should -Be 'Completed'
-        $result.Changed | Should -Be $false
-    }
-    
-    It 'throws when MailboxType is invalid' {
-        $step = $script:StepTemplate
-        $step.With.MailboxType = 'InvalidType'
-        
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-        { & $handler -Context $script:Context -Step $step } |
-            Should -Throw "*MailboxType to be one of: User, Shared, Room, Equipment*"
-    }
-    
-    It 'throws when provider is missing' {
-        $script:Context.Providers.Clear()
-        
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-        { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
-    }
-    
-    It 'throws when IdentityKey is missing' {
-        $step = $script:StepTemplate
-        $step.With.Remove('IdentityKey')
-        
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-        { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
-    }
-    
-    It 'throws when MailboxType is missing' {
-        $step = $script:StepTemplate
-        $step.With.Remove('MailboxType')
-        
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-        { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.MailboxType*"
-    }
-    
-    It 'supports all valid mailbox types' {
-        foreach ($type in @('Shared', 'Room', 'Equipment', 'User')) {
-            # Always set to a different type first
-            $startType = if ($type -eq 'User') { 'Shared' } else { 'User' }
-            $script:Provider.Store['user@contoso.com']['Type'] = $startType
-            
-            $step = $script:StepTemplate
-            $step.With.MailboxType = $type
-            
+    Context 'Behavior' {
+        It 'converts mailbox type and reports Changed = true' {
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-            $result = & $handler -Context $script:Context -Step $step
-            
+            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+
+            $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
-            $script:Provider.Store['user@contoso.com']['Type'] | Should -Be $type
+
+            $script:Provider.Store['user@contoso.com']['Type'] | Should -Be 'Shared'
+        }
+
+        It 'is idempotent when mailbox already has desired type' {
+            $script:Provider.Store['user@contoso.com']['Type'] = 'Shared'
+
+            $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
+            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+
+            $result.Status | Should -Be 'Completed'
+            $result.Changed | Should -Be $false
+        }
+
+        It 'supports all valid mailbox types' {
+            foreach ($type in @('Shared', 'Room', 'Equipment', 'User')) {
+                $startType = if ($type -eq 'User') { 'Shared' } else { 'User' }
+                $script:Provider.Store['user@contoso.com']['Type'] = $startType
+
+                $step = $script:StepTemplate
+                $step.With.MailboxType = $type
+
+                $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
+                $result = & $handler -Context $script:Context -Step $step
+
+                $result.Changed | Should -Be $true
+                $script:Provider.Store['user@contoso.com']['Type'] | Should -Be $type
+            }
+        }
+    }
+
+    Context 'Validation' {
+        It 'throws when MailboxType is invalid' {
+            $step = $script:StepTemplate
+            $step.With.MailboxType = 'InvalidType'
+
+            $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
+            { & $handler -Context $script:Context -Step $step } |
+                Should -Throw "*MailboxType to be one of: User, Shared, Room, Equipment*"
+        }
+
+        It 'throws when provider is missing' {
+            $script:Context.Providers.Clear()
+
+            $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
+            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+        }
+
+        It 'throws when IdentityKey is missing' {
+            $step = $script:StepTemplate
+            $step.With.Remove('IdentityKey')
+
+            $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
+            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
+        }
+
+        It 'throws when MailboxType is missing' {
+            $step = $script:StepTemplate
+            $step.With.Remove('MailboxType')
+
+            $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
+            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.MailboxType*"
         }
     }
 }
