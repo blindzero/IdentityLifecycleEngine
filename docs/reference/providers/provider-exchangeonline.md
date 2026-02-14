@@ -1,79 +1,110 @@
 ---
-title: Provider Reference - Mock (IdLE.Provider.Mock)
-sidebar_label: Mock
+title: Provider Reference - Exchange Online (IdLE.Provider.ExchangeOnline)
+sidebar_label: Exchange Online
 ---
 
 import CodeBlock from '@theme/CodeBlock';
 
-import MockIdentityAndEntitlements from '@site/../examples/workflows/mock/mock-identity-and-entitlements.psd1';
+import ExoJoinerMailboxBaseline from '@site/../examples/workflows/templates/exo-joiner.psd1';
+import ExoLeaverMailboxOffboarding from '@site/../examples/workflows/templates/exo-leaver.psd1';
 
 ## Summary
 
-- **Module:** `IdLE.Provider.Mock`
-- **What it’s for:** Running workflows **without touching real systems** (dry runs, demos, pipeline tests)
-- **Provider kind:** Identity + Entitlement (in-memory)
+- **Module:** `IdLE.Provider.ExchangeOnline`
+- **What it’s for:** Exchange Online mailbox configuration (type conversion, Out of Office, mailbox info)
+- **Targets:** Exchange Online via `ExchangeOnlineManagement` cmdlets
+- **Identity keys:** UPN (recommended), SMTP address, mailbox identifiers (provider-specific)
 
 ## When to use
 
-Use the Mock provider when you want to:
+Use this provider when your workflows need to manage **mailbox settings** in Exchange Online, for example:
 
-- validate **workflow logic**, conditions, and error handling
-- validate **template placeholders** (e.g. `{{Request.Input...}}`) without external dependencies
-- build demos or CI checks that should never modify production systems
+- read mailbox info (type, primary SMTP, identifiers)
+- apply a safe baseline at onboarding (verify mailbox + ensure expected type)
+- convert mailbox type (e.g. user → shared for leavers)
+- set Out of Office messages (internal/external) and audience
 
 Non-goals:
 
-- not a replacement for integration testing against real providers
-- not meant for performance testing or concurrency simulation
+- establishing the Exchange Online connection (host/runtime responsibility)
+- managing identity objects (use AD / Entra ID providers for accounts)
 
 ## Getting started
 
 ### Requirements
 
-None beyond IdLE itself. The Mock provider stores everything in-memory during the workflow run.
+- `ExchangeOnlineManagement` module available on the execution host
+- A host/runtime that establishes an Exchange Online session (delegated or app-only)
+- Permissions for the mailbox operations you intend to run (conversion, OOO, etc.)
 
 ### Install (PowerShell Gallery)
 
 ```powershell
-Install-Module IdLE.Provider.Mock -Scope CurrentUser
+Install-Module IdLE.Provider.ExchangeOnline -Scope CurrentUser
 ```
 
 ### Import
 
 ```powershell
-Import-Module IdLE.Provider.Mock
+Import-Module IdLE.Provider.ExchangeOnline
 ```
 
 ## Quickstart
 
-Create the provider and register it under a workflow alias (example):
+Create provider and register it (example convention):
 
 ```powershell
 $providers = @{
-  Identity = New-IdleMockIdentityProvider
+  ExchangeOnline = New-IdleExchangeOnlineProvider
 }
 ```
 
 ## Authentication
 
-No authentication is required. The Mock provider ignores `AuthSessionName`.
+This provider does **not** authenticate by itself.
 
-## Supported operations
+Your host/runtime must establish the Exchange Online session and (optionally) route it via the AuthSessionBroker.
+Mailbox steps typically reference that session via:
 
-- Identity: create/update attributes (in-memory)
-- Entitlements: ensure/remove group memberships (in-memory)
+- `AuthSessionName = 'ExchangeOnline'`
+- `AuthSessionOptions = @{ Role = 'Admin' }` (optional routing key)
+
+> Keep credentials/secrets **out of workflow files**. Resolve them in the host/runtime and provide them via the broker.
+
+## Supported Step Types
+
+Common step types using this provider include:
+
+- `IdLE.Step.Mailbox.GetInfo`
+- `IdLE.Step.Mailbox.EnsureType`
+- `IdLE.Step.Mailbox.EnsureOutOfOffice`
 
 ## Configuration
 
-This provider has no admin-facing options.
+No admin-facing provider options.
 
-## Example (canonical)
+## Examples (canonical templates)
 
-<CodeBlock language="powershell" title="examples/workflows/mock/mock-identity-and-entitlements.psd1">
-  {MockIdentityAndEntitlements}
+To keep provider documentation focused and consistent, this page embeds only the **canonical** Exchange Online templates:
+
+<CodeBlock language="powershell" title="examples/workflows/templates/exo-joiner.psd1">
+  {ExoJoinerMailboxBaseline}
+</CodeBlock>
+
+<CodeBlock language="powershell" title="examples/workflows/templates/exo-leaver.psd1">
+  {ExoLeaverMailboxOffboarding}
 </CodeBlock>
 
 ## Troubleshooting
 
-- **Values don’t persist across runs**: the Mock provider is in-memory per execution by design.
-- **You need to test real permissions or connectivity**: switch to the real provider (AD/Entra/EXO/DirectorySync) and run in a test environment.
+- **Module not found**: install `ExchangeOnlineManagement` on the execution host.
+- **Not connected**: ensure the host establishes an Exchange Online session before IdLE runs.
+- **Access denied**: the session identity must have permission to change mailbox settings.
+- **OOO formatting issues**: use `MessageFormat = 'Html'` and validate HTML in a test mailbox first.
+
+## Scenarios (link-only)
+
+Cross-provider orchestration examples are valuable, but should not be embedded in a single provider reference page.
+Keep them as **link-only** and collect them on a central Examples/Scenarios page:
+
+- `examples/workflows/templates/entraid-exo-leaver.psd1`
