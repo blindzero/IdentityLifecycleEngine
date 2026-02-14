@@ -5,7 +5,7 @@ Set-StrictMode -Version Latest
 #pragma warning disable PSAvoidUsingPlainTextForPassword
 #pragma warning disable PSAvoidUsingConvertToSecureStringWithPlainText
 
-BeforeAll {
+BeforeDiscovery {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
 
