@@ -1,40 +1,21 @@
 @{
-    Name           = 'EntraID Leaver - Offboarding with Optional Delete'
+    Name           = 'EntraID Leaver - Offboarding (Optional Cleanup)'
     LifecycleEvent = 'Leaver'
-    Description    = 'Disables user account, revokes active sessions, and optionally deletes (requires AllowDelete provider flag).'
+    Description    = 'Disables the user, revokes active sessions, and performs optional cleanup (group revoke and delete).'
+
     Steps          = @(
-        @{
-            Name = 'RevokeAllGroupMemberships'
-            Type = 'IdLE.Step.EnsureEntitlement'
-            With = @{
-                AuthSessionName    = 'MicrosoftGraph'
-                AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
-                Desired            = @()
-            }
-        }
-        @{
-            Name = 'ClearManagerAndUpdateDisplayName'
-            Type = 'IdLE.Step.EnsureAttributes'
-            With = @{
-                AuthSessionName    = 'MicrosoftGraph'
-                AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
-                Attributes         = @{
-                    Manager     = $null
-                    DisplayName = '{{Request.Input.DisplayName}} (LEAVER)'
-                }
-            }
-        }
         @{
             Name = 'DisableAccount'
             Type = 'IdLE.Step.DisableIdentity'
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
+
+                # Prefer ObjectId for leaver (stable), but you may also use UPN if your provider supports it.
                 IdentityKey        = '{{Request.Input.UserObjectId}}'
             }
         }
+
         @{
             Name = 'RevokeActiveSessions'
             Type = 'IdLE.Step.RevokeIdentitySessions'
@@ -44,9 +25,48 @@
                 IdentityKey        = '{{Request.Input.UserObjectId}}'
             }
         }
+
         @{
-            Name = 'DeleteAccountAfterRetention'
-            Type = 'IdLE.Step.DeleteIdentity'
+            Name = 'StampOffboardingMarker'
+            Type = 'IdLE.Step.EnsureAttributes'
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.Input.UserObjectId}}'
+                Attributes         = @{
+                    DisplayName = '{{Request.Input.DisplayName}} (LEAVER)'
+                    Manager     = $null
+                }
+            }
+        }
+
+        # Optional & potentially disruptive:
+        # Setting Desired = @() will remove *all* group memberships the provider manages.
+        @{
+            Name      = 'RevokeAllGroupMemberships_Optional'
+            Type      = 'IdLE.Step.EnsureEntitlement'
+            Condition = @{
+                All = @(
+                    @{
+                        Equals = @{
+                            Path  = 'Request.Input.RevokeAllGroupMemberships'
+                            Value = $true
+                        }
+                    }
+                )
+            }
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.Input.UserObjectId}}'
+                Desired            = @()
+            }
+        }
+
+        # Optional delete (requires provider to be created with -AllowDelete)
+        @{
+            Name      = 'DeleteAccount_Optional'
+            Type      = 'IdLE.Step.DeleteIdentity'
             Condition = @{
                 All = @(
                     @{
@@ -63,6 +83,7 @@
                 IdentityKey        = '{{Request.Input.UserObjectId}}'
             }
         }
+
         @{
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
