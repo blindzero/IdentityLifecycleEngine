@@ -3,995 +3,141 @@ title: Provider Reference - IdLE.Provider.AD (Active Directory)
 sidebar_label: Active Directory
 ---
 
+import CodeBlock from '@theme/CodeBlock';
+
+import AdJoiner from '@site/../examples/workflows/templates/ad-joiner.psd1';
+import AdLeaver from '@site/../examples/workflows/templates/ad-leaver.psd1';
+
 ## Summary
 
-- **Provider name:** `AD` (Active Directory)
 - **Module:** `IdLE.Provider.AD`
-- **Provider kind:** `Identity | Entitlement`
-- **Targets:** Windows Active Directory (on-premises domains)
+- **Provider kind:** `Identity` + `Entitlement (Groups)`
+- **Targets:** On-premises Windows Active Directory domains
 - **Status:** Built-in
-- **Since:** 0.9.0
-- **Compatibility:** PowerShell 7+ (IdLE requirement), Windows-only (requires RSAT/ActiveDirectory PowerShell module)
+- **Runs on:** Windows only (requires RSAT / `ActiveDirectory` PowerShell module)
+- **Default safety:** destructive operations are **opt-in** (e.g. delete)
 
----
+## When to use this provider
 
-## What this provider does
+Use this provider when your workflow needs to manage **on-premises AD user accounts**, such as:
 
-- **Primary responsibilities:**
-  - Create, read, update, disable, enable, and delete (opt-in) user accounts in Active Directory
-  - Set and update user attributes (department, title, office location, etc.)
-  - Move users between organizational units (OUs)
-  - Manage group memberships (grant/revoke entitlements)
-- **Out of scope / non-goals:**
-  - Establishing AD connectivity or authentication (handled by host-provided credentials or integrated auth)
-  - Managing group policy objects (GPOs)
-  - Managing other AD object types (computers, contacts, etc.)
+- Joiner: create/update AD users and set baseline attributes
+- Mover: update org attributes and adjust managed group memberships
+- Leaver: disable accounts and apply offboarding changes
 
----
+Non-goals:
 
-## Contracts and capabilities
+- Configuring connectivity/authentication itself (handled via your runtime context and the AuthSessionBroker)
+- Managing non-user object types (computers, GPOs, etc.)
 
-### Contracts implemented
+## Getting started
 
-| Contract | Used by steps for | Notes |
-| --- | --- | --- |
-| Identity provider (implicit) | Identity read/write operations | Supports comprehensive identity lifecycle operations including OU moves |
-| Entitlement provider (implicit) | Grant/revoke/list entitlements | Only supports `Kind='Group'` (AD platform limitation) |
+### Requirements
 
-> Keep the contract list stable and link to the canonical contract reference.
+- Windows host with RSAT / `ActiveDirectory` module available
+- Permissions sufficient for the operations you plan to run (create/modify users, move OUs, manage group membership)
 
-### Capability advertisement (`GetCapabilities()`)
+### Install (PowerShell Gallery)
 
-- **Implements `GetCapabilities()`**: Yes
-- **Capabilities returned (stable identifiers):**
-  - `IdLE.Identity.Read` - Query identity information
-  - `IdLE.Identity.List` - List identities (provider API only, no built-in step)
-  - `IdLE.Identity.Create` - Create new user accounts
-  - `IdLE.Identity.Delete` - Delete user accounts (opt-in via `-AllowDelete`)
-  - `IdLE.Identity.Disable` - Disable user accounts
-  - `IdLE.Identity.Enable` - Enable user accounts
-  - `IdLE.Identity.Move` - Move users between OUs
-  - `IdLE.Identity.Attribute.Ensure` - Set/update user attributes
-  - `IdLE.Entitlement.List` - List group memberships
-  - `IdLE.Entitlement.Grant` - Add users to groups
-  - `IdLE.Entitlement.Revoke` - Remove users from groups
-
-**Note:** AD only supports `Kind='Group'` for entitlements. This is a platform limitation - Active Directory only provides security groups and distribution groups, not arbitrary entitlement types (roles, licenses, etc.).
-
----
-
-## Authentication and session acquisition
-
-> Providers must not prompt for auth. Use the host-provided broker contract.
-
-- **Auth session name(s) requested via `Context.AcquireAuthSession(...)`:**
-  - `ActiveDirectory`
-- **Session options (data-only):**
-  - Any hashtable; commonly `@{ Role = 'Tier0' }` or `@{ Role = 'Admin' }` or `@{ Domain = 'SourceForest' }`
-- **Auth session formats supported:**
-  - `$null` (integrated authentication / run-as context)
-  - `PSCredential` (used for AD cmdlets `-Credential` parameter)
-
-:::warning
-
-**Security notes**
-
-- Do not pass secrets in workflow files or provider options.
-- Ensure credential objects (or their secure strings) are not emitted in logs/events.
-
-:::
-
----
-
-## Prerequisites
-
-### Windows and RSAT
-
-The provider requires Windows with the Active Directory PowerShell module (RSAT).
-
-**Install RSAT on Windows Server:**
 ```powershell
-Install-WindowsFeature -Name RSAT-AD-PowerShell
+Install-Module IdLE.Provider.AD -Scope CurrentUser
 ```
 
-**Install RSAT on Windows 10/11:**
-```powershell
-Get-WindowsCapability -Online -Name "Rsat.ActiveDirectory*" | Add-WindowsCapability -Online
-```
-
-### Active Directory Permissions
-
-The account running IdLE (or provided via `-Credential`) must have appropriate AD permissions:
-
-| Operation | Required Permission |
-| --------- | ------------------- |
-| Read identity | Read access to user objects |
-| Create identity | Create user objects in target OU |
-| Delete identity | Delete user objects |
-| Disable/Enable | Modify user account flags |
-| Set attributes | Write access to specific attributes |
-| Move identity | Move objects between OUs |
-| Grant/Revoke group membership | Modify group membership |
-
-Follow the principle of least privilege - grant only the permissions required for your workflows.
-
----
-
-## Installation and Import
-
-The AD provider is a **standalone provider module** that must be imported separately:
+### Import
 
 ```powershell
 Import-Module IdLE.Provider.AD
 ```
 
-**Note:** The AD provider requires `IdLE.Core` to be available. When using IdLE in development mode (from the repository), import the main `IdLE` module first, which automatically loads the required dependencies and extends `PSModulePath` to make provider modules discoverable by name. When using published packages from PowerShell Gallery, module dependencies are resolved automatically.
+## Quickstart
 
-This makes `New-IdleADIdentityProvider` available in your session.
+Minimal provider creation (safe defaults):
 
----
+```powershell
+$provider = New-IdleADIdentityProvider
+```
+
+Typical workflow usage:
+
+- Set the provider alias in your workflow (`With.Provider = 'Directory'` is a common convention)
+- Reference your auth session via `With.AuthSessionName` in steps (recommended for multi-role scenarios)
+
+## Authentication
+
+- By default, the AD provider uses the **run-as** identity (integrated authentication).
+- For explicit runtime credential selection, use the **AuthSessionBroker** and pass an `AuthSession` via step configuration:
+  - `With.AuthSessionName`
+  - `With.AuthSessionOptions` (optional)
+
+> Keep credentials/secrets **out of** workflow files. Use the broker/host to resolve them at runtime.
+
+## Supported Step Types
+
+The AD provider supports the common identity lifecycle and entitlement operations used by these step types:
+
+| Step type | Typical use | Notes |
+| --- | --- | --- |
+| `IdLE.Step.Identity.Create` | Create user (if missing) | Identity can be addressed by GUID, UPN, or sAMAccountName |
+| `IdLE.Step.Identity.EnsureAttributes` | Set/update AD user attributes | Use placeholders from your request input |
+| `IdLE.Step.Identity.Disable` | Disable user account | Typical leaver action |
+| `IdLE.Step.Identity.Enable` | Enable user account | Rare (rehire) |
+| `IdLE.Step.Identity.MoveContainer` | Move user to another OU | Useful for leaver or org changes |
+| `IdLE.Step.Identity.EnsureEntitlements` | Ensure group memberships | AD entitlements are **groups** |
+| `IdLE.Step.Identity.RemoveEntitlements` | Remove managed groups | Prefer explicit allow-lists / managed lists |
+| `IdLE.Step.Identity.Delete` | Delete user | **Opt-in** via `-AllowDelete` (see Configuration) |
 
 ## Configuration
 
-### Provider constructor / factory
-
-How to create an instance.
-- **Auth session name(s) used by built-in steps:** `ActiveDirectory`
-- **Auth session formats supported:**  
-  - `null` (integrated authentication / run-as)  
-  - `PSCredential` (used for AD cmdlets `-Credential`)
-- **Session options (data-only):** Any hashtable; commonly `@{ Role = 'Tier0' }` / `@{ Role = 'Admin' }`
-- **Required `AuthSessionType`:** `Credential`
-
-The AD provider uses credential-based authentication where the module capabilities exist without requiring explicit session management. When creating the `AuthSessionBroker`, specify `AuthSessionType = 'Credential'` to indicate this authentication pattern.
-
-- **Public constructor cmdlet(s):**
-  - `New-IdleADIdentityProvider` — Creates an Active Directory identity provider instance
-
-**Parameters (high signal only)**
-
-- `-AllowDelete` (switch) — Opt-in to enable the `IdLE.Identity.Delete` capability (disabled by default for safety)
-
-> Do not copy full comment-based help here. Link to the cmdlet reference.
-
-### Provider bag / alias usage
-
-How to pass the provider instance to IdLE as part of the host's provider map.
+### Provider factory
 
 ```powershell
-$providers = @{
-  Identity = New-IdleADIdentityProvider
-}
+# Safe defaults
+$provider = New-IdleADIdentityProvider
+
+# Opt-in: allow identity deletion (advertises IdLE.Identity.Delete)
+$provider = New-IdleADIdentityProvider -AllowDelete
 ```
 
-- **Recommended alias pattern:** `Identity` (single provider) or `SourceAD` / `TargetAD` (multi-provider scenarios)
-- **Default alias expected by built-in steps (if any):** `Identity` (if applicable)
+### Options reference
 
----
-
-## Provider-specific options reference
-
-> Document only **data-only** keys. Keep this list short and unambiguous.
-
-This provider has **no provider-specific option bag**. All configuration is done through the constructor parameters and authentication is managed via the `AuthSessionBroker`.
-
----
-
-## Auth examples (Authentication patterns)
-
-**A) Integrated authentication (no broker)**
-
-```powershell
-# Run the host under an account that already has the required AD permissions.
-$providers = @{
-  Identity = New-IdleADIdentityProvider
-}
-```
-
-**B) Role-based routing with `New-IdleAuthSession` (typical Tier0/Admin)**
-
-```powershell
-$tier0Credential = Get-Credential -Message 'Enter Tier0 AD admin credentials'
-$adminCredential = Get-Credential -Message 'Enter AD admin credentials'
-
-# Create broker with Credential session type
-$broker = New-IdleAuthSession -SessionMap @{
-  @{ Role = 'Tier0' } = $tier0Credential
-  @{ Role = 'Admin' } = $adminCredential
-} -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
-
-$providers = @{
-  Identity         = New-IdleADIdentityProvider
-  AuthSessionBroker = $broker
-}
-
-# In the workflow step:
-# With.AuthSessionName    = 'ActiveDirectory'
-# With.AuthSessionOptions = @{ Role = 'Tier0' }
-```
-
-**C) Multi-forest / multi-domain routing**
-
-```powershell
-$sourceCred = Get-Credential -Message 'Enter credentials for source forest'
-$targetCred = Get-Credential -Message 'Enter credentials for target forest'
-
-# Create broker with Credential session type
-$broker = New-IdleAuthSession -SessionMap @{
-  @{ Domain = 'SourceForest' } = $sourceCred
-  @{ Domain = 'TargetForest' } = $targetCred
-} -AuthSessionType 'Credential'
-
-# Steps use With.AuthSessionOptions = @{ Domain = 'SourceForest' } etc.
-```
-
----
+| Option | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `AllowDelete` | `bool` | `false` | Enables identity deletion capability (opt-in for safety) |
+| `PasswordGenerationFallbackMinLength` | `int` | `24` | Fallback minimum length if domain policy cannot be read |
+| `PasswordGenerationRequireUpper` | `bool` | `true` | Require uppercase in generated passwords (fallback) |
+| `PasswordGenerationRequireLower` | `bool` | `true` | Require lowercase in generated passwords (fallback) |
+| `PasswordGenerationRequireDigit` | `bool` | `true` | Require digit in generated passwords (fallback) |
+| `PasswordGenerationRequireSpecial` | `bool` | `true` | Require special char in generated passwords (fallback) |
 
 ## Operational behavior
 
-### Idempotency and consistency
-
-- **Idempotent operations:** Yes (all operations)
-- **Consistency model:** Strong (Active Directory platform consistency)
-- **Concurrency notes:** Operations are safe for retries. AD handles concurrent operations natively.
-
-All operations are idempotent and safe for retries:
-
-| Operation | Idempotent Behavior |
-| --------- | ------------------- |
-| Create | If identity exists, returns `Changed=$false` (no error) |
-| Delete | If identity already gone, returns `Changed=$false` (no error) |
-| Move | If already in target OU, returns `Changed=$false` |
-| Enable/Disable | If already in desired state, returns `Changed=$false` |
-| Grant membership | If already a member, returns `Changed=$false` |
-| Revoke membership | If not a member, returns `Changed=$false` |
-
-This design ensures workflows can be re-run safely without causing duplicate operations or errors.
-
-### Error mapping and retry behavior
-
-- **Common error categories:** `NotFound`, `AlreadyExists`, `PermissionDenied`, `ObjectNotFound`
-- **Retry strategy:** none (delegated to host)
-
----
-
-## Attribute contracts
-
-The AD provider enforces strict validation of attributes to ensure fail-fast behavior and prevent silent failures.
-
-### CreateIdentity - Supported attributes
-
-The following attributes are supported when creating identities via `CreateIdentity`:
-
-#### Identity attributes
-- `SamAccountName` (string) - User logon name (pre-Windows 2000)
-- `UserPrincipalName` (string) - User principal name (email-style logon)
-- `Path` (string) - DistinguishedName of the OU where the user should be created
-
-#### Name attributes
-- `Name` (string) - Full name (CN/RDN)
-- `GivenName` (string) - First name
-- `Surname` (string) - Last name
-- `DisplayName` (string) - Display name
-
-#### Organizational attributes
-- `Description` (string) - User description
-- `Department` (string) - Department
-- `Title` (string) - Job title
-
-#### Contact attributes
-- `EmailAddress` (string) - Email address
-
-#### Relationship attributes
-- `Manager` (string) - Manager DN, GUID, UPN, or sAMAccountName (auto-resolved to DN)
-
-#### Password attributes
-- `AccountPassword` (SecureString or ProtectedString) - Password as SecureString or DPAPI-protected string
-- `AccountPasswordAsPlainText` (string) - Plaintext password (explicit opt-in, automatically redacted in events)
-- `ResetOnFirstLogin` (boolean) - Require password change on first login (default: `$true` when password is set/generated)
-- `AllowPlainTextPasswordOutput` (boolean) - Include plaintext password in result (opt-in, default: `$false`)
-
-:::warning
-Only one password attribute can be used at a time. Using both `AccountPassword` and `AccountPasswordAsPlainText` will throw an error.
-:::
-
-##### Automatic Password Generation
-
-When creating enabled accounts (`Enabled = $true`) without providing a password, the provider automatically generates a policy-compliant password:
-
-1. **Domain Policy Query**: Attempts to read domain password policy via `Get-ADDefaultDomainPasswordPolicy`
-2. **Fallback Configuration**: Uses provider-configured fallback rules if policy cannot be read
-3. **Defense in Depth**: Enforces fallback minimum length as baseline even when domain policy allows weaker passwords
-4. **Complexity Requirements**: Generates passwords with uppercase, lowercase, digits, and special characters
-
-**Provider Configuration** (optional fallback parameters):
-```powershell
-$provider = New-IdleADIdentityProvider `
-    -PasswordGenerationFallbackMinLength 32 `
-    -PasswordGenerationRequireUpper $true `
-    -PasswordGenerationRequireLower $true `
-    -PasswordGenerationRequireDigit $true `
-    -PasswordGenerationRequireSpecial $true `
-    -PasswordGenerationSpecialCharSet '!@#$%^&*()'
-```
-
-**Default fallback values**:
-- `PasswordGenerationFallbackMinLength`: 24
-- `PasswordGenerationRequire{Upper,Lower,Digit,Special}`: `$true`
-- `PasswordGenerationSpecialCharSet`: `'!@#$%&*+-_=?'`
-
-##### Password Output Control
-
-By default, generated passwords are returned as **ProtectedString** (DPAPI-scoped) for secure reveal:
-
-```powershell
-# Default: secure ProtectedString output
-$result = $provider.CreateIdentity('jdoe@contoso.com', @{
-    SamAccountName = 'jdoe'
-    GivenName      = 'John'
-    Surname        = 'Doe'
-    Enabled        = $true
-})
-
-# Password was generated
-$result.PasswordGenerated                    # $true
-$result.PasswordGenerationPolicyUsed         # 'DomainPolicy' or 'Fallback'
-$result.GeneratedAccountPasswordProtected    # DPAPI-scoped ProtectedString
-```
-
-**Reveal Path** (decrypt ProtectedString when needed):
-```powershell
-$protectedPwd = $result.GeneratedAccountPasswordProtected
-$securePwd = ConvertTo-SecureString -String $protectedPwd
-$plainPwd = [pscredential]::new('x', $securePwd).GetNetworkCredential().Password
-```
-
-:::warning DPAPI Scope
-ProtectedString uses Windows DPAPI and can only be decrypted by the same Windows user on the same machine. Do not transfer ProtectedStrings across machines or user contexts.
-:::
-
-**Opt-in Plaintext Output**:
-
-For scenarios requiring immediate plaintext access (e.g., displaying to onboarding staff), set `AllowPlainTextPasswordOutput = $true`:
-
-```powershell
-$result = $provider.CreateIdentity('jsmith@contoso.com', @{
-    SamAccountName               = 'jsmith'
-    GivenName                    = 'Jane'
-    Surname                      = 'Smith'
-    Enabled                      = $true
-    AllowPlainTextPasswordOutput = $true
-})
-
-# Plaintext is included in result (redacted from logs/events)
-$plainPwd = $result.GeneratedAccountPasswordPlainText
-```
-
-:::danger Security Warning
-Results containing `GeneratedAccountPasswordPlainText` must not be persisted to disk, logs, or databases. The value is automatically redacted from engine events and exports but is accessible in the immediate result object. Handle with care.
-:::
-
-##### Reset on First Login
-
-Control whether users must change password on first login:
-
-- `ResetOnFirstLogin` (boolean) - Default: `$true` when password is set/generated
-  - Maps to AD "User must change password at next logon"
-  - Can be explicitly set to `$false` for scenarios like hybrid remote login
-
-```powershell
-# Default: user must change password on first login
-$result = $provider.CreateIdentity('user@contoso.com', @{
-    SamAccountName = 'user1'
-    Enabled        = $true
-})
-
-# Disable reset requirement
-$result = $provider.CreateIdentity('admin@contoso.com', @{
-    SamAccountName      = 'admin1'
-    Enabled             = $true
-    ResetOnFirstLogin   = $false
-})
-```
-
-#### State attributes
-- `Enabled` (boolean) - Account enabled state (default: `$true`)
-
-#### Extension container
-- `OtherAttributes` (hashtable) - Custom LDAP attributes not covered by named parameters
-  - Must be a hashtable
-  - Keys are interpreted as LDAP attribute names and are validated by the underlying AD cmdlets at runtime
-  - Values must use types supported by the AD cmdlets for `-OtherAttributes` (for example: string, string[], byte[])
-
-**Example:**
-```powershell
-$attrs = @{
-    GivenName       = 'John'
-    Surname         = 'Doe'
-    DisplayName     = 'John Doe'
-    Department      = 'IT'
-    Title           = 'Engineer'
-    EmailAddress    = 'john.doe@example.com'
-    OtherAttributes = @{
-        extensionAttribute1 = 'CustomValue'
-        employeeType        = 'Contractor'
-    }
-}
-```
-
-### EnsureAttribute - Supported attributes
-
-The following attributes are supported when updating identities via `EnsureAttribute`:
-
-#### Name attributes
-- `GivenName` (string) - First name
-- `Surname` (string) - Last name
-- `DisplayName` (string) - Display name
-
-#### Organizational attributes
-- `Description` (string) - User description
-- `Department` (string) - Department
-- `Title` (string) - Job title
-
-#### Contact attributes
-- `EmailAddress` (string) - Email address
-
-#### Identity attributes
-- `UserPrincipalName` (string) - User principal name
-
-#### Relationship attributes
-- `Manager` (string) - Manager DN, GUID, UPN, or sAMAccountName (auto-resolved to DN)
-
-:::info
-**Note:** Custom LDAP attributes (via `OtherAttributes`) are not supported in `EnsureAttribute`. They can only be set during identity creation via `CreateIdentity`.
-
-Password, Path, Name, and Enabled attributes are also CreateIdentity-only and cannot be modified via `EnsureAttribute`.
-:::
-
-### Validation behavior
-
-**Strict mode (default):**
-- Unsupported attribute keys cause an immediate error
-- Error messages list the unsupported attributes and provide guidance
-- No silent attribute dropping
-
-**Example error:**
-```
-AD Provider: Unsupported attributes in CreateIdentity operation.
-Unsupported attributes: InvalidAttr1, InvalidAttr2
-
-Supported attributes for CreateIdentity:
-  - Identity: SamAccountName, UserPrincipalName, Path
-  - Name: Name, GivenName, Surname, DisplayName
-  - Organization: Description, Department, Title
-  - Contact: EmailAddress
-  - Relationship: Manager
-  - Password: AccountPassword, AccountPasswordAsPlainText
-  - State: Enabled
-  - Extension: OtherAttributes (hashtable of LDAP attributes)
-
-To set custom LDAP attributes, use the 'OtherAttributes' container.
-```
-
----
-
-## Observability
-
-- **Events emitted by provider:**
-  - `Provider.AD.CreateIdentity.AttributesRequested` - Emitted after identity creation with requested attributes
-  - `Provider.AD.EnsureAttribute.AttributeChanged` - Emitted when an attribute is modified
-- **Event data includes:**
-  - Requested attributes (for CreateIdentity)
-  - Old and new values (for attribute changes in EnsureAttribute)
-- **Sensitive data redaction:** Credential objects and secure strings are not included in operation results or events
-
----
-
-## Usage
-
-### Basic Usage (Integrated Auth)
-
-```powershell
-# Create provider using integrated authentication (run-as)
-$provider = New-IdleADIdentityProvider
-
-# Use in workflows
-$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
-    Identity = $provider
-}
-```
-
-### AuthSessionBroker-based Authentication
-
-Use an AuthSessionBroker to manage authentication centrally and enable multi-role scenarios.
-
-**Simple approach with New-IdleAuthSession:**
-
-```powershell
-# Assuming you have credentials available (e.g., from a secure vault or credential manager)
-$tier0Credential = Get-Credential -Message "Enter Tier0 admin credentials"
-$adminCredential = Get-Credential -Message "Enter regular admin credentials"
-
-# Create provider
-$provider = New-IdleADIdentityProvider
-
-# Create broker with role-based credential mapping and Credential session type
-$broker = New-IdleAuthSession -SessionMap @{
-    @{ Role = 'Tier0' } = $tier0Credential
-    @{ Role = 'Admin' } = $adminCredential
-} -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
-
-# Use provider with broker
-$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
-    Identity = $provider
-    AuthSessionBroker = $broker
-}
-```
-
-**Custom broker for advanced scenarios:**
-
-For advanced scenarios (vault integration, MFA, dynamic credential retrieval), implement a custom broker:
-
-```powershell
-$broker = [pscustomobject]@{}
-$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-    param($Name, $Options)
-    # Custom logic: retrieve from vault, prompt for MFA, etc.
-    if ($Options.Role -eq 'Tier0') {
-        return Get-SecretFromVault -Name 'AD-Tier0'
-    }
-    return Get-SecretFromVault -Name 'AD-Admin'
-}
-```
-
-In workflow definitions, steps specify which auth context to use via `AuthSessionOptions`:
-
-```powershell
-@{
-    Type = 'IdLE.Step.EnsureAttributes'
-    Name = 'SetDepartment'
-    With = @{
-        IdentityKey = 'user@domain.com'
-        Attributes = @{
-            Department = 'IT'
-        }
-        AuthSessionName = 'ActiveDirectory'
-        AuthSessionOptions = @{ Role = 'Admin' }  # Broker returns Admin credential
-    }
-}
-```
-
-**Key points:**
-- The `Role` key (or any other key) is **defined by you** - it's not a built-in keyword
-- Your broker implementation decides how to interpret `AuthSessionOptions`
-- The broker can use any logic you want: hashtable lookups, vault APIs, interactive prompts, etc.
-- `AuthSessionOptions` must be data-only (no ScriptBlocks) for security
-
-### With Delete Capability (Opt-in)
-
-By default, the Delete capability is **not** advertised for safety. Enable it explicitly:
-
-```powershell
-$provider = New-IdleADIdentityProvider -AllowDelete
-```
-
-### Multi-Provider Scenarios
-
-For scenarios with multiple AD forests or domains, use provider aliases with the AuthSessionBroker:
-
-```powershell
-# Assuming you have credentials for each domain
-$sourceCred = Get-Credential -Message "Enter Source AD admin credentials"
-$targetCred = Get-Credential -Message "Enter Target AD admin credentials"
-
-# Create providers for different AD environments
-$sourceAD = New-IdleADIdentityProvider
-$targetAD = New-IdleADIdentityProvider -AllowDelete
-
-# Use New-IdleAuthSession for domain-based credential routing
-$broker = New-IdleAuthSession -SessionMap @{
-    @{ Domain = 'Source' } = $sourceCred
-    @{ Domain = 'Target' } = $targetCred
-} -AuthSessionType 'Credential'
-
-$plan = New-IdlePlan -WorkflowPath './migration.psd1' -Request $request -Providers @{
-    SourceAD = $sourceAD
-    TargetAD = $targetAD
-    AuthSessionBroker = $broker
-}
-```
-
-Workflow steps specify which domain to authenticate against:
-
-```powershell
-@{
-    Type = 'IdLE.Step.GetIdentity'
-    Name = 'ReadSource'
-    With = @{
-        IdentityKey = 'user@source.com'
-        Provider = 'SourceAD'
-        AuthSessionName = 'ActiveDirectory'
-        AuthSessionOptions = @{ Domain = 'Source' }
-    }
-}
-
-@{
-    Type = 'IdLE.Step.CreateIdentity'
-    Name = 'CreateTarget'
-    With = @{
-        IdentityKey = 'user@target.com'
-        Attributes = @\{ ... \}
-        Provider = 'TargetAD'
-        AuthSessionName = 'ActiveDirectory'
-        AuthSessionOptions = @{ Domain = 'Target' }
-    }
-}
-```
-
----
-
-## Identity Resolution
-
-The provider supports multiple identifier formats and resolves them deterministically:
-
-1. **GUID** (ObjectGuid): Pattern matches `[System.Guid]::TryParse()` - most deterministic
-2. **UPN** (UserPrincipalName): Contains `@` symbol
-3. **sAMAccountName**: Fallback for simple usernames
-
-**Resolution order:**
-```powershell
-# GUID format → resolve by ObjectGuid
-'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
-
-# Contains @ → resolve by UPN
-'john.doe@contoso.local'
-
-# Otherwise → resolve by sAMAccountName
-'jdoe'
-```
-
-**Canonical output:** The provider returns the input IdentityKey as-is in operation results to maintain workflow consistency.
-
-**Error handling:** On ambiguous or missing identities, the provider throws deterministic errors (no best-effort guessing).
-
----
-
-## CreateIdentity Derivation Behavior
-
-When creating identities with `CreateIdentity()` (or `IdLE.Step.CreateIdentity`), the AD provider implements smart defaults to reduce boilerplate and improve workflow usability:
-
-### 1. SamAccountName Derivation
-
-**If `Attributes.SamAccountName` is missing or empty:**
-
-- When `IdentityKey` is **SamAccountName-like** (no `@`, not a GUID):
-  - **Derives** `SamAccountName = IdentityKey`
-  - Example: `IdentityKey='jdoe'` → `SamAccountName='jdoe'`
-  
-- When `IdentityKey` is a **UPN** (contains `@`):
-  - **Fails fast** with a clear error requiring explicit `SamAccountName`
-  - Rationale: Automatic truncation/sanitization introduces org-specific policy decisions and collision risks
-  
-- When `IdentityKey` is a **GUID**:
-  - **Fails fast** with a clear error requiring explicit `SamAccountName`
-  - Rationale: GUIDs are not valid SamAccountNames
-
-**Explicit values are never overridden:** If `Attributes.SamAccountName` is provided, it is always used as-is.
-
-### 2. UserPrincipalName Auto-Set
-
-**If `IdentityKey` is a UPN and `Attributes.UserPrincipalName` is missing or empty:**
-
-- **Auto-sets** `UserPrincipalName = IdentityKey`
-- Example: `IdentityKey='john.doe@contoso.com'` → `UserPrincipalName='john.doe@contoso.com'`
-
-**Explicit values are never overridden:** If `Attributes.UserPrincipalName` is provided, it is always used as-is.
-
-### 3. CN/RDN Name Derivation
-
-The AD object's Common Name (CN/RDN, used in the DistinguishedName) is derived using this priority order:
-
-1. **`Attributes.Name`** (explicit CN/RDN)
-2. **`Attributes.DisplayName`**
-3. **`GivenName + Surname`** (if both are present)
-4. **`IdentityKey`** (fallback)
-
-**Example:**
-```powershell
-# IdentityKey='jdoe', GivenName='John', Surname='Doe', DisplayName='John Doe'
-# → CN/RDN = 'John Doe' (from DisplayName)
-
-# IdentityKey='jdoe', GivenName='John', Surname='Doe'
-# → CN/RDN = 'John Doe' (from GivenName+Surname)
-
-# IdentityKey='jdoe'
-# → CN/RDN = 'jdoe' (fallback to IdentityKey)
-```
-
-**Verbose logging:** All derivations emit `Write-Verbose` messages for observability.
-
-### 4. Path Pass-Through
-
-**`Attributes.Path`** is always passed through to `New-ADUser -Path` when provided. No derivation or defaulting occurs at the provider level.
-
----
-
-## Entitlement Model
-
-Active Directory entitlements use:
-
-- **Kind:** Always `'Group'` (AD limitation - only supports security and distribution groups)
-- **Id (canonical key):** DistinguishedName (DN)
-
-**Input flexibility:** The provider MAY accept SID or sAMAccountName as input but MUST normalize to DN internally.
-
-**Example:**
-```powershell
-@{
-    Kind = 'Group'
-    Id   = 'CN=IT-Team,OU=Groups,DC=contoso,DC=local'
-}
-```
-
----
-
-## Built-in Steps
-
-The following built-in steps in `IdLE.Steps.Common` work with the AD provider:
-
-- **IdLE.Step.CreateIdentity** - Create new user accounts
-- **IdLE.Step.DisableIdentity** - Disable user accounts
-- **IdLE.Step.EnableIdentity** - Enable user accounts
-- **IdLE.Step.MoveIdentity** - Move users between OUs
-- **IdLE.Step.DeleteIdentity** - Delete user accounts (requires provider initialization with `-AllowDelete` switch)
-- **IdLE.Step.EnsureAttributes** - Set/update user attributes
-- **IdLE.Step.EnsureEntitlement** - Manage group memberships
-
-Step metadata (including required capabilities) is provided by step pack modules (`IdLE.Steps.Common`) and used for plan-time validation.
-
----
+- **Identity addressing:** GUID (ObjectGuid), UPN, or sAMAccountName (fallback)
+- **Safety defaults:** deletion is disabled unless you pass `-AllowDelete`
+- **Entitlements:** groups only (`Kind='Group'`)
 
 ## Examples
 
-### Minimal host usage
+These are the canonical, **doc-embed friendly** templates for AD.
+Mover scenarios are intentionally folded into Joiner/Leaver (as optional patterns) to keep the template set small.
 
-```powershell
-# 1) Create provider instance
-$provider = New-IdleADIdentityProvider
+<CodeBlock language="powershell" title="examples/workflows/templates/ad-joiner.psd1">
+  {AdJoiner}
+</CodeBlock>
 
-# 2) Build provider map
-$providers = @{ Identity = $provider }
-
-# 3) Plan + execute
-$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers $providers
-$result = Invoke-IdlePlan -Plan $plan -Providers $providers
-```
-
-### Example workflow snippet
-
-```powershell
-@{
-  Steps = @(
-    @{
-      Name = 'CreateUser'
-      Type = 'IdLE.Step.CreateIdentity'
-      With = @{
-        Provider = 'Identity'
-        IdentityKey = 'jdoe'
-        Attributes = @{
-          GivenName = 'John'
-          Surname = 'Doe'
-          UserPrincipalName = 'jdoe@contoso.local'
-          # SamAccountName is automatically derived from IdentityKey ('jdoe')
-          # CN/RDN Name will be derived from GivenName+Surname ('John Doe')
-        }
-        AuthSessionName = 'ActiveDirectory'
-        AuthSessionOptions = @{ Role = 'Admin' }
-      }
-    }
-  )
-}
-```
-
-### Example with UPN IdentityKey
-
-```powershell
-@{
-  Steps = @(
-    @{
-      Name = 'CreateUserWithUPN'
-      Type = 'IdLE.Step.CreateIdentity'
-      With = @{
-        Provider = 'Identity'
-        IdentityKey = 'john.doe@contoso.com'
-        Attributes = @{
-          SamAccountName = 'jdoe'  # Required when IdentityKey is UPN
-          GivenName = 'John'
-          Surname = 'Doe'
-          DisplayName = 'John Doe'
-          # UserPrincipalName is automatically set from IdentityKey
-          # CN/RDN Name will be 'John Doe' (from DisplayName)
-        }
-        AuthSessionName = 'ActiveDirectory'
-      }
-    }
-  )
-}
-```
-
-### Manager Attribute Handling
-
-The AD provider supports the `Manager` attribute for both `CreateIdentity` and `EnsureAttribute` operations with automatic DN resolution.
-
-**Supported Input Formats:**
-
-The Manager value can be specified in multiple formats, which will be automatically resolved to a Distinguished Name (DN):
-
-- **Distinguished Name (DN)**: Direct DN string (no resolution needed)
-  - Example: `CN=Jane Smith,OU=Managers,DC=contoso,DC=local`
-- **GUID**: User's ObjectGuid (resolved to DN)
-  - Example: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
-- **UPN**: UserPrincipalName (resolved to DN)
-  - Example: `jsmith@contoso.local`
-- **sAMAccountName**: Simple username (resolved to DN)
-  - Example: `jsmith`
-
-The provider automatically detects the format and resolves it to the manager's DN. If the manager cannot be found, an error is thrown with a clear message.
-
-**CreateIdentity with Manager (DN):**
-
-```powershell
-@{
-  Name = 'CreateUserWithManager'
-  Type = 'IdLE.Step.CreateIdentity'
-  With = @{
-    Provider = 'Identity'
-    IdentityKey = 'jdoe'
-    Attributes = @{
-      GivenName = 'John'
-      Surname = 'Doe'
-      UserPrincipalName = 'jdoe@contoso.local'
-      Manager = 'CN=Jane Smith,OU=Managers,DC=contoso,DC=local'  # DN
-    }
-    AuthSessionName = 'ActiveDirectory'
-  }
-}
-```
-
-**CreateIdentity with Manager (sAMAccountName):**
-
-```powershell
-@{
-  Name = 'CreateUserWithManagerSam'
-  Type = 'IdLE.Step.CreateIdentity'
-  With = @{
-    Provider = 'Identity'
-    IdentityKey = 'jdoe'
-    Attributes = @{
-      GivenName = 'John'
-      Surname = 'Doe'
-      Manager = 'jsmith'  # Will be resolved to DN automatically
-    }
-    AuthSessionName = 'ActiveDirectory'
-  }
-}
-```
-
-**Setting Manager via EnsureAttributes (UPN):**
-
-```powershell
-@{
-  Name = 'SetManager'
-  Type = 'IdLE.Step.EnsureAttributes'
-  With = @{
-    Provider = 'Identity'
-    IdentityKey = 'jdoe'
-    Attributes = @{
-      Manager = 'jsmith@contoso.local'  # UPN - will be resolved to DN
-    }
-    AuthSessionName = 'ActiveDirectory'
-  }
-}
-```
-
-**Clearing Manager:**
-
-To clear the Manager attribute, set the value to `$null`:
-
-```powershell
-@{
-  Name = 'ClearManager'
-  Type = 'IdLE.Step.EnsureAttributes'
-  With = @{
-    Provider = 'Identity'
-    IdentityKey = 'jdoe'
-    Attributes = @{
-      Manager = $null
-    }
-    AuthSessionName = 'ActiveDirectory'
-  }
-}
-```
-
-**Note:** Clearing the Manager attribute using `$null` works correctly in PSD1 workflow files. PowerShell evaluates `$null` at load time.
-
-### Complete example workflows
-
-Complete example workflows are available in the repository:
-
-- **examples/workflows/ad-joiner-complete.psd1** - Full joiner workflow (Create + Attributes + Groups + OU move)
-- **examples/workflows/ad-mover-department-change.psd1** - Mover workflow (Update attributes + Group delta + OU move)
-- **examples/workflows/ad-leaver-offboarding.psd1** - Leaver workflow (Disable + OU move + conditional Delete)
-
----
-
-## Limitations and known issues
-
-- **Platform:** Windows-only (requires RSAT/ActiveDirectory PowerShell module)
-- **Entitlement types:** Only supports `Kind='Group'` (AD platform limitation - no roles, licenses, etc.)
-- **Concurrency:** While operations are thread-safe, concurrent modifications to the same object should be managed by the host
-- **Delete capability:** Disabled by default; must opt-in with `-AllowDelete` for safety
-
----
-
-## Testing
-
-- **Unit tests:** `tests/Providers/ADIdentityProvider.Tests.ps1`
-- **Contract tests:** Provider contract tests validate implementation compliance
-- **Known CI constraints:** Tests use mock adapter layer; no live AD dependency in CI
-
----
+<CodeBlock language="powershell" title="examples/workflows/templates/ad-leaver.psd1">
+  {AdLeaver}
+</CodeBlock>
 
 ## Troubleshooting
 
-### ActiveDirectory Module Not Found
+- **Import fails / ActiveDirectory module missing**  
+  Install RSAT / the `ActiveDirectory` module on the machine where you run IdLE.
 
-**Error:** `The specified module 'ActiveDirectory' was not loaded...`
+- **Access denied / insufficient rights**  
+  Ensure the account used (run-as or broker-provided credential) has the required rights for the operation (create user, set attributes, group membership, move OU).
 
-**Solution:** Install RSAT as described in Prerequisites.
+- **Delete step doesn’t work**  
+  Deletion is **opt-in**. Create the provider with `-AllowDelete` and ensure your workflow uses that provider instance.
 
-### Insufficient Permissions
-
-**Error:** `Insufficient access rights to perform the operation`
-
-**Solution:** Verify the account has required AD permissions. Use a dedicated service account with least-privilege access.
-
-### Identity Not Found
-
-**Error:** `Identity with &lt;identifier&gt; not found`
-
-**Solution:** 
-- Verify the identifier format (GUID/UPN/sAMAccountName)
-- Check the user exists in AD
-- Ensure the account has read access to the user object
-
-### Delete Capability Missing
-
-**Error:** Plan validation fails with `Required capability 'IdLE.Identity.Delete' not available`
-
-**Solution:** Create the provider with `-AllowDelete` parameter:
-```powershell
-$provider = New-IdleADIdentityProvider -AllowDelete
-```
-
----
-
-## Architecture Notes
-
-### Testability
-
-The AD provider uses an internal adapter layer (`New-IdleADAdapter`) that isolates AD cmdlet dependencies. This design:
-
-- Enables unit testing without real AD (unit tests inject fake adapters)
-- Keeps provider logic testable and deterministic
-- Separates provider contract from AD implementation details
-
-### Security
-
-- **No interactive prompts:** The provider never prompts for credentials (violates headless principle)
-- **Opt-in Delete:** Delete capability requires explicit `-AllowDelete` for safety
-- **Credential handling:** Credentials are passed to AD cmdlets securely via `-Credential` parameter
-
-### Capability-Driven Design
-
-The provider implements `GetCapabilities()` and announces all supported capabilities. The engine validates capabilities at plan-time before execution, enabling fail-fast behavior.
+- **Group membership changes are risky**  
+  Prefer removing only explicit “managed groups” (allow-list) to avoid breaking access unexpectedly.
