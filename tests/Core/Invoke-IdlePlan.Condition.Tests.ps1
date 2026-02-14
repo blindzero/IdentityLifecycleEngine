@@ -1,9 +1,9 @@
+Set-StrictMode -Version Latest
+
 BeforeDiscovery {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
-}
 
-BeforeAll {
     function global:Invoke-IdleConditionTestEmitStep {
         [CmdletBinding()]
         param(
@@ -29,15 +29,15 @@ BeforeAll {
 }
 
 AfterAll {
-    # Cleanup global test functions to avoid polluting the session.
     Remove-Item -Path 'Function:\Invoke-IdleConditionTestEmitStep' -ErrorAction SilentlyContinue
 }
 
-InModuleScope IdLE.Core {  
-  Describe 'Invoke-IdlePlan - Condition applicability' {
-      It 'does not execute a step when plan marks it as NotApplicable' {
-          $wfPath = Join-Path -Path $TestDrive -ChildPath 'condition.psd1'
-          Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+InModuleScope 'IdLE.Core' {
+    Describe 'Invoke-IdlePlan - Condition applicability' {
+        Context 'Condition evaluation' {
+            It 'does not execute a step when plan marks it as NotApplicable' {
+                $wfPath = Join-Path -Path $TestDrive -ChildPath 'condition.psd1'
+                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
   Name           = 'Condition Demo'
   LifecycleEvent = 'Joiner'
@@ -56,26 +56,22 @@ InModuleScope IdLE.Core {
 }
 '@
 
-        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+                $req = New-IdleRequest -LifecycleEvent 'Joiner'
+                $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-        $providers = @{
-            StepRegistry = @{
-                'IdLE.Step.EmitEvent' = 'Invoke-IdleConditionTestEmitStep'
+                $providers = @{ StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleConditionTestEmitStep' } }
+
+                $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+                $result.Status | Should -Be 'Completed'
+                $result.Steps[0].Status | Should -Be 'NotApplicable'
+                @($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
+                @($result.Events | Where-Object Type -eq 'StepNotApplicable').Count | Should -Be 1
             }
-        }
 
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-
-        $result.Status | Should -Be 'Completed'
-        $result.Steps[0].Status | Should -Be 'NotApplicable'
-        @($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
-        @($result.Events | Where-Object Type -eq 'StepNotApplicable').Count | Should -Be 1
-    }
-
-    It 'runs a step when condition is met' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'condition2.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+            It 'runs a step when condition is met' {
+                $wfPath = Join-Path -Path $TestDrive -ChildPath 'condition2.psd1'
+                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
   Name           = 'Condition Demo'
   LifecycleEvent = 'Joiner'
@@ -94,20 +90,17 @@ InModuleScope IdLE.Core {
 }
 '@
 
-        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+                $req = New-IdleRequest -LifecycleEvent 'Joiner'
+                $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-        $providers = @{
-            StepRegistry = @{
-                'IdLE.Step.EmitEvent' = 'Invoke-IdleConditionTestEmitStep'
+                $providers = @{ StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleConditionTestEmitStep' } }
+
+                $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+                $result.Status | Should -Be 'Completed'
+                $result.Steps[0].Status | Should -Be 'Completed'
+                ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
             }
         }
-
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-
-        $result.Status | Should -Be 'Completed'
-        $result.Steps[0].Status | Should -Be 'Completed'
-        ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
     }
-  }
 }

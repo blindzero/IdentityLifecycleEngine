@@ -1,3 +1,5 @@
+Set-StrictMode -Version Latest
+
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
@@ -148,9 +150,9 @@ AfterAll {
 }
 
 Describe 'Invoke-IdlePlan' {
-    It 'returns an execution result with events in deterministic order' {
-      $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
-      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+    Context 'Execution results' {
+        It 'returns an execution result with events in deterministic order' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner.psd1' -Content @'
 @{
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
@@ -161,57 +163,58 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
-      # Create a dummy provider with the required capability for EnsureAttributes
-      $dummyProvider = [pscustomobject]@{
-          PSTypeName = 'IdLE.Provider.TestDummy'
-      }
-      $dummyProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-          return @('IdLE.Identity.Attribute.Ensure')
-      }
+            # Create a dummy provider with the required capability for EnsureAttributes
+            $dummyProvider = [pscustomobject]@{
+                PSTypeName = 'IdLE.Provider.TestDummy'
+            }
+            $dummyProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+                return @('IdLE.Identity.Attribute.Ensure')
+            }
 
-      $providers = @{
-          Identity     = $dummyProvider
-          StepRegistry = @{
-              'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
-              'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
-          }
-          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
-      }
-      
-      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+            $providers = @{
+                Identity     = $dummyProvider
+                StepRegistry = @{
+                    'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
+            }
 
-      $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
-      $result.PSTypeNames | Should -Contain 'IdLE.ExecutionResult'
-      $result.Status | Should -Be 'Completed'
-      @($result.Steps).Count | Should -Be 2
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
-      @($result.Events).Count | Should -BeGreaterThan 0
-      $result.Events[0].Type | Should -Be 'RunStarted'
-      $result.Events[-1].Type | Should -Be 'RunCompleted'
+            $result.PSTypeNames | Should -Contain 'IdLE.ExecutionResult'
+            $result.Status | Should -Be 'Completed'
+            @($result.Steps).Count | Should -Be 2
 
-      $result.Steps[0].Status | Should -Be 'Completed'
-      $result.Steps[1].Status | Should -Be 'Completed'
-    }
+            @($result.Events).Count | Should -BeGreaterThan 0
+            $result.Events[0].Type | Should -Be 'RunStarted'
+            $result.Events[-1].Type | Should -Be 'RunCompleted'
 
-    It 'supports -WhatIf and does not execute' {
-        $plan = [pscustomobject]@{
-            CorrelationId = 'test'
-            Steps         = @(
-                @{ Name = 'A'; Type = 'X' }
-            )
+            $result.Steps[0].Status | Should -Be 'Completed'
+            $result.Steps[1].Status | Should -Be 'Completed'
         }
 
-        $result = Invoke-IdlePlan -Plan $plan -WhatIf
-        $result.Status | Should -Be 'WhatIf'
-        @($result.Events).Count | Should -Be 0
+        It 'supports -WhatIf and does not execute' {
+            $plan = [pscustomobject]@{
+                CorrelationId = 'test'
+                Steps         = @(
+                    @{ Name = 'A'; Type = 'X' }
+                )
+            }
+
+            $result = Invoke-IdlePlan -Plan $plan -WhatIf
+            $result.Status | Should -Be 'WhatIf'
+            @($result.Events).Count | Should -Be 0
+        }
     }
 
-    It 'can stream events to an object sink with WriteEvent(event)' {
-      $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
-      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+    Context 'Event sinks' {
+        It 'can stream events to an object sink with WriteEvent(event)' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner.psd1' -Content @'
 @{
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
@@ -221,88 +224,36 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
-      $providers = @{
-          StepRegistry = @{
-              'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
-          }
-          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
-      }
-      
-      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
+            }
 
-      $sinkEvents = [System.Collections.Generic.List[object]]::new()
-      $sinkObject = [pscustomobject]@{}
-      $writeMethod = {
-          param($e)
-          [void]$sinkEvents.Add($e)
-      }.GetNewClosure()
-      $null = Add-Member -InputObject $sinkObject -MemberType ScriptMethod -Name 'WriteEvent' -Value $writeMethod -Force
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
-      $result = Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sinkObject
+            $sinkEvents = [System.Collections.Generic.List[object]]::new()
+            $sinkObject = [pscustomobject]@{}
+            $writeMethod = {
+                param($e)
+                [void]$sinkEvents.Add($e)
+            }.GetNewClosure()
+            $null = Add-Member -InputObject $sinkObject -MemberType ScriptMethod -Name 'WriteEvent' -Value $writeMethod -Force
 
-      $sinkEvents.Count | Should -BeGreaterThan 0
-      $sinkEvents[0].PSTypeNames | Should -Contain 'IdLE.Event'
-      $result.Events[0].Type | Should -Be 'RunStarted'
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sinkObject
+
+            $sinkEvents.Count | Should -BeGreaterThan 0
+            $sinkEvents[0].PSTypeNames | Should -Contain 'IdLE.Event'
+            $result.Events[0].Type | Should -Be 'RunStarted'
+        }
     }
 
-    It 'rejects a ScriptBlock -EventSink (security)' {
-      $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
-      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Standard'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
-  )
-}
-'@
-
-      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
-
-      $providers = @{
-          StepRegistry = @{
-              'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
-          }
-          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
-      }
-      
-      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
-
-      $sink = { param($e) }
-      { Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sink } | Should -Throw
-    }
-
-    It 'rejects ScriptBlock step handlers in the StepRegistry (security)' {
-      $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
-      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Joiner - Standard'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
-  )
-}
-'@
-
-      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
-
-      $providers = @{
-          StepRegistry = @{
-              'IdLE.Step.ResolveIdentity' = { param($Context, $Step) }
-          }
-          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
-      }
-      
-      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
-
-      { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw
-    }
-
-    It 'executes a registered step and returns Completed status' {
-      $wfPath = Join-Path -Path $TestDrive -ChildPath 'emit.psd1'
-      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+    Context 'Step execution' {
+        It 'executes a registered step and returns Completed status' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'emit.psd1' -Content @'
 @{
   Name           = 'Demo'
   LifecycleEvent = 'Joiner'
@@ -312,26 +263,27 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req  = New-IdleRequest -LifecycleEvent 'Joiner'
-      $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-      $providers = @{
-          StepRegistry = @{
-              'IdLE.Step.EmitEvent' = 'Invoke-IdleTestEmitStep'
-          }
-          StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.EmitEvent')
-      }
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.EmitEvent' = 'Invoke-IdleTestEmitStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.EmitEvent')
+            }
 
-      $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
-      $result.Status | Should -Be 'Completed'
-      $result.Steps[0].Status | Should -Be 'Completed'
-      ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
+            $result.Status | Should -Be 'Completed'
+            $result.Steps[0].Status | Should -Be 'Completed'
+            ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
+        }
     }
 
-    It 'executes OnFailureSteps when a step fails (best effort)' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'onfailure.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+    Context 'OnFailure behavior' {
+        It 'executes OnFailureSteps when a step fails (best effort)' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'onfailure.psd1' -Content @'
 @{
   Name           = 'Demo - OnFailure'
   LifecycleEvent = 'Joiner'
@@ -345,43 +297,42 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
-        $providers = @{
-            StepRegistry = @{
-                'IdLE.Step.FailPrimary' = 'Invoke-IdleTestFailStep'
-                'IdLE.Step.NeverRuns'   = 'Invoke-IdleTestNoopStep'
-                'IdLE.Step.OnFailure1'  = 'Invoke-IdleTestEmitStep'
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.FailPrimary' = 'Invoke-IdleTestFailStep'
+                    'IdLE.Step.NeverRuns'   = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.OnFailure1'  = 'Invoke-IdleTestEmitStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailPrimary', 'IdLE.Step.NeverRuns', 'IdLE.Step.OnFailure1')
             }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailPrimary', 'IdLE.Step.NeverRuns', 'IdLE.Step.OnFailure1')
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+            $result.Status | Should -Be 'Failed'
+            @($result.Steps).Count | Should -Be 1
+            $result.Steps[0].Name | Should -Be 'FailPrimary'
+
+            $result.OnFailure.PSTypeNames | Should -Contain 'IdLE.OnFailureExecutionResult'
+            $result.OnFailure.Status | Should -Be 'Completed'
+            @($result.OnFailure.Steps).Count | Should -Be 1
+            $result.OnFailure.Steps[0].Status | Should -Be 'Completed'
+
+            $types = @($result.Events | ForEach-Object { $_.Type })
+            $types | Should -Contain 'StepFailed'
+            $types | Should -Contain 'OnFailureStarted'
+            $types | Should -Contain 'OnFailureCompleted'
+
+            [array]::IndexOf($types, 'StepFailed') | Should -BeLessThan ([array]::IndexOf($types, 'OnFailureStarted'))
+
+            ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
         }
-        
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-
-        $result.Status | Should -Be 'Failed'
-        @($result.Steps).Count | Should -Be 1
-        $result.Steps[0].Name | Should -Be 'FailPrimary'
-
-        $result.OnFailure.PSTypeNames | Should -Contain 'IdLE.OnFailureExecutionResult'
-        $result.OnFailure.Status | Should -Be 'Completed'
-        @($result.OnFailure.Steps).Count | Should -Be 1
-        $result.OnFailure.Steps[0].Status | Should -Be 'Completed'
-
-        $types = @($result.Events | ForEach-Object { $_.Type })
-        $types | Should -Contain 'StepFailed'
-        $types | Should -Contain 'OnFailureStarted'
-        $types | Should -Contain 'OnFailureCompleted'
-
-        [array]::IndexOf($types, 'StepFailed') | Should -BeLessThan ([array]::IndexOf($types, 'OnFailureStarted'))
-
-        ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
-    }
-
-    It 'continues OnFailureSteps when an OnFailure step fails (best effort)' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'onfailure-partial.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        It 'continues OnFailureSteps when an OnFailure step fails (best effort)' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'onfailure-partial.psd1' -Content @'
 @{
   Name           = 'Demo - OnFailure Partial'
   LifecycleEvent = 'Joiner'
@@ -395,35 +346,34 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
-        $providers = @{
-            StepRegistry = @{
-                'IdLE.Step.FailPrimary'   = 'Invoke-IdleTestFailStep'
-                'IdLE.Step.OnFailureFail' = 'Invoke-IdleTestFailStep'
-                'IdLE.Step.OnFailureOk'   = 'Invoke-IdleTestEmitStep'
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.FailPrimary'   = 'Invoke-IdleTestFailStep'
+                    'IdLE.Step.OnFailureFail' = 'Invoke-IdleTestFailStep'
+                    'IdLE.Step.OnFailureOk'   = 'Invoke-IdleTestEmitStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailPrimary', 'IdLE.Step.OnFailureFail', 'IdLE.Step.OnFailureOk')
             }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailPrimary', 'IdLE.Step.OnFailureFail', 'IdLE.Step.OnFailureOk')
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+            $result.Status | Should -Be 'Failed'
+            $result.OnFailure.Status | Should -Be 'PartiallyFailed'
+            @($result.OnFailure.Steps).Count | Should -Be 2
+            $result.OnFailure.Steps[0].Status | Should -Be 'Failed'
+            $result.OnFailure.Steps[1].Status | Should -Be 'Completed'
+
+            ($result.Events | Where-Object Type -eq 'OnFailureStepStarted').Count | Should -Be 2
+            ($result.Events | Where-Object Type -eq 'OnFailureStepFailed').Count | Should -Be 1
+            ($result.Events | Where-Object Type -eq 'OnFailureStepCompleted').Count | Should -Be 1
         }
-        
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-
-        $result.Status | Should -Be 'Failed'
-        $result.OnFailure.Status | Should -Be 'PartiallyFailed'
-        @($result.OnFailure.Steps).Count | Should -Be 2
-        $result.OnFailure.Steps[0].Status | Should -Be 'Failed'
-        $result.OnFailure.Steps[1].Status | Should -Be 'Completed'
-
-        ($result.Events | Where-Object Type -eq 'OnFailureStepStarted').Count | Should -Be 2
-        ($result.Events | Where-Object Type -eq 'OnFailureStepFailed').Count | Should -Be 1
-        ($result.Events | Where-Object Type -eq 'OnFailureStepCompleted').Count | Should -Be 1
-    }
-
-    It 'does not execute OnFailureSteps when run completes successfully' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'onfailure-notrun.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        It 'does not execute OnFailureSteps when run completes successfully' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'onfailure-notrun.psd1' -Content @'
 @{
   Name           = 'Demo - OnFailure NotRun'
   LifecycleEvent = 'Joiner'
@@ -436,31 +386,32 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
-        $providers = @{
-            StepRegistry = @{
-                'IdLE.Step.Ok'         = 'Invoke-IdleTestNoopStep'
-                'IdLE.Step.OnFailure1' = 'Invoke-IdleTestEmitStep'
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Ok'         = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.OnFailure1' = 'Invoke-IdleTestEmitStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Ok', 'IdLE.Step.OnFailure1')
             }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Ok', 'IdLE.Step.OnFailure1')
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+            $result.Status | Should -Be 'Completed'
+            $result.OnFailure.Status | Should -Be 'NotRun'
+            @($result.OnFailure.Steps).Count | Should -Be 0
+
+            @($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
+            @($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
         }
-        
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
-
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-
-        $result.Status | Should -Be 'Completed'
-        $result.OnFailure.Status | Should -Be 'NotRun'
-        @($result.OnFailure.Steps).Count | Should -Be 0
-
-        @($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
-        @($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
     }
 
-    It 'fails planning when a step is missing Type' {
-      $wfPath = Join-Path -Path $TestDrive -ChildPath 'bad.psd1'
-      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+    Context 'Planning validation' {
+        It 'fails planning when a step is missing Type' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'bad.psd1' -Content @'
 @{
   Name           = 'Bad'
   LifecycleEvent = 'Joiner'
@@ -470,14 +421,13 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
-      { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
-    }
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
+        }
 
-    It 'fails planning when When schema is invalid' {
-      $wfPath = Join-Path -Path $TestDrive -ChildPath 'bad-when.psd1'
-      Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        It 'fails planning when When schema is invalid' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'bad-when.psd1' -Content @'
 @{
   Name           = 'BadWhen'
   LifecycleEvent = 'Joiner'
@@ -491,262 +441,317 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-      $req = New-IdleRequest -LifecycleEvent 'Joiner'
-      { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
+        }
     }
 
-    It 'rejects ScriptBlock in Plan object' {
-        $plan = [pscustomobject]@{
-            PSTypeName    = 'IdLE.Plan'
-            CorrelationId = 'test-corr'
-            Steps         = @(
-                @{
-                    Name = 'TestStep'
-                    Type = 'Test'
-                    With = @{
-                        Payload = { Write-Host 'Should not execute' }
+    Context 'Security validation' {
+        It 'rejects a ScriptBlock -EventSink (security)' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner.psd1' -Content @'
+@{
+  Name           = 'Joiner - Standard'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+  )
+}
+'@
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $sink = { param($e) }
+            { Invoke-IdlePlan -Plan $plan -Providers $providers -EventSink $sink } | Should -Throw
+        }
+
+        It 'rejects ScriptBlock step handlers in the StepRegistry (security)' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner.psd1' -Content @'
+@{
+  Name           = 'Joiner - Standard'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+  )
+}
+'@
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.ResolveIdentity' = { param($Context, $Step) }
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw
+        }
+
+        It 'rejects ScriptBlock in Plan object' {
+            $plan = [pscustomobject]@{
+                PSTypeName    = 'IdLE.Plan'
+                CorrelationId = 'test-corr'
+                Steps         = @(
+                    @{
+                        Name = 'TestStep'
+                        Type = 'Test'
+                        With = @{
+                            Payload = { Write-Host 'Should not execute' }
+                        }
                     }
-                }
-            )
-        }
-
-        { Invoke-IdlePlan -Plan $plan } | Should -Throw '*ScriptBlocks are not allowed*'
-    }
-
-    It 'rejects ScriptBlock in Providers object' {
-        $plan = [pscustomobject]@{
-            PSTypeName    = 'IdLE.Plan'
-            CorrelationId = 'test-corr'
-            Steps         = @()
-        }
-
-        $providers = @{
-            Config = @{
-                Secret = { Get-Secret }
+                )
             }
+
+            { Invoke-IdlePlan -Plan $plan } | Should -Throw '*ScriptBlocks are not allowed*'
         }
 
-        { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*ScriptBlocks are not allowed*'
+        It 'rejects ScriptBlock in Providers object' {
+            $plan = [pscustomobject]@{
+                PSTypeName    = 'IdLE.Plan'
+                CorrelationId = 'test-corr'
+                Steps         = @()
+            }
+
+            $providers = @{
+                Config = @{
+                    Secret = { Get-Secret }
+                }
+            }
+
+            { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*ScriptBlocks are not allowed*'
+        }
     }
 
-    It 'throws when AuthSessionBroker is missing (AuthSession acquisition)' {
-        $plan = [pscustomobject]@{
-            PSTypeName    = 'IdLE.Plan'
-            CorrelationId = 'test-corr'
-            Steps         = @(
-                @{
-                    Name = 'Acquire'
-                    Type = 'IdLE.Step.AcquireAuthSession'
-                    With = @{
-                        Name    = 'Demo'
-                        Options = @{}
+    Context 'Auth session acquisition' {
+        It 'throws when AuthSessionBroker is missing (AuthSession acquisition)' {
+            $plan = [pscustomobject]@{
+                PSTypeName    = 'IdLE.Plan'
+                CorrelationId = 'test-corr'
+                Steps         = @(
+                    @{
+                        Name = 'Acquire'
+                        Type = 'IdLE.Step.AcquireAuthSession'
+                        With = @{
+                            Name    = 'Demo'
+                            Options = @{}
+                        }
                     }
-                }
-            )
-        }
-
-        $providers = @{
-            StepRegistry = @{
-                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+                )
             }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
+
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
+            }
+
+            { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*AuthSessionBroker*'
         }
 
-        { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*AuthSessionBroker*'
-    }
-
-    It 'does not require AuthSessionBroker when AcquireAuthSession steps are NotApplicable' {
-        $plan = [pscustomobject]@{
-            PSTypeName    = 'IdLE.Plan'
-            CorrelationId = 'test-corr'
-            Steps         = @(
-                @{
-                    Name   = 'ConditionalAcquire'
-                    Type   = 'IdLE.Step.AcquireAuthSession'
-                    Status = 'NotApplicable'
-                    With   = @{
-                        Name    = 'Demo'
-                        Options = @{}
+        It 'does not require AuthSessionBroker when AcquireAuthSession steps are NotApplicable' {
+            $plan = [pscustomobject]@{
+                PSTypeName    = 'IdLE.Plan'
+                CorrelationId = 'test-corr'
+                Steps         = @(
+                    @{
+                        Name   = 'ConditionalAcquire'
+                        Type   = 'IdLE.Step.AcquireAuthSession'
+                        Status = 'NotApplicable'
+                        With   = @{
+                            Name    = 'Demo'
+                            Options = @{}
+                        }
                     }
-                }
-                @{
-                    Name = 'SomeOtherStep'
-                    Type = 'IdLE.Step.Noop'
-                    With = @{}
-                }
-            )
-        }
-
-        $providers = @{
-            StepRegistry = @{
-                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
-                'IdLE.Step.Noop'               = 'Invoke-IdleTestNoopStep'
-            }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession', 'IdLE.Step.Noop')
-        }
-
-        # Should not throw because the AcquireAuthSession step is NotApplicable
-        { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Not -Throw
-    }
-
-    It 'normalizes null options and enriches CorrelationId when acquiring an auth session' {
-        $plan = [pscustomobject]@{
-            PSTypeName    = 'IdLE.Plan'
-            CorrelationId = 'test-corr'
-            Actor         = 'test-actor'
-            Steps         = @(
-                @{
-                    Name = 'Acquire'
-                    Type = 'IdLE.Step.AcquireAuthSession'
-                    With = @{
-                        Name    = 'Demo'
-                        Options = $null
+                    @{
+                        Name = 'SomeOtherStep'
+                        Type = 'IdLE.Step.Noop'
+                        With = @{}
                     }
+                )
+            }
+
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+                    'IdLE.Step.Noop'               = 'Invoke-IdleTestNoopStep'
                 }
-            )
-        }
-
-        $callLog = [pscustomobject]@{
-            CallCount = 0
-            Name      = $null
-            Options   = $null
-        }
-
-        $broker = [pscustomobject]@{}
-        $acquireMethod = {
-            param($Name, $Options)
-            $callLog.CallCount++
-            $callLog.Name = $Name
-            $callLog.Options = $Options
-
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.AuthSession'
-                Kind       = 'Test'
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession', 'IdLE.Step.Noop')
             }
-        }.GetNewClosure()
-        $null = Add-Member -InputObject $broker -MemberType ScriptMethod -Name 'AcquireAuthSession' -Value $acquireMethod -Force
 
-        $providers = @{
-            StepRegistry      = @{
-                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
-            }
-            StepMetadata      = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
-            AuthSessionBroker = $broker
+            { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Not -Throw
         }
 
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+        It 'normalizes null options and enriches CorrelationId when acquiring an auth session' {
+            $plan = [pscustomobject]@{
+                PSTypeName    = 'IdLE.Plan'
+                CorrelationId = 'test-corr'
+                Actor         = 'test-actor'
+                Steps         = @(
+                    @{
+                        Name = 'Acquire'
+                        Type = 'IdLE.Step.AcquireAuthSession'
+                        With = @{
+                            Name    = 'Demo'
+                            Options = $null
+                        }
+                    }
+                )
+            }
 
-        $result.Status | Should -Be 'Completed'
-        $callLog.CallCount | Should -Be 1
-        $callLog.Name | Should -Be 'Demo'
+            $callLog = [pscustomobject]@{
+                CallCount = 0
+                Name      = $null
+                Options   = $null
+            }
 
-        $callLog.Options | Should -BeOfType 'hashtable'
-        $callLog.Options.ContainsKey('CorrelationId') | Should -BeTrue
-        $callLog.Options['CorrelationId'] | Should -Be 'test-corr'
-        $callLog.Options.ContainsKey('Actor') | Should -BeTrue
-        $callLog.Options['Actor'] | Should -Be 'test-actor'
-    }
+            $broker = [pscustomobject]@{}
+            $acquireMethod = {
+                param($Name, $Options)
+                $callLog.CallCount++
+                $callLog.Name = $Name
+                $callLog.Options = $Options
 
-    It 'rejects ScriptBlocks in auth session options (security)' {
-        $plan = [pscustomobject]@{
-            PSTypeName    = 'IdLE.Plan'
-            CorrelationId = 'test-corr'
-            Steps         = @(
-                @{
-                    Name = 'Acquire'
-                    Type = 'IdLE.Step.AcquireAuthSession'
-                    With = @{
-                        Name    = 'Demo'
-                        Options = @{
-                            Nested = @{
-                                Bad = { 'do-not-allow' }
+                return [pscustomobject]@{
+                    PSTypeName = 'IdLE.AuthSession'
+                    Kind       = 'Test'
+                }
+            }.GetNewClosure()
+            $null = Add-Member -InputObject $broker -MemberType ScriptMethod -Name 'AcquireAuthSession' -Value $acquireMethod -Force
+
+            $providers = @{
+                StepRegistry      = @{
+                    'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+                }
+                StepMetadata      = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
+                AuthSessionBroker = $broker
+            }
+
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+            $result.Status | Should -Be 'Completed'
+            $callLog.CallCount | Should -Be 1
+            $callLog.Name | Should -Be 'Demo'
+
+            $callLog.Options | Should -BeOfType 'hashtable'
+            $callLog.Options.ContainsKey('CorrelationId') | Should -BeTrue
+            $callLog.Options['CorrelationId'] | Should -Be 'test-corr'
+            $callLog.Options.ContainsKey('Actor') | Should -BeTrue
+            $callLog.Options['Actor'] | Should -Be 'test-actor'
+        }
+
+        It 'rejects ScriptBlocks in auth session options (security)' {
+            $plan = [pscustomobject]@{
+                PSTypeName    = 'IdLE.Plan'
+                CorrelationId = 'test-corr'
+                Steps         = @(
+                    @{
+                        Name = 'Acquire'
+                        Type = 'IdLE.Step.AcquireAuthSession'
+                        With = @{
+                            Name    = 'Demo'
+                            Options = @{
+                                Nested = @{
+                                    Bad = { 'do-not-allow' }
+                                }
                             }
                         }
                     }
+                )
+            }
+
+            $broker = [pscustomobject]@{}
+            $acquireMethod = {
+                param($Name, $Options)
+                return [pscustomobject]@{
+                    PSTypeName = 'IdLE.AuthSession'
+                    Kind       = 'Test'
                 }
-            )
-        }
-
-        $broker = [pscustomobject]@{}
-        $acquireMethod = {
-            param($Name, $Options)
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.AuthSession'
-                Kind       = 'Test'
             }
-        }
-        $null = Add-Member -InputObject $broker -MemberType ScriptMethod -Name 'AcquireAuthSession' -Value $acquireMethod -Force
+            $null = Add-Member -InputObject $broker -MemberType ScriptMethod -Name 'AcquireAuthSession' -Value $acquireMethod -Force
 
-        $providers = @{
-            StepRegistry      = @{
-                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+            $providers = @{
+                StepRegistry      = @{
+                    'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+                }
+                StepMetadata      = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
+                AuthSessionBroker = $broker
             }
-            StepMetadata      = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
-            AuthSessionBroker = $broker
+
+            { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*auth session options*'
         }
 
-        { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*auth session options*'
-    }
-
-    It 'calls the AuthSessionBroker and returns a completed step result (AuthSession acquisition)' {
-        $plan = [pscustomobject]@{
-            PSTypeName    = 'IdLE.Plan'
-            CorrelationId = 'test-corr'
-            Steps         = @(
-                @{
-                    Name = 'Acquire'
-                    Type = 'IdLE.Step.AcquireAuthSession'
-                    With = @{
-                        Name    = 'Demo'
-                        Options = @{
-                            Mode     = 'Auto'
-                            CacheKey = 'unit-test'
+        It 'calls the AuthSessionBroker and returns a completed step result (AuthSession acquisition)' {
+            $plan = [pscustomobject]@{
+                PSTypeName    = 'IdLE.Plan'
+                CorrelationId = 'test-corr'
+                Steps         = @(
+                    @{
+                        Name = 'Acquire'
+                        Type = 'IdLE.Step.AcquireAuthSession'
+                        With = @{
+                            Name    = 'Demo'
+                            Options = @{
+                                Mode     = 'Auto'
+                                CacheKey = 'unit-test'
+                            }
                         }
                     }
+                )
+            }
+
+            $callLog = [pscustomobject]@{
+                CallCount = 0
+                Name      = $null
+                Options   = $null
+            }
+
+            $broker = [pscustomobject]@{}
+            $acquireMethod = {
+                param($Name, $Options)
+                $callLog.CallCount++
+                $callLog.Name = $Name
+                $callLog.Options = $Options
+
+                return [pscustomobject]@{
+                    PSTypeName = 'IdLE.AuthSession'
+                    Kind       = 'Test'
                 }
-            )
-        }
+            }.GetNewClosure()
+            $null = Add-Member -InputObject $broker -MemberType ScriptMethod -Name 'AcquireAuthSession' -Value $acquireMethod -Force
 
-        $callLog = [pscustomobject]@{
-            CallCount = 0
-            Name      = $null
-            Options   = $null
-        }
-
-        $broker = [pscustomobject]@{}
-        $acquireMethod = {
-            param($Name, $Options)
-            $callLog.CallCount++
-            $callLog.Name = $Name
-            $callLog.Options = $Options
-
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.AuthSession'
-                Kind       = 'Test'
+            $providers = @{
+                StepRegistry      = @{
+                    'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
+                }
+                StepMetadata      = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
+                AuthSessionBroker = $broker
             }
-        }.GetNewClosure()
-        $null = Add-Member -InputObject $broker -MemberType ScriptMethod -Name 'AcquireAuthSession' -Value $acquireMethod -Force
 
-        $providers = @{
-            StepRegistry      = @{
-                'IdLE.Step.AcquireAuthSession' = 'Invoke-IdleTestAcquireAuthSessionStep'
-            }
-            StepMetadata      = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.AcquireAuthSession')
-            AuthSessionBroker = $broker
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+            $result.Status | Should -Be 'Completed'
+            $callLog.CallCount | Should -Be 1
+            $callLog.Name | Should -Be 'Demo'
+            $callLog.Options['Mode'] | Should -Be 'Auto'
+            $callLog.Options['CacheKey'] | Should -Be 'unit-test'
         }
-
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-
-        $result.Status | Should -Be 'Completed'
-        $callLog.CallCount | Should -Be 1
-        $callLog.Name | Should -Be 'Demo'
-        $callLog.Options['Mode'] | Should -Be 'Auto'
-        $callLog.Options['CacheKey'] | Should -Be 'unit-test'
     }
 
-    It 'supports step handlers without Context parameter (backwards compatibility)' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'legacy.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+    Context 'Legacy step handlers' {
+        It 'supports step handlers without Context parameter (backwards compatibility)' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'legacy.psd1' -Content @'
 @{
   Name           = 'Legacy'
   LifecycleEvent = 'Joiner'
@@ -756,22 +761,23 @@ Describe 'Invoke-IdlePlan' {
 }
 '@
 
-        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
-        $providers = @{
-            StepRegistry = @{
-                'IdLE.Step.Legacy' = 'Invoke-IdleTestLegacyStep'
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Legacy' = 'Invoke-IdleTestLegacyStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Legacy')
             }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Legacy')
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+            $result.Status | Should -Be 'Completed'
+            $result.Steps[0].Status | Should -Be 'Completed'
+            $result.Steps[0].Name | Should -Be 'LegacyStep'
         }
-        
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
-
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
-
-        $result.Status | Should -Be 'Completed'
-        $result.Steps[0].Status | Should -Be 'Completed'
-        $result.Steps[0].Name | Should -Be 'LegacyStep'
     }
 }
 

@@ -1,3 +1,5 @@
+Set-StrictMode -Version Latest
+
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
@@ -243,11 +245,13 @@ Describe 'New-IdleAuthSession' {
         }
     }
 
-    It 'is available as exported command from IdLE module' {
-        $command = Get-Command -Name New-IdleAuthSession -ErrorAction SilentlyContinue
-        
-        $command | Should -Not -BeNullOrEmpty
-        $command.Name | Should -Be 'New-IdleAuthSession'
-        $command.Module.Name | Should -Be 'IdLE'
+    Context 'Module export' {
+        It 'is available as exported command from IdLE module' {
+            $command = Get-Command -Name New-IdleAuthSession -ErrorAction SilentlyContinue
+
+            $command | Should -Not -BeNullOrEmpty
+            $command.Name | Should -Be 'New-IdleAuthSession'
+            $command.Module.Name | Should -Be 'IdLE'
+        }
     }
 }

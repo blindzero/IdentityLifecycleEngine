@@ -107,14 +107,14 @@ function Resolve-IdleTemplateString {
     # Helper function to resolve a template path to its value
     $resolvePath = {
         param([string]$Path)
-        
+
         # Handle Request.Input.* alias to Request.DesiredState.*
         $targetPath = $Path
         $hasInputProperty = $false
         if ($Request.PSObject.Properties['Input']) {
             $hasInputProperty = $true
         }
-        
+
         if ($Path.StartsWith('Request.Input.')) {
             if (-not $hasInputProperty) {
                 # Alias to DesiredState

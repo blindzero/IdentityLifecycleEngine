@@ -1,3 +1,5 @@
+Set-StrictMode -Version Latest
+
 BeforeDiscovery {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
@@ -13,7 +15,7 @@ Describe 'Condition DSL (schema + evaluator)' {
             Get-Command Test-IdleCondition -ErrorAction Stop | Out-Null
         }
 
-        Describe 'Test-IdleConditionSchema' {
+        Context 'Schema validation' {
 
             It 'accepts an Equals operator with Path + Value' {
                 $condition = @{
@@ -119,7 +121,7 @@ Describe 'Condition DSL (schema + evaluator)' {
             }
         }
 
-        Describe 'Test-IdleCondition' {
+        Context 'Evaluation' {
 
             It 'returns true when Equals matches' {
                 $context = [pscustomobject]@{

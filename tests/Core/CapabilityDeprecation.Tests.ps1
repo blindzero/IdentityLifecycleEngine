@@ -4,11 +4,10 @@ BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
     Import-IdleTestMailboxModule
-    
-    # Import mailbox steps module for capability metadata
-    $mailboxStepsPath = Join-Path $PSScriptRoot '..' '..' 'src' 'IdLE.Steps.Mailbox' 'IdLE.Steps.Mailbox.psd1'
-    if (Test-Path $mailboxStepsPath) {
-        Import-Module $mailboxStepsPath -Force -ErrorAction SilentlyContinue
+
+    $script:MailboxStepsPath = Join-Path $PSScriptRoot '..' '..' 'src' 'IdLE.Steps.Mailbox' 'IdLE.Steps.Mailbox.psd1'
+    if (Test-Path $script:MailboxStepsPath) {
+        Import-Module $script:MailboxStepsPath -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -33,7 +32,7 @@ Describe 'Capability Deprecation and Migration' {
             # Verify the workflow file exists
             $wfPath | Should -Exist
 
-            $req = New-IdleRequest -LifecycleEvent 'Leaver' -DesiredState @{
+            $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -DesiredState @{
                 Manager = @{
                     DisplayName = 'IT Support'
                     Mail        = 'support@contoso.com'
@@ -73,7 +72,7 @@ Describe 'Capability Deprecation and Migration' {
             # Use a real workflow file
             $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1'
 
-            $req = New-IdleRequest -LifecycleEvent 'Leaver' -DesiredState @{
+            $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -DesiredState @{
                 Manager = @{
                     DisplayName = 'IT Support'
                     Mail        = 'support@contoso.com'
