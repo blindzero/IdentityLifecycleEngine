@@ -31,7 +31,19 @@ Describe 'Example workflows' {
             foreach ($file in $mockWorkflows) {
                 $workflow = Import-PowerShellDataFile -Path $file.FullName
                 $lifecycleEvent = if ($workflow.ContainsKey('LifecycleEvent')) { $workflow.LifecycleEvent } else { 'Joiner' }
-                $request = New-IdleTestRequest -LifecycleEvent $lifecycleEvent -Actor 'test-user'
+                
+                # Provide sample data for workflows that use templates
+                $desiredState = @{
+                    IdentityKey = 'test-user'
+                    GivenName   = 'Test'
+                    Surname     = 'User'
+                    Department  = 'IT'
+                    Title       = 'Engineer'
+                    GroupId     = 'test-group-id'
+                    GroupName   = 'Test Group'
+                }
+                
+                $request = New-IdleTestRequest -LifecycleEvent $lifecycleEvent -Actor 'test-user' -DesiredState $desiredState
             
                 { New-IdlePlan -WorkflowPath $file.FullName -Request $request -Providers $providers } | Should -Not -Throw
             }
@@ -43,7 +55,19 @@ Describe 'Example workflows' {
             foreach ($file in $mockWorkflows) {
                 $workflow = Import-PowerShellDataFile -Path $file.FullName
                 $lifecycleEvent = if ($workflow.ContainsKey('LifecycleEvent')) { $workflow.LifecycleEvent } else { 'Joiner' }
-                $request = New-IdleTestRequest -LifecycleEvent $lifecycleEvent -Actor 'test-user'
+                
+                # Provide sample data for workflows that use templates
+                $desiredState = @{
+                    IdentityKey = 'test-user'
+                    GivenName   = 'Test'
+                    Surname     = 'User'
+                    Department  = 'IT'
+                    Title       = 'Engineer'
+                    GroupId     = 'test-group-id'
+                    GroupName   = 'Test Group'
+                }
+                
+                $request = New-IdleTestRequest -LifecycleEvent $lifecycleEvent -Actor 'test-user' -DesiredState $desiredState
             
                 $plan = New-IdlePlan -WorkflowPath $file.FullName -Request $request -Providers $providers
                 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
@@ -66,6 +90,16 @@ Describe 'Example workflows' {
         It 'validates template workflows (if any exist)' {
             if ($templateWorkflows) {
                 foreach ($file in $templateWorkflows) {
+                    # Load the file to check its structure
+                    $content = Import-PowerShellDataFile -Path $file.FullName
+                    
+                    # Skip template library files (with Metadata + Workflow structure)
+                    # These are documentation/reference templates, not executable workflows
+                    if ($content.ContainsKey('Metadata') -and $content.ContainsKey('Workflow')) {
+                        Write-Verbose "Skipping template library file: $($file.Name)"
+                        continue
+                    }
+                    
                     { Test-IdleWorkflow -WorkflowPath $file.FullName } | Should -Not -Throw
                 }
             } else {
