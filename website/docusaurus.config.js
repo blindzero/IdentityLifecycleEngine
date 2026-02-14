@@ -11,6 +11,26 @@ const darkCodeTheme = themes.dracula;
 const repoOwner = 'blindzero';
 const repoName = 'IdentityLifecycleEngine';
 
+
+// Allow importing .ps1/.psd1 files as raw source strings in MDX (for embedding examples)
+function idleRawPowerShellFiles() {
+  return {
+    name: 'idle-raw-powershell-files',
+    configureWebpack() {
+      return {
+        module: {
+          rules: [
+            {
+              test: /\.(psd1|ps1)$/i,
+              type: 'asset/source',
+            },
+          ],
+        },
+      };
+    },
+  };
+}
+
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 /** @type {import('@docusaurus/types').Config} */
@@ -34,7 +54,7 @@ const config = {
   projectName: repoName, // Usually your repo name.
 
   onBrokenLinks: 'warn',
-  
+
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
@@ -65,9 +85,9 @@ const config = {
             'extend/providers.md',
             'extend/steps.md'],
         },
-        
+
         blog: false, // Disable blog plugin - maybe enable later
-        
+
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
@@ -149,8 +169,9 @@ const config = {
         },
       },
     }),
-  
+
   plugins: [
+    idleRawPowerShellFiles,
     // Local search (no Algolia account needed)
     [
       require.resolve('@easyops-cn/docusaurus-search-local'),
@@ -182,7 +203,7 @@ const config = {
     require.resolve('@saucelabs/theme-github-codeblock'),
 
     // Optional Mermaid support (if installed)
-    require.resolve('@docusaurus/theme-mermaid'),
+    //require.resolve('@docusaurus/theme-mermaid'),
   ],
 
   // If you enable Mermaid theme above, also enable markdown mermaid:

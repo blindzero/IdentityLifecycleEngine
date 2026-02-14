@@ -1,726 +1,128 @@
 ---
-title: Provider Reference - IdLE.Provider.EntraID
+title: Provider Reference - Microsoft Entra ID (IdLE.Provider.EntraID)
 sidebar_label: Entra ID
 ---
 
+import CodeBlock from '@theme/CodeBlock';
+
+import EntraJoiner from '@site/../examples/workflows/templates/entraid-joiner.psd1';
+import EntraLeaver from '@site/../examples/workflows/templates/entraid-leaver.psd1';
+
 ## Summary
 
-- **Provider name:** `EntraID` (Microsoft Entra ID)
 - **Module:** `IdLE.Provider.EntraID`
-- **Provider kind:** `Identity | Entitlement`
-- **Targets:** Microsoft Entra ID (formerly Azure Active Directory) via Microsoft Graph API (v1.0)
-- **Status:** First-party (bundled)
-- **Since:** 0.9.0
-- **Compatibility:** PowerShell 7+ (IdLE requirement)
+- **What it’s for:** Entra ID user lifecycle + group entitlements (Microsoft Graph API)
+- **Targets:** Microsoft Entra ID (formerly Azure AD) via Microsoft Graph (v1.0)
 
----
+## When to use
 
-## What this provider does
+Use this provider when your workflow needs to manage **Entra ID user accounts**, for example:
 
-- **Primary responsibilities:**
-  - Create, read, update, disable, enable, and delete (opt-in) user accounts in Microsoft Entra ID
-  - Set and update user attributes (givenName, surname, department, jobTitle, etc.)
-  - List group memberships and manage group entitlements (grant/revoke)
-  - Revoke active sign-in sessions (refresh tokens) for user accounts
-  - Resolve identities by objectId (GUID), UserPrincipalName (UPN), or mail address
-- **Out of scope / non-goals:**
-  - Establishing authentication or obtaining Graph access tokens (handled by host-provided broker)
-  - Managing M365 groups, distribution lists, or Teams
-  - License assignment or MFA/Conditional Access management
-  - Custom attributes or schema extensions (not supported in MVP)
+- **Joiner:** create or update a user, set baseline attributes, assign baseline groups
+- **Mover:** update org attributes and managed groups (covered as *optional patterns* inside the Joiner template)
+- **Leaver:** disable account, revoke sessions, optional cleanup (groups, delete)
 
----
+Non-goals:
 
-## Contracts and capabilities
+- Obtaining tokens or storing secrets (handled by your runtime + AuthSessionBroker pattern)
+- Exchange Online mailbox configuration (use the Exchange Online provider/steps)
 
-### Contracts implemented
+## Getting started
 
-| Contract | Used by steps for | Notes |
-| --- | --- | --- |
-| Identity provider (implicit) | Identity read/write/delete operations | Full identity lifecycle support via Microsoft Graph API |
-| Entitlement provider (implicit) | Grant/revoke/list group memberships | Only Entra ID groups; not M365 groups or distribution lists |
+### Requirements
 
-### Capability advertisement (`GetCapabilities()`)
+- Your runtime must be able to supply a **Microsoft Graph auth session** (token/session object) to IdLE
+- Graph permissions must allow the actions you intend to run (users + groups)
 
-- **Implements `GetCapabilities()`**: Yes
-- **Capabilities returned (stable identifiers):**
-  - `IdLE.Identity.Read` - Read identity information
-  - `IdLE.Identity.List` - List identities (filter support varies)
-  - `IdLE.Identity.Create` - Create new identities
-  - `IdLE.Identity.Attribute.Ensure` - Set/update identity attributes
-  - `IdLE.Identity.Disable` - Disable user accounts
-  - `IdLE.Identity.Enable` - Enable user accounts
-  - `IdLE.Identity.RevokeSessions` - Revoke active sign-in sessions
-  - `IdLE.Entitlement.List` - List group memberships
-  - `IdLE.Entitlement.Grant` - Add group membership
-  - `IdLE.Entitlement.Revoke` - Remove group membership
-  - `IdLE.Identity.Delete` - **Opt-in only** (see Safety section)
+### Install (PowerShell Gallery)
 
----
+```powershell
+Install-Module IdLE.Provider.EntraID -Scope CurrentUser
+```
+
+### Import
+
+```powershell
+Import-Module IdLE.Provider.EntraID
+```
+
+## Quickstart
+
+Create provider (safe defaults):
+
+```powershell
+$provider = New-IdleEntraIDIdentityProvider
+```
+
+Typical alias pattern:
+
+```powershell
+$providers = @{
+  Identity = $provider
+}
+```
+
+In a workflow template, reference your auth session via steps (example):
+
+```powershell
+With = @{
+  AuthSessionName    = 'MicrosoftGraph'
+  AuthSessionOptions = @{ Role = 'Admin' }
+}
+```
+
+> Keep tokens/secrets **out of workflow files**. Resolve them in the host/runtime and provide them via the broker.
 
 ## Authentication
 
-### Host-Owned Authentication (Required Pattern)
+This provider expects Graph authentication to be supplied at runtime (AuthSessionBroker pattern). Common session shapes used by hosts include:
 
-The EntraID provider follows IdLE's **host-owned authentication** pattern. The provider does NOT perform authentication internally. Instead, authentication is managed by the host application via the `AuthSessionBroker`.
+- raw access token string (Bearer token)
+- object with an `AccessToken` property
+- object that can produce a token (e.g., `GetAccessToken()`)
 
-### What the Host Must Provide
-
-The host must:
-
-1. Obtain a valid Microsoft Graph access token (delegated or app-only)
-2. Create an `AuthSessionBroker` that returns the token when requested
-3. Pass the broker to IdLE via `Providers.AuthSessionBroker`
-
-### Supported Auth Session Formats
-
-The provider accepts authentication sessions in these formats:
-
-- **String**: Direct access token (`"eyJ0eXAiOiJKV1Qi..."`)
-- **Object with AccessToken property**: `@{ AccessToken = "token" }`
-- **Object with GetAccessToken() method**: Custom object with method returning token string
-- **PSCredential**: Token in password field (legacy compatibility)
-
-### Example: Delegated Authentication
-
-```powershell
-# Host obtains token (example using Azure PowerShell)
-Connect-AzAccount
-$token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
-
-# Create broker with OAuth session type
-$broker = New-IdleAuthSession -DefaultAuthSession $token -AuthSessionType 'OAuth'
-
-# Create provider
-$provider = New-IdleEntraIDIdentityProvider
-
-# Use in plan
-$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
-    Identity = $provider
-    AuthSessionBroker = $broker
-}
-```
-
-### Example: App-Only Authentication (Service Principal)
-
-```powershell
-# Host obtains app-only token (example using MSAL or Azure PowerShell)
-$clientId = "your-app-id"
-$clientSecret = "your-secret"
-$tenantId = "your-tenant-id"
-
-# Obtain token (pseudo-code - use your preferred auth library)
-$token = Get-GraphAppOnlyToken -ClientId $clientId -ClientSecret $clientSecret -TenantId $tenantId
-
-# Create broker with OAuth session type
-$broker = New-IdleAuthSession -DefaultAuthSession $token -AuthSessionType 'OAuth'
-
-# Rest is identical to delegated flow
-```
-
-### Example: Device Code Flow (MFA-enabled environments)
-
-For environments requiring MFA, use Device Code Flow with an app registration and MSAL.PS.
-
-**Prerequisites:**
-- Install MSAL.PS module: `Install-Module MSAL.PS -Scope CurrentUser`
-- App registration with delegated permissions (e.g., `User.ReadWrite.All`, `Group.ReadWrite.All`)
-- App must allow public client flows (Authentication > Advanced settings > Allow public client flows: Yes)
-
-```powershell
-# Import MSAL.PS
-Import-Module MSAL.PS
-
-# Obtain token via Device Code Flow
-$clientId = "your-app-id"  # Application (client) ID from app registration
-$tenantId = "your-tenant-id"
-
-$token = Get-MsalToken `
-    -ClientId $clientId `
-    -TenantId $tenantId `
-    -Scopes "https://graph.microsoft.com/.default" `
-    -DeviceCode
-
-# Create broker with OAuth session type
-$broker = New-IdleAuthSession -DefaultAuthSession $token.AccessToken -AuthSessionType 'OAuth'
-
-# Create provider
-$provider = New-IdleEntraIDIdentityProvider
-
-# Use in plan
-$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
-    Identity = $provider
-    AuthSessionBroker = $broker
-}
-```
-
-The Device Code Flow will display a code and URL for the user to authenticate in a browser, supporting MFA and conditional access policies.
-
-### Example: Multi-Role Scenario
-
-```powershell
-$tier0Token = Get-GraphToken -Role 'Tier0'
-$adminToken = Get-GraphToken -Role 'Admin'
-
-# Create broker with role-based routing
-$broker = New-IdleAuthSession -SessionMap @{
-    @{ Role = 'Tier0' } = $tier0Token
-    @{ Role = 'Admin' } = $adminToken
-} -DefaultAuthSession $adminToken -AuthSessionType 'OAuth'
-
-# Workflow steps specify: With.AuthSessionOptions = @{ Role = 'Tier0' }
-```
-
-### Auth Session Type
-
-**Required `AuthSessionType`:** `OAuth`
-
-The EntraID provider uses OAuth-based authentication via Microsoft Graph API tokens. When creating the `AuthSessionBroker`, specify `AuthSessionType = 'OAuth'` to indicate token-based authentication is expected.
-
-
-
-> Providers must not prompt for auth. Use the host-provided broker contract.
-
-- **Auth session name(s) used by built-in steps:** `MicrosoftGraph`
-- **Auth session formats supported:**  
-  - `string` Bearer access token  
-  - object with `AccessToken` property  
-  - object with `GetAccessToken()` method  
-  - `PSCredential` (token stored in password field; username is ignored)
-- **Session options (data-only):** Any hashtable; common keys: `Role`, `Tenant`, `Environment`
-
-:::warning
-
-**Security notes**
-
-- Do not pass secrets in workflow files or provider options.
-- If you use access tokens, ensure your host does not log them (events, transcripts, verbose output).
-
-:::
-
-### Auth examples
-
-**A) Delegated auth (interactive) – host obtains token, provider consumes token**
-
-```powershell
-# Host responsibility:
-# Example with Microsoft Graph PowerShell (interactive sign-in)
-Connect-MgGraph -Scopes 'User.ReadWrite.All','Group.ReadWrite.All' | Out-Null
-$ctx = Get-MgContext
-
-# Provide a token supplier object so tokens can refresh
-$tokenSupplier = [pscustomobject]@{ Context = $ctx }
-$tokenSupplier | Add-Member -MemberType ScriptMethod -Name GetAccessToken -Value {
-  # NOTE: Replace this with your real token retrieval logic.
-  # In many hosts you would acquire tokens via MSAL / managed identity.
-  throw 'Implement token acquisition in the host.'
-}
-
-$broker = [pscustomobject]@{}
-$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-  param($Name, $Options)
-  return $tokenSupplier
-}
-
-$providers = @{
-  Identity          = New-IdleEntraIDIdentityProvider
-  AuthSessionBroker = $broker
-}
-
-# Steps use:
-# With.AuthSessionName = 'MicrosoftGraph'
-```
-
-**B) App-only auth – host supplies a fixed token string (simple demo / lab)**
-
-```powershell
-$accessToken = Get-MyGraphAppOnlyToken # host-managed (MSAL / managed identity / etc.)
-
-$broker = [pscustomobject]@{}
-$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-  param($Name, $Options)
-  return $accessToken
-}
-
-$providers = @{
-  Identity          = New-IdleEntraIDIdentityProvider
-  AuthSessionBroker = $broker
-}
-```
-
-**C) Multi-tenant routing**
-
-```powershell
-$tokenProd = Get-GraphToken -Tenant 'contoso.onmicrosoft.com'
-$tokenLab  = Get-GraphToken -Tenant 'contoso-lab.onmicrosoft.com'
-
-$broker = [pscustomobject]@{}
-$broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-  param($Name, $Options)
-  if ($Options.Tenant -eq 'Prod') { return $tokenProd }
-  if ($Options.Tenant -eq 'Lab')  { return $tokenLab }
-  throw "Unknown tenant option: $($Options.Tenant)"
-}
-
-# Steps use With.AuthSessionOptions = @{ Tenant = 'Prod' } etc.
-```
-
----
+Recommended wiring in examples:
+- `AuthSessionName = 'MicrosoftGraph'`
+- `AuthSessionOptions = @{ Role = 'Admin' }` for routing (optional)
+- Use a more privileged role only for privileged actions (e.g. delete)
 
 ## Configuration
 
 ### Provider constructor / factory
 
-How to create an instance.
+- `New-IdleEntraIDIdentityProvider`
 
-- **Public constructor cmdlet(s):**
-  - `New-IdleEntraIDIdentityProvider` — Creates an Entra ID identity provider instance
+**High-signal parameters**
+- `-AllowDelete` — opt-in to enable the `IdLE.Identity.Delete` capability (disabled by default for safety)
 
-**Parameters (high signal only)**
+### Provider-specific options reference
 
-- `-AllowDelete` (switch) — Opt-in to enable the `IdLE.Identity.Delete` capability (disabled by default for safety)
+This provider has **no provider-specific option bag**. Configuration is done through constructor parameters; authentication is handled by your runtime via the broker.
 
-> Do not copy full comment-based help here. Link to the cmdlet reference.
+## Required Microsoft Graph permissions
 
-### Provider bag / alias usage
+At minimum, you typically need:
+- **Users:** read/write (create/update/disable/delete if enabled)
+- **Groups:** read/write memberships (if you use entitlement steps)
 
-How to pass the provider instance to IdLE as part of the host's provider map.
+Exact permission names depend on your auth model (delegated vs application) and what operations you enable.
 
-```powershell
-$providers = @{
-  Identity = New-IdleEntraIDIdentityProvider
-}
-```
+## Examples (canonical templates)
 
-- **Recommended alias pattern:** `Identity` (single provider) or `TargetEntra` (multi-provider scenarios)
-- **Default alias expected by built-in steps (if any):** `Identity` (if applicable)
+These are the **two** canonical Entra ID templates, intended to be embedded directly in documentation.
+Mover scenarios are integrated as **optional patterns** in the Joiner template.
 
----
+<CodeBlock language="powershell" title="examples/workflows/templates/entraid-joiner.psd1">
+  {EntraJoiner}
+</CodeBlock>
 
-## Provider-specific options reference
-
-> Document only **data-only** keys. Keep this list short and unambiguous.
-
-This provider has **no provider-specific option bag**. All configuration is done through the constructor parameters and authentication is managed via the `AuthSessionBroker`.
-
----
-
-## Required Microsoft Graph Permissions
-
-This section lists the Microsoft Graph API permissions required for each step type supported by this provider. The same permissions apply for both delegated (user context) and application (app-only) permissions.
-
-### Permissions by Step Type
-
-| Step Type | Required Permissions | Notes |
-|-----------|---------------------|-------|
-| `IdLE.Step.CreateIdentity` | `User.ReadWrite.All` | Requires write permissions to create users |
-| `IdLE.Step.DisableIdentity` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
-| `IdLE.Step.EnableIdentity` | `User.ReadWrite.All` | Modifies `accountEnabled` property |
-| `IdLE.Step.EnsureAttributes` | `User.ReadWrite.All` | Modifies user properties (displayName, department, etc.) |
-| `IdLE.Step.DeleteIdentity` | `User.ReadWrite.All` | Requires `AllowDelete = $true` on provider |
-| `IdLE.Step.RevokeIdentitySessions` | `User.RevokeSessions.All` | Security-sensitive; invalidates all active sessions |
-| `IdLE.Step.EnsureEntitlement` | `Group.Read.All`<br/>`GroupMember.ReadWrite.All` | Lists and modifies group memberships |
-
-**Notes:**
-- Application permissions require admin consent in the tenant
-- `User.Read.All` is included in `User.ReadWrite.All` for identity resolution
-- Grant only the permissions you need based on the workflow steps you will use
-- `User.RevokeSessions.All` is security-sensitive; ensure appropriate approval processes are in place before granting
-
----
-
-## Identity Addressing
-
-### Lookup Modes
-
-The provider supports multiple ways to reference an identity:
-
-| Format | Example | Notes |
-|--------|---------|-------|
-| objectId (GUID) | `"a1b2c3d4-e5f6-7890-abcd-ef1234567890"` | Most deterministic |
-| UserPrincipalName (UPN) | `"user@contoso.com"` | Contains `@` |
-| mail | `"user.name@contoso.com"` | Fallback if UPN lookup fails |
-
-### Canonical Identity Key
-
-**All provider methods return the user objectId (GUID) as the canonical IdentityKey.**
-
-This ensures deterministic identity references across workflows and is the recommended format for workflow definitions.
-
-### Resolution Rules
-
-1. If the input is a valid GUID format, look up by objectId
-2. If the input contains `@`, try UPN lookup, then mail lookup
-3. Otherwise, throw an error
-
-## Entitlement Model (Groups)
-
-### Entitlement Object Format
-
-```powershell
-@{
-    Kind = 'Group'
-    Id   = '<group objectId GUID>'  # Canonical
-    DisplayName = 'Group Display Name'  # Optional
-    Mail = 'group@contoso.com'  # Optional
-}
-```
-
-### Group Resolution
-
-The provider accepts group references in two formats:
-
-1. **objectId (GUID)** - Direct lookup (most reliable)
-2. **displayName** - Lookup by name (must be unique)
-
-#### Ambiguity Handling
-
-If multiple groups share the same displayName, the provider throws an error. Use objectId for deterministic lookup.
-
-### Idempotency
-
-All group operations are idempotent:
-
-- **Grant**: Returns `Changed = $false` if already a member
-- **Revoke**: Returns `Changed = $false` if not a member
-
-## Safety: Delete Capability
-
-### Default Behavior (Delete Disabled)
-
-By default, the `IdLE.Identity.Delete` capability is **NOT advertised** and delete operations will fail.
-
-```powershell
-$provider = New-IdleEntraIDIdentityProvider
-# Delete is NOT available
-```
-
-### Opt-In for Delete
-
-To enable delete capability, use the `-AllowDelete` switch:
-
-```powershell
-$provider = New-IdleEntraIDIdentityProvider -AllowDelete
-# Delete is now available
-```
-
-### Workflow Requirements
-
-Workflows that require delete must explicitly declare the capability requirement in their metadata (not yet implemented in IdLE core, but provider is ready).
-
----
-
-## Operational behavior
-
-### Idempotency and consistency
-
-- **Idempotent operations:** Yes (all operations)
-- **Consistency model:** Eventually consistent (Microsoft Graph API)
-- **Concurrency notes:** Microsoft Graph enforces rate limits; provider marks throttling errors as transient
-
-All operations are idempotent:
-
-| Operation | Idempotent Behavior |
-| --------- | ------------------- |
-| Create | If identity exists, returns `Changed=$false` (no error) |
-| Delete | If identity already gone, returns `Changed=$false` (no error) |
-| Enable/Disable | If already in desired state, returns `Changed=$false` |
-| Grant membership | If already a member, returns `Changed=$false` |
-| Revoke membership | If not a member, returns `Changed=$false` |
-| Set attribute | If already at desired value, returns `Changed=$false` |
-| Revoke sessions | Returns `Changed` based on Graph API response (true if sessions existed, false if none to revoke) |
-
-### Session Revocation Behavior
-
-The `RevokeSessions` operation invalidates all active sign-in sessions and refresh tokens for a user account. This is typically used in Leaver workflows after disabling an account to ensure immediate sign-out.
-
-**Important characteristics:**
-
-- **Immediate effect**: Sign-in sessions are invalidated, forcing re-authentication on the next request
-- **Propagation delay**: Due to token caching and Conditional Access Evaluation (CAE), there may be a short delay (typically a few minutes) before all sessions are terminated
-- **Changed flag**: The operation passes through the Graph API response: `Changed=$true` if active sessions were revoked, `Changed=$false` if there were no active sessions to revoke
-- **Idempotency**: Safe to call multiple times; if no active sessions exist, returns `Changed=$false`
-- **No account state change**: This operation does NOT disable the account; use `DisableIdentity` separately if account disabling is also required
-
-**Workflow pattern for Leaver scenarios:**
-
-```powershell
-Steps = @(
-    @{
-        Name = 'DisableAccount'
-        Type = 'IdLE.Step.DisableIdentity'
-        With = @{
-            Provider = 'Identity'
-            AuthSessionName = 'MicrosoftGraph'
-            IdentityKey = '{{Request.Input.UserObjectId}}'
-        }
-    }
-    @{
-        Name = 'RevokeActiveSessions'
-        Type = 'IdLE.Step.RevokeIdentitySessions'
-        With = @{
-            Provider = 'Identity'
-            AuthSessionName = 'MicrosoftGraph'
-            IdentityKey = '{{Request.Input.UserObjectId}}'
-        }
-    }
-)
-```
-
-**Note**: The `DisableIdentity` step does NOT automatically revoke sessions. Session revocation must be explicitly requested via the `RevokeIdentitySessions` step.
-
-### Error mapping and retry behavior
-
-- **Common error categories:** `NotFound`, `AlreadyExists`, `PermissionDenied`, `Throttled` (HTTP 429)
-- **Retry strategy:** None (provider marks transient errors; retry is delegated to host)
-
----
-
-## Observability
-
-- **Events emitted by provider (if any):**
-  - Steps emit events via the execution context; provider operations are traced through step events
-- **Sensitive data redaction:** Access tokens and credential objects are not included in operation results or events
-
----
-
-## Transient Error Handling
-
-The provider classifies errors as transient or permanent for retry policy support.
-
-### Transient Errors (Retryable)
-
-These errors set `Exception.Data['Idle.IsTransient'] = $true`:
-
-- HTTP 429 (Rate limiting)
-- HTTP 5xx (Server errors)
-- HTTP 408 (Request timeout)
-- Network timeouts
-
-### Retry Metadata
-
-Transient errors include metadata in the exception message:
-
-- HTTP status code
-- Microsoft Graph request ID (if available)
-- `Retry-After` header (if present)
-
-**Note**: The provider does NOT perform retries automatically. Retry policy is a host concern.
-
-## Supported Attributes
-
-### Identity Attributes
-
-These attributes can be set via `CreateIdentity` and `EnsureAttributes`:
-
-| Attribute | Graph Property | Notes |
-|-----------|---------------|-------|
-| `GivenName` | `givenName` | First name |
-| `Surname` | `surname` | Last name |
-| `DisplayName` | `displayName` | Display name (required for create) |
-| `UserPrincipalName` | `userPrincipalName` | UPN (required for create) |
-| `Mail` | `mail` | Email address |
-| `Department` | `department` | Department |
-| `JobTitle` | `jobTitle` | Job title |
-| `OfficeLocation` | `officeLocation` | Office location |
-| `CompanyName` | `companyName` | Company name |
-| `MailNickname` | `mailNickname` | Mail alias (auto-generated if not provided) |
-| `PasswordProfile` | `passwordProfile` | Password policy for new users (create only) |
-| `Enabled` | `accountEnabled` | Account enabled state |
-
-### Password Policy (Create Only)
-
-#### Automatic Password Generation
-
-When creating users without providing a `PasswordProfile`, the provider automatically generates a secure initial password using GUID format (e.g., `3f2504e0-4f89-11d3-9a0c-0305e82c3301`). GUID passwords:
-
-- Satisfy Entra ID default password complexity requirements while consisting of lowercase letters, digits, and hyphens (`[a-f0-9-]`)
-- Are 36 characters long
-- Set `forceChangePasswordNextSignIn = $true` by default (user must change on first login)
-
-**Generated password is returned** in the result with controlled output options:
-
-```powershell
-# Default: secure ProtectedString output
-$result = $provider.CreateIdentity('newuser@contoso.com', @{
-    UserPrincipalName = 'newuser@contoso.com'
-    DisplayName = 'New User'
-    # No PasswordProfile provided - password auto-generated
-})
-
-# Access the generated password
-$result.PasswordGenerated                    # $true
-$result.PasswordGenerationMethod             # 'GUID'
-$result.GeneratedAccountPasswordProtected    # DPAPI-scoped ProtectedString
-```
-
-#### Reveal Path
-
-To reveal the password from ProtectedString when needed:
-
-```powershell
-$protectedPwd = $result.GeneratedAccountPasswordProtected
-$securePwd = ConvertTo-SecureString -String $protectedPwd
-$plainPwd = [pscredential]::new('x', $securePwd).GetNetworkCredential().Password
-```
-
-:::warning DPAPI Scope
-ProtectedString uses Windows DPAPI and can only be decrypted by the same Windows user on the same machine. Do not transfer ProtectedStrings across machines or user contexts.
-:::
-
-#### Opt-in Plaintext Output
-
-For scenarios requiring immediate plaintext access (e.g., displaying to onboarding staff), set `AllowPlainTextPasswordOutput = $true`:
-
-```powershell
-$result = $provider.CreateIdentity('user@contoso.com', @{
-    UserPrincipalName = 'user@contoso.com'
-    DisplayName = 'User Name'
-    AllowPlainTextPasswordOutput = $true
-})
-
-# Plaintext is included in result (redacted from logs/events)
-$plainPwd = $result.GeneratedAccountPasswordPlainText
-```
-
-:::danger Security Warning
-Results containing `GeneratedAccountPasswordPlainText` must not be persisted to disk, logs, or databases. The value is automatically redacted from engine events and exports but is accessible in the immediate result object. Handle with care.
-:::
-
-#### Control Password Reset Requirement
-
-By default, generated passwords require change on first sign-in. To disable this (e.g., for service accounts):
-
-```powershell
-$result = $provider.CreateIdentity('serviceaccount@contoso.com', @{
-    UserPrincipalName = 'serviceaccount@contoso.com'
-    DisplayName = 'Service Account'
-    ForceChangePasswordNextSignIn = $false
-})
-```
-
-#### Explicit Password
-
-When creating users, you can provide an explicit `PasswordProfile`:
-
-```powershell
-$attributes = @{
-    UserPrincipalName = 'newuser@contoso.com'
-    DisplayName = 'New User'
-    PasswordProfile = @{
-        forceChangePasswordNextSignIn = $true
-        password = 'Temp@Pass123!'
-    }
-}
-```
-
-When `PasswordProfile` is explicitly provided, no password generation occurs and no password information is returned in the result.
-
-## Paging
-
-The provider automatically handles Microsoft Graph paging for `ListUsers` and `ListUserGroups` operations using the `@odata.nextLink` continuation token.
-
-No additional configuration required.
-
----
-
-## Examples
-
-### Minimal host usage
-
-```powershell
-# 1) Create provider instance
-$provider = New-IdleEntraIDIdentityProvider
-
-# 2) Obtain Graph token (host responsibility)
-$token = (Get-AzAccessToken -ResourceUrl "https://graph.microsoft.com").Token
-
-# 3) Create broker
-$broker = New-IdleAuthSession -AuthSessionType OAuth -SessionMap @{ MicrosoftGraph = $token } -DefaultAuthSession $token
-
-# 4) Build provider map
-$providers = @{
-  Identity = $provider
-  AuthSessionBroker = $broker
-}
-
-# 5) Plan + execute
-$plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers $providers
-$result = Invoke-IdlePlan -Plan $plan -Providers $providers
-```
-
-### Example workflow snippet
-
-```powershell
-@{
-  Steps = @(
-    @{
-      Name = 'CreateUser'
-      Type = 'IdLE.Step.CreateIdentity'
-      With = @{
-        Provider = 'Identity'
-        AuthSessionName = 'MicrosoftGraph'
-        AuthSessionOptions = @{ Role = 'Admin' }
-        Attributes = @{
-          UserPrincipalName = 'newuser@contoso.com'
-          DisplayName = 'New User'
-          GivenName = 'New'
-          Surname = 'User'
-        }
-      }
-    }
-  )
-}
-```
-
----
-
-## Built-in Steps Compatibility
-
-The provider works with these built-in IdLE steps:
-
-- `IdLE.Step.CreateIdentity`
-- `IdLE.Step.EnsureAttributes`
-- `IdLE.Step.DisableIdentity`
-- `IdLE.Step.EnableIdentity`
-- `IdLE.Step.RevokeIdentitySessions` (revokes active sign-in sessions)
-- `IdLE.Step.DeleteIdentity` (when `AllowDelete = $true`)
-- `IdLE.Step.EnsureEntitlement`
-
----
-
-## Limitations and known issues
-
-- **Supported API version**: v1.0 (beta endpoints not used)
-- **Group types**: Only Entra ID groups (not M365 groups or distribution lists)
-- **Licensing**: The provider does NOT manage license assignments
-- **MFA/Conditional Access**: Not managed by provider
-- **Custom attributes/extensions**: Not supported in MVP
-
----
-
-## Testing
-
-- **Unit tests:** `tests/Providers/EntraIDIdentityProvider.Tests.ps1`
-- **Contract tests:** Provider contract tests validate implementation compliance
-- **Known CI constraints:** Tests use mock HTTP layer; no live Microsoft Graph calls in CI
-
----
+<CodeBlock language="powershell" title="examples/workflows/templates/entraid-leaver.psd1">
+  {EntraLeaver}
+</CodeBlock>
 
 ## Troubleshooting
 
-### "AuthSession is required"
-
-Ensure you're passing an `AuthSessionBroker` to `New-IdlePlan` and that steps are using `With.AuthSessionName`.
-
-### "Multiple groups found with displayName"
-
-Use the group objectId instead of displayName for deterministic lookup.
-
-### "429 Too Many Requests"
-
-Microsoft Graph enforces rate limits. The provider marks these as transient errors. Implement retry logic in your host or reduce request frequency.
-
-### "Insufficient permissions"
-
-Verify the access token has the required Graph API permissions (see Required Permissions section).
+- **401/403 from Microsoft Graph**: token missing/expired or insufficient Graph permissions for the requested operation.
+- **Auth session not found**: check `AuthSessionName` matches your runtime/broker configuration.
+- **Delete doesn’t work**: deletion is opt-in. Create the provider with `-AllowDelete` and only use delete with a privileged auth role.
+- **Group cleanup is disruptive**: only enable revoke/remove operations when you fully understand the impact (prefer managed allow-lists).

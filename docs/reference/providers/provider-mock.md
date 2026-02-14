@@ -1,74 +1,52 @@
 ---
-title: Provider Reference - IdLE.Provider.Mock
+title: Provider Reference - Mock (IdLE.Provider.Mock)
 sidebar_label: Mock
 ---
 
+import CodeBlock from '@theme/CodeBlock';
+
+import MockIdentityAndEntitlements from '@site/../examples/workflows/mock/mock-identity-and-entitlements.psd1';
+
 ## Summary
 
-- **Provider name:** MockIdentity
 - **Module:** `IdLE.Provider.Mock`
-- **Provider kind:** Identity + Entitlement
-- **Targets:** In-memory store (tests/demos)
-- **Status:** First-party (bundled)
-- **Since:** 0.9.0
-- **Compatibility:** PowerShell 7+ (IdLE requirement)
+- **What it’s for:** Running workflows **without touching real systems** (dry runs, demos, pipeline tests)
+- **Provider kind:** Identity + Entitlement (in-memory)
 
----
+## When to use
 
-## What this provider does
+Use the Mock provider when you want to:
 
-- **Primary responsibilities:**
-  - Provide deterministic, in-memory identity operations for tests and examples.
-  - Converge identity attributes.
-  - List, grant and revoke entitlements (in-memory).
-  - Avoid any external dependencies and avoid global state.
-- **Out of scope / non-goals:**
-  - Any live system integration.
-  - Authentication and session handling.
+- validate **workflow logic**, conditions, and error handling
+- validate **template placeholders** (e.g. `{{Request.Input...}}`) without external dependencies
+- build demos or CI checks that should never modify production systems
 
----
+Non-goals:
 
-## Contracts and capabilities
+- not a replacement for integration testing against real providers
+- not meant for performance testing or concurrency simulation
 
-### Contracts implemented
+## Getting started
 
-| Contract | Used by steps for | Notes |
-| --- | --- | --- |
-| Identity provider (implicit) | Read identities and ensure attributes | Creates missing identities on demand to keep demos frictionless. |
-| Entitlement provider (implicit) | List/grant/revoke entitlements | Entitlements are normalized to `{ Kind; Id; DisplayName? }` and compared case-insensitively by `Id`. |
+### Requirements
 
-### Capability advertisement (`GetCapabilities()`)
+None beyond IdLE itself. The Mock provider stores everything in-memory during the workflow run.
 
-- **Implements `GetCapabilities()`**: Yes
-- **Capabilities returned (stable identifiers):**
-  - `IdLE.Identity.Read`
-  - `IdLE.Identity.Attribute.Ensure`
-  - `IdLE.Identity.Disable`
-  - `IdLE.Entitlement.List`
-  - `IdLE.Entitlement.Grant`
-  - `IdLE.Entitlement.Revoke`
+### Install (PowerShell Gallery)
 
----
+```powershell
+Install-Module IdLE.Provider.Mock -Scope CurrentUser
+```
 
-## Authentication and session acquisition
+### Import
 
-This provider does not require authentication.
+```powershell
+Import-Module IdLE.Provider.Mock
+```
 
-- **AuthSessionType usage:** Not applicable
+## Quickstart
 
-The Mock provider does not acquire or require auth sessions. You do not need to configure an `AuthSessionBroker` when using this provider. If a broker is supplied for broader test scaffolding, this provider will ignore any acquired auth session.
-
-:::warning
-
-**Security notes**
-
-- Even in tests, do not embed real secrets into workflow files or fixtures.
-
-:::
-
-### Auth examples
-
-This provider does not require authentication.
+Create the provider and register it under a workflow alias (example):
 
 ```powershell
 $providers = @{
@@ -76,115 +54,26 @@ $providers = @{
 }
 ```
 
----
+## Authentication
+
+No authentication is required. The Mock provider ignores `AuthSessionName`.
+
+## Supported operations
+
+- Identity: create/update attributes (in-memory)
+- Entitlements: ensure/remove group memberships (in-memory)
 
 ## Configuration
 
-### Provider constructor / factory
+This provider has no admin-facing options.
 
-- **Public constructor cmdlet(s):**
-  - `New-IdleMockIdentityProvider` — creates an isolated in-memory provider instance.
+## Example (canonical)
 
-**Parameters (high signal only)**
+<CodeBlock language="powershell" title="examples/workflows/mock/mock-identity-and-entitlements.psd1">
+  {MockIdentityAndEntitlements}
+</CodeBlock>
 
-- `-InitialStore <hashtable>` — optional initial content, shallow-copied into the provider store.
+## Troubleshooting
 
-### Provider bag / alias usage
-
-```powershell
-$provider = New-IdleMockIdentityProvider
-
-$providers = @{
-  Identity = $provider
-}
-```
-
-- **Recommended alias pattern:** `Identity`
-- **Default alias expected by built-in steps (if any):** `Identity`
-
----
-
-## Provider-specific options reference
-
-This provider has no additional data-only option keys beyond its constructor parameters.
-
----
-
-## Operational behavior
-
-### Idempotency and consistency
-
-- **Idempotent operations:** Partial
-  - `EnsureAttributes` step is idempotent (returns `Changed = $false` when already converged).
-    - The step calls the provider's `EnsureAttributes` method if available (batch operation).
-    - Otherwise, it falls back to calling `EnsureAttribute` for each attribute individually.
-  - `DisableIdentity` is idempotent.
-  - Entitlement grant/revoke are idempotent by Kind+Id.
-  - `GetIdentity` creates missing identities on demand (test convenience).
-- **Consistency model:** Strong (in-memory)
-- **Concurrency notes:** Not designed for concurrent mutation across threads/runspaces.
-
-### Error mapping and retry behavior
-
-- **Common error categories:** input validation errors (e.g., missing entitlement id)
-- **Retry strategy:** none (deterministic, in-memory)
-
----
-
-## Observability
-
-- **Events emitted by provider (if any):** none
-- **Sensitive data redaction:** not applicable (no auth material handled)
-
----
-
-## Examples
-
-### Minimal host usage
-
-```powershell
-# 1) Create provider instance
-$provider = New-IdleMockIdentityProvider
-
-# 2) Build provider map
-$providers = @{ Identity = $provider }
-
-# 3) Plan + execute
-$plan = New-IdlePlan -WorkflowPath <path> -Request <request> -Providers $providers
-$result = Invoke-IdlePlan -Plan $plan -Providers $providers
-```
-
-### Example workflow snippet
-
-```powershell
-@{
-  Steps = @(
-    @{
-      Name = 'Ensure department'
-      Type = 'IdLE.Step.EnsureAttributes'
-      With = @{
-        Provider    = 'Identity'
-        IdentityKey = 'user1'
-        Attributes  = @{
-          Department = 'IT'
-        }
-      }
-    }
-  )
-}
-```
-
----
-
-## Limitations and known issues
-
-- Designed for tests and examples only.
-- `GetIdentity` auto-creates missing identities, which may hide "NotFound" scenarios unless tests seed the store explicitly.
-
----
-
-## Testing
-
-- **Unit tests:** `tests/Providers/MockIdentityProvider.Tests.ps1`
-- **Contract tests:** Provider contract tests validate implementation compliance
-- **Known CI constraints:** None (in-memory provider designed for testing)
+- **Values don’t persist across runs**: the Mock provider is in-memory per execution by design.
+- **You need to test real permissions or connectivity**: switch to the real provider (AD/Entra/EXO/DirectorySync) and run in a test environment.
