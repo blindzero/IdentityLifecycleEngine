@@ -27,15 +27,20 @@ Describe 'Capability Deprecation and Migration' {
             }
 
             # Use a real workflow file that uses mailbox steps
-            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1'
+            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver.psd1'
             
             # Verify the workflow file exists
             $wfPath | Should -Exist
 
             $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -DesiredState @{
+                UserPrincipalName = 'testuser@contoso.com'
                 Manager = @{
                     DisplayName = 'IT Support'
                     Mail        = 'support@contoso.com'
+                }
+                ServiceDesk = @{
+                    DisplayName = 'Service Desk'
+                    Mail        = 'servicedesk@contoso.com'
                 }
             }
             $providers = @{ MockProvider = $mockProvider }
@@ -70,12 +75,17 @@ Describe 'Capability Deprecation and Migration' {
             }
 
             # Use a real workflow file
-            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1'
+            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -DesiredState @{
+                UserPrincipalName = 'testuser@contoso.com'
                 Manager = @{
                     DisplayName = 'IT Support'
                     Mail        = 'support@contoso.com'
+                }
+                ServiceDesk = @{
+                    DisplayName = 'Service Desk'
+                    Mail        = 'servicedesk@contoso.com'
                 }
             }
             $providers = @{ MockProvider = $mockProvider }

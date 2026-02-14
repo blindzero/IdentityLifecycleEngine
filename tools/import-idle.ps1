@@ -42,6 +42,16 @@ if (-not $workflowPaths) {
 }
 
 foreach ($wf in $workflowPaths) {
+    # Load the file to check its structure
+    $content = Import-PowerShellDataFile -Path $wf
+    
+    # Skip template library files (with Metadata + Workflow structure)
+    # These are documentation/reference templates, not executable workflows
+    if ($content.ContainsKey('Metadata') -and $content.ContainsKey('Workflow')) {
+        Write-Host "Skipping template library file: $wf" -ForegroundColor Yellow
+        continue
+    }
+    
     Test-IdleWorkflow -WorkflowPath $wf
 }
 
