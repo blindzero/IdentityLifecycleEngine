@@ -205,76 +205,82 @@ Describe 'EntraID identity provider - Contract tests' {
         $script:FakeAdapter = $fakeAdapter
     }
 
-    Invoke-IdleIdentityProviderContractTests -NewProvider {
-        New-IdleEntraIDIdentityProvider -Adapter $script:FakeAdapter
-    }
+    Context 'Contracts' {
+        Invoke-IdleIdentityProviderContractTests -NewProvider {
+            New-IdleEntraIDIdentityProvider -Adapter $script:FakeAdapter
+        }
 
-    Invoke-IdleProviderCapabilitiesContractTests -ProviderFactory {
-        New-IdleEntraIDIdentityProvider -Adapter $script:FakeAdapter
-    }
+        Invoke-IdleProviderCapabilitiesContractTests -ProviderFactory {
+            New-IdleEntraIDIdentityProvider -Adapter $script:FakeAdapter
+        }
 
-    # Note: Generic entitlement contract tests are skipped for EntraID provider because:
-    # - EntraID only supports Kind='Group' (not arbitrary entitlement kinds like 'Contract')
-    # - Generic contract tests use Kind='Contract' which doesn't match EntraID's behavior
-    # - EntraID-specific entitlement tests with Kind='Group' are in the 'EntraID identity provider - Entitlements' context below
+        # Note: Generic entitlement contract tests are skipped for EntraID provider because:
+        # - EntraID only supports Kind='Group' (not arbitrary entitlement kinds like 'Contract')
+        # - Generic contract tests use Kind='Contract' which doesn't match EntraID's behavior
+        # - EntraID-specific entitlement tests with Kind='Group' are in the 'EntraID identity provider - Entitlements' context below
+    }
 }
 
 Describe 'EntraID identity provider - Capabilities' {
-    It 'Advertises expected capabilities by default' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter ([pscustomobject]@{})
-        $caps = $provider.GetCapabilities()
+    Context 'Capabilities' {
+        It 'Advertises expected capabilities by default' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter ([pscustomobject]@{})
+            $caps = $provider.GetCapabilities()
 
-        $caps | Should -Contain 'IdLE.Identity.Read'
-        $caps | Should -Contain 'IdLE.Identity.List'
-        $caps | Should -Contain 'IdLE.Identity.Create'
-        $caps | Should -Contain 'IdLE.Identity.Attribute.Ensure'
-        $caps | Should -Contain 'IdLE.Identity.Disable'
-        $caps | Should -Contain 'IdLE.Identity.Enable'
-        $caps | Should -Contain 'IdLE.Identity.RevokeSessions'
-        $caps | Should -Contain 'IdLE.Entitlement.List'
-        $caps | Should -Contain 'IdLE.Entitlement.Grant'
-        $caps | Should -Contain 'IdLE.Entitlement.Revoke'
-        $caps | Should -Not -Contain 'IdLE.Identity.Delete'
-    }
+            $caps | Should -Contain 'IdLE.Identity.Read'
+            $caps | Should -Contain 'IdLE.Identity.List'
+            $caps | Should -Contain 'IdLE.Identity.Create'
+            $caps | Should -Contain 'IdLE.Identity.Attribute.Ensure'
+            $caps | Should -Contain 'IdLE.Identity.Disable'
+            $caps | Should -Contain 'IdLE.Identity.Enable'
+            $caps | Should -Contain 'IdLE.Identity.RevokeSessions'
+            $caps | Should -Contain 'IdLE.Entitlement.List'
+            $caps | Should -Contain 'IdLE.Entitlement.Grant'
+            $caps | Should -Contain 'IdLE.Entitlement.Revoke'
+            $caps | Should -Not -Contain 'IdLE.Identity.Delete'
+        }
 
-    It 'Advertises Delete capability when AllowDelete is true' {
-        $provider = New-IdleEntraIDIdentityProvider -AllowDelete -Adapter ([pscustomobject]@{})
-        $caps = $provider.GetCapabilities()
+        It 'Advertises Delete capability when AllowDelete is true' {
+            $provider = New-IdleEntraIDIdentityProvider -AllowDelete -Adapter ([pscustomobject]@{})
+            $caps = $provider.GetCapabilities()
 
-        $caps | Should -Contain 'IdLE.Identity.Delete'
-    }
+            $caps | Should -Contain 'IdLE.Identity.Delete'
+        }
 
-    It 'Does not advertise Delete capability when AllowDelete is false' {
-        $provider = New-IdleEntraIDIdentityProvider -AllowDelete:$false -Adapter ([pscustomobject]@{})
-        $caps = $provider.GetCapabilities()
+        It 'Does not advertise Delete capability when AllowDelete is false' {
+            $provider = New-IdleEntraIDIdentityProvider -AllowDelete:$false -Adapter ([pscustomobject]@{})
+            $caps = $provider.GetCapabilities()
 
-        $caps | Should -Not -Contain 'IdLE.Identity.Delete'
+            $caps | Should -Not -Contain 'IdLE.Identity.Delete'
+        }
     }
 }
 
 Describe 'EntraID identity provider - AllowDelete gate' {
-    It 'Throws when Delete is called without AllowDelete' {
-        $fakeAdapter = [pscustomobject]@{ PSTypeName = 'Fake' }
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $fakeAdapter
+    Context 'Guard' {
+        It 'Throws when Delete is called without AllowDelete' {
+            $fakeAdapter = [pscustomobject]@{ PSTypeName = 'Fake' }
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $fakeAdapter
 
-        { $provider.DeleteIdentity('test-id', 'fake-token') } | Should -Throw '*Delete capability is not enabled*'
-    }
-
-    It 'Allows Delete when AllowDelete is true' {
-        $fakeAdapter = [pscustomobject]@{
-            PSTypeName = 'Fake'
-        }
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
-            param($ObjectId, $AccessToken)
-            return $null
+            { $provider.DeleteIdentity('test-id', 'fake-token') } | Should -Throw '*Delete capability is not enabled*'
         }
 
-        $provider = New-IdleEntraIDIdentityProvider -AllowDelete -Adapter $fakeAdapter
+        It 'Allows Delete when AllowDelete is true' {
+            $fakeAdapter = [pscustomobject]@{
+                PSTypeName = 'Fake'
+            }
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+                param($ObjectId, $AccessToken)
+                return $null
+            }
 
-        # Use GUID format, should not throw capability error
-        $userId = [guid]::NewGuid().ToString()
-        $result = $provider.DeleteIdentity($userId, 'fake-token')
-        $result.Changed | Should -BeFalse
+            $provider = New-IdleEntraIDIdentityProvider -AllowDelete -Adapter $fakeAdapter
+
+            # Use GUID format, should not throw capability error
+            $userId = [guid]::NewGuid().ToString()
+            $result = $provider.DeleteIdentity($userId, 'fake-token')
+            $result.Changed | Should -BeFalse
+        }
     }
 }
 
@@ -346,78 +352,80 @@ Describe 'EntraID identity provider - Idempotency' {
         $script:TestAdapter = $fakeAdapter
     }
 
-    It 'CreateIdentity is idempotent - returns Changed=false when user exists' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+    Context 'Idempotency' {
+        It 'CreateIdentity is idempotent - returns Changed=false when user exists' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-        $attrs = @{
-            UserPrincipalName = 'test@test.local'
-            DisplayName       = 'Test User'
+            $attrs = @{
+                UserPrincipalName = 'test@test.local'
+                DisplayName       = 'Test User'
+            }
+
+            $result1 = $provider.CreateIdentity('test@test.local', $attrs, 'fake-token')
+            $result1.Changed | Should -BeTrue
+
+            $userId = $result1.IdentityKey
+
+            # Second create should be idempotent
+            $result2 = $provider.CreateIdentity($userId, $attrs, 'fake-token')
+            $result2.Changed | Should -BeFalse
         }
 
-        $result1 = $provider.CreateIdentity('test@test.local', $attrs, 'fake-token')
-        $result1.Changed | Should -BeTrue
+        It 'DeleteIdentity is idempotent - returns Changed=false when user does not exist' {
+            $provider = New-IdleEntraIDIdentityProvider -AllowDelete -Adapter $script:TestAdapter
 
-        $userId = $result1.IdentityKey
-
-        # Second create should be idempotent
-        $result2 = $provider.CreateIdentity($userId, $attrs, 'fake-token')
-        $result2.Changed | Should -BeFalse
-    }
-
-    It 'DeleteIdentity is idempotent - returns Changed=false when user does not exist' {
-        $provider = New-IdleEntraIDIdentityProvider -AllowDelete -Adapter $script:TestAdapter
-
-        $userId = [guid]::NewGuid().ToString()
-        $result = $provider.DeleteIdentity($userId, 'fake-token')
-        $result.Changed | Should -BeFalse
-    }
-
-    It 'DisableIdentity is idempotent - returns Changed=false when already disabled' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
-
-        $userId = [guid]::NewGuid().ToString()
-        $script:TestAdapter.Store[$userId] = @{
-            id             = $userId
-            accountEnabled = $true
+            $userId = [guid]::NewGuid().ToString()
+            $result = $provider.DeleteIdentity($userId, 'fake-token')
+            $result.Changed | Should -BeFalse
         }
 
-        $result1 = $provider.DisableIdentity($userId, 'fake-token')
-        $result1.Changed | Should -BeTrue
+        It 'DisableIdentity is idempotent - returns Changed=false when already disabled' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-        $result2 = $provider.DisableIdentity($userId, 'fake-token')
-        $result2.Changed | Should -BeFalse
-    }
+            $userId = [guid]::NewGuid().ToString()
+            $script:TestAdapter.Store[$userId] = @{
+                id             = $userId
+                accountEnabled = $true
+            }
 
-    It 'EnableIdentity is idempotent - returns Changed=false when already enabled' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+            $result1 = $provider.DisableIdentity($userId, 'fake-token')
+            $result1.Changed | Should -BeTrue
 
-        $userId = [guid]::NewGuid().ToString()
-        $script:TestAdapter.Store[$userId] = @{
-            id             = $userId
-            accountEnabled = $false
+            $result2 = $provider.DisableIdentity($userId, 'fake-token')
+            $result2.Changed | Should -BeFalse
         }
 
-        $result1 = $provider.EnableIdentity($userId, 'fake-token')
-        $result1.Changed | Should -BeTrue
+        It 'EnableIdentity is idempotent - returns Changed=false when already enabled' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-        $result2 = $provider.EnableIdentity($userId, 'fake-token')
-        $result2.Changed | Should -BeFalse
-    }
+            $userId = [guid]::NewGuid().ToString()
+            $script:TestAdapter.Store[$userId] = @{
+                id             = $userId
+                accountEnabled = $false
+            }
 
-    It 'EnsureAttribute is idempotent - returns Changed=false when value matches' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+            $result1 = $provider.EnableIdentity($userId, 'fake-token')
+            $result1.Changed | Should -BeTrue
 
-        $userId = [guid]::NewGuid().ToString()
-        $script:TestAdapter.Store[$userId] = @{
-            id          = $userId
-            displayName = 'Old Name'
+            $result2 = $provider.EnableIdentity($userId, 'fake-token')
+            $result2.Changed | Should -BeFalse
         }
 
-        $result1 = $provider.EnsureAttribute($userId, 'DisplayName', 'New Name', 'fake-token')
-        $result1.Changed | Should -BeTrue
+        It 'EnsureAttribute is idempotent - returns Changed=false when value matches' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-        $result2 = $provider.EnsureAttribute($userId, 'DisplayName', 'New Name', 'fake-token')
-        $result2.Changed | Should -BeFalse
+            $userId = [guid]::NewGuid().ToString()
+            $script:TestAdapter.Store[$userId] = @{
+                id          = $userId
+                displayName = 'Old Name'
+            }
+
+            $result1 = $provider.EnsureAttribute($userId, 'DisplayName', 'New Name', 'fake-token')
+            $result1.Changed | Should -BeTrue
+
+            $result2 = $provider.EnsureAttribute($userId, 'DisplayName', 'New Name', 'fake-token')
+            $result2.Changed | Should -BeFalse
+        }
     }
 }
 
@@ -441,55 +449,57 @@ Describe 'EntraID identity provider - AuthSession handling' {
         $script:TestAdapter = $fakeAdapter
     }
 
-    It 'Accepts string access token' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+    Context 'AuthSession formats' {
+        It 'Accepts string access token' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-        $userId = [guid]::NewGuid().ToString()
-        $result = $provider.GetIdentity($userId, 'string-token')
-        $script:TestAdapter.LastTokenUsed | Should -Be 'string-token'
-    }
-
-    It 'Accepts object with AccessToken property' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
-
-        $authSession = [pscustomobject]@{
-            AccessToken = 'property-token'
+            $userId = [guid]::NewGuid().ToString()
+            $result = $provider.GetIdentity($userId, 'string-token')
+            $script:TestAdapter.LastTokenUsed | Should -Be 'string-token'
         }
 
-        $userId = [guid]::NewGuid().ToString()
-        $result = $provider.GetIdentity($userId, $authSession)
-        $script:TestAdapter.LastTokenUsed | Should -Be 'property-token'
-    }
+        It 'Accepts object with AccessToken property' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-    It 'Accepts object with GetAccessToken() method' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+            $authSession = [pscustomobject]@{
+                AccessToken = 'property-token'
+            }
 
-        $authSession = [pscustomobject]@{}
-        $authSession | Add-Member -MemberType ScriptMethod -Name GetAccessToken -Value {
-            return 'method-token'
+            $userId = [guid]::NewGuid().ToString()
+            $result = $provider.GetIdentity($userId, $authSession)
+            $script:TestAdapter.LastTokenUsed | Should -Be 'property-token'
         }
 
-        $userId = [guid]::NewGuid().ToString()
-        $result = $provider.GetIdentity($userId, $authSession)
-        $script:TestAdapter.LastTokenUsed | Should -Be 'method-token'
-    }
+        It 'Accepts object with GetAccessToken() method' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-    It 'Allows null AuthSession (for testing)' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+            $authSession = [pscustomobject]@{}
+            $authSession | Add-Member -MemberType ScriptMethod -Name GetAccessToken -Value {
+                return 'method-token'
+            }
 
-        $userId = [guid]::NewGuid().ToString()
-        # Should not throw - will use test token
-        $provider.GetIdentity($userId, $null) | Should -Not -BeNullOrEmpty
-    }
-
-    It 'Throws when AuthSession format is unrecognized' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
-
-        $badSession = [pscustomobject]@{
-            SomeProperty = 'value'
+            $userId = [guid]::NewGuid().ToString()
+            $result = $provider.GetIdentity($userId, $authSession)
+            $script:TestAdapter.LastTokenUsed | Should -Be 'method-token'
         }
 
-        { $provider.GetIdentity('test-id', $badSession) } | Should -Throw '*AuthSession format not recognized*'
+        It 'Allows null AuthSession (for testing)' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+
+            $userId = [guid]::NewGuid().ToString()
+            # Should not throw - will use test token
+            $provider.GetIdentity($userId, $null) | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Throws when AuthSession format is unrecognized' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+
+            $badSession = [pscustomobject]@{
+                SomeProperty = 'value'
+            }
+
+            { $provider.GetIdentity('test-id', $badSession) } | Should -Throw '*AuthSession format not recognized*'
+        }
     }
 }
 
@@ -528,56 +538,58 @@ Describe 'EntraID identity provider - Identity resolution' {
         $script:TestAdapter = $fakeAdapter
     }
 
-    It 'Resolves identity by objectId (GUID)' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+    Context 'Lookups' {
+        It 'Resolves identity by objectId (GUID)' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-        $guid = [guid]::NewGuid().ToString()
-        $script:TestAdapter.Store["id:$guid"] = @{
-            id             = $guid
-            accountEnabled = $true
-            displayName    = "User $guid"
+            $guid = [guid]::NewGuid().ToString()
+            $script:TestAdapter.Store["id:$guid"] = @{
+                id             = $guid
+                accountEnabled = $true
+                displayName    = "User $guid"
+            }
+
+            $result = $provider.GetIdentity($guid, 'fake-token')
+            $result.IdentityKey | Should -Be $guid
         }
 
-        $result = $provider.GetIdentity($guid, 'fake-token')
-        $result.IdentityKey | Should -Be $guid
-    }
+        It 'Resolves identity by UPN' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-    It 'Resolves identity by UPN' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+            $upn = 'test@test.local'
+            $userId = [guid]::NewGuid().ToString()
+            $script:TestAdapter.Store["upn:$upn"] = @{
+                id                = $userId
+                userPrincipalName = $upn
+                accountEnabled    = $true
+                displayName       = "Test User"
+            }
 
-        $upn = 'test@test.local'
-        $userId = [guid]::NewGuid().ToString()
-        $script:TestAdapter.Store["upn:$upn"] = @{
-            id                = $userId
-            userPrincipalName = $upn
-            accountEnabled    = $true
-            displayName       = "Test User"
+            $result = $provider.GetIdentity($upn, 'fake-token')
+            $result.IdentityKey | Should -Be $upn  # Returns original key format
         }
 
-        $result = $provider.GetIdentity($upn, 'fake-token')
-        $result.IdentityKey | Should -Be $upn  # Returns original key format
-    }
+        It 'Falls back to mail when UPN lookup fails' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-    It 'Falls back to mail when UPN lookup fails' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+            $mail = 'test@test.local'
+            $userId = [guid]::NewGuid().ToString()
+            $script:TestAdapter.Store["mail:$mail"] = @{
+                id             = $userId
+                mail           = $mail
+                accountEnabled = $true
+                displayName    = "Test User"
+            }
 
-        $mail = 'test@test.local'
-        $userId = [guid]::NewGuid().ToString()
-        $script:TestAdapter.Store["mail:$mail"] = @{
-            id             = $userId
-            mail           = $mail
-            accountEnabled = $true
-            displayName    = "Test User"
+            $result = $provider.GetIdentity($mail, 'fake-token')
+            $result.IdentityKey | Should -Be $mail  # Returns original key format
         }
 
-        $result = $provider.GetIdentity($mail, 'fake-token')
-        $result.IdentityKey | Should -Be $mail  # Returns original key format
-    }
+        It 'Throws when identity is not found' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-    It 'Throws when identity is not found' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
-
-        { $provider.GetIdentity('nonexistent@test.local', 'fake-token') } | Should -Throw '*not found*'
+            { $provider.GetIdentity('nonexistent@test.local', 'fake-token') } | Should -Throw '*not found*'
+        }
     }
 }
 
@@ -613,26 +625,28 @@ Describe 'EntraID identity provider - Group resolution' {
         $script:TestAdapter = $fakeAdapter
     }
 
-    It 'Resolves group by objectId' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+    Context 'Lookups' {
+        It 'Resolves group by objectId' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-        $groupGuid = [guid]::NewGuid().ToString()
-        $resolvedId = $provider.NormalizeGroupId($groupGuid, 'fake-token')
+            $groupGuid = [guid]::NewGuid().ToString()
+            $resolvedId = $provider.NormalizeGroupId($groupGuid, 'fake-token')
 
-        $resolvedId | Should -Be $groupGuid
-    }
+            $resolvedId | Should -Be $groupGuid
+        }
 
-    It 'Resolves group by displayName' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+        It 'Resolves group by displayName' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-        $resolvedId = $provider.NormalizeGroupId('UniqueGroup', 'fake-token')
-        $resolvedId | Should -Be 'resolved-UniqueGroup'
-    }
+            $resolvedId = $provider.NormalizeGroupId('UniqueGroup', 'fake-token')
+            $resolvedId | Should -Be 'resolved-UniqueGroup'
+        }
 
-    It 'Throws when multiple groups match displayName' {
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
+        It 'Throws when multiple groups match displayName' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-        { $provider.NormalizeGroupId('AmbiguousGroup', 'fake-token') } | Should -Throw '*Multiple groups found*'
+            { $provider.NormalizeGroupId('AmbiguousGroup', 'fake-token') } | Should -Throw '*Multiple groups found*'
+        }
     }
 }
 
@@ -718,83 +732,85 @@ Describe 'EntraID identity provider - Entitlement operations' {
         $script:EntProvider = New-IdleEntraIDIdentityProvider -Adapter $script:EntAdapter
     }
 
-    It 'Exposes required entitlement methods' {
-        $script:EntProvider.PSObject.Methods.Name | Should -Contain 'ListEntitlements'
-        $script:EntProvider.PSObject.Methods.Name | Should -Contain 'GrantEntitlement'
-        $script:EntProvider.PSObject.Methods.Name | Should -Contain 'RevokeEntitlement'
-    }
-
-    It 'GrantEntitlement returns stable result shape with Kind=Group' {
-        $userId = [guid]::NewGuid().ToString()
-        [void]$script:EntProvider.GetIdentity($userId)
-
-        $entitlement = [pscustomobject]@{
-            Kind = 'Group'
-            Id   = [guid]::NewGuid().ToString()
+    Context 'Operations' {
+        It 'Exposes required entitlement methods' {
+            $script:EntProvider.PSObject.Methods.Name | Should -Contain 'ListEntitlements'
+            $script:EntProvider.PSObject.Methods.Name | Should -Contain 'GrantEntitlement'
+            $script:EntProvider.PSObject.Methods.Name | Should -Contain 'RevokeEntitlement'
         }
 
-        $result = $script:EntProvider.GrantEntitlement($userId, $entitlement)
+        It 'GrantEntitlement returns stable result shape with Kind=Group' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
 
-        $result | Should -Not -BeNullOrEmpty
-        $result.PSObject.Properties.Name | Should -Contain 'Changed'
-        $result.PSObject.Properties.Name | Should -Contain 'IdentityKey'
-        $result.PSObject.Properties.Name | Should -Contain 'Entitlement'
-        $result.Entitlement.Kind | Should -Be 'Group'
-    }
+            $entitlement = [pscustomobject]@{
+                Kind = 'Group'
+                Id   = [guid]::NewGuid().ToString()
+            }
 
-    It 'GrantEntitlement is idempotent with Kind=Group' {
-        $userId = [guid]::NewGuid().ToString()
-        [void]$script:EntProvider.GetIdentity($userId)
+            $result = $script:EntProvider.GrantEntitlement($userId, $entitlement)
 
-        $entitlement = [pscustomobject]@{
-            Kind = 'Group'
-            Id   = [guid]::NewGuid().ToString()
+            $result | Should -Not -BeNullOrEmpty
+            $result.PSObject.Properties.Name | Should -Contain 'Changed'
+            $result.PSObject.Properties.Name | Should -Contain 'IdentityKey'
+            $result.PSObject.Properties.Name | Should -Contain 'Entitlement'
+            $result.Entitlement.Kind | Should -Be 'Group'
         }
 
-        $result1 = $script:EntProvider.GrantEntitlement($userId, $entitlement)
-        $result1.Changed | Should -Be $true
+        It 'GrantEntitlement is idempotent with Kind=Group' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
 
-        $result2 = $script:EntProvider.GrantEntitlement($userId, $entitlement)
-        $result2.Changed | Should -Be $false
-    }
+            $entitlement = [pscustomobject]@{
+                Kind = 'Group'
+                Id   = [guid]::NewGuid().ToString()
+            }
 
-    It 'RevokeEntitlement is idempotent (after a grant) with Kind=Group' {
-        $userId = [guid]::NewGuid().ToString()
-        [void]$script:EntProvider.GetIdentity($userId)
+            $result1 = $script:EntProvider.GrantEntitlement($userId, $entitlement)
+            $result1.Changed | Should -Be $true
 
-        $entitlement = [pscustomobject]@{
-            Kind = 'Group'
-            Id   = [guid]::NewGuid().ToString()
+            $result2 = $script:EntProvider.GrantEntitlement($userId, $entitlement)
+            $result2.Changed | Should -Be $false
         }
 
-        [void]$script:EntProvider.GrantEntitlement($userId, $entitlement)
+        It 'RevokeEntitlement is idempotent (after a grant) with Kind=Group' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
 
-        $result1 = $script:EntProvider.RevokeEntitlement($userId, $entitlement)
-        $result1.Changed | Should -Be $true
+            $entitlement = [pscustomobject]@{
+                Kind = 'Group'
+                Id   = [guid]::NewGuid().ToString()
+            }
 
-        $result2 = $script:EntProvider.RevokeEntitlement($userId, $entitlement)
-        $result2.Changed | Should -Be $false
-    }
+            [void]$script:EntProvider.GrantEntitlement($userId, $entitlement)
 
-    It 'ListEntitlements reflects grant and revoke operations with Kind=Group' {
-        $userId = [guid]::NewGuid().ToString()
-        [void]$script:EntProvider.GetIdentity($userId)
+            $result1 = $script:EntProvider.RevokeEntitlement($userId, $entitlement)
+            $result1.Changed | Should -Be $true
 
-        $entitlement = [pscustomobject]@{
-            Kind = 'Group'
-            Id   = [guid]::NewGuid().ToString()
+            $result2 = $script:EntProvider.RevokeEntitlement($userId, $entitlement)
+            $result2.Changed | Should -Be $false
         }
 
-        $before = @($script:EntProvider.ListEntitlements($userId))
+        It 'ListEntitlements reflects grant and revoke operations with Kind=Group' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
 
-        [void]$script:EntProvider.GrantEntitlement($userId, $entitlement)
-        $afterGrant = @($script:EntProvider.ListEntitlements($userId))
+            $entitlement = [pscustomobject]@{
+                Kind = 'Group'
+                Id   = [guid]::NewGuid().ToString()
+            }
 
-        [void]$script:EntProvider.RevokeEntitlement($userId, $entitlement)
-        $afterRevoke = @($script:EntProvider.ListEntitlements($userId))
+            $before = @($script:EntProvider.ListEntitlements($userId))
 
-        @($afterGrant | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
-        @($afterRevoke | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
+            [void]$script:EntProvider.GrantEntitlement($userId, $entitlement)
+            $afterGrant = @($script:EntProvider.ListEntitlements($userId))
+
+            [void]$script:EntProvider.RevokeEntitlement($userId, $entitlement)
+            $afterRevoke = @($script:EntProvider.ListEntitlements($userId))
+
+            @($afterGrant | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
+            @($afterRevoke | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
+        }
     }
 }
 
@@ -856,89 +872,91 @@ Describe 'EntraID identity provider - RevokeSessions' {
         $script:RevokeProvider = New-IdleEntraIDIdentityProvider -Adapter $script:RevokeAdapter
     }
 
-    It 'Advertises IdLE.Identity.RevokeSessions capability' {
-        $caps = $script:RevokeProvider.GetCapabilities()
-        $caps | Should -Contain 'IdLE.Identity.RevokeSessions'
-    }
-
-    It 'Exposes RevokeSessions method' {
-        $script:RevokeProvider.PSObject.Methods.Name | Should -Contain 'RevokeSessions'
-    }
-
-    It 'RevokeSessions calls adapter with correct user ID' {
-        $userId = [guid]::NewGuid().ToString()
-        $script:RevokeAdapter.RevocationCallLog = @()
-        
-        $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
-        
-        $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
-        $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be $userId
-    }
-
-    It 'RevokeSessions returns ProviderResult with correct shape' {
-        $userId = [guid]::NewGuid().ToString()
-        
-        $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
-        
-        $result | Should -Not -BeNullOrEmpty
-        $result.PSObject.TypeNames[0] | Should -Be 'IdLE.ProviderResult'
-        $result.Operation | Should -Be 'RevokeSessions'
-        $result.IdentityKey | Should -Be $userId
-        $result.PSObject.Properties.Name | Should -Contain 'Changed'
-    }
-
-    It 'RevokeSessions reports Changed=true when Graph returns value=true' {
-        $userId = [guid]::NewGuid().ToString()
-        $script:RevokeAdapter.RevocationResponses[$userId] = [pscustomobject]@{
-            value = $true
+    Context 'Operations' {
+        It 'Advertises IdLE.Identity.RevokeSessions capability' {
+            $caps = $script:RevokeProvider.GetCapabilities()
+            $caps | Should -Contain 'IdLE.Identity.RevokeSessions'
         }
-        
-        $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
-        
-        $result.Changed | Should -Be $true
-    }
 
-    It 'RevokeSessions reports Changed=false when Graph returns value=false' {
-        $userId = [guid]::NewGuid().ToString()
-        $script:RevokeAdapter.RevocationResponses[$userId] = [pscustomobject]@{
-            value = $false
+        It 'Exposes RevokeSessions method' {
+            $script:RevokeProvider.PSObject.Methods.Name | Should -Contain 'RevokeSessions'
         }
-        
-        $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
-        
-        $result.Changed | Should -Be $false
-    }
 
-    It 'RevokeSessions resolves identity by UPN' {
-        $upn = 'test.user@contoso.com'
-        $script:RevokeAdapter.RevocationCallLog = @()
-        
-        $result = $script:RevokeProvider.RevokeSessions($upn, 'fake-token')
-        
-        $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
-        $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be 'test-user-id'
-    }
-
-    It 'RevokeSessions resolves identity by mail' {
-        $mail = 'test.user@contoso.com'
-        $script:RevokeAdapter.RevocationCallLog = @()
-        
-        $result = $script:RevokeProvider.RevokeSessions($mail, 'fake-token')
-        
-        $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
-        $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be 'test-user-id'
-    }
-
-    It 'RevokeSessions accepts AuthSession object' {
-        $userId = [guid]::NewGuid().ToString()
-        $authSession = [pscustomobject]@{
-            AccessToken = 'session-token'
+        It 'RevokeSessions calls adapter with correct user ID' {
+            $userId = [guid]::NewGuid().ToString()
+            $script:RevokeAdapter.RevocationCallLog = @()
+            
+            $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+            
+            $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
+            $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be $userId
         }
-        
-        $result = $script:RevokeProvider.RevokeSessions($userId, $authSession)
-        
-        $result | Should -Not -BeNullOrEmpty
-        $result.Operation | Should -Be 'RevokeSessions'
+
+        It 'RevokeSessions returns ProviderResult with correct shape' {
+            $userId = [guid]::NewGuid().ToString()
+            
+            $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+            
+            $result | Should -Not -BeNullOrEmpty
+            $result.PSObject.TypeNames[0] | Should -Be 'IdLE.ProviderResult'
+            $result.Operation | Should -Be 'RevokeSessions'
+            $result.IdentityKey | Should -Be $userId
+            $result.PSObject.Properties.Name | Should -Contain 'Changed'
+        }
+
+        It 'RevokeSessions reports Changed=true when Graph returns value=true' {
+            $userId = [guid]::NewGuid().ToString()
+            $script:RevokeAdapter.RevocationResponses[$userId] = [pscustomobject]@{
+                value = $true
+            }
+            
+            $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+            
+            $result.Changed | Should -Be $true
+        }
+
+        It 'RevokeSessions reports Changed=false when Graph returns value=false' {
+            $userId = [guid]::NewGuid().ToString()
+            $script:RevokeAdapter.RevocationResponses[$userId] = [pscustomobject]@{
+                value = $false
+            }
+            
+            $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+            
+            $result.Changed | Should -Be $false
+        }
+
+        It 'RevokeSessions resolves identity by UPN' {
+            $upn = 'test.user@contoso.com'
+            $script:RevokeAdapter.RevocationCallLog = @()
+            
+            $result = $script:RevokeProvider.RevokeSessions($upn, 'fake-token')
+            
+            $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
+            $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be 'test-user-id'
+        }
+
+        It 'RevokeSessions resolves identity by mail' {
+            $mail = 'test.user@contoso.com'
+            $script:RevokeAdapter.RevocationCallLog = @()
+            
+            $result = $script:RevokeProvider.RevokeSessions($mail, 'fake-token')
+            
+            $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
+            $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be 'test-user-id'
+        }
+
+        It 'RevokeSessions accepts AuthSession object' {
+            $userId = [guid]::NewGuid().ToString()
+            $authSession = [pscustomobject]@{
+                AccessToken = 'session-token'
+            }
+            
+            $result = $script:RevokeProvider.RevokeSessions($userId, $authSession)
+            
+            $result | Should -Not -BeNullOrEmpty
+            $result.Operation | Should -Be 'RevokeSessions'
+        }
     }
 }
 
@@ -986,118 +1004,120 @@ Describe 'EntraID identity provider - Password generation' {
         $script:PasswordTestAdapter = $fakeAdapter
     }
 
-    It 'Generates password when no PasswordProfile is provided' {
-        $attrs = @{
-            UserPrincipalName = 'newuser@contoso.com'
-            DisplayName = 'New User'
-        }
-
-        $result = $script:PasswordTestProvider.CreateIdentity('newuser@contoso.com', $attrs, 'fake-token')
-        
-        # Verify password was generated
-        $result.PasswordGenerated | Should -BeTrue
-        $result.GeneratedAccountPasswordProtected | Should -Not -BeNullOrEmpty
-        $result.PasswordGenerationMethod | Should -Be 'GUID'
-    }
-
-    It 'Does not include plaintext password by default' {
-        $attrs = @{
-            UserPrincipalName = 'user@contoso.com'
-            DisplayName = 'User'
-        }
-
-        $result = $script:PasswordTestProvider.CreateIdentity('user@contoso.com', $attrs, 'fake-token')
-        
-        # Verify plaintext password is not included
-        $result.PSObject.Properties.Name | Should -Not -Contain 'GeneratedAccountPasswordPlainText'
-    }
-
-    It 'Includes plaintext password when AllowPlainTextPasswordOutput is true' {
-        $attrs = @{
-            UserPrincipalName = 'user2@contoso.com'
-            DisplayName = 'User 2'
-            AllowPlainTextPasswordOutput = $true
-        }
-
-        $result = $script:PasswordTestProvider.CreateIdentity('user2@contoso.com', $attrs, 'fake-token')
-        
-        # Verify plaintext password is included
-        $result.GeneratedAccountPasswordPlainText | Should -Not -BeNullOrEmpty
-        $result.GeneratedAccountPasswordPlainText | Should -BeOfType [string]
-        
-        # Verify it's a GUID format
-        { [guid]::Parse($result.GeneratedAccountPasswordPlainText) } | Should -Not -Throw
-    }
-
-    It 'Does not generate password when PasswordProfile is provided' {
-        $attrs = @{
-            UserPrincipalName = 'user3@contoso.com'
-            DisplayName = 'User 3'
-            PasswordProfile = @{
-                password = 'Explicit@Pass123!'
-                forceChangePasswordNextSignIn = $true
+    Context 'Password generation' {
+        It 'Generates password when no PasswordProfile is provided' {
+            $attrs = @{
+                UserPrincipalName = 'newuser@contoso.com'
+                DisplayName = 'New User'
             }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('newuser@contoso.com', $attrs, 'fake-token')
+            
+            # Verify password was generated
+            $result.PasswordGenerated | Should -BeTrue
+            $result.GeneratedAccountPasswordProtected | Should -Not -BeNullOrEmpty
+            $result.PasswordGenerationMethod | Should -Be 'GUID'
         }
 
-        $result = $script:PasswordTestProvider.CreateIdentity('user3@contoso.com', $attrs, 'fake-token')
-        
-        # Verify password was not generated (explicit password provided)
-        $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
-    }
+        It 'Does not include plaintext password by default' {
+            $attrs = @{
+                UserPrincipalName = 'user@contoso.com'
+                DisplayName = 'User'
+            }
 
-    It 'Sets forceChangePasswordNextSignIn to true by default' {
-        $attrs = @{
-            UserPrincipalName = 'user4@contoso.com'
-            DisplayName = 'User 4'
+            $result = $script:PasswordTestProvider.CreateIdentity('user@contoso.com', $attrs, 'fake-token')
+            
+            # Verify plaintext password is not included
+            $result.PSObject.Properties.Name | Should -Not -Contain 'GeneratedAccountPasswordPlainText'
         }
 
-        $result = $script:PasswordTestProvider.CreateIdentity('user4@contoso.com', $attrs, 'fake-token')
-        
-        # Verify the payload sent to adapter
-        $script:PasswordTestAdapter.LastCreatePayload.passwordProfile.forceChangePasswordNextSignIn | Should -BeTrue
-    }
+        It 'Includes plaintext password when AllowPlainTextPasswordOutput is true' {
+            $attrs = @{
+                UserPrincipalName = 'user2@contoso.com'
+                DisplayName = 'User 2'
+                AllowPlainTextPasswordOutput = $true
+            }
 
-    It 'Allows ForceChangePasswordNextSignIn to be set to false' {
-        $attrs = @{
-            UserPrincipalName = 'serviceaccount@contoso.com'
-            DisplayName = 'Service Account'
-            ForceChangePasswordNextSignIn = $false
+            $result = $script:PasswordTestProvider.CreateIdentity('user2@contoso.com', $attrs, 'fake-token')
+            
+            # Verify plaintext password is included
+            $result.GeneratedAccountPasswordPlainText | Should -Not -BeNullOrEmpty
+            $result.GeneratedAccountPasswordPlainText | Should -BeOfType [string]
+            
+            # Verify it's a GUID format
+            { [guid]::Parse($result.GeneratedAccountPasswordPlainText) } | Should -Not -Throw
         }
 
-        $result = $script:PasswordTestProvider.CreateIdentity('serviceaccount@contoso.com', $attrs, 'fake-token')
-        
-        # Verify the payload sent to adapter
-        $script:PasswordTestAdapter.LastCreatePayload.passwordProfile.forceChangePasswordNextSignIn | Should -BeFalse
-    }
+        It 'Does not generate password when PasswordProfile is provided' {
+            $attrs = @{
+                UserPrincipalName = 'user3@contoso.com'
+                DisplayName = 'User 3'
+                PasswordProfile = @{
+                    password = 'Explicit@Pass123!'
+                    forceChangePasswordNextSignIn = $true
+                }
+            }
 
-    It 'Generated password can be revealed using ProtectedString' {
-        $attrs = @{
-            UserPrincipalName = 'user5@contoso.com'
-            DisplayName = 'User 5'
+            $result = $script:PasswordTestProvider.CreateIdentity('user3@contoso.com', $attrs, 'fake-token')
+            
+            # Verify password was not generated (explicit password provided)
+            $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
         }
 
-        $result = $script:PasswordTestProvider.CreateIdentity('user5@contoso.com', $attrs, 'fake-token')
-        
-        # Verify ProtectedString can be converted back to SecureString
-        $protectedString = $result.GeneratedAccountPasswordProtected
-        { ConvertTo-SecureString -String $protectedString } | Should -Not -Throw
-        
-        # Verify conversion works
-        $secure = ConvertTo-SecureString -String $protectedString
-        $secure | Should -BeOfType [securestring]
-    }
+        It 'Sets forceChangePasswordNextSignIn to true by default' {
+            $attrs = @{
+                UserPrincipalName = 'user4@contoso.com'
+                DisplayName = 'User 4'
+            }
 
-    It 'Generated password is a valid GUID' {
-        $attrs = @{
-            UserPrincipalName = 'user6@contoso.com'
-            DisplayName = 'User 6'
-            AllowPlainTextPasswordOutput = $true
+            $result = $script:PasswordTestProvider.CreateIdentity('user4@contoso.com', $attrs, 'fake-token')
+            
+            # Verify the payload sent to adapter
+            $script:PasswordTestAdapter.LastCreatePayload.passwordProfile.forceChangePasswordNextSignIn | Should -BeTrue
         }
 
-        $result = $script:PasswordTestProvider.CreateIdentity('user6@contoso.com', $attrs, 'fake-token')
-        
-        # Verify the generated password is a valid GUID
-        $plainPwd = $result.GeneratedAccountPasswordPlainText
-        { [guid]::Parse($plainPwd) } | Should -Not -Throw
+        It 'Allows ForceChangePasswordNextSignIn to be set to false' {
+            $attrs = @{
+                UserPrincipalName = 'serviceaccount@contoso.com'
+                DisplayName = 'Service Account'
+                ForceChangePasswordNextSignIn = $false
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('serviceaccount@contoso.com', $attrs, 'fake-token')
+            
+            # Verify the payload sent to adapter
+            $script:PasswordTestAdapter.LastCreatePayload.passwordProfile.forceChangePasswordNextSignIn | Should -BeFalse
+        }
+
+        It 'Generated password can be revealed using ProtectedString' {
+            $attrs = @{
+                UserPrincipalName = 'user5@contoso.com'
+                DisplayName = 'User 5'
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('user5@contoso.com', $attrs, 'fake-token')
+            
+            # Verify ProtectedString can be converted back to SecureString
+            $protectedString = $result.GeneratedAccountPasswordProtected
+            { ConvertTo-SecureString -String $protectedString } | Should -Not -Throw
+            
+            # Verify conversion works
+            $secure = ConvertTo-SecureString -String $protectedString
+            $secure | Should -BeOfType [securestring]
+        }
+
+        It 'Generated password is a valid GUID' {
+            $attrs = @{
+                UserPrincipalName = 'user6@contoso.com'
+                DisplayName = 'User 6'
+                AllowPlainTextPasswordOutput = $true
+            }
+
+            $result = $script:PasswordTestProvider.CreateIdentity('user6@contoso.com', $attrs, 'fake-token')
+            
+            # Verify the generated password is a valid GUID
+            $plainPwd = $result.GeneratedAccountPasswordPlainText
+            { [guid]::Parse($plainPwd) } | Should -Not -Throw
+        }
     }
 }

@@ -3,20 +3,27 @@ Set-StrictMode -Version Latest
 BeforeDiscovery {
     . (Join-Path -Path $PSScriptRoot -ChildPath '..\_testHelpers.ps1')
     Import-IdleTestModule
-
-    $testsRoot = Split-Path -Path $PSScriptRoot -Parent
-    $repoRoot = Split-Path -Path $testsRoot -Parent
-
-    # Import ExchangeOnline provider
-    $exoModulePath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\IdLE.Provider.ExchangeOnline.psm1'
-    if (-not (Test-Path -LiteralPath $exoModulePath -PathType Leaf)) {
-        throw "ExchangeOnline provider module not found at: $exoModulePath"
-    }
-    Import-Module $exoModulePath -Force
 }
 
 Describe 'ExchangeOnline provider - Unit tests' {
     BeforeAll {
+        $testsRoot = Split-Path -Path $PSScriptRoot -Parent
+        $repoRoot = Split-Path -Path $testsRoot -Parent
+        $modulePath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\IdLE.Provider.ExchangeOnline.psm1'
+        if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+            throw "ExchangeOnline provider module not found at: $modulePath"
+        }
+        Import-Module $modulePath -Force
+
+        Mock -ModuleName 'IdLE.Provider.ExchangeOnline' -CommandName Test-IdleExchangeOnlinePrerequisites -MockWith {
+            [pscustomobject]@{
+                PSTypeName      = 'IdLE.PrerequisitesResult'
+                IsHealthy       = $true
+                MissingRequired = @()
+                Notes           = @()
+            }
+        }
+
         # Create a fake adapter for tests
         $fakeAdapter = [pscustomobject]@{
             PSTypeName = 'IdLE.ExchangeOnlineAdapter.Fake'
