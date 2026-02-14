@@ -17,7 +17,7 @@ function Get-IdlePropertyValue {
     }
 
     if ($Object -is [System.Collections.IDictionary]) {
-        if ($Object.ContainsKey($Name)) {
+        if ($Object.Contains($Name)) {
             return $Object[$Name]
         }
         return $null
