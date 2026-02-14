@@ -1,9 +1,11 @@
+Set-StrictMode -Version Latest
+
 BeforeAll {
-    $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
-    $idlePsd1 = Join-Path $repoRoot 'src\IdLE\IdLE.psd1'
-    $corePsd1 = Join-Path $repoRoot 'src\IdLE.Core\IdLE.Core.psd1'
-    $stepsPsd1 = Join-Path $repoRoot 'src\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
-    $providerMockPsd1 = Join-Path $repoRoot 'src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1'
+    $script:RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
+    $script:IdlePsd1 = Join-Path $script:RepoRoot 'src\IdLE\IdLE.psd1'
+    $script:CorePsd1 = Join-Path $script:RepoRoot 'src\IdLE.Core\IdLE.Core.psd1'
+    $script:StepsPsd1 = Join-Path $script:RepoRoot 'src\IdLE.Steps.Common\IdLE.Steps.Common.psd1'
+    $script:ProviderMockPsd1 = Join-Path $script:RepoRoot 'src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1'
 
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
@@ -38,38 +40,42 @@ AfterAll {
 }
 
 Describe 'Module manifests and public surface' {
+    Context 'Manifest validation' {
+        It 'IdLE manifest is valid' {
+            { Test-ModuleManifest -Path $script:IdlePsd1 -ErrorAction Stop } | Should -Not -Throw
+        }
 
-    It 'IdLE manifest is valid' {
-        { Test-ModuleManifest -Path $idlePsd1 -ErrorAction Stop } | Should -Not -Throw
+        It 'IdLE.Core manifest is valid' {
+            { Test-ModuleManifest -Path $script:CorePsd1 -ErrorAction Stop } | Should -Not -Throw
+        }
     }
 
-    It 'IdLE.Core manifest is valid' {
-        { Test-ModuleManifest -Path $corePsd1 -ErrorAction Stop } | Should -Not -Throw
+    Context 'Public commands' {
+        It 'IdLE exports only the intended public commands' {
+            Remove-Module IdLE -Force -ErrorAction SilentlyContinue
+            Import-Module $script:IdlePsd1 -Force -ErrorAction Stop
+
+            $expected = @(
+                'Invoke-IdlePlan'
+                'New-IdleAuthSession'
+                'New-IdleRequest'
+                'New-IdlePlan'
+                'Test-IdleWorkflow'
+                'Export-IdlePlan'
+            ) | Sort-Object
+
+            $actual = (Get-Command -Module IdLE).Name | Sort-Object
+            $actual | Should -Be $expected
+        }
     }
 
-    It 'IdLE exports only the intended public commands' {
-        Remove-Module IdLE -Force -ErrorAction SilentlyContinue
-        Import-Module $idlePsd1 -Force -ErrorAction Stop
+    Context 'Execution result contract' {
+        It 'Invoke-IdlePlan returns a public execution result that includes an OnFailure section' {
+            Remove-Module IdLE -Force -ErrorAction SilentlyContinue
+            Import-Module $script:IdlePsd1 -Force -ErrorAction Stop
 
-        $expected = @(
-            'Invoke-IdlePlan'
-            'New-IdleAuthSession'
-            'New-IdleRequest'
-            'New-IdlePlan'
-            'Test-IdleWorkflow'
-            'Export-IdlePlan'
-        ) | Sort-Object
-
-        $actual = (Get-Command -Module IdLE).Name | Sort-Object
-        $actual | Should -Be $expected
-    }
-
-    It 'Invoke-IdlePlan returns a public execution result that includes an OnFailure section' {
-        Remove-Module IdLE -Force -ErrorAction SilentlyContinue
-        Import-Module $idlePsd1 -Force -ErrorAction Stop
-
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'surface-onfailure.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+            $wfPath = Join-Path -Path $TestDrive -ChildPath 'surface-onfailure.psd1'
+            Set-Content -Path $wfPath -Encoding UTF8 -Value @'
 @{
   Name           = 'Surface - OnFailure Contract'
   LifecycleEvent = 'Joiner'
@@ -81,127 +87,130 @@ Describe 'Module manifests and public surface' {
   )
 }
 '@
+            $req  = New-IdleRequest -LifecycleEvent 'Joiner'
 
-        $req  = New-IdleRequest -LifecycleEvent 'Joiner'
-
-        $providers = @{
-            StepRegistry = @{
-                'IdLE.Step.Primary'     = 'Invoke-IdleSurfaceTestNoopStep'
-                'IdLE.Step.Containment' = 'Invoke-IdleSurfaceTestNoopStep'
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Primary'     = 'Invoke-IdleSurfaceTestNoopStep'
+                    'IdLE.Step.Containment' = 'Invoke-IdleSurfaceTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Primary', 'IdLE.Step.Containment')
             }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Primary', 'IdLE.Step.Containment')
-        }
-        
-        $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+            
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
-        $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
-        $result | Should -Not -BeNullOrEmpty
-        $result.PSTypeNames | Should -Contain 'IdLE.ExecutionResult'
-        $result.Status | Should -Be 'Completed'
+            $result | Should -Not -BeNullOrEmpty
+            $result.PSTypeNames | Should -Contain 'IdLE.ExecutionResult'
+            $result.Status | Should -Be 'Completed'
 
-        # Public result contract: the OnFailure section is always present.
-        $result.PSObject.Properties.Name | Should -Contain 'OnFailure'
-        $result.OnFailure.PSTypeNames | Should -Contain 'IdLE.OnFailureExecutionResult'
-        $result.OnFailure.Status | Should -Be 'NotRun'
-        @($result.OnFailure.Steps).Count | Should -Be 0
+            $result.PSObject.Properties.Name | Should -Contain 'OnFailure'
+            $result.OnFailure.PSTypeNames | Should -Contain 'IdLE.OnFailureExecutionResult'
+            $result.OnFailure.Status | Should -Be 'NotRun'
+            @($result.OnFailure.Steps).Count | Should -Be 0
 
-        # Successful runs must not emit OnFailure events.
-        @($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
-    }
-
-    It 'Importing IdLE makes built-in steps available to the engine' {
-        # Remove ALL IdLE modules to ensure clean state (other tests may have imported them)
-        Get-Module -All IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
-        
-        # Also explicitly remove commands that may have been exported in previous tests
-        Remove-Item Function:\Invoke-IdleStepEmitEvent -Force -ErrorAction SilentlyContinue
-        Remove-Item Function:\Invoke-IdleStepEnsureAttribute -Force -ErrorAction SilentlyContinue
-        Remove-Item Function:\Invoke-IdleStepEnsureEntitlement -Force -ErrorAction SilentlyContinue
-        Remove-Item Function:\New-IdlePlanObject -Force -ErrorAction SilentlyContinue
-        Remove-Item Function:\Invoke-IdlePlanObject -Force -ErrorAction SilentlyContinue
-        
-        Import-Module $idlePsd1 -Force -ErrorAction Stop
-
-        # NOTE: In repo/zip layouts, PSModulePath bootstrap causes NestedModules to resolve
-        # via PSModulePath, which exports them globally. This is a known limitation/tradeoff
-        # to enable name-based imports of providers and optional steps after IdLE import.
-        # In published PSGallery packages, RequiredModules are used instead, maintaining proper scope.
-        #
-        # The step registry supports both:
-        # - Global commands: 'Invoke-IdleStepEmitEvent' (repo/zip with PSModulePath bootstrap)
-        # - Module-qualified: 'IdLE.Steps.Common\Invoke-IdleStepEmitEvent' (nested modules without global export)
-        #
-        # Both formats work correctly - the engine can invoke either unqualified or module-qualified handlers.
-
-        # Verify engine discovery works and step handlers are registered
-        InModuleScope IdLE.Core {
-            $registry = Get-IdleStepRegistry -Providers $null
-
-            $registry.ContainsKey('IdLE.Step.EmitEvent') | Should -BeTrue
-            # Accept both unqualified (global export) and module-qualified (nested) formats
-            $registry['IdLE.Step.EmitEvent'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEmitEvent$'
-
-            $registry.ContainsKey('IdLE.Step.EnsureAttributes') | Should -BeTrue
-            $registry['IdLE.Step.EnsureAttributes'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEnsureAttributes$'
-
-            $registry.ContainsKey('IdLE.Step.EnsureEntitlement') | Should -BeTrue
-            $registry['IdLE.Step.EnsureEntitlement'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEnsureEntitlement$'
+            @($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
         }
     }
 
-    It 'IdLE imports IdLE.Core successfully' {
-        # Remove ALL IdLE modules to ensure clean state (other tests may have imported them)
-        Get-Module -All IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
-        
-        # Also explicitly remove commands that may have been exported in previous tests
-        Remove-Item Function:\New-IdlePlanObject -Force -ErrorAction SilentlyContinue
-        Remove-Item Function:\Invoke-IdlePlanObject -Force -ErrorAction SilentlyContinue
-        Remove-Item Function:\Invoke-IdleStepEmitEvent -Force -ErrorAction SilentlyContinue
-        Remove-Item Function:\Invoke-IdleStepEnsureAttribute -Force -ErrorAction SilentlyContinue
-        
-        Import-Module $idlePsd1 -Force -ErrorAction Stop
+    Context 'Step registry bootstrap' {
+        It 'Importing IdLE makes built-in steps available to the engine' {
+            # Remove ALL IdLE modules to ensure clean state (other tests may have imported them)
+            Get-Module -All IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
+            
+            # Also explicitly remove commands that may have been exported in previous tests
+            Remove-Item Function:\Invoke-IdleStepEmitEvent -Force -ErrorAction SilentlyContinue
+            Remove-Item Function:\Invoke-IdleStepEnsureAttribute -Force -ErrorAction SilentlyContinue
+            Remove-Item Function:\Invoke-IdleStepEnsureEntitlement -Force -ErrorAction SilentlyContinue
+            Remove-Item Function:\New-IdlePlanObject -Force -ErrorAction SilentlyContinue
+            Remove-Item Function:\Invoke-IdlePlanObject -Force -ErrorAction SilentlyContinue
+            
+            Import-Module $script:IdlePsd1 -Force -ErrorAction Stop
 
-        # NOTE: In repo/zip layouts, PSModulePath bootstrap causes NestedModules to resolve
-        # via PSModulePath, which exports them globally. This is a known limitation/tradeoff.
-        # In published PSGallery packages, RequiredModules maintain proper scope.
-        #
-        # Verify IdLE.Core is loaded and accessible (use -All to catch nested modules)
-        $coreModule = Get-Module -All IdLE.Core
-        $coreModule | Should -Not -BeNullOrEmpty
-    }
+            # NOTE: In repo/zip layouts, PSModulePath bootstrap causes NestedModules to resolve
+            # via PSModulePath, which exports them globally. This is a known limitation/tradeoff
+            # to enable name-based imports of providers and optional steps after IdLE import.
+            # In published PSGallery packages, RequiredModules are used instead, maintaining proper scope.
+            #
+            # The step registry supports both:
+            # - Global commands: 'Invoke-IdleStepEmitEvent' (repo/zip with PSModulePath bootstrap)
+            # - Module-qualified: 'IdLE.Steps.Common\Invoke-IdleStepEmitEvent' (nested modules without global export)
+            #
+            # Both formats work correctly - the engine can invoke either unqualified or module-qualified handlers.
 
-    It 'IdLE module imports IdLE.Core and IdLE.Steps.Common via bootstrap' {
-        Remove-Module IdLE -Force -ErrorAction SilentlyContinue
-        Import-Module $idlePsd1 -Force -ErrorAction Stop
+            # Verify engine discovery works and step handlers are registered
+            InModuleScope IdLE.Core {
+                $registry = Get-IdleStepRegistry -Providers $null
 
-        $idle = Get-Module IdLE
-        $idle | Should -Not -BeNullOrEmpty
+                $registry.ContainsKey('IdLE.Step.EmitEvent') | Should -BeTrue
+                # Accept both unqualified (global export) and module-qualified (nested) formats
+                $registry['IdLE.Step.EmitEvent'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEmitEvent$'
 
-        # With the new name-based import approach, IdLE.Core and IdLE.Steps.Common
-        # are imported by IdLE.psm1 bootstrap logic, not via NestedModules in manifest.
-        # Verify they are loaded and accessible to the engine.
-        # Note: They may appear in Get-Module -All depending on import scope.
-        
-        # The key validation is that IdLE public commands work (which depend on Core)
-        $publicCommands = (Get-Command -Module IdLE).Name
-        $publicCommands | Should -Contain 'New-IdlePlan'
-        $publicCommands | Should -Contain 'Invoke-IdlePlan'
-        
-        # And that the engine can discover built-in steps
-        InModuleScope IdLE.Core {
-            $registry = Get-IdleStepRegistry -Providers $null
-            $registry.ContainsKey('IdLE.Step.EmitEvent') | Should -BeTrue
+                $registry.ContainsKey('IdLE.Step.EnsureAttributes') | Should -BeTrue
+                $registry['IdLE.Step.EnsureAttributes'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEnsureAttributes$'
+
+                $registry.ContainsKey('IdLE.Step.EnsureEntitlement') | Should -BeTrue
+                $registry['IdLE.Step.EnsureEntitlement'] | Should -Match '^(IdLE\.Steps\.Common\\)?Invoke-IdleStepEnsureEntitlement$'
+            }
         }
     }
 
-    It 'IdLE auto-imports only baseline modules (Core and Steps.Common), not optional modules' {
+    Context 'Module imports' {
+        It 'IdLE imports IdLE.Core successfully' {
+            # Remove ALL IdLE modules to ensure clean state (other tests may have imported them)
+            Get-Module -All IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
+            
+            # Also explicitly remove commands that may have been exported in previous tests
+            Remove-Item Function:\New-IdlePlanObject -Force -ErrorAction SilentlyContinue
+            Remove-Item Function:\Invoke-IdlePlanObject -Force -ErrorAction SilentlyContinue
+            Remove-Item Function:\Invoke-IdleStepEmitEvent -Force -ErrorAction SilentlyContinue
+            Remove-Item Function:\Invoke-IdleStepEnsureAttribute -Force -ErrorAction SilentlyContinue
+            
+            Import-Module $script:IdlePsd1 -Force -ErrorAction Stop
+
+            # NOTE: In repo/zip layouts, PSModulePath bootstrap causes NestedModules to resolve
+            # via PSModulePath, which exports them globally. This is a known limitation/tradeoff.
+            # In published PSGallery packages, RequiredModules maintain proper scope.
+            #
+            # Verify IdLE.Core is loaded and accessible (use -All to catch nested modules)
+            $coreModule = Get-Module -All IdLE.Core
+            $coreModule | Should -Not -BeNullOrEmpty
+        }
+
+        It 'IdLE module imports IdLE.Core and IdLE.Steps.Common via bootstrap' {
+            Remove-Module IdLE -Force -ErrorAction SilentlyContinue
+            Import-Module $script:IdlePsd1 -Force -ErrorAction Stop
+
+            $idle = Get-Module IdLE
+            $idle | Should -Not -BeNullOrEmpty
+
+            # With the new name-based import approach, IdLE.Core and IdLE.Steps.Common
+            # are imported by IdLE.psm1 bootstrap logic, not via NestedModules in manifest.
+            # Verify they are loaded and accessible to the engine.
+            # Note: They may appear in Get-Module -All depending on import scope.
+            
+            # The key validation is that IdLE public commands work (which depend on Core)
+            $publicCommands = (Get-Command -Module IdLE).Name
+            $publicCommands | Should -Contain 'New-IdlePlan'
+            $publicCommands | Should -Contain 'Invoke-IdlePlan'
+            
+            # And that the engine can discover built-in steps
+            InModuleScope IdLE.Core {
+                $registry = Get-IdleStepRegistry -Providers $null
+                $registry.ContainsKey('IdLE.Step.EmitEvent') | Should -BeTrue
+            }
+        }
+    }
+
+    Context 'Baseline modules' {
+        It 'IdLE auto-imports only baseline modules (Core and Steps.Common), not optional modules' {
         # Clean test state - remove ALL IdLE modules to ensure fresh import
         Get-Module -All IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
         
         # Import without -Force to avoid re-importing previously loaded optional modules
         # (PowerShell module caching can cause previously imported modules to be re-loaded with -Force)
-        Import-Module $idlePsd1 -ErrorAction Stop
+        Import-Module $script:IdlePsd1 -ErrorAction Stop
 
         $idle = Get-Module IdLE
         $idle | Should -Not -BeNullOrEmpty
@@ -248,7 +257,7 @@ Describe 'Module manifests and public surface' {
             if ($moduleName -eq 'IdLE.Steps.Mailbox') {
                 $mailboxModule = Get-Module -All -Name $moduleName
                 if ($mailboxModule) {
-                    Write-Warning "IdLE.Steps.Mailbox is loaded (likely from ModuleBootstrap test). In a fresh PowerShell session, it would NOT be auto-imported."
+                    Write-Verbose "IdLE.Steps.Mailbox is loaded (likely from ModuleBootstrap test). In a fresh PowerShell session, it would NOT be auto-imported."
                     continue
                 }
             }
@@ -261,32 +270,37 @@ Describe 'Module manifests and public surface' {
         # re-appear when their dependencies are re-imported.
         # This is a known test isolation limitation in PowerShell and doesn't reflect actual module behavior.
         # In a fresh PowerShell session, these modules are NOT auto-imported when importing IdLE.
+        }
     }
 
-    It 'Steps module exports the intended step functions' {
-        Remove-Module IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
-        Import-Module $stepsPsd1 -Force -ErrorAction Stop
+    Context 'Step module exports' {
+        It 'Steps module exports the intended step functions' {
+            Remove-Module IdLE.Steps.Common -Force -ErrorAction SilentlyContinue
+            Import-Module $script:StepsPsd1 -Force -ErrorAction Stop
 
-        $exported = (Get-Command -Module IdLE.Steps.Common).Name
-        $exported | Should -Contain 'Invoke-IdleStepEmitEvent'
-        $exported | Should -Contain 'Invoke-IdleStepEnsureAttributes'
-        $exported | Should -Contain 'Invoke-IdleStepEnsureEntitlement'
+            $exported = (Get-Command -Module IdLE.Steps.Common).Name
+            $exported | Should -Contain 'Invoke-IdleStepEmitEvent'
+            $exported | Should -Contain 'Invoke-IdleStepEnsureAttributes'
+            $exported | Should -Contain 'Invoke-IdleStepEnsureEntitlement'
+        }
     }
 
-    It 'IdLE.Provider.Mock manifest is valid' {
-        { Test-ModuleManifest -Path $providerMockPsd1 -ErrorAction Stop } | Should -Not -Throw
-    }
+    Context 'Mock provider exports' {
+        It 'IdLE.Provider.Mock manifest is valid' {
+            { Test-ModuleManifest -Path $script:ProviderMockPsd1 -ErrorAction Stop } | Should -Not -Throw
+        }
 
-    It 'Mock provider module exports the intended provider function' {
-        Remove-Module IdLE.Provider.Mock -Force -ErrorAction SilentlyContinue
-        Import-Module $providerMockPsd1 -Force -ErrorAction Stop
+        It 'Mock provider module exports the intended provider function' {
+            Remove-Module IdLE.Provider.Mock -Force -ErrorAction SilentlyContinue
+            Import-Module $script:ProviderMockPsd1 -Force -ErrorAction Stop
 
-        (Get-Command -Module IdLE.Provider.Mock).Name | Should -Contain 'New-IdleMockIdentityProvider'
+            (Get-Command -Module IdLE.Provider.Mock).Name | Should -Contain 'New-IdleMockIdentityProvider'
+        }
     }
 
     Context 'Internal module import warnings' {
         It 'IdLE.Core emits warning when imported directly' {
-            $srcPath = Split-Path (Split-Path $corePsd1 -Parent) -Parent
+            $srcPath = Split-Path (Split-Path $script:CorePsd1 -Parent) -Parent
             $pathSeparator = [System.IO.Path]::PathSeparator
             $paths = $env:PSModulePath -split [regex]::Escape($pathSeparator)
 
@@ -298,7 +312,7 @@ Describe 'Module manifests and public surface' {
                 $path
             }
 
-            $corePsd1Escaped = $corePsd1 -replace "'", "''"
+            $corePsd1Escaped = $script:CorePsd1 -replace "'", "''"
             $script = @"
 
 `$warnings = & { Import-Module '$corePsd1Escaped' -Force -WarningAction Continue } 3>&1 |
@@ -314,7 +328,7 @@ if (`$warnings) {
             $result = Invoke-IdleIsolatedPwsh -Script $script -Environment @{
                 IDLE_ALLOW_INTERNAL_IMPORT = ''
                 PSModulePath = ($filteredPaths -join $pathSeparator)
-            } -WorkingDirectory $repoRoot
+            } -WorkingDirectory $script:RepoRoot
 
             $result.ExitCode | Should -Be 0
             $output = ($result.StdOut + $result.StdErr).Trim()
@@ -324,7 +338,7 @@ if (`$warnings) {
         }
 
         It 'IdLE.Core does not emit warning when IDLE_ALLOW_INTERNAL_IMPORT is set' {
-            $corePsd1Escaped = $corePsd1 -replace "'", "''"
+            $corePsd1Escaped = $script:CorePsd1 -replace "'", "''"
             $script = @"
 
 `$warnings = & { Import-Module '$corePsd1Escaped' -Force -WarningAction Continue } 3>&1 |
@@ -339,14 +353,14 @@ if (`$warnings) {
 
             $result = Invoke-IdleIsolatedPwsh -Script $script -Environment @{
                 IDLE_ALLOW_INTERNAL_IMPORT = '1'
-            } -WorkingDirectory $repoRoot
+            } -WorkingDirectory $script:RepoRoot
 
             $result.ExitCode | Should -Be 0
             ($result.StdOut + $result.StdErr).Trim() | Should -BeNullOrEmpty -Because "Internal module should not emit warning when bypass is set"
         }
 
         It 'IdLE.Steps.Common emits warning when imported directly' {
-            $srcPath = Split-Path (Split-Path $stepsPsd1 -Parent) -Parent
+            $srcPath = Split-Path (Split-Path $script:StepsPsd1 -Parent) -Parent
             $pathSeparator = [System.IO.Path]::PathSeparator
             $paths = $env:PSModulePath -split [regex]::Escape($pathSeparator)
 
@@ -358,8 +372,8 @@ if (`$warnings) {
                 $path
             }
 
-            $corePsd1Escaped = $corePsd1 -replace "'", "''"
-            $stepsPsd1Escaped = $stepsPsd1 -replace "'", "''"
+            $corePsd1Escaped = $script:CorePsd1 -replace "'", "''"
+            $stepsPsd1Escaped = $script:StepsPsd1 -replace "'", "''"
             $script = @"
 
 `$env:IDLE_ALLOW_INTERNAL_IMPORT = '1'
@@ -379,7 +393,7 @@ if (`$warnings) {
             $result = Invoke-IdleIsolatedPwsh -Script $script -Environment @{
                 IDLE_ALLOW_INTERNAL_IMPORT = ''
                 PSModulePath = ($filteredPaths -join $pathSeparator)
-            } -WorkingDirectory $repoRoot
+            } -WorkingDirectory $script:RepoRoot
 
             $result.ExitCode | Should -Be 0
             $output = ($result.StdOut + $result.StdErr).Trim()
@@ -389,7 +403,7 @@ if (`$warnings) {
         }
         
         It 'IdLE meta-module does not emit internal module warnings' {
-            $idlePsd1Escaped = $idlePsd1 -replace "'", "''"
+            $idlePsd1Escaped = $script:IdlePsd1 -replace "'", "''"
             $script = @"
 
 `$warnings = & { Import-Module '$idlePsd1Escaped' -Force -WarningAction Continue } 3>&1 |
@@ -404,7 +418,7 @@ if (`$warnings) {
 
             $result = Invoke-IdleIsolatedPwsh -Script $script -Environment @{
                 IDLE_ALLOW_INTERNAL_IMPORT = ''
-            } -WorkingDirectory $repoRoot
+            } -WorkingDirectory $script:RepoRoot
 
             $result.ExitCode | Should -Be 0
             ($result.StdOut + $result.StdErr).Trim() | Should -BeNullOrEmpty -Because "IdLE meta-module should suppress internal module warnings via ScriptsToProcess"
