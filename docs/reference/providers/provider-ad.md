@@ -141,3 +141,10 @@ Mover scenarios are intentionally folded into Joiner/Leaver (as optional pattern
 
 - **Group membership changes are risky**  
   Prefer removing only explicit “managed groups” (allow-list) to avoid breaking access unexpectedly.
+
+## Scenarios (link-only)
+
+Cross-provider orchestration examples are valuable, but should not be embedded in a single provider reference page.
+Keep them as **link-only** and collect them on a central Examples/Scenarios page:
+
+- `examples/workflows/templates/ad-joiner-entraconnect-entraid.psd1` - Joiner workflow that creates an AD account, triggers Entra Connect sync, and assigns Entra ID groups

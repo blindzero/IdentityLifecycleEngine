@@ -110,3 +110,10 @@ This provider has no admin-facing option bag. Configuration is done through:
 - **“AuthSession must implement InvokeCommand”**: your host must provide an AuthSession object with an `InvokeCommand()` method.
 - **Get-ADSyncScheduler not found**: ensure ADSync cmdlets are available in the remote session (module installed/accessible).
 - **Timeout waiting for completion**: increase `TimeoutSeconds` or check the scheduler state on the server.
+
+## Scenarios (link-only)
+
+Cross-provider orchestration examples are valuable, but should not be embedded in a single provider reference page.
+Keep them as **link-only** and collect them on a central Examples/Scenarios page:
+
+- `examples/workflows/templates/ad-joiner-entraconnect-entraid.psd1` - Joiner workflow that creates an AD account, triggers Entra Connect sync, and assigns Entra ID groups

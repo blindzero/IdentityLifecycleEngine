@@ -126,3 +126,11 @@ Mover scenarios are integrated as **optional patterns** in the Joiner template.
 - **Auth session not found**: check `AuthSessionName` matches your runtime/broker configuration.
 - **Delete doesn’t work**: deletion is opt-in. Create the provider with `-AllowDelete` and only use delete with a privileged auth role.
 - **Group cleanup is disruptive**: only enable revoke/remove operations when you fully understand the impact (prefer managed allow-lists).
+
+## Scenarios (link-only)
+
+Cross-provider orchestration examples are valuable, but should not be embedded in a single provider reference page.
+Keep them as **link-only** and collect them on a central Examples/Scenarios page:
+
+- `examples/workflows/templates/ad-joiner-entraconnect-entraid.psd1` - Joiner workflow that creates an AD account, triggers Entra Connect sync, and assigns Entra ID groups
+- `examples/workflows/templates/entraid-exo-leaver.psd1` - Leaver workflow that disables Entra ID account, converts mailbox to shared, and enables Out of Office
