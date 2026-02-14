@@ -82,23 +82,18 @@ function Invoke-IdleWithRetry {
         [scriptblock] $Operation,
 
         [Parameter()]
-        [ValidateRange(0, 50)]
         [int] $MaxAttempts = 3,
 
         [Parameter()]
-        [ValidateRange(0, 600000)]
         [int] $InitialDelayMilliseconds = 250,
 
         [Parameter()]
-        [ValidateRange(1.0, 100.0)]
         [double] $BackoffFactor = 2.0,
 
         [Parameter()]
-        [ValidateRange(0, 600000)]
         [int] $MaxDelayMilliseconds = 5000,
 
         [Parameter()]
-        [ValidateRange(0.0, 1.0)]
         [double] $JitterRatio = 0.2,
 
         [Parameter()]
@@ -117,6 +112,14 @@ function Invoke-IdleWithRetry {
         [AllowEmptyString()]
         [string] $DeterministicSeed = ''
     )
+
+    Assert-IdleRetryParameters `
+        -MaxAttempts $MaxAttempts `
+        -InitialDelayMilliseconds $InitialDelayMilliseconds `
+        -BackoffFactor $BackoffFactor `
+        -MaxDelayMilliseconds $MaxDelayMilliseconds `
+        -JitterRatio $JitterRatio `
+        -SourceName 'Invoke-IdleWithRetry'
 
     # Handle MaxAttempts = 0 (no retry): run once and propagate any error
     if ($MaxAttempts -eq 0) {

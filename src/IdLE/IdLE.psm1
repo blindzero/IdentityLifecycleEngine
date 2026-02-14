@@ -17,9 +17,10 @@ if (Test-Path -Path $PublicPath) {
 # Export exactly the public API cmdlets (contract).
 Export-ModuleMember -Function @(
     'Test-IdleWorkflow',
-    'New-IdleLifecycleRequest',
+    'New-IdleRequest',
     'New-IdlePlan',
     'Invoke-IdlePlan',
     'Export-IdlePlan',
     'New-IdleAuthSession'
 )
+

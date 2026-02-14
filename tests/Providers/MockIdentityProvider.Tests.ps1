@@ -28,8 +28,10 @@ BeforeDiscovery {
     . $entitlementContractPath
 }
 
-Describe 'Mock identity provider contracts' {
-    Invoke-IdleIdentityProviderContractTests -NewProvider { New-IdleMockIdentityProvider }
-    Invoke-IdleProviderCapabilitiesContractTests -ProviderFactory { New-IdleMockIdentityProvider }
-    Invoke-IdleEntitlementProviderContractTests -NewProvider { New-IdleMockIdentityProvider }
+Describe 'Mock identity provider' {
+    Context 'Contracts' {
+        Invoke-IdleIdentityProviderContractTests -NewProvider { New-IdleMockIdentityProvider }
+        Invoke-IdleProviderCapabilitiesContractTests -ProviderFactory { New-IdleMockIdentityProvider }
+        Invoke-IdleEntitlementProviderContractTests -NewProvider { New-IdleMockIdentityProvider }
+    }
 }

@@ -241,4 +241,11 @@ if ($coverageEnabled -and $resolvedCoverageOutputPath) {
     }
 }
 
-Invoke-Pester -Configuration $config
+$previousProgressPreference = $global:ProgressPreference
+try {
+    $global:ProgressPreference = 'SilentlyContinue'
+    Invoke-Pester -Configuration $config
+}
+finally {
+    $global:ProgressPreference = $previousProgressPreference
+}

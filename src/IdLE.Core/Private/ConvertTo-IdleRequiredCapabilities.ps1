@@ -51,8 +51,8 @@ function ConvertTo-IdleRequiredCapabilities {
             continue
         }
 
-        $s = ([string]$c).Trim()
-        if ([string]::IsNullOrWhiteSpace($s)) {
+        $s = ConvertTo-IdleCapabilityIdentifier -Value $c
+        if ($null -eq $s) {
             continue
         }
 
@@ -60,7 +60,7 @@ function ConvertTo-IdleRequiredCapabilities {
         # - dot-separated segments
         # - no whitespace
         # - starts with a letter
-        if ($s -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
+        if (-not (Test-IdleCapabilityIdentifier -Capability $s)) {
             throw [System.ArgumentException]::new(
                 ("Workflow step '{0}' declares invalid capability '{1}'. Expected dot-separated segments like 'IdLE.Identity.Read'." -f $StepName, $s),
                 'Workflow'

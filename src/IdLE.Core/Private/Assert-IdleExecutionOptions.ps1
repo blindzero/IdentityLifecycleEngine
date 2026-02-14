@@ -6,6 +6,72 @@ $script:IDLE_RETRY_MAX_ATTEMPTS_LIMIT = 10
 $script:IDLE_RETRY_INITIAL_DELAY_MS_LIMIT = 60000
 $script:IDLE_RETRY_MAX_DELAY_MS_LIMIT = 300000
 
+function Assert-IdleRetryParameters {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [int] $MaxAttempts,
+
+        [Parameter(Mandatory)]
+        [int] $InitialDelayMilliseconds,
+
+        [Parameter(Mandatory)]
+        [double] $BackoffFactor,
+
+        [Parameter(Mandatory)]
+        [int] $MaxDelayMilliseconds,
+
+        [Parameter(Mandatory)]
+        [double] $JitterRatio,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $SourceName
+    )
+
+    if ($MaxAttempts -lt 0 -or $MaxAttempts -gt $script:IDLE_RETRY_MAX_ATTEMPTS_LIMIT) {
+        throw [System.ArgumentException]::new(
+            "${SourceName}: MaxAttempts must be an integer between 0 and $script:IDLE_RETRY_MAX_ATTEMPTS_LIMIT (inclusive).",
+            'MaxAttempts'
+        )
+    }
+
+    if ($InitialDelayMilliseconds -lt 0 -or $InitialDelayMilliseconds -gt $script:IDLE_RETRY_INITIAL_DELAY_MS_LIMIT) {
+        throw [System.ArgumentException]::new(
+            "${SourceName}: InitialDelayMilliseconds must be an integer between 0 and $script:IDLE_RETRY_INITIAL_DELAY_MS_LIMIT (inclusive).",
+            'InitialDelayMilliseconds'
+        )
+    }
+
+    if ($BackoffFactor -lt 1.0) {
+        throw [System.ArgumentException]::new(
+            "${SourceName}: BackoffFactor must be a number >= 1.0.",
+            'BackoffFactor'
+        )
+    }
+
+    if ($MaxDelayMilliseconds -lt 0 -or $MaxDelayMilliseconds -gt $script:IDLE_RETRY_MAX_DELAY_MS_LIMIT) {
+        throw [System.ArgumentException]::new(
+            "${SourceName}: MaxDelayMilliseconds must be an integer between 0 and $script:IDLE_RETRY_MAX_DELAY_MS_LIMIT (inclusive).",
+            'MaxDelayMilliseconds'
+        )
+    }
+
+    if ($MaxDelayMilliseconds -lt $InitialDelayMilliseconds) {
+        throw [System.ArgumentException]::new(
+            "${SourceName}: MaxDelayMilliseconds ($MaxDelayMilliseconds) must be >= InitialDelayMilliseconds ($InitialDelayMilliseconds).",
+            'MaxDelayMilliseconds'
+        )
+    }
+
+    if ($JitterRatio -lt 0.0 -or $JitterRatio -gt 1.0) {
+        throw [System.ArgumentException]::new(
+            "${SourceName}: JitterRatio must be a number between 0.0 and 1.0 (inclusive).",
+            'JitterRatio'
+        )
+    }
+}
+
 function Assert-IdleExecutionOptions {
     [CmdletBinding()]
     param(

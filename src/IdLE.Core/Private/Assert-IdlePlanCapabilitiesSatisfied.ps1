@@ -33,12 +33,12 @@ function Assert-IdlePlanCapabilitiesSatisfied {
             continue
         }
 
-        $stepName = Get-IdleOptionalPropertyValue -Object $s -Name 'Name'
+        $stepName = Get-IdlePropertyValue -Object $s -Name 'Name'
         if ($null -eq $stepName -or [string]::IsNullOrWhiteSpace([string]$stepName)) {
             $stepName = '<UnnamedStep>'
         }
 
-        $capsRaw = Get-IdleOptionalPropertyValue -Object $s -Name 'RequiresCapabilities'
+        $capsRaw = Get-IdlePropertyValue -Object $s -Name 'RequiresCapabilities'
         $caps = if ($null -eq $capsRaw) { @() } else { @($capsRaw) }
 
         if (@($caps).Count -gt 0) {

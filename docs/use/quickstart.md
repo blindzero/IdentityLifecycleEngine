@@ -121,7 +121,7 @@ $workflow = Join-Path 'C:\path\to\IdentityLifecycleEngine' 'examples\workflows\<
 With the following command we create a simple 'Joiner' request.
 
 ```powershell
-$request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner'
+$request = New-IdleRequest -LifecycleEvent 'Joiner'
 ```
 
 ### 4. Select providers
@@ -165,3 +165,4 @@ $result.Events | Select-Object Type, StepName, Message
 - You can override providers at execution time by passing `-Providers` to `Invoke-IdlePlan`.
 
 :::
+

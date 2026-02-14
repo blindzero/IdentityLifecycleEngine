@@ -68,44 +68,45 @@ Describe 'Invoke-IdleStepMailboxGetInfo' {
         }
     }
     
-    It 'retrieves mailbox and returns data in State' {
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
-        $result = & $handler -Context $script:Context -Step $script:StepTemplate
-        
-        $result.Status | Should -Be 'Completed'
-        $result.Changed | Should -Be $false
-        $result.State | Should -Not -BeNullOrEmpty
-        $result.State.Mailbox | Should -Not -BeNullOrEmpty
-        $result.State.Mailbox.IdentityKey | Should -Be 'user@contoso.com'
-        $result.State.Mailbox.Type | Should -Be 'User'
+    Context 'Behavior' {
+        It 'retrieves mailbox and returns data in State' {
+            $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
+            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+
+            $result.Status | Should -Be 'Completed'
+            $result.Changed | Should -Be $false
+            $result.State | Should -Not -BeNullOrEmpty
+            $result.State.Mailbox | Should -Not -BeNullOrEmpty
+            $result.State.Mailbox.IdentityKey | Should -Be 'user@contoso.com'
+            $result.State.Mailbox.Type | Should -Be 'User'
+        }
+
+        It 'applies AuthSessionName convention (defaults to Provider)' {
+            $step = $script:StepTemplate
+            $step.With.Remove('AuthSessionName')
+
+            $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+            $step.With.ContainsKey('AuthSessionName') | Should -Be $false
+        }
     }
-    
-    It 'applies AuthSessionName convention (defaults to Provider)' {
-        # Remove AuthSessionName to test default behavior
-        $step = $script:StepTemplate
-        $step.With.Remove('AuthSessionName')
-        
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
-        $result = & $handler -Context $script:Context -Step $step
-        
-        $result.Status | Should -Be 'Completed'
-        # Step should complete successfully using default AuthSessionName
-        # (Plan object should remain unmodified - AuthSessionName still absent)
-        $step.With.ContainsKey('AuthSessionName') | Should -Be $false
-    }
-    
-    It 'throws when provider is missing' {
-        $script:Context.Providers.Clear()
-        
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
-        { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
-    }
-    
-    It 'throws when IdentityKey is missing' {
-        $step = $script:StepTemplate
-        $step.With.Remove('IdentityKey')
-        
-        $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
-        { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
+
+    Context 'Validation' {
+        It 'throws when provider is missing' {
+            $script:Context.Providers.Clear()
+
+            $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
+            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+        }
+
+        It 'throws when IdentityKey is missing' {
+            $step = $script:StepTemplate
+            $step.With.Remove('IdentityKey')
+
+            $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
+            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
+        }
     }
 }

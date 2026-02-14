@@ -74,31 +74,7 @@ function Get-IdleProviderCapabilities {
     }
 
     # Normalize, validate, and return a stable list.
-    $normalized = New-Object System.Collections.Generic.List[string]
-    $seen = New-Object System.Collections.Generic.HashSet[string]
-    foreach ($c in @($capabilities)) {
-        if ($null -eq $c) {
-            continue
-        }
-
-        $s = ($c -as [string]).Trim()
-        if ([string]::IsNullOrWhiteSpace($s)) {
-            continue
-        }
-
-        # Capability naming convention:
-        # - dot-separated segments
-        # - no whitespace
-        # - starts with a letter
-        # Example: 'IdLE.Entitlement.Write', 'IdLE.Identity.Attribute.Ensure'
-        if ($s -notmatch '^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$') {
-            throw "Provider capability '$s' is invalid. Expected dot-separated segments like 'IdLE.Identity.Read' or 'IdLE.Entitlement.Write'."
-        }
-
-        if ($seen.Add($s)) {
-            $null = $normalized.Add($s)
-        }
-    }
+    $normalized = ConvertTo-IdleCapabilityList -Capabilities $capabilities -Validate -Unique -ErrorPrefix 'Provider capability'
 
     if ($capabilitySource -eq 'explicit') {
         return @($normalized | Sort-Object -Unique)

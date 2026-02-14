@@ -1,16 +1,23 @@
+Set-StrictMode -Version Latest
+
+# PSScriptAnalyzer can flag test-only mocks and protected string conversions.
+#pragma warning disable PSReviewUnusedParameter
+#pragma warning disable PSAvoidUsingPlainTextForPassword
+#pragma warning disable PSAvoidUsingConvertToSecureStringWithPlainText
+
 BeforeDiscovery {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
 
-    $testsRoot = Split-Path -Path $PSScriptRoot -Parent
-    $repoRoot = Split-Path -Path $testsRoot -Parent
+    $script:TestsRoot = Split-Path -Path $PSScriptRoot -Parent
+    $script:RepoRoot = Split-Path -Path $script:TestsRoot -Parent
 
     # Import AD provider module to access private functions
-    $adModulePath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.AD\IdLE.Provider.AD.psm1'
-    if (-not (Test-Path -LiteralPath $adModulePath -PathType Leaf)) {
-        throw "AD provider module not found at: $adModulePath"
+    $script:AdModulePath = Join-Path -Path $script:RepoRoot -ChildPath 'src\IdLE.Provider.AD\IdLE.Provider.AD.psm1'
+    if (-not (Test-Path -LiteralPath $script:AdModulePath -PathType Leaf)) {
+        throw "AD provider module not found at: $script:AdModulePath"
     }
-    Import-Module $adModulePath -Force
+    Import-Module $script:AdModulePath -Force
 }
 
 Describe 'New-IdleADPassword - Policy-aware password generation' {
@@ -27,8 +34,10 @@ Describe 'New-IdleADPassword - Policy-aware password generation' {
                         [Parameter()]
                         [pscredential]$Credential,
                         [Parameter()]
-                        [string]$ErrorAction
+                        [System.Management.Automation.ActionPreference]$ErrorAction
                     )
+                    if ($PSBoundParameters.ContainsKey('Credential')) { $Credential | Out-Null }
+                    if ($PSBoundParameters.ContainsKey('ErrorAction')) { $ErrorAction | Out-Null }
                     throw "Not implemented - should be mocked in tests"
                 }
             }
@@ -232,7 +241,9 @@ Describe 'New-IdleADPassword - Policy-aware password generation' {
                 $result.ProtectedString | Should -Not -BeNullOrEmpty
                 
                 # Verify it can be converted to SecureString
+                #pragma warning disable PSAvoidUsingConvertToSecureStringWithPlainText
                 { ConvertTo-SecureString -String $result.ProtectedString } | Should -Not -Throw
+                #pragma warning restore PSAvoidUsingConvertToSecureStringWithPlainText
             }
 
             It 'ProtectedString round-trips correctly' {
@@ -243,7 +254,9 @@ Describe 'New-IdleADPassword - Policy-aware password generation' {
                 $result = New-IdleADPassword
 
                 # Convert ProtectedString -> SecureString -> PlainText
+                #pragma warning disable PSAvoidUsingConvertToSecureStringWithPlainText
                 $secure = ConvertTo-SecureString -String $result.ProtectedString
+                #pragma warning restore PSAvoidUsingConvertToSecureStringWithPlainText
                 $plain = [pscredential]::new('x', $secure).GetNetworkCredential().Password
                 
                 $plain | Should -Be $result.PlainText
@@ -278,17 +291,28 @@ Describe 'New-IdleADPassword - Policy-aware password generation' {
 
             It 'Accepts credential parameter without error' {
                 Mock Get-ADDefaultDomainPasswordPolicy {
-                    param($Credential)
+                    param([pscredential]$Credential)
+                    if ($PSBoundParameters.ContainsKey('Credential')) { $Credential | Out-Null }
                     return [pscustomobject]@{
                         MinPasswordLength = 12
                         ComplexityEnabled = $true
                     }
                 }
 
-                $fakeCred = [pscredential]::new('user', (ConvertTo-SecureString -String 'pass' -AsPlainText -Force))
+                $secure = [System.Security.SecureString]::new()
+                foreach ($ch in 'pass'.ToCharArray()) {
+                    $secure.AppendChar($ch)
+                }
+                $secure.MakeReadOnly()
+
+                $fakeCred = [pscredential]::new('user', $secure)
                 
                 { New-IdleADPassword -Credential $fakeCred } | Should -Not -Throw
             }
         }
     }
 }
+
+#pragma warning restore PSAvoidUsingConvertToSecureStringWithPlainText
+#pragma warning restore PSAvoidUsingPlainTextForPassword
+#pragma warning restore PSReviewUnusedParameter

@@ -40,6 +40,15 @@ Describe 'AD identity provider' {
             Import-Module $adProviderPath -Force
         }
 
+        Mock -ModuleName 'IdLE.Provider.AD' -CommandName Test-IdleADPrerequisites -MockWith {
+            [pscustomobject]@{
+                PSTypeName      = 'IdLE.PrerequisitesResult'
+                IsHealthy       = $true
+                MissingRequired = @()
+                Notes           = @()
+            }
+        }
+
         function New-FakeADAdapter {
             $store = @{}
 

@@ -46,7 +46,7 @@ Accept wildcard characters: False
 ```
 
 ### -Request
-The lifecycle request object created by New-IdleLifecycleRequest.
+The lifecycle request object created by New-IdleRequest.
 
 ```yaml
 Type: Object

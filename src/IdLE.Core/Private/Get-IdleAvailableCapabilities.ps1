@@ -43,18 +43,7 @@ function Get-IdleAvailableCapabilities {
             if ($null -eq $caps) {
                 return @()
             }
-            return @(
-                $caps |
-                Where-Object { $null -ne $_ } |
-                ForEach-Object {
-                    $rawCap = ([string]$_).Trim()
-                    if (-not [string]::IsNullOrWhiteSpace($rawCap)) {
-                        ConvertTo-IdleNormalizedCapability -Capability $rawCap
-                    }
-                } |
-                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-                Sort-Object -Unique
-            )
+            return @(ConvertTo-IdleCapabilityList -Capabilities $caps -Normalize -Unique)
         }
 
         return @()

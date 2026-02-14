@@ -69,7 +69,7 @@ IdLE consists of the following elements and components:
 A **LifecycleRequest** represents the business intent (for example: Joiner, Mover, Leaver). It is the input to planning.
 
 ```powershell
-$Request = New-IdleLifecycleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
+$Request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
     key = 'first.last'
 } -DesiredState @{
     Firstname = 'First'          
@@ -217,3 +217,4 @@ Hosts may optionally provide an external sink to stream events live:
 - `Invoke-IdlePlan -EventSink <object>`
 - The sink must implement `WriteEvent(event)`
 - ScriptBlock sinks are rejected (secure default)
+

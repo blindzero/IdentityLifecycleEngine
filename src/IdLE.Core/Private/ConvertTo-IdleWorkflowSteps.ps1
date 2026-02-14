@@ -35,7 +35,7 @@ function ConvertTo-IdleWorkflowSteps {
 
     foreach ($s in @($WorkflowSteps)) {
         $stepName = if (Test-IdleWorkflowStepKey -Step $s -Key 'Name') {
-            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Name')
+            [string](Get-IdlePropertyValue -Object $s -Name 'Name')
         }
         else {
             ''
@@ -46,7 +46,7 @@ function ConvertTo-IdleWorkflowSteps {
         }
 
         $stepType = if (Test-IdleWorkflowStepKey -Step $s -Key 'Type') {
-            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Type')
+            [string](Get-IdlePropertyValue -Object $s -Name 'Type')
         }
         else {
             ''
@@ -64,7 +64,7 @@ function ConvertTo-IdleWorkflowSteps {
         }
 
         $condition = if (Test-IdleWorkflowStepKey -Step $s -Key 'Condition') {
-            Get-IdleWorkflowStepValue -Step $s -Key 'Condition'
+            Get-IdlePropertyValue -Object $s -Name 'Condition'
         }
         else {
             $null
@@ -103,14 +103,14 @@ function ConvertTo-IdleWorkflowSteps {
         }
 
         $description = if (Test-IdleWorkflowStepKey -Step $s -Key 'Description') {
-            [string](Get-IdleWorkflowStepValue -Step $s -Key 'Description')
+            [string](Get-IdlePropertyValue -Object $s -Name 'Description')
         }
         else {
             ''
         }
 
         $with = if (Test-IdleWorkflowStepKey -Step $s -Key 'With') {
-            Copy-IdleDataObject -Value (Get-IdleWorkflowStepValue -Step $s -Key 'With')
+            Copy-IdleDataObject -Value (Get-IdlePropertyValue -Object $s -Name 'With')
         }
         else {
             @{}
@@ -120,7 +120,7 @@ function ConvertTo-IdleWorkflowSteps {
         $with = Resolve-IdleWorkflowTemplates -Value $with -Request $PlanningContext.Request -StepName $stepName
 
         $retryProfile = if (Test-IdleWorkflowStepKey -Step $s -Key 'RetryProfile') {
-            [string](Get-IdleWorkflowStepValue -Step $s -Key 'RetryProfile')
+            [string](Get-IdlePropertyValue -Object $s -Name 'RetryProfile')
         }
         else {
             $null

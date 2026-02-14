@@ -96,7 +96,7 @@ function New-IdlePlanObject {
     # Load StepMetadataCatalog (trusted extension point).
     $stepMetadataCatalog = Resolve-IdleStepMetadataCatalog -Providers $Providers
 
-    $workflowOnFailureSteps = Get-IdleOptionalPropertyValue -Object $workflow -Name 'OnFailureSteps'
+    $workflowOnFailureSteps = Get-IdlePropertyValue -Object $workflow -Name 'OnFailureSteps'
 
     # Normalize primary and OnFailure steps.
     # IMPORTANT:

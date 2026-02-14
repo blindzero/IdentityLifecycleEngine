@@ -140,7 +140,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     #         Mail        = 'servicedesk@contoso.com'
     #     }
     # }
-    # $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver' -Actor $env:USERNAME -DesiredState @{
+    # $req = New-IdleRequest -LifecycleEvent 'Leaver' -Actor $env:USERNAME -DesiredState @{
     #   Manager = @{ DisplayName = $mgr.DisplayName; Mail = $mgr.Mail }
     # }
     
@@ -258,3 +258,4 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
         Error      = $null
     }
 }
+

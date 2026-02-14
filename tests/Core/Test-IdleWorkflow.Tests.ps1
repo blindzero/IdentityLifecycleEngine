@@ -1,13 +1,14 @@
+Set-StrictMode -Version Latest
+
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
 }
 
 Describe 'Test-IdleWorkflow' {
-
-    It 'returns a valid result for a minimal correct workflow' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+    Context 'Validation' {
+        It 'returns a valid result for a minimal correct workflow' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner.psd1' -Content @'
 @{
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
@@ -17,18 +18,17 @@ Describe 'Test-IdleWorkflow' {
 }
 '@
 
-        $result = Test-IdleWorkflow -WorkflowPath $wfPath
+            $result = Test-IdleWorkflow -WorkflowPath $wfPath
 
-        $result | Should -Not -BeNullOrEmpty
-        $result.IsValid | Should -BeTrue
-        $result.WorkflowName | Should -Be 'Joiner - Standard'
-        $result.LifecycleEvent | Should -Be 'Joiner'
-        $result.StepCount | Should -Be 1
-    }
+            $result | Should -Not -BeNullOrEmpty
+            $result.IsValid | Should -BeTrue
+            $result.WorkflowName | Should -Be 'Joiner - Standard'
+            $result.LifecycleEvent | Should -Be 'Joiner'
+            $result.StepCount | Should -Be 1
+        }
 
-    It 'accepts OnFailureSteps as an optional top-level section' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-onfailure.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        It 'accepts OnFailureSteps as an optional top-level section' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner-onfailure.psd1' -Content @'
 @{
   Name           = 'Joiner - OnFailure'
   LifecycleEvent = 'Joiner'
@@ -41,20 +41,19 @@ Describe 'Test-IdleWorkflow' {
 }
 '@
 
-        { Test-IdleWorkflow -WorkflowPath $wfPath } | Should -Not -Throw
+            { Test-IdleWorkflow -WorkflowPath $wfPath } | Should -Not -Throw
 
-        $result = Test-IdleWorkflow -WorkflowPath $wfPath
-        $result.IsValid | Should -BeTrue
-        $result.WorkflowName | Should -Be 'Joiner - OnFailure'
-        $result.LifecycleEvent | Should -Be 'Joiner'
-
-        # Test-IdleWorkflow returns a small report; StepCount reflects primary Steps only.
-        $result.StepCount | Should -Be 1
+            $result = Test-IdleWorkflow -WorkflowPath $wfPath
+            $result.IsValid | Should -BeTrue
+            $result.WorkflowName | Should -Be 'Joiner - OnFailure'
+            $result.LifecycleEvent | Should -Be 'Joiner'
+            $result.StepCount | Should -Be 1
+        }
     }
 
-    It 'rejects unknown root keys such as CleanupSteps' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-cleanupsteps.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+    Context 'Schema errors' {
+        It 'rejects unknown root keys such as CleanupSteps' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner-cleanupsteps.psd1' -Content @'
 @{
   Name           = 'Joiner - Invalid'
   LifecycleEvent = 'Joiner'
@@ -67,19 +66,18 @@ Describe 'Test-IdleWorkflow' {
 }
 '@
 
-        try {
-            Test-IdleWorkflow -WorkflowPath $wfPath | Out-Null
-            throw 'Expected an exception but none was thrown.'
+            try {
+                Test-IdleWorkflow -WorkflowPath $wfPath | Out-Null
+                throw 'Expected an exception but none was thrown.'
+            }
+            catch {
+                $_.Exception.Message | Should -Match 'Unknown root key'
+                $_.Exception.Message | Should -Match 'CleanupSteps'
+            }
         }
-        catch {
-            $_.Exception.Message | Should -Match 'Unknown root key'
-            $_.Exception.Message | Should -Match 'CleanupSteps'
-        }
-    }
 
-    It 'fails when workflow LifecycleEvent does not match request LifecycleEvent' {
-        $wfPath = Join-Path -Path $TestDrive -ChildPath 'joiner-mismatch.psd1'
-        Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+        It 'fails when workflow LifecycleEvent does not match request LifecycleEvent' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner-mismatch.psd1' -Content @'
 @{
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
@@ -89,14 +87,15 @@ Describe 'Test-IdleWorkflow' {
 }
 '@
 
-        $req = New-IdleLifecycleRequest -LifecycleEvent 'Leaver'
+            $req = New-IdleTestRequest -LifecycleEvent 'Leaver'
 
-        try {
-            Test-IdleWorkflow -WorkflowPath $wfPath -Request $req | Out-Null
-            throw 'Expected an exception but none was thrown.'
-        }
-        catch {
-            $_.Exception.Message | Should -Match 'does not match request LifecycleEvent'
+            try {
+                Test-IdleWorkflow -WorkflowPath $wfPath -Request $req | Out-Null
+                throw 'Expected an exception but none was thrown.'
+            }
+            catch {
+                $_.Exception.Message | Should -Match 'does not match request LifecycleEvent'
+            }
         }
     }
 }

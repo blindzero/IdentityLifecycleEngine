@@ -69,7 +69,7 @@ const sidebars = {
             'reference/cmdlets/Export-IdlePlan',
             'reference/cmdlets/Invoke-IdlePlan',
             'reference/cmdlets/New-IdleAuthSession',
-            'reference/cmdlets/New-IdleLifecycleRequest',
+            'reference/cmdlets/New-IdleRequest',
             'reference/cmdlets/New-IdlePlan',
             'reference/cmdlets/Test-IdleWorkflow',
           ],

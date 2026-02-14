@@ -50,24 +50,6 @@ function ConvertTo-IdlePlanExportObject {
         return $null
     }
 
-    function ConvertTo-NullIfEmptyString {
-        [CmdletBinding()]
-        param(
-            [Parameter()]
-            [object] $Value
-        )
-
-        if ($null -eq $Value) {
-            return $null
-        }
-
-        if ($Value -is [string] -and [string]::IsNullOrWhiteSpace($Value)) {
-            return $null
-        }
-
-        return $Value
-    }
-
     # ---- Engine block --------------------------------------------------------
     $engineMap = New-OrderedMap
     $engineMap.name = 'IdLE'

@@ -1,394 +1,160 @@
-#requires -Version 7.0
+Set-StrictMode -Version Latest
 
-Describe 'IdLE.Steps - Auth Session Routing' {
+BeforeAll {
+    . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
+    Import-IdleTestModule
+}
 
-    BeforeAll {
-        Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '../../src/IdLE/IdLE.psd1') -Force
-        Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '../../src/IdLE.Core/IdLE.Core.psd1') -Force
-        Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '../../src/IdLE.Steps.Common/IdLE.Steps.Common.psd1') -Force
+Describe 'Invoke-IdleStepEnsureAttributes (auth session routing)' {
+    BeforeEach {
+        $script:State = [pscustomobject]@{
+            SessionAcquired    = $false
+            AcquiredName       = $null
+            AcquiredOptions    = $null
+            ReceivedAuthSession = $null
+            LegacyCallMade     = $false
+        }
+
+        $script:Broker = [pscustomobject]@{
+            PSTypeName = 'Tests.AuthSessionBroker'
+            State      = $script:State
+        }
+        $script:Broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+            param($Name, $Options)
+            $this.State.SessionAcquired = $true
+            $this.State.AcquiredName = $Name
+            $this.State.AcquiredOptions = $Options
+            return [PSCredential]::new('tier0admin', (ConvertTo-SecureString 'pass123' -AsPlainText -Force))
+        } -Force
+
+        $script:Provider = [pscustomobject]@{
+            PSTypeName = 'Tests.MockProvider'
+            State      = $script:State
+        }
+        $script:Provider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
+            param($IdentityKey, $Name, $Value, $AuthSession)
+            $this.State.ReceivedAuthSession = $AuthSession
+            return [pscustomobject]@{
+                PSTypeName = 'IdLE.ProviderResult'
+                Changed    = $true
+            }
+        } -Force
+
+        $script:Context = [pscustomobject]@{
+            PSTypeName = 'IdLE.ExecutionContext'
+            Providers  = @{
+                Identity          = $script:Provider
+                AuthSessionBroker = $script:Broker
+            }
+        }
+        $script:Context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+            param($Name, $Options)
+            return $this.Providers.AuthSessionBroker.AcquireAuthSession($Name, $Options)
+        } -Force
+
+        $script:Handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
+
+        $script:StepTemplate = [pscustomobject]@{
+            PSTypeName = 'IdLE.Step'
+            Name       = 'TestStep'
+            Type       = 'IdLE.Step.EnsureAttributes'
+            With       = @{
+                IdentityKey        = 'testuser'
+                Attributes         = @{ Department = 'IT' }
+                AuthSessionName    = 'ActiveDirectory'
+                AuthSessionOptions = @{ Role = 'Tier0' }
+            }
+        }
     }
 
-    Context 'EnsureAttribute - Auth Session Acquisition' {
+    Context 'Auth session acquisition' {
+        It 'acquires auth session when AuthSessionName is present' {
+            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
 
-        It 'acquires auth session when With.AuthSessionName is present' {
-            # Arrange
-            $testState = [pscustomobject]@{
-                SessionAcquired = $false
-                AcquiredName = $null
-                AcquiredOptions = $null
-            }
-
-            $broker = [pscustomobject]@{
-                PSTypeName = 'Tests.AuthSessionBroker'
-                State = $testState
-            }
-            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                $this.State.SessionAcquired = $true
-                $this.State.AcquiredName = $Name
-                $this.State.AcquiredOptions = $Options
-                return [PSCredential]::new('testuser', (ConvertTo-SecureString 'testpass' -AsPlainText -Force))
-            } -Force
-
-            $mockProvider = [pscustomobject]@{
-                PSTypeName = 'Tests.MockProvider'
-            }
-            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
-                param($IdentityKey, $Name, $Value, $AuthSession)
-                return [pscustomobject]@{
-                    PSTypeName = 'IdLE.ProviderResult'
-                    Changed = $true
-                }
-            } -Force
-
-            $context = [pscustomobject]@{
-                PSTypeName = 'IdLE.ExecutionContext'
-                Providers = @{
-                    Identity = $mockProvider
-                    AuthSessionBroker = $broker
-                }
-            }
-            $context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                return $this.Providers.AuthSessionBroker.AcquireAuthSession($Name, $Options)
-            } -Force
-
-            $step = [pscustomobject]@{
-                PSTypeName = 'IdLE.Step'
-                Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttributes'
-                With = @{
-                    IdentityKey = 'testuser'
-                    Attributes = @{ Department = 'IT' }
-                    AuthSessionName = 'ActiveDirectory'
-                    AuthSessionOptions = @{ Role = 'Tier0' }
-                }
-            }
-
-            # Act
-            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
-
-            # Assert
             $result | Should -Not -BeNullOrEmpty
             $result.PSTypeNames | Should -Contain 'IdLE.StepResult'
             $result.Status | Should -Be 'Completed'
-            $testState.SessionAcquired | Should -Be $true
-            $testState.AcquiredName | Should -Be 'ActiveDirectory'
-            $testState.AcquiredOptions.Role | Should -Be 'Tier0'
+            $script:State.SessionAcquired | Should -Be $true
+            $script:State.AcquiredName | Should -Be 'ActiveDirectory'
+            $script:State.AcquiredOptions.Role | Should -Be 'Tier0'
         }
 
-        It 'does not acquire auth session when With.AuthSessionName is absent' {
-            # Arrange
-            $sessionAcquired = $false
-
-            $broker = [pscustomobject]@{
-                PSTypeName = 'Tests.AuthSessionBroker'
-            }
-            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                $script:sessionAcquired = $true
-                throw "Should not be called"
-            } -Force
-
-            $mockProvider = [pscustomobject]@{
-                PSTypeName = 'Tests.MockProvider'
-            }
-            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
-                param($IdentityKey, $Name, $Value)
-                return [pscustomobject]@{
-                    PSTypeName = 'IdLE.ProviderResult'
-                    Changed = $true
-                }
-            } -Force
-
-            $context = [pscustomobject]@{
-                PSTypeName = 'IdLE.ExecutionContext'
-                Providers = @{
-                    Identity = $mockProvider
-                    AuthSessionBroker = $broker
-                }
-            }
-            $context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                return $this.Providers.AuthSessionBroker.AcquireAuthSession($Name, $Options)
-            } -Force
-
-            $step = [pscustomobject]@{
-                PSTypeName = 'IdLE.Step'
-                Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttributes'
-                With = @{
-                    IdentityKey = 'testuser'
-                    Attributes = @{ Department = 'IT' }
-                }
-            }
-
-            # Act
-            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
-
-            # Assert
-            $result | Should -Not -BeNullOrEmpty
-            $result.Status | Should -Be 'Completed'
-            $sessionAcquired | Should -Be $false
-        }
-
-        It 'passes auth session to provider when provider supports AuthSession parameter' {
-            # Arrange
-            $testState = [pscustomobject]@{
-                ReceivedAuthSession = $null
-            }
-
-            $broker = [pscustomobject]@{
-                PSTypeName = 'Tests.AuthSessionBroker'
-            }
-            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                return [PSCredential]::new('tier0admin', (ConvertTo-SecureString 'pass123' -AsPlainText -Force))
-            } -Force
-
-            $mockProvider = [pscustomobject]@{
-                PSTypeName = 'Tests.MockProvider'
-                State = $testState
-            }
-            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
-                param($IdentityKey, $Name, $Value, $AuthSession)
-                $this.State.ReceivedAuthSession = $AuthSession
-                return [pscustomobject]@{
-                    PSTypeName = 'IdLE.ProviderResult'
-                    Changed = $true
-                }
-            } -Force
-
-            $context = [pscustomobject]@{
-                PSTypeName = 'IdLE.ExecutionContext'
-                Providers = @{
-                    Identity = $mockProvider
-                    AuthSessionBroker = $broker
-                }
-            }
-            $context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                return $this.Providers.AuthSessionBroker.AcquireAuthSession($Name, $Options)
-            } -Force
-
-            $step = [pscustomobject]@{
-                PSTypeName = 'IdLE.Step'
-                Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttributes'
-                With = @{
-                    IdentityKey = 'testuser'
-                    Attributes = @{ Department = 'IT' }
-                    AuthSessionName = 'ActiveDirectory'
-                }
-            }
-
-            # Act
-            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
-
-            # Assert
-            $result | Should -Not -BeNullOrEmpty
-            $result.Status | Should -Be 'Completed'
-            $testState.ReceivedAuthSession | Should -Not -BeNullOrEmpty
-            $testState.ReceivedAuthSession | Should -BeOfType [PSCredential]
-            $testState.ReceivedAuthSession.UserName | Should -Be 'tier0admin'
-        }
-
-        It 'falls back to legacy signature when provider lacks AuthSession parameter' {
-            # Arrange
-            $testState = [pscustomobject]@{
-                LegacyCallMade = $false
-            }
-
-            $broker = [pscustomobject]@{
-                PSTypeName = 'Tests.AuthSessionBroker'
-            }
-            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                return [PSCredential]::new('tier0admin', (ConvertTo-SecureString 'pass123' -AsPlainText -Force))
-            } -Force
-
-            # Provider without AuthSession parameter (legacy)
-            $mockProvider = [pscustomobject]@{
-                PSTypeName = 'Tests.MockProvider'
-                State = $testState
-            }
-            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
+        It 'does not acquire auth session when AuthSessionName is absent and provider lacks AuthSession parameter' {
+            $script:Provider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
                 param($IdentityKey, $Name, $Value)
                 $this.State.LegacyCallMade = $true
                 return [pscustomobject]@{
                     PSTypeName = 'IdLE.ProviderResult'
-                    Changed = $true
+                    Changed    = $true
                 }
             } -Force
 
-            $context = [pscustomobject]@{
-                PSTypeName = 'IdLE.ExecutionContext'
-                Providers = @{
-                    Identity = $mockProvider
-                    AuthSessionBroker = $broker
-                }
-            }
-            $context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                return $this.Providers.AuthSessionBroker.AcquireAuthSession($Name, $Options)
-            } -Force
+            $step = $script:StepTemplate
+            $step.With.Remove('AuthSessionName')
+            $step.With.Remove('AuthSessionOptions')
 
-            $step = [pscustomobject]@{
-                PSTypeName = 'IdLE.Step'
-                Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttributes'
-                With = @{
-                    IdentityKey = 'testuser'
-                    Attributes = @{ Department = 'IT' }
-                    AuthSessionName = 'ActiveDirectory'
-                }
-            }
+            $result = & $script:Handler -Context $script:Context -Step $step
 
-            # Act
-            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
-
-            # Assert
-            $result | Should -Not -BeNullOrEmpty
             $result.Status | Should -Be 'Completed'
-            $testState.LegacyCallMade | Should -Be $true
+            $script:State.SessionAcquired | Should -Be $false
         }
 
-        It 'throws when With.AuthSessionOptions is not a hashtable' {
-            # Arrange
-            $mockProvider = [pscustomobject]@{
-                PSTypeName = 'Tests.MockProvider'
-            }
-            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
+        It 'passes auth session to provider when provider supports AuthSession parameter' {
+            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+
+            $result | Should -Not -BeNullOrEmpty
+            $result.Status | Should -Be 'Completed'
+            $script:State.ReceivedAuthSession | Should -Not -BeNullOrEmpty
+            $script:State.ReceivedAuthSession | Should -BeOfType [PSCredential]
+            $script:State.ReceivedAuthSession.UserName | Should -Be 'tier0admin'
+        }
+
+        It 'falls back to legacy signature when provider lacks AuthSession parameter' {
+            $script:Provider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
                 param($IdentityKey, $Name, $Value)
+                $this.State.LegacyCallMade = $true
                 return [pscustomobject]@{
                     PSTypeName = 'IdLE.ProviderResult'
-                    Changed = $true
+                    Changed    = $true
                 }
             } -Force
 
-            $context = [pscustomobject]@{
-                PSTypeName = 'IdLE.ExecutionContext'
-                Providers = @{
-                    Identity = $mockProvider
-                }
-            }
+            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
 
-            $step = [pscustomobject]@{
-                PSTypeName = 'IdLE.Step'
-                Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttributes'
-                With = @{
-                    IdentityKey = 'testuser'
-                    Attributes = @{ Department = 'IT' }
-                    AuthSessionName = 'ActiveDirectory'
-                    AuthSessionOptions = 'invalid-string'
-                }
-            }
+            $result | Should -Not -BeNullOrEmpty
+            $result.Status | Should -Be 'Completed'
+            $script:State.LegacyCallMade | Should -Be $true
+        }
 
-            # Act & Assert
-            { Invoke-IdleStepEnsureAttributes -Context $context -Step $step } |
+        It 'throws when AuthSessionOptions is not a hashtable' {
+            $step = $script:StepTemplate
+            $step.With.AuthSessionOptions = 'invalid-string'
+
+            { & $script:Handler -Context $script:Context -Step $step } |
                 Should -Throw '*AuthSessionOptions*hashtable*'
         }
 
         It 'acquires default auth session when AuthSessionName is absent but broker exists' {
-            # Arrange
-            $testState = [pscustomobject]@{
-                SessionAcquired = $false
-                AcquiredName = $null
-                AcquiredOptions = $null
-            }
+            $step = $script:StepTemplate
+            $step.With.Remove('AuthSessionName')
+            $step.With.Remove('AuthSessionOptions')
 
-            $broker = [pscustomobject]@{
-                PSTypeName = 'Tests.AuthSessionBroker'
-                State = $testState
-            }
-            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                $this.State.SessionAcquired = $true
-                $this.State.AcquiredName = $Name
-                $this.State.AcquiredOptions = $Options
-                return [PSCredential]::new('defaultuser', (ConvertTo-SecureString 'defaultpass' -AsPlainText -Force))
-            } -Force
+            $result = & $script:Handler -Context $script:Context -Step $step
 
-            $mockProvider = [pscustomobject]@{
-                PSTypeName = 'Tests.MockProvider'
-            }
-            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
-                param($IdentityKey, $Name, $Value, $AuthSession)
-                return [pscustomobject]@{
-                    PSTypeName = 'IdLE.ProviderResult'
-                    Changed = $true
-                }
-            } -Force
-
-            $context = [pscustomobject]@{
-                PSTypeName = 'IdLE.ExecutionContext'
-                Providers = @{
-                    Identity = $mockProvider
-                    AuthSessionBroker = $broker
-                }
-            }
-            $context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
-                param($Name, $Options)
-                return $this.Providers.AuthSessionBroker.AcquireAuthSession($Name, $Options)
-            } -Force
-
-            $step = [pscustomobject]@{
-                PSTypeName = 'IdLE.Step'
-                Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttributes'
-                With = @{
-                    IdentityKey = 'testuser'
-                    Attributes = @{ Department = 'IT' }
-                    # No AuthSessionName - should still try to acquire default session
-                }
-            }
-
-            # Act
-            $result = Invoke-IdleStepEnsureAttributes -Context $context -Step $step
-
-            # Assert
             $result | Should -Not -BeNullOrEmpty
             $result.Status | Should -Be 'Completed'
-            $testState.SessionAcquired | Should -Be $true
-            $testState.AcquiredName | Should -Be ''
-            $testState.AcquiredOptions | Should -BeNullOrEmpty
+            $script:State.SessionAcquired | Should -Be $true
+            $script:State.AcquiredName | Should -Be ''
+            $script:State.AcquiredOptions | Should -BeNullOrEmpty
         }
 
         It 'throws when AuthSessionName is set but no broker is available' {
-            # Arrange
-            $mockProvider = [pscustomobject]@{
-                PSTypeName = 'Tests.MockProvider'
-            }
-            $mockProvider | Add-Member -MemberType ScriptMethod -Name EnsureAttribute -Value {
-                param($IdentityKey, $Name, $Value, $AuthSession)
-                return [pscustomobject]@{
-                    PSTypeName = 'IdLE.ProviderResult'
-                    Changed = $true
-                }
-            } -Force
-
             $context = [pscustomobject]@{
                 PSTypeName = 'IdLE.ExecutionContext'
-                Providers = @{
-                    Identity = $mockProvider
-                    # No AuthSessionBroker
-                }
+                Providers  = @{ Identity = $script:Provider }
             }
 
-            $step = [pscustomobject]@{
-                PSTypeName = 'IdLE.Step'
-                Name = 'TestStep'
-                Type = 'IdLE.Step.EnsureAttributes'
-                With = @{
-                    IdentityKey = 'testuser'
-                    Attributes = @{ Department = 'IT' }
-                    AuthSessionName = 'ActiveDirectory'  # Explicitly set but no broker
-                }
-            }
-
-            # Act & Assert
-            { Invoke-IdleStepEnsureAttributes -Context $context -Step $step } |
+            { & $script:Handler -Context $context -Step $script:StepTemplate } |
                 Should -Throw '*AuthSessionName*AcquireAuthSession*'
         }
     }

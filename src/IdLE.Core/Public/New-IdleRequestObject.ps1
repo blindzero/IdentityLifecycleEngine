@@ -1,4 +1,4 @@
-function New-IdleLifecycleRequestObject {
+function New-IdleRequestObject {
     <#
     .SYNOPSIS
     Creates a lifecycle request object (core factory).
@@ -39,17 +39,17 @@ function New-IdleLifecycleRequestObject {
     what changed from the previous state). Remains $null when omitted. Must not contain ScriptBlocks.
 
     .EXAMPLE
-    $request = New-IdleLifecycleRequestObject -LifecycleEvent 'Joiner'
+    $request = New-IdleRequestObject -LifecycleEvent 'Joiner'
 
     Creates a minimal Joiner request with auto-generated CorrelationId and empty IdentityKeys/DesiredState.
 
     .EXAMPLE
-    $request = New-IdleLifecycleRequestObject -LifecycleEvent 'Joiner' -CorrelationId (New-Guid).Guid -IdentityKeys @{ EmployeeId = '12345' } -DesiredState @{ Department = 'Engineering'; MailNickname = 'jdoe'; Title = 'Engineer' }
+    $request = New-IdleRequestObject -LifecycleEvent 'Joiner' -CorrelationId (New-Guid).Guid -IdentityKeys @{ EmployeeId = '12345' } -DesiredState @{ Department = 'Engineering'; MailNickname = 'jdoe'; Title = 'Engineer' }
 
     Creates a Joiner request with specific identity keys and desired state attributes for a typical onboarding workflow.
 
     .EXAMPLE
-    $request = New-IdleLifecycleRequestObject -LifecycleEvent 'Mover' -IdentityKeys @{ UPN = 'user@contoso.com' } -Changes @{ Department = 'Sales' } -Actor 'admin@contoso.com'
+    $request = New-IdleRequestObject -LifecycleEvent 'Mover' -IdentityKeys @{ UPN = 'user@contoso.com' } -Changes @{ Department = 'Sales' } -Actor 'admin@contoso.com'
 
     Creates a Mover request with identity keys, changes, and actor information for a department transfer workflow.
 
@@ -65,7 +65,7 @@ function New-IdleLifecycleRequestObject {
     - Sensitive data in request objects may be logged or emitted in events. Rely on redaction 
       boundaries defined in the engine's event sink and logging layers.
     
-    This is a core engine function. For the user-facing API, use New-IdleLifecycleRequest from 
+    This is a core engine function. For the user-facing API, use New-IdleRequest from 
     the IdLE module, which delegates to this function.
     #>
     [CmdletBinding()]
@@ -111,3 +111,4 @@ function New-IdleLifecycleRequestObject {
         $Actor
     )
 }
+

@@ -45,8 +45,9 @@ Export-ModuleMember -Function @(
     'Invoke-IdlePlanObject',
     'Invoke-IdleProviderMethod',
     'New-IdleAuthSessionBroker',
-    'New-IdleLifecycleRequestObject',
+    'New-IdleRequestObject',
     'New-IdlePlanObject',
     'Test-IdleProviderMethodParameter',
     'Test-IdleWorkflowDefinitionObject'
 ) -Alias @()
+

@@ -87,9 +87,9 @@ function Invoke-IdlePlanObject {
     if ($null -ne $planSteps -and ($planSteps -is [System.Collections.IEnumerable]) -and ($planSteps -isnot [string])) {
         $i = 0
         foreach ($step in $planSteps) {
-            $stepType = [string](Get-IdleStepField -Step $step -Name 'Type')
+            $stepType = [string](Get-IdlePropertyValue -Object $step -Name 'Type')
             if ($stepType -eq 'IdLE.Step.AcquireAuthSession') {
-                $with = Get-IdleStepField -Step $step -Name 'With'
+                $with = Get-IdlePropertyValue -Object $step -Name 'With'
                 $options = $null
                 if ($null -ne $with) {
                     if ($with -is [System.Collections.IDictionary]) {
@@ -278,12 +278,12 @@ function Invoke-IdlePlanObject {
             continue
         }
 
-        $stepName = [string](Get-IdleStepField -Step $step -Name 'Name')
+        $stepName = [string](Get-IdlePropertyValue -Object $step -Name 'Name')
         if ($null -eq $stepName) { $stepName = '' }
 
-        $stepType = Get-IdleStepField -Step $step -Name 'Type'
-        $stepWith = Get-IdleStepField -Step $step -Name 'With'
-        $stepStatus = [string](Get-IdleStepField -Step $step -Name 'Status')
+        $stepType = Get-IdlePropertyValue -Object $step -Name 'Type'
+        $stepWith = Get-IdlePropertyValue -Object $step -Name 'With'
+        $stepStatus = [string](Get-IdlePropertyValue -Object $step -Name 'Status')
         if ($null -eq $stepStatus) { $stepStatus = '' }
 
         # Conditions are evaluated during planning and represented as Step.Status.

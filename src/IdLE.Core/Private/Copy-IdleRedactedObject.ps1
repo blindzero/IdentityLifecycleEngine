@@ -119,14 +119,7 @@ function Copy-IdleRedactedObject {
         }
 
         # Primitive / immutable-ish types can be returned as-is.
-        if ($InnerValue -is [string] -or
-            $InnerValue -is [int] -or
-            $InnerValue -is [long] -or
-            $InnerValue -is [double] -or
-            $InnerValue -is [decimal] -or
-            $InnerValue -is [bool] -or
-            $InnerValue -is [datetime] -or
-            $InnerValue -is [guid]) {
+        if (Test-IdlePrimitiveValue -Value $InnerValue) {
             return $InnerValue
         }
 
@@ -167,7 +160,7 @@ function Copy-IdleRedactedObject {
         }
 
         # Enumerables (except string) -> clone recursively.
-        if ($InnerValue -is [System.Collections.IEnumerable] -and -not ($InnerValue -is [string])) {
+        if (Test-IdleEnumerableValue -Value $InnerValue) {
             $items = @()
             foreach ($item in $InnerValue) {
                 $items += Copy-IdleRedactedInternal -InnerValue $item

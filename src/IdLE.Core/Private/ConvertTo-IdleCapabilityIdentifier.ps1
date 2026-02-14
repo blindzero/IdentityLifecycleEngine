@@ -1,6 +1,6 @@
 Set-StrictMode -Version Latest
 
-function ConvertTo-NullIfEmptyString {
+function ConvertTo-IdleCapabilityIdentifier {
     [CmdletBinding()]
     param(
         [Parameter()]
@@ -12,9 +12,10 @@ function ConvertTo-NullIfEmptyString {
         return $null
     }
 
-    if ($Value -is [string] -and [string]::IsNullOrWhiteSpace($Value)) {
+    $cap = ($Value -as [string]).Trim()
+    if ([string]::IsNullOrWhiteSpace($cap)) {
         return $null
     }
 
-    return $Value
+    return $cap
 }
