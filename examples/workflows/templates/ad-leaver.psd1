@@ -31,7 +31,7 @@
         # Prefer an explicit allow-list or a "remove only managed groups" approach.
         @{
             Type = 'IdLE.Step.EnsureEntitlement'
-            Name     = 'Remove managed group memberships (optional)'
+            Name     = 'Remove managed group memberships (optional, item 1)'
             With     = @{
                 Condition       = @{ Equals = @{ Path = 'Request.Input.RemoveGroups'; Value = $true } }
                 AuthSessionName = 'Directory'
@@ -47,7 +47,7 @@
         }
         @{
             Type = 'IdLE.Step.EnsureEntitlement'
-            Name     = 'Remove managed group memberships (optional)'
+            Name     = 'Remove managed group memberships (optional, item 2)'
             With     = @{
                 Condition       = @{ Equals = @{ Path = 'Request.Input.RemoveGroups'; Value = $true } }
                 AuthSessionName = 'Directory'

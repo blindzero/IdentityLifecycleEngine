@@ -33,9 +33,14 @@ Describe 'Capability Deprecation and Migration' {
             $wfPath | Should -Exist
 
             $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -DesiredState @{
+                UserPrincipalName = 'leaver@contoso.com'
                 Manager = @{
                     DisplayName = 'IT Support'
                     Mail        = 'support@contoso.com'
+                }
+                ServiceDesk = @{
+                    DisplayName = 'Service Desk'
+                    Mail        = 'servicedesk@contoso.com'
                 }
             }
             $providers = @{ MockProvider = $mockProvider }
@@ -73,9 +78,14 @@ Describe 'Capability Deprecation and Migration' {
             $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -DesiredState @{
+                UserPrincipalName = 'leaver@contoso.com'
                 Manager = @{
                     DisplayName = 'IT Support'
                     Mail        = 'support@contoso.com'
+                }
+                ServiceDesk = @{
+                    DisplayName = 'Service Desk'
+                    Mail        = 'servicedesk@contoso.com'
                 }
             }
             $providers = @{ MockProvider = $mockProvider }

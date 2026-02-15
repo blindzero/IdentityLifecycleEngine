@@ -98,7 +98,7 @@
 
         @{
             Type = 'IdLE.Step.EnsureEntitlement'
-            Name     = 'Mover: adjust group memberships (optional)'
+            Name     = 'Mover: adjust group memberships (optional, baseline 1)'
             With     = @{
                 Condition       = '{{Request.Input.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
@@ -111,7 +111,7 @@
         }
         @{
             Type = 'IdLE.Step.EnsureEntitlement'
-            Name     = 'Mover: adjust group memberships (optional)'
+            Name     = 'Mover: adjust group memberships (optional, baseline 2)'
             With     = @{
                 Condition       = '{{Request.Input.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
@@ -122,9 +122,9 @@
                 State = 'Present'
             }
         }
-@{
+        @{
             Type = 'IdLE.Step.EnsureEntitlement'
-            Name     = 'Mover: adjust group memberships (optional)'
+            Name     = 'Mover: adjust group memberships (optional, department 1)'
             With     = @{
                 Condition       = '{{Request.Input.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
@@ -137,7 +137,7 @@
         }
         @{
             Type = 'IdLE.Step.EnsureEntitlement'
-            Name     = 'Mover: adjust group memberships (optional)'
+            Name     = 'Mover: adjust group memberships (optional, department 2)'
             With     = @{
                 Condition       = '{{Request.Input.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
