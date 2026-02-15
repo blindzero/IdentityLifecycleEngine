@@ -1,9 +1,7 @@
 ---
-title: Security
+title: Security and Trust Boundaries
 sidebar_labels: Security
 ---
-
-# Security and Trust Boundaries
 
 IdLE is designed to execute **data-driven** identity lifecycle workflows in a deterministic way.
 
@@ -26,11 +24,13 @@ These inputs may come from users, CI pipelines, or external systems and **must b
 **Rule:** Untrusted inputs must be *data-only*. They must not contain ScriptBlocks or other executable objects.
 
 IdLE enforces this by:
+
 - Rejecting ScriptBlocks when importing workflow definitions
-- Validating inputs at runtime using `Assert-IdleNoScriptBlock`
+- Validating inputs at runtime using the public `Assert-IdleNoScriptBlock` function (provided by `IdLE.Core`)
 - Recursively scanning all hashtables, arrays, and PSCustomObjects for ScriptBlocks
 
 **Implementation:**
+
 - The `Assert-IdleNoScriptBlock` function is the single, authoritative validator for this boundary
 - It performs deep recursive validation with no type exemptions
 - All workflow configuration, lifecycle requests, step parameters, and provider maps are validated
@@ -49,7 +49,8 @@ These inputs are provided by the host and are **privileged** because they determ
 
 These extension points may contain ScriptMethods (e.g., the `AcquireAuthSession` method on AuthSessionBroker objects) but should not contain ScriptBlock *properties* that could be confused with data.
 
-**AuthSessionBroker Trust Model:**
+#### AuthSessionBroker Trust Model
+
 - The broker is a **trusted extension point** provided by the host
 - It orchestrates authentication without embedding secrets in workflows
 - Broker objects may contain ScriptMethods (e.g., `AcquireAuthSession`) as part of their interface
@@ -82,6 +83,8 @@ Redaction happens for:
   - `apikey`, `apiKey`, `clientSecret`
   - `accessToken`, `refreshToken`
   - `credential`, `privateKey`
+  - `AccountPassword`, `AccountPasswordAsPlainText`, `GeneratedAccountPasswordPlainText`, `GeneratedAccountPasswordProtected`
+
 - **Sensitive runtime types**, regardless of key name:
   - `PSCredential`
   - `SecureString`
