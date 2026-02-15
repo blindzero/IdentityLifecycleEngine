@@ -16,7 +16,7 @@
             # In a real deployment, this would be a system-specific "resolve from HR" step.
             # Here we emit an event as a simple example, using the default retry profile.
             With        = @{
-                Message = 'Resolve identity for HR record {{Request.Data.HrEmployeeId}}'
+                Message = 'Resolve identity for HR record {{Request.IdentityKeys.HrEmployeeId}}'
             }
         }
 
@@ -60,7 +60,7 @@
             RetryProfile = 'GraphAPI'
             With         = @{
                 Attributes = @{
-                    manager = '{{Request.Data.ManagerId}}'
+                    manager = '{{Request.DesiredState.ManagerId}}'
                 }
             }
         }
@@ -74,7 +74,7 @@
             RetryProfile = 'Notifications'
             # Notification systems may have their own rate limits
             With         = @{
-                Message = 'Joiner workflow failed for user {{Request.Data.UserPrincipalName}}'
+                Message = 'Joiner workflow failed for user {{Request.DesiredState.UserPrincipalName}}'
             }
         }
     )
