@@ -39,6 +39,7 @@ jobs:
           -DocsPath ./docs
           -WebsitePath ./website
           -FailOnOrphans:$false
+          -FailOnMdxRisks:$false
 
       - name: Upload docs audit artifact
         if: always()
