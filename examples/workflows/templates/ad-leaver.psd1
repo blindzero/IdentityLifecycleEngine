@@ -4,23 +4,23 @@
 
     Steps = @(
         @{
-            StepType = 'IdLE.Step.DisableIdentity'
+            Type = 'IdLE.Step.DisableIdentity'
             Name     = 'Disable identity'
             With     = @{
-                AuthSessionName = '{{Request.Auth.Directory}}'
-                Identity        = @{ SamAccountName = '{{Request.Input.SamAccountName}}' }
+                AuthSessionName = 'Directory'
+                Identity        = '{{Request.Input.SamAccountName}}'
                 Reason          = '{{Request.Input.LeaverReason}}'
             }
         }
 
         @{
-            StepType = 'IdLE.Step.EnsureAttributes'
+            Type = 'IdLE.Step.EnsureAttributes'
             Name     = 'Stamp offboarding attributes'
             With     = @{
-                AuthSessionName = '{{Request.Auth.Directory}}'
-                Identity        = @{ SamAccountName = '{{Request.Input.SamAccountName}}' }
+                AuthSessionName = 'Directory'
+                Identity        = '{{Request.Input.SamAccountName}}'
                 Attributes      = @{
-                    Description = 'Leaver on {{Request.Execution.Timestamp}} - {{Request.Input.LeaverReason}}'
+                    Description = 'Leaver (CorrelationId: {{Request.CorrelationId}}) - {{Request.Input.LeaverReason}}'
                 }
             }
         }
@@ -29,18 +29,29 @@
         # Removing groups can break business processes unexpectedly.
         # Prefer an explicit allow-list or a "remove only managed groups" approach.
         @{
-            StepType = 'IdLE.Step.EnsureEntitlement'
+            Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Remove managed group memberships (optional)'
             With     = @{
-                Condition       = '{{Request.Input.RemoveGroups}}'
-                AuthSessionName = '{{Request.Auth.Directory}}'
-                Identity        = @{ SamAccountName = '{{Request.Input.SamAccountName}}' }
+                Condition       = @{ Equals = @{ Path = 'Request.Input.RemoveGroups'; Value = $true } }
+                AuthSessionName = 'Directory'
+                Identity        = '{{Request.Input.SamAccountName}}'
 
                 # Only remove what you explicitly manage via IdLE.
-                Entitlements = @(
-                    '{{Request.Input.ManagedGroupsToRemove.0}}'
-                    '{{Request.Input.ManagedGroupsToRemove.1}}'
-                )
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.ManagedGroupsToRemove.0}}' }
+                State = 'Absent'
+            }
+        }
+        @{
+            Type = 'IdLE.Step.EnsureEntitlement'
+            Name     = 'Remove managed group memberships (optional)'
+            With     = @{
+                Condition       = @{ Equals = @{ Path = 'Request.Input.RemoveGroups'; Value = $true } }
+                AuthSessionName = 'Directory'
+                Identity        = '{{Request.Input.SamAccountName}}'
+
+                # Only remove what you explicitly manage via IdLE.
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.ManagedGroupsToRemove.1}}' }
+                State = 'Absent'
             }
         }
 
@@ -49,12 +60,12 @@
         # - Day 0: Disable + stamp description (safe, minimal risk)
         # - Day N: Remove managed groups + move to Disabled OU (explicit opt-in)
         @{
-            StepType = 'IdLE.Step.MoveIdentity'
+            Type = 'IdLE.Step.MoveIdentity'
             Name     = 'Move to Disabled OU (optional)'
             With     = @{
                 Condition       = '{{Request.Input.MoveToDisabledOu}}'
-                AuthSessionName = '{{Request.Auth.Directory}}'
-                Identity        = @{ SamAccountName = '{{Request.Input.SamAccountName}}' }
+                AuthSessionName = 'Directory'
+                Identity        = '{{Request.Input.SamAccountName}}'
                 TargetPath      = '{{Request.Input.DisabledOuPath}}'
             }
         }

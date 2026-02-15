@@ -6,7 +6,7 @@
     Steps = @(
         # --- Identity creation / baseline ---
         @{
-            StepType = 'IdLE.Step.CreateIdentity'
+            Type = 'IdLE.Step.CreateIdentity'
             Name     = 'Create identity (if missing)'
             With     = @{
                 # Required by the provider: which auth session to use
@@ -14,10 +14,7 @@
 
                 # Provider-specific: identify the target identity
                 # The exact key names depend on provider contracts; keep it consistent with your provider docs.
-                Identity = @{
-                    SamAccountName   = '{{Request.Input.SamAccountName}}'
-                    UserPrincipalName = '{{Request.Input.UserPrincipalName}}'
-                }
+                IdentityKey  = '{{Request.Input.SamAccountName}}'
 
                 # Optional: initial attributes that are commonly required
                 Attributes = @{
@@ -29,13 +26,12 @@
         }
 
         @{
-            StepType = 'IdLE.Step.EnsureAttributes'
+            Type = 'IdLE.Step.EnsureAttributes'
             Name     = 'Ensure core attributes'
             With     = @{
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                Identity        = @{
-                    SamAccountName = '{{Request.Input.SamAccountName}}'
-                }
+                IdentityKey         = '{{Request.Input.SamAccountName}}'
+
                 Attributes = @{
                     Mail            = '{{Request.Input.Mail}}'
                     Department      = '{{Request.Input.Department}}'
@@ -49,13 +45,11 @@
         }
 
         @{
-            StepType = 'IdLE.Step.EnsureEntitlements'
+            Type = 'IdLE.Step.EnsureEntitlements'
             Name     = 'Ensure baseline group memberships'
             With     = @{
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                Identity        = @{
-                    SamAccountName = '{{Request.Input.SamAccountName}}'
-                }
+                IdentityKey         = '{{Request.Input.SamAccountName}}'
 
                 # Use explicit, predictable lists. Prefer allow-lists for baseline access.
                 Entitlements = @(
@@ -71,13 +65,13 @@
         # B) Keep steps commented out and enable when needed
 
         @{
-            StepType = 'IdLE.Step.EnsureAttributes'
+            Type = 'IdLE.Step.EnsureAttributes'
             Name     = 'Mover: update org attributes (optional)'
             With     = @{
                 # Guard by convention: only run when request indicates mover
                 Condition       = '{{Request.Input.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                Identity        = @{ SamAccountName = '{{Request.Input.SamAccountName}}' }
+                IdentityKey         = '{{Request.Input.SamAccountName}}'
                 Attributes      = @{
                     Department  = '{{Request.Input.NewDepartment}}'
                     Title       = '{{Request.Input.NewTitle}}'
@@ -89,20 +83,55 @@
         }
 
         @{
-            StepType = 'IdLE.Step.EnsureEntitlement'
+            Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Mover: adjust group memberships (optional)'
             With     = @{
                 Condition       = '{{Request.Input.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                Identity        = @{ SamAccountName = '{{Request.Input.SamAccountName}}' }
+                IdentityKey         = '{{Request.Input.SamAccountName}}'
 
                 # Optional: baseline + department-specific groups.
-                Entitlements = @(
-                    '{{Request.Input.BaselineGroups.0}}'
-                    '{{Request.Input.BaselineGroups.1}}'
-                    '{{Request.Input.DepartmentGroups.0}}'
-                    '{{Request.Input.DepartmentGroups.1}}'
-                )
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.BaselineGroups.0}}' }
+                State = 'Present'
+            }
+        }
+        @{
+            Type = 'IdLE.Step.EnsureEntitlement'
+            Name     = 'Mover: adjust group memberships (optional)'
+            With     = @{
+                Condition       = '{{Request.Input.IsMover}}'
+                AuthSessionName = '{{Request.Auth.Directory}}'
+                IdentityKey         = '{{Request.Input.SamAccountName}}'
+
+                # Optional: baseline + department-specific groups.
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.BaselineGroups.1}}' }
+                State = 'Present'
+            }
+        }
+@{
+            Type = 'IdLE.Step.EnsureEntitlement'
+            Name     = 'Mover: adjust group memberships (optional)'
+            With     = @{
+                Condition       = '{{Request.Input.IsMover}}'
+                AuthSessionName = '{{Request.Auth.Directory}}'
+                IdentityKey         = '{{Request.Input.SamAccountName}}'
+
+                # Optional: baseline + department-specific groups.
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.DepartmentGroups.0}}' }
+                State = 'Present'
+            }
+        }
+        @{
+            Type = 'IdLE.Step.EnsureEntitlement'
+            Name     = 'Mover: adjust group memberships (optional)'
+            With     = @{
+                Condition       = '{{Request.Input.IsMover}}'
+                AuthSessionName = '{{Request.Auth.Directory}}'
+                IdentityKey         = '{{Request.Input.SamAccountName}}'
+
+                # Optional: baseline + department-specific groups.
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.DepartmentGroups.1}}' }
+                State = 'Present'
             }
         }
     )
