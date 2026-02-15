@@ -77,14 +77,14 @@ The AD provider supports the common identity lifecycle and entitlement operation
 
 | Step type | Typical use | Notes |
 | --- | --- | --- |
-| `IdLE.Step.Identity.Create` | Create user (if missing) | Identity can be addressed by GUID, UPN, or sAMAccountName |
-| `IdLE.Step.Identity.EnsureAttributes` | Set/update AD user attributes | Use placeholders from your request input |
-| `IdLE.Step.Identity.Disable` | Disable user account | Typical leaver action |
-| `IdLE.Step.Identity.Enable` | Enable user account | Rare (rehire) |
-| `IdLE.Step.Identity.MoveContainer` | Move user to another OU | Useful for leaver or org changes |
-| `IdLE.Step.Identity.EnsureEntitlements` | Ensure group memberships | AD entitlements are **groups** |
-| `IdLE.Step.Identity.RemoveEntitlements` | Remove managed groups | Prefer explicit allow-lists / managed lists |
-| `IdLE.Step.Identity.Delete` | Delete user | **Opt-in** via `-AllowDelete` (see Configuration) |
+| `IdLE.Step.CreateIdentity` | Create user (if missing) | Identity can be addressed by GUID, UPN, or sAMAccountName |
+| `IdLE.Step.EnsureAttributes` | Set/update AD user attributes | Use placeholders from your request input |
+| `IdLE.Step.DisableIdentity` | Disable user account | Typical leaver action |
+| `IdLE.Step.EnableIdentity` | Enable user account | Rare (rehire) |
+| `IdLE.Step.MoveIdentity` | Move user to another OU | Useful for leaver or org changes |
+| `IdLE.Step.EnsureEntitlement` | Ensure group memberships | AD entitlements are **groups** |
+| `IdLE.Step.RemoveEntitlement` | Remove managed groups | Prefer explicit allow-lists / managed lists |
+| `IdLE.Step.DeleteIdentity` | Delete user | **Opt-in** via `-AllowDelete` (see Configuration) |
 
 ## Configuration
 
