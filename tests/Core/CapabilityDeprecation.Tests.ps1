@@ -27,7 +27,7 @@ Describe 'Capability Deprecation and Migration' {
             }
 
             # Use a real workflow file that uses mailbox steps
-            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1'
+            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver.psd1'
             
             # Verify the workflow file exists
             $wfPath | Should -Exist
@@ -70,7 +70,7 @@ Describe 'Capability Deprecation and Migration' {
             }
 
             # Use a real workflow file
-            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver-mailbox-offboarding.psd1'
+            $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -DesiredState @{
                 Manager = @{
