@@ -17,7 +17,7 @@
                 }
 
                 # Delta or Initial
-                PolicyType          = 'Delta'
+                PolicyType          = '{{Request.Input.PolicyType}}'
 
                 # Optional wait/polling behavior (step-specific)
                 Wait                = $true
