@@ -314,7 +314,10 @@ function Find-MdxRisks {
     param(
         [Parameter(Mandatory)]
         [AllowNull()]
-        [object] $Lines
+        [object] $Lines,
+
+        [Parameter()]
+        [string[]] $IgnoredMdxBlockTags = @('CodeBlock')
     )
 
     # Normalize $Lines to a string[] for safe processing
@@ -331,7 +334,16 @@ function Find-MdxRisks {
     }
 
     $inFence = $false
+    $inIgnoredMdxBlock = $false
     $risks = New-Object System.Collections.Generic.List[object]
+
+    $openTagPattern = $null
+    $closeTagPattern = $null
+    if ($IgnoredMdxBlockTags.Count -gt 0) {
+        $tagAlternation = ($IgnoredMdxBlockTags | ForEach-Object { [regex]::Escape($_) }) -join '|'
+        $openTagPattern = "<(?:$tagAlternation)\b[^>]*>"
+        $closeTagPattern = "</(?:$tagAlternation)\s*>"
+    }
 
     for ($i = 0; $i -lt $normalizedLines.Count; $i++) {
         $line = $normalizedLines[$i]
@@ -341,6 +353,20 @@ function Find-MdxRisks {
             continue
         }
         if ($inFence) { continue }
+
+        if ($openTagPattern -and ($line -match $openTagPattern)) {
+            if ($line -match $closeTagPattern) {
+                continue
+            }
+            $inIgnoredMdxBlock = $true
+            continue
+        }
+        if ($inIgnoredMdxBlock) {
+            if ($closeTagPattern -and ($line -match $closeTagPattern)) {
+                $inIgnoredMdxBlock = $false
+            }
+            continue
+        }
 
         # Ignore any MDX-like patterns that are inside inline code.
         # Simple heuristic: split by backticks and only scan "outside" segments (even indices).
