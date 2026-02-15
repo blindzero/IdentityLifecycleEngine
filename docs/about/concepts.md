@@ -3,7 +3,9 @@ title: IdLE Concepts
 sidebar_label: Concepts
 ---
 
-IdLE stays headless and avoids responsibilities that belong to a host application.
+IdLE is a generic, headless, configuration-driven engine for identity lifecycle automation (Joiner / Mover / Leaver). It intentionally separates intent from implementation: workflows (data-only PSD1 files) declare what should happen, steps implement provider-agnostic, idempotent convergence logic, and providers adapt to external systems and manage authentication.
+
+The engine first builds a deterministic, auditable execution plan from a LifecycleRequest and a workflow (Plan → Execute). Planning validates conditions, inputs, and required provider capabilities; execution runs only the produced plan to ensure repeatability, safe approvals, and reliable auditing. This design prioritizes portability, testability (mockable providers), and minimal runtime assumptions by keeping the core headless and side-effect free.
 
 ## Goals
 
@@ -23,44 +25,27 @@ IdLE stays headless and avoids responsibilities that belong to a host applicatio
 
 ---
 
-## Responsibilities
+## Components
 
-### Separation of Responsibility
+IdLE consists of the following elements and components, which have clear and distinct boundaries to separate their responsibilities and make maintainability easier. This separation keeps the core engine free of environmental assumptions.
 
-Clear separation of responsibility is the essential foundation for maintainability:
+### Host
 
-- **Engine**
-  - Orchestrates workflow execution
-  - Invokes steps
-  - Passes providers to steps
-  - Never depends on provider internals
+The host is technically not really a component of IdLE. It is the environment in which IdLE is running, so your PowerShell console, scripting session or whatever is used to run IdLe. The host
 
-- **Steps**
-  - Implement domain logic
-  - Use providers through contracts
-  - Must not assume a specific provider implementation
+- Selects and configures providers
+- Injects providers into plan execution
+- Decides which provider implementations are used
 
-- **Providers**
-  - Implement infrastructure-specific behavior
-  - Fulfill contracts expected by steps
-  - Encapsulate external system details
-  - Authenticate and manage sessions
-  - Translate generic operations to system APIs
-  - Are mockable for tests
-  - Avoid global state
+### Engine (basically IdLE.Core)
 
-- **Host**
-  - Selects and configures providers
-  - Injects providers into plan execution
-  - Decides which provider implementations are used
+IdLE.Core is the central engine (module) of IdLE and performs the most central tasks
 
-This separation keeps the core engine free of environmental assumptions.
-
-**Important:** Steps should not handle authentication. Authentication is a provider responsibility via AuthSessionBroker.
-
----
-
-IdLE consists of the following elements and components:
+- Orchestrates workflow execution
+- Invokes steps
+- Passes providers to steps
+- Never depends on provider internals
+- Authentication session brokerage
 
 ## Request
 
@@ -76,12 +61,16 @@ $Request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
 }
 ```
 
----
+### Workflow and Steps
 
-## Workflow
+**Workflows** are **data-only configuration files** (PSD1) describing which steps should run for a lifecycle event. Usually workflows are written in `psd1` files, that
 
-Workflows are **data-only configuration files** (PSD1) describing which steps should run for a lifecycle event. 
-To enable larger flexibility, you can use placeholders instead of literals to be substituted with data from request.
+- use Data-only PSD1 configuration (no ScriptBlocks or executable objects)
+- declare step sequence by Type string and provide per-step With parameters
+- may use placeholders referencing Request data; substitutions occur during planning
+- serve as deterministic, reviewable input to the planner (suitable for approvals and audits)
+- must not perform authentication, call providers directly, or contain imperative logic
+- Validated early and evaluated deterministically by the engine
 
 ```powershell
 @{
@@ -90,15 +79,18 @@ To enable larger flexibility, you can use placeholders instead of literals to be
     Steps          = @(
         @{
             Name = 'Step Name'
+            # The step type which defines which capabilities a provider has to supply to execute the step 
             Type = 'IdLE.Step.StepType'
             With = @{
                 # Passed with values from Request Data
                 IdentityKey = '{{Request.IdentityKeys.key}}'
                 Attributes  = @{
+                    # Fixed string example
                     GivenName         = 'Firstname'
                     # Passed with values from Request Data
                     Surname           = '{{Request.DesiredState.Lastname}}'                    
                 }
+                # Any identifier you choose, which references to the provider used in the plan and invocation
                 Provider    = 'IdentityProvider'
             }
         }
@@ -106,17 +98,14 @@ To enable larger flexibility, you can use placeholders instead of literals to be
 }
 ```
 
-### Workflows and Steps
+**Steps** are **reusable plugins** used by workflows that define convergence logic. They:
 
-**Steps** are reusable plugins used by **workflows** that define convergence logic. They:
-
-- Operate idempotently (converge towards desired state)
-- Are provider-agnostic (use contracts, not direct system calls)
+- Implement idempotent domain logic (converge towards desired state).
+- Declare required capabilities (by name) and consume providers via those capability contracts.
+- Step types identify the step implementation, they are not capabilities! Capabilities (namespaced IdLE.* contract names) describe provider functionality that steps require; do not conflate the two.
+- Are provide-agnostic via capability contracts, and do not provide any concrete system calls.
 - Emit structured events for audit and progress
-- Define the capabilities a provider has to supply to be eligible to perform a step
-
-Steps may only write to `State.*` and only to declared output paths.
-No deep merge: replace-at-path semantics only.
+- **Important:** Steps must not handle authentication — authentication is a provider responsibility (AuthSessionBroker).
 
 Learn more: [Workflows](../use/workflows.md) | [Step Catalog](../reference/steps.md)
 
@@ -124,9 +113,11 @@ Learn more: [Workflows](../use/workflows.md) | [Step Catalog](../reference/steps
 
 **Providers** are system-specific adapters that connect workflows to external systems. They:
 
+- Translate generic operations to system APIs to implement infrastructure-specific behavior
+- Advertise which capabilities they fulfill and map capability operations to system APIs and fulfill contracts expected by steps (as defined by capability names)
 - Authenticate and manage sessions
-- Translate generic operations to system APIs
 - Are mockable for tests
+- Avoid global state
 
 Learn more: [Providers](../use/providers.md) | [Providers and Contracts](../extend/providers.md)
 
@@ -143,6 +134,18 @@ Condition = @{
     }
 }
 ```
+
+### **Capabilities**
+
+IdLE uses a **capability-based provider model** to validate execution prerequisites during plan build.
+Steps may declare required capabilities, while providers explicitly advertise which capabilities they support. The engine matches both sides
+and fails fast if required functionality is missing. Capabilities are the "glue" between provider-agnostic Steps and the system-specific providers. They are
+
+- named, namespaced contracts (e.g., `IdLE.Identity.Read`) that describe the operations/shape a provider must expose
+- declared by steps as required capabilities and advertised by providers at registration
+- matched during planning: the engine validates required capabilities are available and fails fast if not
+
+For details on the capability-based model see [Provider Capabilities](../reference/capabilities.md).
 
 ---
 
@@ -165,33 +168,6 @@ conditions, and execution prerequisites.
 - produces data-only actions
 - captures a **data-only request intent snapshot** (e.g. IdentityKeys / DesiredState / Changes) for auditing and export
 
-### Provider Capabilities (Planning-time Validation)
-
-IdLE uses a **capability-based provider model** to validate execution
-prerequisites during plan build.
-
-Steps may declare required capabilities, while providers explicitly
-advertise which capabilities they support. The engine matches both sides
-and fails fast if required functionality is missing.
-
-For details on the capability-based provider model and the validation flow,
-see [Provider Capabilities](../reference/capabilities.md).
-
-### Plan export
-
-Hosts may persist or exchange a plan as a **machine-readable JSON artifact**.
-The canonical contract format is defined here:
-
-- [Plan export specification (JSON)](../reference/specs/plan-export.md)
-
-The exported artifact is intended for **approvals, CI checks, and audits**.
-To keep exports deterministic and review-friendly, the contract intentionally omits volatile information
-such as engine build versions and timestamps. When required, hosts SHOULD attach build/time metadata
-outside the exported plan artifact.
-
-Because IdLE separates planning from execution, the plan retains a **request intent snapshot** so that
-exports can include `request.input` even after the original request object is no longer available.
-
 ---
 
 ## Execute
@@ -202,17 +178,4 @@ Execution runs **only the plan** (no re-planning). This supports:
 - repeatability
 - deterministic audits
 
-### Eventing
-
-IdLE emits **structured events** during execution.
-
-- The engine always creates an `EventSink` and exposes it as `Context.EventSink`.
-- Steps and the engine use a single contract: `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`.
-- All events are buffered in the execution result (`result.Events`).
-
-Hosts may optionally provide an external sink to stream events live:
-
-- `Invoke-IdlePlan -EventSink <object>`
-- The sink must implement `WriteEvent(event)`
-- ScriptBlock sinks are rejected (secure default)
-
+IdLE emits **structured events** during execution which allows post-execution check on overall status or per-step results and messages.
