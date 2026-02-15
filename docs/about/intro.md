@@ -29,7 +29,7 @@ JML (joiner/mover/leavers) processes are
 - time consuming and therefore
 - quite annoying for operators
 
-Identity lifecycle automation often turns into long scripts that are:
+Self-made identity lifecycle automation often turns into long scripts that are:
 
 - tightly coupled to one environment
 - hard to test
@@ -41,7 +41,7 @@ IdLE aims to be:
 
 - **portable** run in different environments with PowerShell 7+ without a hard dependency on a specific host or UI
 - **configuration-driven** workflows are defined as data, not code.
-- **modular** a small core and pluggable providers and steps.
+- **modular** a small core and pluggable providers and steps that even support **extending** with your own custom add-ons.
 - **testable** deterministic planning, mockable providers, and strong contracts.
 
 ---
