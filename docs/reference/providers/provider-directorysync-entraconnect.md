@@ -100,9 +100,7 @@ This provider has no admin-facing option bag. Configuration is done through:
 
 ## Examples (canonical template)
 
-<CodeBlock language="powershell" title="examples/workflows/templates/directorysync-entraconnect-trigger-sync.psd1">
-  {EntraConnectTriggerSync}
-</CodeBlock>
+<CodeBlock language="powershell" title="examples/workflows/templates/directorysync-entraconnect-trigger-sync.psd1">{EntraConnectTriggerSync}</CodeBlock>
 
 ## Troubleshooting
 

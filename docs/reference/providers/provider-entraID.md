@@ -112,13 +112,9 @@ Exact permission names depend on your auth model (delegated vs application) and 
 These are the **two** canonical Entra ID templates, intended to be embedded directly in documentation.
 Mover scenarios are integrated as **optional patterns** in the Joiner template.
 
-<CodeBlock language="powershell" title="examples/workflows/templates/entraid-joiner.psd1">
-  {EntraJoiner}
-</CodeBlock>
+<CodeBlock language="powershell" title="examples/workflows/templates/entraid-joiner.psd1">{EntraJoiner}</CodeBlock>
 
-<CodeBlock language="powershell" title="examples/workflows/templates/entraid-leaver.psd1">
-  {EntraLeaver}
-</CodeBlock>
+<CodeBlock language="powershell" title="examples/workflows/templates/entraid-leaver.psd1">{EntraLeaver}</CodeBlock>
 
 ## Troubleshooting
 

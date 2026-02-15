@@ -87,13 +87,9 @@ No admin-facing provider options.
 
 To keep provider documentation focused and consistent, this page embeds only the **canonical** Exchange Online templates:
 
-<CodeBlock language="powershell" title="examples/workflows/templates/exo-joiner.psd1">
-  {ExoJoinerMailboxBaseline}
-</CodeBlock>
+<CodeBlock language="powershell" title="examples/workflows/templates/exo-joiner.psd1">{ExoJoinerMailboxBaseline}</CodeBlock>
 
-<CodeBlock language="powershell" title="examples/workflows/templates/exo-leaver.psd1">
-  {ExoLeaverMailboxOffboarding}
-</CodeBlock>
+<CodeBlock language="powershell" title="examples/workflows/templates/exo-leaver.psd1">{ExoLeaverMailboxOffboarding}</CodeBlock>
 
 ## Troubleshooting
 

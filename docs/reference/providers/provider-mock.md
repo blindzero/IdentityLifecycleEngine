@@ -5,8 +5,6 @@ sidebar_label: Mock
 
 import CodeBlock from '@theme/CodeBlock';
 
-import MockIdentityAndEntitlements from '@site/../examples/workflows/mock/mock-identity-and-entitlements.psd1';
-
 ## Summary
 
 - **Module:** `IdLE.Provider.Mock`
@@ -66,12 +64,6 @@ No authentication is required. The Mock provider ignores `AuthSessionName`.
 ## Configuration
 
 This provider has no admin-facing options.
-
-## Example (canonical)
-
-<CodeBlock language="powershell" title="examples/workflows/mock/mock-identity-and-entitlements.psd1">
-  {MockIdentityAndEntitlements}
-</CodeBlock>
 
 ## Troubleshooting
 

@@ -120,13 +120,9 @@ $provider = New-IdleADIdentityProvider -AllowDelete
 These are the canonical, **doc-embed friendly** templates for AD.
 Mover scenarios are intentionally folded into Joiner/Leaver (as optional patterns) to keep the template set small.
 
-<CodeBlock language="powershell" title="examples/workflows/templates/ad-joiner.psd1">
-  {AdJoiner}
-</CodeBlock>
+<CodeBlock language="powershell" title="examples/workflows/templates/ad-joiner.psd1">{AdJoiner}</CodeBlock>
 
-<CodeBlock language="powershell" title="examples/workflows/templates/ad-leaver.psd1">
-  {AdLeaver}
-</CodeBlock>
+<CodeBlock language="powershell" title="examples/workflows/templates/ad-leaver.psd1">{AdLeaver}</CodeBlock>
 
 ## Troubleshooting
 
