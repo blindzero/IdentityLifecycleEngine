@@ -1,6 +1,6 @@
 @{
     RootModule        = 'IdLE.Steps.DirectorySync.psm1'
-    ModuleVersion = '0.9.4'
+    ModuleVersion = '0.9.5'
     GUID              = 'b2c3d4e5-6f78-9012-bcde-f12345678901'
     Author            = 'Matthias Fleschuetz'
     Copyright         = '(c) Matthias Fleschuetz. All rights reserved.'
