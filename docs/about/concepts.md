@@ -1,9 +1,7 @@
 ---
-title: Concepts
+title: IdLE Concepts
 sidebar_label: Concepts
 ---
-
-# IdLE Concepts
 
 IdLE stays headless and avoids responsibilities that belong to a host application.
 
