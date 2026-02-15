@@ -1,95 +1,137 @@
 # Provider Reference Template
 
-> **Purpose:** This page is a **reference** for a specific provider implementation.
-> Keep it factual and contract-oriented. Put conceptual explanations elsewhere and link to them.
+> **Audience:** Admins and workflow authors (not developers).  
+> **Goal:** Help users get the provider running, wire authentication, understand what steps it supports, and copy working examples.
+>
+> Keep the page **practical** and **scan-friendly**:
+> - Prefer short tables over long prose.
+> - Avoid implementation details (interfaces, contracts, test paths, CI notes).
+> - Do not document "from source" installation here.
 
 ---
 
 ## Summary
 
-- **Provider name:** `<ProviderName>`
-- **Module:** `<ModuleName>` (e.g. `IdLE.Provider.*`)
-- **Provider kind:** `<Identity | Entitlement | Messaging | Other>`
-- **Targets:** `<e.g. Active Directory, Entra ID, REST API>`
-- **Status:** `<Built-in | First-party | Community | Experimental>`
-- **Since:** `<Version>` (optional)
-- **Compatibility:** PowerShell 7+ (IdLE requirement)
+| Item | Value |
+| --- | --- |
+| **Provider name** | `<ProviderName>` |
+| **Module** | `<ModuleName>` (e.g. `IdLE.Provider.*`) |
+| **Provider role** | `<Identity | Entitlement | Messaging | DirectorySync | Other>` |
+| **Targets** | `<e.g. Active Directory, Entra ID, Exchange Online, REST API>` |
+| **Status** | `<Built-in | First-party | Community | Experimental>` |
+| **Since** | `<Version>` (optional) |
+| **PowerShell** | PowerShell 7+ |
 
 ---
 
-## What this provider does
+## When to use this provider
 
-- **Primary responsibilities:**  
-  - `<bullet>`
-  - `<bullet>`
-- **Out of scope / non-goals:**  
-  - `<bullet>`
-  - `<bullet>`
+### Use cases
 
----
+- `<bullet>`
+- `<bullet>`
 
-## Contracts and capabilities
+### Out of scope
 
-### Contracts implemented
-
-List the IdLE provider contracts this provider implements and what they mean at a glance.
-
-| Contract | Used by steps for | Notes |
-| --- | --- | --- |
-| `<IIdleIdentityProvider>` | `<identity read/write>` | `<notes>` |
-| `<IIdleEntitlementProvider>` | `<grant/revoke/list entitlements>` | `<notes>` |
-
-> Keep the contract list stable and link to the canonical contract reference.
-
-### Capability advertisement (`GetCapabilities()`)
-
-- **Implements `GetCapabilities()`**: `<Yes/No>`
-- **Capabilities returned (stable identifiers):**
-  - `<IdLE.Identity.Read>`
-  - `<IdLE.Identity.Attribute.Ensure>`
-  - `<IdLE.Entitlement.List>`
+- `<bullet>`
+- `<bullet>`
 
 ---
 
-## Authentication and session acquisition
+## Getting started
 
-> Providers must not prompt for auth. Use the host-provided broker contract.
+### Requirements
 
-- **Auth session name(s) requested via `Context.AcquireAuthSession(...)`:**
-  - `<MicrosoftGraph | ActiveDirectory | ExchangeOnline | ...>`
+> List only what an admin must prepare **before** installing.
+
+- **Dependencies:** `<RSAT / module names / OS requirements>`
+- **Permissions / roles:** `<minimal required roles/scopes>`
+- **Network / endpoints:** `<URLs / ports / proxies>` (if applicable)
+
+### Install (PowerShell Gallery)
+
+```powershell
+Install-Module <ModuleName> -Scope CurrentUser
+```
+
+> Optional: add `-RequiredVersion` or `Update-Module` notes if needed.
+
+### Import & basic check
+
+```powershell
+Import-Module <ModuleName>
+
+# Create provider instance (minimal)
+$provider = <New-IdleXxxProvider ...>
+```
+
+If import or creation fails, see **Troubleshooting**.
+
+---
+
+## Quickstart (minimal runnable)
+
+> Provide the smallest, realistic end-to-end example (copy/paste).
+
+```powershell
+# 1) Provider instance
+$provider = <New-IdleXxxProvider ...>
+
+# 2) Provider map (alias used in workflows)
+$providers = @{
+  <AliasName> = $provider
+}
+
+# 3) Plan + execute (example shape)
+$plan   = New-IdlePlan -WorkflowPath <path> -Request <request> -Providers $providers
+$result = Invoke-IdlePlan -Plan $plan -Providers $providers
+```
+
+---
+
+## Authentication
+
+> Providers must not prompt for auth. They acquire sessions via the host's AuthSessionBroker.
+
+- **Auth session type(s):** `<e.g. MicrosoftGraph | ActiveDirectory | ExchangeOnline | ...>`
+- **Auth session name(s):** `<e.g. Graph | AD | EXO | ...>` (if multiple, list when/why)
 - **Session options (data-only):**
-  - `<Key>`: `<Type>` — `<Meaning>` (optional default: `<...>`)
+  - `<Key>`: `<Type>` — `<Meaning>` (default: `<...>`)
 
 :::warning
-
-**Security notes**
-
-- Do not pass secrets in provider options.
-- Ensure token/credential objects are not emitted in events.
-
+**Security**
+- Do not pass secrets in provider options or workflow files.
+- Ensure credentials/tokens are not written to logs or events.
 :::
+
+---
+
+## Supported step types
+
+> Admins think in **Step Types**. List what works with this provider.
+
+| Step Type | Typical use | Notes |
+| --- | --- | --- |
+| `<IdLE.Step.X>` | `<What an admin achieves>` | `<Provider alias expected / prerequisites>` |
+| `<IdLE.Step.Y>` | `<...>` | `<...>` |
 
 ---
 
 ## Configuration
 
-### Provider constructor / factory
+### Provider creation
 
-How to create an instance.
-
-- **Public constructor cmdlet(s):**  
+- **Factory cmdlet(s):**
   - `<New-IdleXxxProvider>` — `<short purpose>`
 
-**Parameters (high signal only)**
+**High-signal parameters (only)**
 
 - `-Name <string>` — `<...>`
 - `-Options <hashtable>` — `<...>`
 
-> Do not copy full comment-based help here. Link to the cmdlet reference.
+> Link to cmdlet reference instead of copying full help.
 
-### Provider bag / alias usage
-
-How to pass the provider instance to IdLE as part of the host's provider map.
+### Provider alias usage
 
 ```powershell
 $providers = @{
@@ -97,12 +139,10 @@ $providers = @{
 }
 ```
 
-- **Recommended alias pattern:** `<Identity | Entitlement | SourceAD | TargetEntra | ...>`
-- **Default alias expected by built-in steps (if any):** `<Identity>` (if applicable)
+- **Recommended alias:** `<Identity | Entitlement | SourceAD | TargetEntra | ...>`
+- **Default alias expected by built-in steps (if any):** `<Identity>` (optional)
 
----
-
-## Provider-specific options reference
+### Options reference
 
 > Document only **data-only** keys. Keep this list short and unambiguous.
 
@@ -115,44 +155,18 @@ $providers = @{
 
 ## Operational behavior
 
-### Idempotency and consistency
-
-- **Idempotent operations:** `<Yes/No/Partial>`
-- **Consistency model:** `<Strong/Eventually consistent/Depends on target>`
-- **Concurrency notes:** `<locking, retries, throttling>`
-
-### Error mapping and retry behavior
-
-- **Common error categories:** `<NotFound, AlreadyExists, PermissionDenied, Throttled>`
-- **Retry strategy:** `<none | exponential backoff | delegated to host>`
-
----
-
-## Observability
-
-- **Events emitted by provider (if any):**  
-  - `<Type>` — `<When>` — `<Data keys>`
-- **Sensitive data redaction:** `<how/where ensured>`
+- **Idempotency:** `<Yes/No/Partial>` — `<What happens on re-run>`
+- **Consistency model:** `<Strong/Eventually consistent/Depends>`
+- **Throttling / rate limits:** `<What admins should expect>`
+- **Retry behavior:** `<none | built-in | delegated to host>`
 
 ---
 
 ## Examples
 
-### Minimal host usage
+> Keep only 1–2 short examples inline. Link to the repository's `examples/` for more.
 
-```powershell
-# 1) Create provider instance
-$provider = <New-IdleXxxProvider ...>
-
-# 2) Build provider map
-$providers = @{ <Alias> = $provider }
-
-# 3) Plan + execute
-$plan = New-IdlePlan -WorkflowPath <path> -Request <request> -Providers $providers
-$result = Invoke-IdlePlan -Plan $plan -Providers $providers
-```
-
-### Example workflow snippet
+### Example workflow (template)
 
 ```powershell
 @{
@@ -161,7 +175,7 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
       Name = '<Step name>'
       Type = '<IdLE.Step.Whatever>'
       With = @{
-        Provider = '<Alias>'
+        Provider = '<AliasName>'
         # ...
       }
     }
@@ -169,23 +183,28 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 }
 ```
 
----
+### More examples
 
-## Limitations and known issues
+- `<Link to an examples page / list>`  
+- `<Link to specific example files>`
 
-- `<bullet>`
-- `<bullet>`
-
----
-
-## Testing
-
-- **Unit tests:** `<path(s)>`
-- **Contract tests:** `<path(s)>`
-- **Known CI constraints:** `<e.g. no live system calls>`
+> Documentation author note: if your site uses MDX, you can embed `.psd1` examples directly from `/examples` to avoid duplication.
 
 ---
 
-## Changelog (optional)
+## Troubleshooting
 
-- `<Version>` — `<Notable change>`
+> Keep this practical and symptom-driven.
+
+### Common problems
+
+- **Import fails:** `<Likely cause>` → `<Fix>`
+- **Auth session not found:** `<Likely cause>` → `<Fix>`
+- **Permission denied:** `<Likely cause>` → `<Fix>`
+- **Step fails due to provider mismatch:** `<Likely cause>` → `<Fix>`
+
+### What to collect for support
+
+- IdLE version, provider module version
+- Redacted error message / event id
+- Target system region/tenant (if relevant), without secrets
