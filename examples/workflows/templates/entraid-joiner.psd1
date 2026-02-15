@@ -10,6 +10,9 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
+                
+                # Using UPN keeps it human-friendly in templates.
+                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
 
                 Attributes         = @{
                     UserPrincipalName = '{{Request.Input.UserPrincipalName}}'
@@ -78,6 +81,7 @@
         @{
             Name      = 'Mover_UpdateOrgAttributes'
             Type      = 'IdLE.Step.EnsureAttributes'
+
             Condition = @{
                 All = @(
                     @{

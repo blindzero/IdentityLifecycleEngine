@@ -50,13 +50,12 @@
 
                 IdentityKey         = '{{Request.Input.UserPrincipalName}}'
 
-                Desired             = @(
-                    @{
-                        Kind        = 'Group'
-                        Id          = '{{Request.Input.AllEmployeesGroupId}}'
-                        DisplayName = '{{Request.Input.AllEmployeesGroupName}}'
-                    }
-                )
+                Entitlement         = @{
+                    Kind        = 'Group'
+                    Id          = '{{Request.Input.AllEmployeesGroupId}}'
+                    DisplayName = '{{Request.Input.AllEmployeesGroupName}}'
+                }
+                State               = 'Present'
             }
         }
     )

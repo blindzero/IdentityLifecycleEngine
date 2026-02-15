@@ -12,7 +12,7 @@
                 AuthSessionOptions = @{ Role = 'Admin' }
 
                 # Prefer ObjectId for leaver (stable), but you may also use UPN if your provider supports it.
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
+                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
             }
         }
 
@@ -22,7 +22,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
+                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
             }
         }
 
@@ -32,7 +32,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
+                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
                 Attributes         = @{
                     DisplayName = '{{Request.Input.DisplayName}} (LEAVER)'
                     Manager     = $null
@@ -58,8 +58,12 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
-                Desired            = @()
+                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                Entitlement        = @{
+                    Kind = 'Group';
+                    Id = '*'
+                }
+                State = 'Absent'
             }
         }
 
@@ -80,7 +84,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Tier0' }
-                IdentityKey        = '{{Request.Input.UserObjectId}}'
+                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
             }
         }
 
@@ -88,7 +92,7 @@
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'EntraID user {{Request.Input.UserObjectId}} offboarding completed.'
+                Message = 'EntraID user {{Request.Input.UserPrincipalName}} offboarding completed.'
             }
         }
     )

@@ -45,17 +45,31 @@
         }
 
         @{
-            Type = 'IdLE.Step.EnsureEntitlements'
-            Name     = 'Ensure baseline group memberships'
-            With     = @{
+            Type = 'IdLE.Step.EnsureEntitlement'
+            Name = 'Ensure baseline group membership (1)'
+            With = @{
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                IdentityKey         = '{{Request.Input.SamAccountName}}'
-
-                # Use explicit, predictable lists. Prefer allow-lists for baseline access.
-                Entitlements = @(
-                    '{{Request.Input.BaselineGroups.0}}'
-                    '{{Request.Input.BaselineGroups.1}}'
-                )
+                IdentityKey     = '{{Request.Input.SamAccountName}}'
+                Entitlement     = @{
+                    Kind = 'Group';
+                    Id = '{{Request.Input.BaselineGroups.0}}';
+                    DisplayName = '{{Request.Input.BaselineGroups.0}}'
+                }
+                State           = 'Present'
+            }
+        },
+        @{
+            Type = 'IdLE.Step.EnsureEntitlement'
+            Name = 'Ensure baseline group membership (2)'
+            With = @{
+                AuthSessionName = '{{Request.Auth.Directory}}'
+                IdentityKey     = '{{Request.Input.SamAccountName}}'
+                Entitlement     = @{
+                    Kind = 'Group';
+                    Id = '{{Request.Input.BaselineGroups.1}}';
+                    DisplayName = '{{Request.Input.BaselineGroups.1}}'
+                }
+                State           = 'Present'
             }
         }
 

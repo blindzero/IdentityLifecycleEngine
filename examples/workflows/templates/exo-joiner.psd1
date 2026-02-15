@@ -21,20 +21,6 @@
             }
         }
         @{
-            Name = 'EnableOutOfOffice'
-            Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
-            With = @{
-                Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
-                Config      = @{
-                    Mode            = 'Enabled'
-                    InternalMessage = 'This person is no longer with the organization. For assistance, please contact their manager or the main office.'
-                    ExternalMessage = 'This person is no longer with the organization. Please contact the main office for assistance.'
-                    ExternalAudience = 'All'
-                }
-            }
-        }
-        @{
             Name = 'RevokeAllGroupMemberships'
             Type = 'IdLE.Step.EnsureEntitlement'
             With = @{

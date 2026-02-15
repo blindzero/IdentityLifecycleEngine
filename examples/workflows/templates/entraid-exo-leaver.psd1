@@ -13,7 +13,7 @@
         }
         @{
             Name = 'ConvertToSharedMailbox'
-            Type = 'IdLE.Step.Mailbox.EnsureType'
+            Type = 'IdLE.Step.Mailbox.TypeEnsure'
             With = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
@@ -22,7 +22,7 @@
         }
         @{
             Name = 'EnableOutOfOffice'
-            Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
+            Type = 'IdLE.Step.Mailbox.OutOfOfficeEnsure'
             With = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
