@@ -49,6 +49,8 @@ For a complete overview of concepts, see **[About > Concepts](docs/about/concept
 
 ---
 
+> **For improved documentation experience, please visit [https://idle-engine.io](https://idle-engine.io).**
+
 ## Installation
 
 **Quick install:**
