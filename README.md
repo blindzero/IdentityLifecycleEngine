@@ -67,7 +67,7 @@ For further installation instructions, requirements, and options, see **[Install
 
 ## How to start
 
-Please refer to the documentation in **["How to use IdLE?"](docs/use/intro-use.md)** for further instructions, on 
+Please refer to the documentation in **["How to use IdLE?"](docs/use/intro-use.md)** for further instructions on the following topics:
 
 1. How to write a workflow
 2. Create an identity lifecycle request
