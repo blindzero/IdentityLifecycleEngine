@@ -34,6 +34,18 @@ const sidebars = {
         'use/intro-use',
         'use/installation',
         'use/quickstart',
+        {
+          type: 'category',
+          label: 'Walkthrough',
+          collapsed: true,
+          items: [
+            'use/walkthrough/01-workflow-definition',
+            'use/walkthrough/02-request-creation',
+            'use/walkthrough/03-plan-creation',
+            'use/walkthrough/04-invoke-results',
+            'use/walkthrough/05-providers-authentication',
+          ],
+        },
         'use/workflows',
         'use/providers',
         'use/plan-export',

@@ -1,11 +1,23 @@
 ---
-title: Concepts
+title: IdLE Concepts
 sidebar_label: Concepts
 ---
 
-# IdLE Concepts
+IdLE is a generic, headless, configuration-driven engine for identity lifecycle automation (Joiner / Mover / Leaver). It intentionally separates intent from implementation: workflows (data-only PSD1 files) declare what should happen, steps implement provider-agnostic, idempotent convergence logic, and providers adapt to external systems and manage authentication.
 
-IdLE stays headless and avoids responsibilities that belong to a host application.
+The engine first builds a deterministic, auditable execution plan from a LifecycleRequest and a workflow (Plan → Execute). Planning validates conditions, inputs, and required provider capabilities; execution runs only the produced plan to ensure repeatability, safe approvals, and reliable auditing. This design prioritizes portability, testability (mockable providers), and minimal runtime assumptions by keeping the core headless and side-effect free.
+
+This page explains the **big picture**: responsibilities, trust boundaries, and how the core artifacts fit together.
+
+## Start here
+
+- If you want to **run IdLE now**: start with [Quick Start](../use/quickstart.md).
+- If you want the full end-to-end flow: follow the **Walkthrough**:
+  1. [Workflow definition](../use/walkthrough/01-workflow-definition.md)
+  2. [Request creation](../use/walkthrough/02-request-creation.md)
+  3. [Plan build](../use/walkthrough/03-plan-creation.md)
+  4. [Invoke and results](../use/walkthrough/04-invoke-results.md)
+  5. [Providers and authentication](../use/walkthrough/05-providers-authentication.md)
 
 ## Goals
 
@@ -47,174 +59,83 @@ Clear separation of responsibility is the essential foundation for maintainabili
   - Fulfill contracts expected by steps
   - Encapsulate external system details
   - Authenticate and manage sessions
-  - Translate generic operations to system APIs
-  - Are mockable for tests
-  - Avoid global state
 
-- **Host**
-  - Selects and configures providers
-  - Injects providers into plan execution
-  - Decides which provider implementations are used
-
-This separation keeps the core engine free of environmental assumptions.
-
-**Important:** Steps should not handle authentication. Authentication is a provider responsibility via AuthSessionBroker.
+If you want the practical version of this (how to supply providers/auth in a run), see:
+[Walkthrough 5: Providers and authentication](../use/walkthrough/05-providers-authentication.md).
 
 ---
 
-IdLE consists of the following elements and components:
-
 ## Request
 
-A **LifecycleRequest** represents the business intent (for example: Joiner, Mover, Leaver). It is the input to planning.
+A **request** represents your business intent (Joiner/Mover/Leaver) plus the input data required to build a plan.
 
-```powershell
-$Request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
-    key = 'first.last'
-} -DesiredState @{
-    Firstname = 'First'          
-    Lastname = 'Last'
-    Mail = 'First.Last@domain.tld'
-}
-```
+Typical request content:
+
+- Identity keys (for example: EmployeeId, SamAccountName, UPN)
+- Desired state (attributes, entitlements, mailbox settings, …)
+- Optional metadata/context
+
+Hands-on: [Walkthrough 2: Request creation](../use/walkthrough/02-request-creation.md).
 
 ---
 
 ## Workflow
 
-Workflows are **data-only configuration files** (PSD1) describing which steps should run for a lifecycle event. 
-To enable larger flexibility, you can use placeholders instead of literals to be substituted with data from request.
-
-```powershell
-@{
-    Name           = 'Joiner - Example Workflow'
-    LifecycleEvent = 'Joiner'
-    Steps          = @(
-        @{
-            Name = 'Step Name'
-            Type = 'IdLE.Step.StepType'
-            With = @{
-                # Passed with values from Request Data
-                IdentityKey = '{{Request.IdentityKeys.key}}'
-                Attributes  = @{
-                    GivenName         = 'Firstname'
-                    # Passed with values from Request Data
-                    Surname           = '{{Request.DesiredState.Lastname}}'                    
-                }
-                Provider    = 'IdentityProvider'
-            }
-        }
-    )
-}
-```
+A **workflow** is a data-only definition (`.psd1`) that describes **what** should happen, step by step.
 
 ### Workflows and Steps
 
-**Steps** are reusable plugins used by **workflows** that define convergence logic. They:
+A workflow consists of ordered steps. Each step references a **StepType** by name and provides configuration under `With`.
 
-- Operate idempotently (converge towards desired state)
-- Are provider-agnostic (use contracts, not direct system calls)
-- Emit structured events for audit and progress
-- Define the capabilities a provider has to supply to be eligible to perform a step
-
-Steps may only write to `State.*` and only to declared output paths.
-No deep merge: replace-at-path semantics only.
-
-Learn more: [Workflows](../use/workflows.md) | [Step Catalog](../reference/steps.md)
+Hands-on: [Walkthrough 1: Workflow definition](../use/walkthrough/01-workflow-definition.md).
+Specification: [Use → Workflows](../use/workflows.md) and the [Reference section](../reference/steps.md).
 
 ### Providers
 
-**Providers** are system-specific adapters that connect workflows to external systems. They:
+Workflows may reference providers by alias (for example: `With.Provider = 'Identity'`), but the actual provider instances are supplied by the host.
 
-- Authenticate and manage sessions
-- Translate generic operations to system APIs
-- Are mockable for tests
-
-Learn more: [Providers](../use/providers.md) | [Providers and Contracts](../extend/providers.md)
+Hands-on: [Walkthrough 5: Providers and authentication](../use/walkthrough/05-providers-authentication.md).
 
 ### Declarative conditions
 
-Steps can contain conditions which are data-only objects.
-They are validated early and evaluated deterministically.
-
-```powershell
-Condition = @{
-    Equals = @{
-        Path   = 'Plan.LifecycleEvent'
-        Value  = 'Joiner'
-    }
-}
-```
+Workflows can include declarative conditions (data-only) to decide whether steps should run.
+For details, use the Reference workflow documentation.
 
 ---
 
 ## Plan
 
-IdLE builds a **deterministic execution plan** before any step is executed.
+A **plan** is the validated, resolved execution contract produced from a workflow and a request.
 
-The plan is created deterministically from:
-
-- request data
-- workflow definition
-- step catalog / step registry
-- authentication session informations
-
-During this planning phase, the engine validates structural correctness,
-conditions, and execution prerequisites.
-
-- evaluates declarative conditions
-- validates inputs and references
-- produces data-only actions
-- captures a **data-only request intent snapshot** (e.g. IdentityKeys / DesiredState / Changes) for auditing and export
+Hands-on: [Walkthrough 3: Plan build](../use/walkthrough/03-plan-creation.md).
 
 ### Provider Capabilities (Planning-time Validation)
 
-IdLE uses a **capability-based provider model** to validate execution
-prerequisites during plan build.
-
-Steps may declare required capabilities, while providers explicitly
-advertise which capabilities they support. The engine matches both sides
-and fails fast if required functionality is missing.
-
-For details on the capability-based provider model and the validation flow,
-see [Provider Capabilities](../reference/capabilities.md).
+IdLE can validate required capabilities at plan-build time (fail-fast), if providers are supplied.
+This prevents discovering missing requirements only at execution time.
 
 ### Plan export
 
-Hosts may persist or exchange a plan as a **machine-readable JSON artifact**.
-The canonical contract format is defined here:
+Plans can be exported for review, approval, CI artifacts, and audit trails.
 
-- [Plan export specification (JSON)](../reference/specs/plan-export.md)
-
-The exported artifact is intended for **approvals, CI checks, and audits**.
-To keep exports deterministic and review-friendly, the contract intentionally omits volatile information
-such as engine build versions and timestamps. When required, hosts SHOULD attach build/time metadata
-outside the exported plan artifact.
-
-Because IdLE separates planning from execution, the plan retains a **request intent snapshot** so that
-exports can include `request.input` even after the original request object is no longer available.
+Hands-on: [Use → Plan Export](../use/plan-export.md).
 
 ---
 
 ## Execute
 
-Execution runs **only the plan** (no re-planning). This supports:
+Executing a plan runs the steps in order and produces a structured result.
 
-- approvals
-- repeatability
-- deterministic audits
+Hands-on: [Walkthrough 4: Invoke and results](../use/walkthrough/04-invoke-results.md).
 
 ### Eventing
 
-IdLE emits **structured events** during execution.
+IdLE emits structured events during execution.
+Your host can log them, forward them, or store them for audit and diagnostics.
 
-- The engine always creates an `EventSink` and exposes it as `Context.EventSink`.
-- Steps and the engine use a single contract: `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`.
-- All events are buffered in the execution result (`result.Events`).
+---
 
-Hosts may optionally provide an external sink to stream events live:
+## Next
 
-- `Invoke-IdlePlan -EventSink <object>`
-- The sink must implement `WriteEvent(event)`
-- ScriptBlock sinks are rejected (secure default)
-
+- Run the minimal end-to-end example: [Quick Start](../use/quickstart.md)
+- Continue with deep details: [Reference](../reference/intro-reference.md)

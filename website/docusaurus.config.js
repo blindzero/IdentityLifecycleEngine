@@ -73,6 +73,7 @@ const config = {
           path: '../docs',
           routeBasePath: 'docs', // docs at /docs/...
           sidebarPath: require.resolve('./sidebars.js'),
+          numberPrefixParser: false, // <— keeps "01-" in ids/labels/urls
 
           // Edit links point to repo root, not /website
           editUrl: `https://github.com/${repoOwner}/${repoName}/edit/main/`,

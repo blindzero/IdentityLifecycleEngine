@@ -1,9 +1,7 @@
 ---
-title: Releases
-sidebar_labels: Releases
+title: Releasing IdLE
+sidebar_label: Releases
 ---
-
-# Releasing IdLE
 
 This document describes the **maintainer** release process for IdLE.
 

@@ -1,6 +1,6 @@
 # IdentityLifecycleEngine (IdLE)
 
-![IdLE Logo](/docs/assets/idle_logo_flat_white_text_small.png)
+![IdLE Logo](/docs/assets/logos/idle_logo_flat_white_text_small.png)
 
 [![CI](https://github.com/blindzero/IdentityLifecycleEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/blindzero/IdentityLifecycleEngine/actions/workflows/ci.yml)
 [![Latest](https://img.shields.io/github/v/release/blindzero/IdentityLifecycleEngine?sort=semver)](https://github.com/blindzero/IdentityLifecycleEngine/releases?q=prerelease%3Afalse)
@@ -10,32 +10,35 @@
 [![Pester](https://img.shields.io/badge/Tests-Pester%205-blueviolet)](#testing)
 [![License](https://img.shields.io/badge/License-See%20LICENSE-lightgrey)](LICENSE.md)
 
-**IdLE** is a **generic, headless, configurable Identity or Account Lifecycle / JML (Joiner–Mover–Leaver) orchestration engine** built for **PowerShell**.
+---
 
-It helps you standardize identity lifecycle processes across environments by separating:
+IdLE is a **generic, headless, configuration-driven** lifecycle orchestration engine
+for identity and account processes (Joiner / Mover / Leaver), built for **PowerShell 7+**.
 
-- **what** should happen (workflow definition)
-- from **how** it happens (providers)
+The key idea is to **separate intent from implementation**:
+
+- **What** should happen is defined in a **workflow** (data-only configuration).
+- **How** it happens is implemented by **steps** and **providers** (pluggable modules).
+  - **steps** define, via StepTypes, which provider-agnostic **capabilities** are required to perform a workflow step
+  - **providers** register to the core and announce the provided **capabilities** and implement the vendor system specific interface
 
 ---
 
 ## Why IdLE?
 
-Identity lifecycle automation tends to become:
+JML (joiner/mover/leavers) processes are
 
-- tightly coupled to one system or one environment
+- error prone, especially if performed manually
+- time consuming and therefore
+- quite annoying for operators
+
+Self-made identity lifecycle automation often turns into long scripts that are:
+
+- tightly coupled to one environment
 - hard to test
-- hard to change (logic baked into scripts)
+- hard to change safely
 
-IdLE aims to be:
-
-- **portable** (run anywhere PowerShell 7 runs)
-- **modular** (steps + providers are swappable)
-- **testable** (Pester-friendly; mock providers)
-- **configuration-driven** (workflows as data)
-- **extensible** (add custom steps and providers)
-
-For a complete overview of concepts, see **[About > Concepts](docs/about/concepts.md)**.
+Identity Management Systems (IdMS) on the other side are either complex or expensive (or both of it) and then often do not care about supplementary systems that also need to be covered within the workflows.
 
 ---
 
@@ -46,7 +49,12 @@ For a complete overview of concepts, see **[About > Concepts](docs/about/concept
 - **Plugin step model** (idempotent, provider-agnostic)
 - **Structured events** for audit/progress (CorrelationId, Actor, step results)
 
+For a complete overview of concepts, see **[About > Concepts](docs/about/concepts.md)**.
+
 ---
+
+> [!TIP]
+> **For improved documentation experience, please visit [https://idle-engine.io](https://idle-engine.io).**
 
 ## Installation
 
@@ -57,16 +65,27 @@ Install-Module -Name IdLE -Scope CurrentUser
 Import-Module IdLE
 ```
 
-For detailed installation instructions, requirements, and import options, see **[Installation Guide](docs/use/installation.md)**.
+For further installation instructions, requirements, and options, see **[Installation Guide](docs/use/installation.md)**.
 
 ---
 
-## Quickstart
+## How to start
+
+Please refer to the documentation in **["How to use IdLE?"](docs/use/intro-use.md)** for further instructions on the following topics:
+
+1. How to write a workflow
+2. Create an identity lifecycle request
+3. Plan the IdLE run
+4. Invoke & Execute the Plan
+
+---
+
+## IdLE Demo
 
 Run the end-to-end demo (Plan → Execute):
 
 ```powershell
-pwsh -File .\examples\Invoke-IdleDemo.ps1
+pwsh -File .\examples\Invoke-IdleDemo.ps1 -All
 ```
 
 The demo shows:
@@ -75,10 +94,8 @@ The demo shows:
 - building a deterministic plan from a workflow definition (`.psd1`)
 - executing the plan using built-in steps and a mock provider
 
-By default, the demo runs **Mock workflows** that work out-of-the-box without external systems. The examples folder also includes **Live workflows** that demonstrate real-world scenarios with Active Directory and Entra ID, but these require the corresponding infrastructure and provider modules.
-
-The execution result buffers all emitted events in `result.Events`. Hosts can optionally stream events live
-by providing `-EventSink` as an object implementing `WriteEvent(event)`.
+By default, the demo runs **Mock workflows** that work out-of-the-box without external systems.
+The examples folder also includes **Template workflows** that demonstrate real-world scenarios with Active Directory, Entra ID, Exchange Online, but these require the corresponding infrastructure and provider modules.
 
 ---
 
@@ -88,7 +105,6 @@ The documentation is also available at our project site: [https://blindzero.gith
 
 Start here:
 
-- [docs/index.md](docs/index.md) – Documentation map
 - [docs/about/intro.md](docs/about/intro.md) – About IdLE
 - [docs/use/intro-use.md](docs/use/intro-use.md) – How to use IdLE
 - [docs/reference/intro-reference.md](docs/reference/intro-reference.md) - The authoritative IdLE reference

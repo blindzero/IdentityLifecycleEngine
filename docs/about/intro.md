@@ -9,15 +9,8 @@ sidebar_label: Introduction
 
 ## Introduction
 
-IdLE is a **generic, headless, configuration-driven** lifecycle orchestration engine
-for identity and account processes (Joiner / Mover / Leaver), built for **PowerShell 7+**.
-
-The key idea is to **separate intent from implementation**:
-
-- **What** should happen is defined in a **workflow** (data-only configuration).
-- **How** it happens is implemented by **steps** and **providers** (pluggable modules).
-  - **steps** define, via StepTypes, which provider-agnostic **capabilities** are required to perform a workflow step
-  - **providers** register to the core and announce the provided **capabilities** and implement the vendor system specific interface
+IdLE (Identity Lifecycle Engine) is a **generic, configurable orchestration framework** for identity lifecycle processes
+(Joiner / Mover / Leaver and similar cases), built for **PowerShell 7+**.
 
 ---
 
@@ -29,7 +22,7 @@ JML (joiner/mover/leavers) processes are
 - time consuming and therefore
 - quite annoying for operators
 
-Identity lifecycle automation often turns into long scripts that are:
+Self-made identity lifecycle automation often turns into long scripts that are:
 
 - tightly coupled to one environment
 - hard to test
@@ -37,20 +30,42 @@ Identity lifecycle automation often turns into long scripts that are:
 
 Identity Management Systems (IdMS) on the other side are either complex or expensive (or both of it) and then often do not care about supplementary systems that also need to be covered within the workflows.
 
-IdLE aims to be:
+---
 
-- **portable** run in different environments with PowerShell 7+ without a hard dependency on a specific host or UI
-- **configuration-driven** workflows are defined as data, not code.
-- **modular** a small core and pluggable providers and steps.
-- **testable** deterministic planning, mockable providers, and strong contracts.
+## Start using IdLE
+
+- If you want to run IdLE now: start with [Quick Start](../use/quickstart).
+- If you want a guided path: follow the [Walkthrough](../use/walkthrough/01-workflow-definition).
+- If you want the architecture and responsibility model: read [Concepts](./concepts).
 
 ---
 
-## Key Features
+## Key ideas
 
-- **Joiner / Mover / Leaver** orchestration (and custom lifecycle events)
-- **Plan → Execute** flow (preview actions before applying them)
-- **Plugin step model** (`Test` / `Invoke`, optional `Rollback` later)
-- **Provider/Adapter pattern** (directory, SaaS, REST, file/mock…)
-- **Structured events** for audit/progress (CorrelationId, Actor, step results)
-- **Idempotent execution** (steps can be written to converge state)
+- **Workflows** are data-only `.psd1` files describing what to do.
+- A **Request** captures intent + input data.
+- A **Plan** is the validated, resolved execution contract.
+- **Invoke** executes the plan and emits structured events.
+- **Providers** implement system-specific behavior and authentication.
+
+IdLE is designed to be:
+
+- **portable** run in different environments with PowerShell 7+ without a hard dependency on a specific host or UI
+- **configuration-driven** workflows are defined as data, not code.
+- **modular** a small core and pluggable providers and steps that even support **extending** with your own custom add-ons.
+- **testable** deterministic planning, mockable providers, and strong contracts.
+
+:::info
+IdLE is **headless**. Your host (script, CI job, service) provides providers and authentication.
+Workflows and requests remain data-only.
+:::
+
+---
+
+## Next
+
+- [How to use IdLE?](../use/intro-use.md)
+  - [Installation](../use/installation.md)
+  - [QuickStart](../use/quickstart.md)
+  - [Walkthrough - Step 1: Workflow Definition](../use/walkthrough/01-workflow-definition.md)
+- [Reference](../reference/intro-reference.md)
