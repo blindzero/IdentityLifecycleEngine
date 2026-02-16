@@ -61,7 +61,6 @@ Example workflow usage:
 :::info
 If `With.Provider` is omitted, many provider-agnostic steps default to the alias `'Identity'`.
 :::
-:::
 
 ---
 
