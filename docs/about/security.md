@@ -1,6 +1,6 @@
 ---
 title: Security and Trust Boundaries
-sidebar_labels: Security
+sidebar_label: Security
 ---
 
 IdLE is designed to execute **data-driven** identity lifecycle workflows in a deterministic way.

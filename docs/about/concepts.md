@@ -7,6 +7,18 @@ IdLE is a generic, headless, configuration-driven engine for identity lifecycle 
 
 The engine first builds a deterministic, auditable execution plan from a LifecycleRequest and a workflow (Plan → Execute). Planning validates conditions, inputs, and required provider capabilities; execution runs only the produced plan to ensure repeatability, safe approvals, and reliable auditing. This design prioritizes portability, testability (mockable providers), and minimal runtime assumptions by keeping the core headless and side-effect free.
 
+This page explains the **big picture**: responsibilities, trust boundaries, and how the core artifacts fit together.
+
+## Start here
+
+- If you want to **run IdLE now**: start with [Quick Start](../use/quickstart.md).
+- If you want the full end-to-end flow: follow the **Walkthrough**:
+  1. [Workflow definition](../use/walkthrough/01-workflow-definition.md)
+  2. [Request creation](../use/walkthrough/02-request-creation.md)
+  3. [Plan build](../use/walkthrough/03-plan-creation.md)
+  4. [Invoke and results](../use/walkthrough/04-invoke-results.md)
+  5. [Providers and authentication](../use/walkthrough/05-providers-authentication.md)
+
 ## Goals
 
 - Generic, configurable lifecycle orchestration (Joiner / Mover / Leaver)
@@ -25,157 +37,105 @@ The engine first builds a deterministic, auditable execution plan from a Lifecyc
 
 ---
 
-## Components
+## Responsibilities
 
-IdLE consists of the following elements and components, which have clear and distinct boundaries to separate their responsibilities and make maintainability easier. This separation keeps the core engine free of environmental assumptions.
+### Separation of Responsibility
 
-### Host
+Clear separation of responsibility is the essential foundation for maintainability:
 
-The host is technically not really a component of IdLE. It is the environment in which IdLE is running, so your PowerShell console, scripting session or whatever is used to run IdLe. The host
+- **Engine**
+  - Orchestrates workflow execution
+  - Invokes steps
+  - Passes providers to steps
+  - Never depends on provider internals
 
-- Selects and configures providers
-- Injects providers into plan execution
-- Decides which provider implementations are used
+- **Steps**
+  - Implement domain logic
+  - Use providers through contracts
+  - Must not assume a specific provider implementation
 
-### Engine (basically IdLE.Core)
+- **Providers**
+  - Implement infrastructure-specific behavior
+  - Fulfill contracts expected by steps
+  - Encapsulate external system details
+  - Authenticate and manage sessions
 
-IdLE.Core is the central engine (module) of IdLE and performs the most central tasks
+If you want the practical version of this (how to supply providers/auth in a run), see:
+[Walkthrough 5: Providers and authentication](../use/walkthrough/05-providers-authentication.md).
 
-- Orchestrates workflow execution
-- Invokes steps
-- Passes providers to steps
-- Never depends on provider internals
-- Authentication session brokerage
+---
 
 ## Request
 
-A **LifecycleRequest** represents the business intent (for example: Joiner, Mover, Leaver). It is the input to planning.
+A **request** represents your business intent (Joiner/Mover/Leaver) plus the input data required to build a plan.
 
-```powershell
-$Request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
-    key = 'first.last'
-} -DesiredState @{
-    Firstname = 'First'          
-    Lastname = 'Last'
-    Mail = 'First.Last@domain.tld'
-}
-```
+Typical request content:
 
-### Workflow and Steps
+- Identity keys (for example: EmployeeId, SamAccountName, UPN)
+- Desired state (attributes, entitlements, mailbox settings, …)
+- Optional metadata/context
 
-**Workflows** are **data-only configuration files** (PSD1) describing which steps should run for a lifecycle event. Usually workflows are written in `psd1` files, that
+Hands-on: [Walkthrough 2: Request creation](../use/walkthrough/02-request-creation.md).
 
-- use Data-only PSD1 configuration (no ScriptBlocks or executable objects)
-- declare step sequence by Type string and provide per-step With parameters
-- may use placeholders referencing Request data; substitutions occur during planning
-- serve as deterministic, reviewable input to the planner (suitable for approvals and audits)
-- must not perform authentication, call providers directly, or contain imperative logic
-- Validated early and evaluated deterministically by the engine
+---
 
-```powershell
-@{
-    Name           = 'Joiner - Example Workflow'
-    LifecycleEvent = 'Joiner'
-    Steps          = @(
-        @{
-            Name = 'Step Name'
-            # The step type which defines which capabilities a provider has to supply to execute the step 
-            Type = 'IdLE.Step.StepType'
-            With = @{
-                # Passed with values from Request Data
-                IdentityKey = '{{Request.IdentityKeys.key}}'
-                Attributes  = @{
-                    # Fixed string example
-                    GivenName         = 'Firstname'
-                    # Passed with values from Request Data
-                    Surname           = '{{Request.DesiredState.Lastname}}'                    
-                }
-                # Any identifier you choose, which references to the provider used in the plan and invocation
-                Provider    = 'IdentityProvider'
-            }
-        }
-    )
-}
-```
+## Workflow
 
-**Steps** are **reusable plugins** used by workflows that define convergence logic. They:
+A **workflow** is a data-only definition (`.psd1`) that describes **what** should happen, step by step.
 
-- Implement idempotent domain logic (converge towards desired state).
-- Declare required capabilities (by name) and consume providers via those capability contracts.
-- Step types identify the step implementation, they are not capabilities! Capabilities (namespaced IdLE.* contract names) describe provider functionality that steps require; do not conflate the two.
-- Are provide-agnostic via capability contracts, and do not provide any concrete system calls.
-- Emit structured events for audit and progress
-- **Important:** Steps must not handle authentication — authentication is a provider responsibility (AuthSessionBroker).
+### Workflows and Steps
 
-Learn more: [Workflows](../use/workflows.md) | [Step Catalog](../reference/steps.md)
+A workflow consists of ordered steps. Each step references a **StepType** by name and provides configuration under `With`.
+
+Hands-on: [Walkthrough 1: Workflow definition](../use/walkthrough/01-workflow-definition.md).
+Specification: [Use → Workflows](../use/workflows.md) and the [Reference section](../reference/steps.md).
 
 ### Providers
 
-**Providers** are system-specific adapters that connect workflows to external systems. They:
+Workflows may reference providers by alias (for example: `With.Provider = 'Identity'`), but the actual provider instances are supplied by the host.
 
-- Translate generic operations to system APIs to implement infrastructure-specific behavior
-- Advertise which capabilities they fulfill and map capability operations to system APIs and fulfill contracts expected by steps (as defined by capability names)
-- Authenticate and manage sessions
-- Are mockable for tests
-- Avoid global state
-
-Learn more: [Providers](../use/providers.md) | [Providers and Contracts](../extend/providers.md)
+Hands-on: [Walkthrough 5: Providers and authentication](../use/walkthrough/05-providers-authentication.md).
 
 ### Declarative conditions
 
-Steps can contain conditions which are data-only objects.
-They are validated early and evaluated deterministically.
-
-```powershell
-Condition = @{
-    Equals = @{
-        Path   = 'Plan.LifecycleEvent'
-        Value  = 'Joiner'
-    }
-}
-```
-
-### **Capabilities**
-
-IdLE uses a **capability-based provider model** to validate execution prerequisites during plan build.
-Steps may declare required capabilities, while providers explicitly advertise which capabilities they support. The engine matches both sides
-and fails fast if required functionality is missing. Capabilities are the "glue" between provider-agnostic Steps and the system-specific providers. They are
-
-- named, namespaced contracts (e.g., `IdLE.Identity.Read`) that describe the operations/shape a provider must expose
-- declared by steps as required capabilities and advertised by providers at registration
-- matched during planning: the engine validates required capabilities are available and fails fast if not
-
-For details on the capability-based model see [Provider Capabilities](../reference/capabilities.md).
+Workflows can include declarative conditions (data-only) to decide whether steps should run.
+For details, use the Reference workflow documentation.
 
 ---
 
 ## Plan
 
-IdLE builds a **deterministic execution plan** before any step is executed.
+A **plan** is the validated, resolved execution contract produced from a workflow and a request.
 
-The plan is created deterministically from:
+Hands-on: [Walkthrough 3: Plan build](../use/walkthrough/03-plan-creation.md).
 
-- request data
-- workflow definition
-- step catalog / step registry
-- authentication session informations
+### Provider Capabilities (Planning-time Validation)
 
-During this planning phase, the engine validates structural correctness,
-conditions, and execution prerequisites.
+IdLE can validate required capabilities at plan-build time (fail-fast), if providers are supplied.
+This prevents discovering missing requirements only at execution time.
 
-- evaluates declarative conditions
-- validates inputs and references
-- produces data-only actions
-- captures a **data-only request intent snapshot** (e.g. IdentityKeys / DesiredState / Changes) for auditing and export
+### Plan export
+
+Plans can be exported for review, approval, CI artifacts, and audit trails.
+
+Hands-on: [Use → Plan Export](../use/plan-export.md).
 
 ---
 
 ## Execute
 
-Execution runs **only the plan** (no re-planning). This supports:
+Executing a plan runs the steps in order and produces a structured result.
 
-- approvals
-- repeatability
-- deterministic audits
+Hands-on: [Walkthrough 4: Invoke and results](../use/walkthrough/04-invoke-results.md).
 
-IdLE emits **structured events** during execution which allows post-execution check on overall status or per-step results and messages.
+### Eventing
+
+IdLE emits structured events during execution.
+Your host can log them, forward them, or store them for audit and diagnostics.
+
+---
+
+## Next
+
+- Run the minimal end-to-end example: [Quick Start](../use/quickstart.md)
+- Continue with deep details: [Reference](../reference/intro-reference.md)
