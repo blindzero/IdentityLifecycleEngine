@@ -159,7 +159,7 @@ $providers = @{
 Providers can also work without a broker (for example: integrated authentication / run-as credentials).
 The broker is the recommended mechanism when you need runtime selection without embedding secrets.
 :::
-:::
+
 
 ---
 

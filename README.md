@@ -91,7 +91,7 @@ The demo shows:
 - executing the plan using built-in steps and a mock provider
 
 By default, the demo runs **Mock workflows** that work out-of-the-box without external systems.
-The examples folder also includes **Template workflows** that demonstrate real-world scenarios with Active Directory, Entra ID, Exchange Online but these require the corresponding infrastructure and provider modules.
+The examples folder also includes **Template workflows** that demonstrate real-world scenarios with Active Directory, Entra ID, Exchange Online, but these require the corresponding infrastructure and provider modules.
 
 ---
 
