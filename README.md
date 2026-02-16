@@ -26,15 +26,19 @@ The key idea is to **separate intent from implementation**:
 
 ## Why IdLE?
 
-IdLE is a **generic, headless, configuration-driven** lifecycle orchestration engine
-for identity and account processes (Joiner / Mover / Leaver), built for **PowerShell 7+**.
+JML (joiner/mover/leavers) processes are
 
-The key idea is to **separate intent from implementation**:
+- error prone, especially if performed manually
+- time consuming and therefore
+- quite annoying for operators
 
-- **What** should happen is defined in a **workflow** (data-only configuration).
-- **How** it happens is implemented by **steps** and **providers** (pluggable modules).
-  - **steps** define, via StepTypes, which provider-agnostic **capabilities** are required to perform a workflow step
-  - **providers** register to the core and announce the provided **capabilities** and implement the vendor system specific interface
+Self-made identity lifecycle automation often turns into long scripts that are:
+
+- tightly coupled to one environment
+- hard to test
+- hard to change safely
+
+Identity Management Systems (IdMS) on the other side are either complex or expensive (or both of it) and then often do not care about supplementary systems that also need to be covered within the workflows.
 
 ---
 
