@@ -119,7 +119,19 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## OUTPUTS
 
 ### PSCustomObject with AcquireAuthSession method
+
 ## NOTES
+
+### Framework-Reserved Keys
+
+The execution framework automatically injects `CorrelationId` and `Actor` into auth session options during plan execution.
+
+**Behavior:**
+- **AuthSessionName-only patterns** (e.g., `@{ AuthSessionName = 'Entra' }`): Framework keys are automatically ignored during matching, so simple patterns work as expected
+- **Multi-key patterns** (e.g., `@{ AuthSessionName = 'AD'; Actor = 'ops-user' }`): ALL keys including `Actor` and `CorrelationId` participate in matching, enabling actor-based routing
+
+**Warning:** Using `Actor` or `CorrelationId` in patterns will trigger a warning because these values are framework-controlled and change per execution. Consider using user-defined routing keys (like `Role`, `Environment`, `Tier`) instead for more predictable behavior.
+
 For detailed documentation, see: Get-Help IdLE.Core\New-IdleAuthSessionBroker -Full
 
 ## RELATED LINKS

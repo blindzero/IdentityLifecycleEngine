@@ -146,6 +146,16 @@ $broker = New-IdleAuthSession -SessionMap @{
 }
 ```
 
+:::info Framework-Reserved Keys
+
+The execution framework automatically injects `CorrelationId` and `Actor` into auth session options during execution. These keys have special handling:
+
+- **AuthSessionName-only patterns** (e.g., `@{ AuthSessionName = 'AD' }`): Framework keys are ignored during matching, allowing simple patterns to work regardless of injected metadata
+- **Multi-key patterns** (e.g., `@{ AuthSessionName = 'AD'; Actor = 'ops-user' }`): Framework keys participate in matching, enabling advanced actor-based routing
+
+**Recommendation**: Use user-defined routing keys (like `Role`, `Environment`, `Tier`) instead of `Actor` or `CorrelationId` to avoid confusion, as framework values change per execution and are not under user control.
+:::
+
 To make the broker available at runtime, add it to the provider registry under the key `AuthSessionBroker`:
 
 ```powershell
