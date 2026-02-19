@@ -245,6 +245,68 @@ Describe 'New-IdleAuthSession' {
         }
     }
 
+    Context 'Framework metadata handling' {
+        It 'ignores CorrelationId when matching AuthSessionName-only pattern' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'Entra' } = @{ AuthSessionType = 'OAuth'; Credential = $testToken }
+            }
+            
+            # Framework adds CorrelationId and Actor to Options
+            $session = $broker.AcquireAuthSession('Entra', @{ CorrelationId = 'test-corr-id'; Actor = 'test-actor' })
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session | Should -Be 'mock-oauth-token-12345'
+        }
+
+        It 'ignores Actor when matching AuthSessionName-only pattern' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $testCred }
+            }
+            
+            $session = $broker.AcquireAuthSession('AD', @{ Actor = 'admin-user' })
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session | Should -BeOfType [PSCredential]
+            $session.UserName | Should -Be 'TestUser'
+        }
+
+        It 'ignores both CorrelationId and Actor when matching AuthSessionName-only pattern' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $testToken }
+            }
+            
+            $session = $broker.AcquireAuthSession('EXO', @{ CorrelationId = [guid]::NewGuid().ToString(); Actor = 'system' })
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session | Should -Be 'mock-oauth-token-12345'
+        }
+
+        It 'matches AuthSessionName with additional user options despite framework metadata' {
+            $password1 = ConvertTo-SecureString 'Password1!' -AsPlainText -Force
+            $cred1 = New-Object System.Management.Automation.PSCredential('ADAdm', $password1)
+            
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD'; Role = 'Admin' } = $cred1
+            } -AuthSessionType 'Credential'
+            
+            # Framework adds metadata, user provides Role
+            $session = $broker.AcquireAuthSession('AD', @{ Role = 'Admin'; CorrelationId = 'test-id'; Actor = 'user' })
+            
+            $session | Should -Not -BeNullOrEmpty
+            $session.UserName | Should -Be 'ADAdm'
+        }
+
+        It 'does not match when user provides non-matching options even with framework metadata' {
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $testCred }
+            }
+            
+            # User provides Role which is not in pattern, so should not match despite framework metadata
+            { $broker.AcquireAuthSession('AD', @{ Role = 'Admin'; CorrelationId = 'test' }) } |
+                Should -Throw '*No matching auth session found*'
+        }
+    }
+
     Context 'Module export' {
         It 'is available as exported command from IdLE module' {
             $command = Get-Command -Name New-IdleAuthSession -ErrorAction SilentlyContinue

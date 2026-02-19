@@ -248,6 +248,25 @@ function New-IdleAuthSessionBroker {
         $authSessionNameMatches = @()
         $legacyMatches = @()
         
+        # Helper: Filter out framework-added metadata keys from Options
+        # CorrelationId and Actor are automatically added by the execution context
+        # and should not be considered when matching user-defined patterns.
+        $getUserOptions = {
+            param($opts)
+            if ($null -eq $opts -or $opts.Count -eq 0) {
+                return @{}
+            }
+            $filtered = @{}
+            foreach ($key in $opts.Keys) {
+                if ($key -notin @('CorrelationId', 'Actor')) {
+                    $filtered[$key] = $opts[$key]
+                }
+            }
+            return $filtered
+        }
+        
+        $userOptions = & $getUserOptions $Options
+        
         foreach ($entry in $this.SessionMap.GetEnumerator()) {
             $pattern = $entry.Key
             
@@ -260,23 +279,23 @@ function New-IdleAuthSessionBroker {
                 
                 # If pattern has ONLY AuthSessionName (no other keys)
                 if ($pattern.Keys.Count -eq 1) {
-                    # Only match if Options is null or empty
-                    if ($null -eq $Options -or $Options.Count -eq 0) {
+                    # Only match if user options (excluding framework metadata) is empty
+                    if ($userOptions.Count -eq 0) {
                         $authSessionNameMatches += $entry
                     }
                     continue
                 }
                 
                 # Pattern has additional keys beyond AuthSessionName
-                # All other keys in pattern must match Options (if Options provided)
+                # All other keys in pattern must match user options (excluding framework metadata)
                 $matches = $true
                 foreach ($key in $pattern.Keys) {
                     if ($key -eq 'AuthSessionName') {
                         continue  # Already checked
                     }
                     
-                    # If Options is null or doesn't contain the key, no match
-                    if ($null -eq $Options -or -not $Options.ContainsKey($key) -or $Options[$key] -ne $pattern[$key]) {
+                    # If user options doesn't contain the key or value doesn't match, no match
+                    if (-not $userOptions.ContainsKey($key) -or $userOptions[$key] -ne $pattern[$key]) {
                         $matches = $false
                         break
                     }
@@ -287,14 +306,14 @@ function New-IdleAuthSessionBroker {
                 }
             }
             else {
-                # Legacy: pattern without AuthSessionName - match based on Options only
-                if ($null -eq $Options -or $Options.Count -eq 0) {
-                    continue  # No options to match
+                # Legacy: pattern without AuthSessionName - match based on user options only
+                if ($userOptions.Count -eq 0) {
+                    continue  # No user options to match
                 }
                 
                 $matches = $true
                 foreach ($key in $pattern.Keys) {
-                    if (-not $Options.ContainsKey($key) -or $Options[$key] -ne $pattern[$key]) {
+                    if (-not $userOptions.ContainsKey($key) -or $userOptions[$key] -ne $pattern[$key]) {
                         $matches = $false
                         break
                     }
