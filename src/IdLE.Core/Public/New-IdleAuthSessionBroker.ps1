@@ -180,6 +180,31 @@ function New-IdleAuthSessionBroker {
                     'SessionMap'
                 )
             }
+            
+            # Validate that patterns don't use framework-reserved keys inappropriately.
+            # CorrelationId and Actor are automatically injected by the execution context.
+            # Using them in patterns can lead to unexpected behavior:
+            # - For AuthSessionName-only patterns, they are ignored (to fix the reported bug)
+            # - For multi-key patterns, they CAN be matched, but values are framework-controlled
+            # We warn about this to help users avoid confusion.
+            $frameworkKeys = @('CorrelationId', 'Actor')
+            $hasFrameworkKeys = $false
+            foreach ($fwKey in $frameworkKeys) {
+                if ($pattern.ContainsKey($fwKey)) {
+                    $hasFrameworkKeys = $true
+                    break
+                }
+            }
+            
+            if ($hasFrameworkKeys) {
+                # Issue a warning for patterns using framework-controlled keys.
+                # These CAN match (in multi-key patterns), but values are controlled by the framework.
+                # Users should be aware this may not work as expected since CorrelationId/Actor
+                # are automatically set per execution, not per workflow definition.
+                $patternDesc = ($pattern.Keys | ForEach-Object { "$_=$($pattern[$_])" }) -join ', '
+                Write-Warning "SessionMap pattern { $patternDesc } includes framework-controlled keys (CorrelationId, Actor). These keys are automatically set by the execution context and may not match user expectations. Consider using user-defined routing keys instead."
+            }
+            
             # Create a readable pattern description for error messages
             $patternDesc = ($pattern.Keys | ForEach-Object { "$_=$($pattern[$_])" }) -join ', '
             $context = "SessionMap entry { $patternDesc }"
@@ -248,24 +273,10 @@ function New-IdleAuthSessionBroker {
         $authSessionNameMatches = @()
         $legacyMatches = @()
         
-        # Helper: Filter out framework-added metadata keys from Options
-        # CorrelationId and Actor are automatically added by the execution context
-        # and should not be considered when matching user-defined patterns.
-        $getUserOptions = {
-            param($opts)
-            if ($null -eq $opts -or $opts.Count -eq 0) {
-                return @{}
-            }
-            $filtered = @{}
-            foreach ($key in $opts.Keys) {
-                if ($key -notin @('CorrelationId', 'Actor')) {
-                    $filtered[$key] = $opts[$key]
-                }
-            }
-            return $filtered
-        }
-        
-        $userOptions = & $getUserOptions $Options
+        # Framework metadata keys that are automatically injected by the execution context.
+        # These keys should be excluded when matching AuthSessionName-only patterns,
+        # but CAN be used in multi-key patterns for advanced routing scenarios.
+        $frameworkMetadataKeys = @('CorrelationId', 'Actor')
         
         foreach ($entry in $this.SessionMap.GetEnumerator()) {
             $pattern = $entry.Key
@@ -279,23 +290,36 @@ function New-IdleAuthSessionBroker {
                 
                 # If pattern has ONLY AuthSessionName (no other keys)
                 if ($pattern.Keys.Count -eq 1) {
-                    # Only match if user options (excluding framework metadata) is empty
-                    if ($userOptions.Count -eq 0) {
+                    # For AuthSessionName-only patterns, ignore framework metadata in Options.
+                    # This allows simple patterns like @{ AuthSessionName = 'Entra' } to match
+                    # even when the framework injects CorrelationId and Actor.
+                    $hasUserOptions = $false
+                    if ($null -ne $Options -and $Options.Count -gt 0) {
+                        foreach ($key in $Options.Keys) {
+                            if ($key -notin $frameworkMetadataKeys) {
+                                $hasUserOptions = $true
+                                break
+                            }
+                        }
+                    }
+                    
+                    if (-not $hasUserOptions) {
                         $authSessionNameMatches += $entry
                     }
                     continue
                 }
                 
-                # Pattern has additional keys beyond AuthSessionName
-                # All other keys in pattern must match user options (excluding framework metadata)
+                # Pattern has additional keys beyond AuthSessionName.
+                # Match ALL keys in pattern against Options (including Actor/CorrelationId if present).
+                # This supports advanced routing: @{ AuthSessionName = 'AD'; Actor = 'ops-user' }
                 $matches = $true
                 foreach ($key in $pattern.Keys) {
                     if ($key -eq 'AuthSessionName') {
                         continue  # Already checked
                     }
                     
-                    # If user options doesn't contain the key or value doesn't match, no match
-                    if (-not $userOptions.ContainsKey($key) -or $userOptions[$key] -ne $pattern[$key]) {
+                    # If Options is null or doesn't contain the key, no match
+                    if ($null -eq $Options -or -not $Options.ContainsKey($key) -or $Options[$key] -ne $pattern[$key]) {
                         $matches = $false
                         break
                     }
@@ -306,14 +330,14 @@ function New-IdleAuthSessionBroker {
                 }
             }
             else {
-                # Legacy: pattern without AuthSessionName - match based on user options only
-                if ($userOptions.Count -eq 0) {
-                    continue  # No user options to match
+                # Legacy: pattern without AuthSessionName - match based on Options only
+                if ($null -eq $Options -or $Options.Count -eq 0) {
+                    continue  # No options to match
                 }
                 
                 $matches = $true
                 foreach ($key in $pattern.Keys) {
-                    if (-not $userOptions.ContainsKey($key) -or $userOptions[$key] -ne $pattern[$key]) {
+                    if (-not $Options.ContainsKey($key) -or $Options[$key] -ne $pattern[$key]) {
                         $matches = $false
                         break
                     }

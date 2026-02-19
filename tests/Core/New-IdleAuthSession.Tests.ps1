@@ -305,6 +305,50 @@ Describe 'New-IdleAuthSession' {
             { $broker.AcquireAuthSession('AD', @{ Role = 'Admin'; CorrelationId = 'test' }) } |
                 Should -Throw '*No matching auth session found*'
         }
+
+        It 'allows Actor-based routing in multi-key patterns' {
+            $password1 = ConvertTo-SecureString 'OpsPassword!' -AsPlainText -Force
+            $opsCred = New-Object System.Management.Automation.PSCredential('ops-user', $password1)
+            
+            $password2 = ConvertTo-SecureString 'AdminPassword!' -AsPlainText -Force
+            $adminCred = New-Object System.Management.Automation.PSCredential('admin-user', $password2)
+            
+            # Suppress warnings for this test since we're intentionally using framework keys
+            $WarningPreference = 'SilentlyContinue'
+            $broker = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD'; Actor = 'ops-user' } = $opsCred
+                @{ AuthSessionName = 'AD'; Actor = 'admin-user' } = $adminCred
+            } -AuthSessionType 'Credential'
+            $WarningPreference = 'Continue'
+            
+            # Match ops-user
+            $session = $broker.AcquireAuthSession('AD', @{ Actor = 'ops-user'; CorrelationId = 'test' })
+            $session.UserName | Should -Be 'ops-user'
+            
+            # Match admin-user
+            $session2 = $broker.AcquireAuthSession('AD', @{ Actor = 'admin-user'; CorrelationId = 'test2' })
+            $session2.UserName | Should -Be 'admin-user'
+        }
+
+        It 'issues warning when patterns include framework keys' {
+            $warnings = @()
+            $null = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD'; Actor = 'test' } = @{ AuthSessionType = 'Credential'; Credential = $testCred }
+            } -WarningVariable warnings -WarningAction SilentlyContinue
+            
+            $warnings.Count | Should -BeGreaterThan 0
+            $warnings[0] | Should -Match 'framework-controlled keys'
+        }
+
+        It 'issues warning when multi-key pattern with non-framework keys also includes framework keys' {
+            $warnings = @()
+            $null = New-IdleAuthSession -SessionMap @{
+                @{ AuthSessionName = 'AD'; Actor = 'test'; Role = 'Admin' } = @{ AuthSessionType = 'Credential'; Credential = $testCred }
+            } -WarningVariable warnings -WarningAction SilentlyContinue
+            
+            $warnings.Count | Should -BeGreaterThan 0
+            $warnings[0] | Should -Match 'framework-controlled keys'
+        }
     }
 
     Context 'Module export' {
