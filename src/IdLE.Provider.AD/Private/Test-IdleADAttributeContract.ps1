@@ -96,23 +96,31 @@ function Test-IdleADAttributeContract {
             throw "AD Provider: AttributeName is required for EnsureAttribute validation."
         }
 
-        $supportedKeys = @($contract.Keys)
+        # Named attributes (have explicit Set-ADUser parameter bindings)
+        $namedKeys = @($contract.Keys | Where-Object { -not $_.StartsWith('_') })
 
-        if ($AttributeName -notin $supportedKeys) {
+        # CreateIdentity-only attributes that must not be used in EnsureAttribute
+        $blockedAttributes = @()
+        if ($contract.ContainsKey('_BlockedAttributes')) {
+            $blockedAttributes = $contract['_BlockedAttributes'].Values
+        }
+
+        if ($AttributeName -in $blockedAttributes) {
             $errorMessage = "AD Provider: Unsupported attribute in EnsureAttribute operation.`n"
             $errorMessage += "Attribute: $AttributeName`n`n"
-            $errorMessage += "Supported attributes for EnsureAttribute:`n"
-            
-            # Generate supported attributes list from contract
-            $supportedAttributesList = ($supportedKeys | Sort-Object | ForEach-Object { "  - $_" }) -join "`n"
+            $errorMessage += "This attribute is only supported in CreateIdentity, not in EnsureAttribute.`n`n"
+            $errorMessage += "Named attributes supported for EnsureAttribute:`n"
+
+            $supportedAttributesList = ($namedKeys | Sort-Object | ForEach-Object { "  - $_" }) -join "`n"
             $errorMessage += "$supportedAttributesList`n`n"
-            
-            $errorMessage += "Note: Custom LDAP attributes and password attributes are not supported in EnsureAttribute.`n"
-            $errorMessage += "For custom attributes, use CreateIdentity with OtherAttributes."
+
+            $errorMessage += "Custom LDAP attributes (e.g., mobile, telephoneNumber) are also accepted`n"
+            $errorMessage += "and are routed via Set-ADUser -Replace (set value) or -Clear (null value)."
 
             throw $errorMessage
         }
 
+        # Attribute is either a named parameter or a custom LDAP attribute - both are allowed
         return @{
             Requested   = @($AttributeName)
             Supported   = @($AttributeName)

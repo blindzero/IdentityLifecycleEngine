@@ -7,16 +7,28 @@ function Get-IdleADAttributeContract {
     Defines which attributes are supported for CreateIdentity and EnsureAttribute operations.
     This contract serves as the single source of truth for attribute validation.
 
+    For EnsureAttribute, the contract lists named Set-ADUser parameters explicitly, plus a
+    _BlockedAttributes meta-key that enumerates CreateIdentity-only attributes that must not
+    be used with EnsureAttribute.  Any attribute name that is neither a named parameter nor in
+    _BlockedAttributes is treated as a custom LDAP attribute and routed through
+    Set-ADUser -Replace / -Clear automatically.
+
     .PARAMETER Operation
     The operation to get the contract for: 'CreateIdentity' or 'EnsureAttribute'.
 
     .OUTPUTS
     System.Collections.Hashtable
     Returns a hashtable where keys are supported attribute names and values contain metadata.
+    For EnsureAttribute, the special key '_BlockedAttributes' lists forbidden attribute names.
 
     .EXAMPLE
     $contract = Get-IdleADAttributeContract -Operation 'CreateIdentity'
     $supportedKeys = $contract.Keys
+
+    .EXAMPLE
+    $contract = Get-IdleADAttributeContract -Operation 'EnsureAttribute'
+    $namedKeys  = $contract.Keys | Where-Object { -not $_.StartsWith('_') }
+    $blocked    = $contract['_BlockedAttributes'].Values
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -65,7 +77,7 @@ function Get-IdleADAttributeContract {
     }
     elseif ($Operation -eq 'EnsureAttribute') {
         return @{
-            # Name Attributes
+            # Named Set-ADUser parameters (explicit parameter bindings in SetUser)
             GivenName                = @{ Target = 'Parameter'; Type = 'String' }
             Surname                  = @{ Target = 'Parameter'; Type = 'String' }
             DisplayName              = @{ Target = 'Parameter'; Type = 'String' }
@@ -83,6 +95,25 @@ function Get-IdleADAttributeContract {
             
             # Relationship Attributes
             Manager                  = @{ Target = 'Parameter'; Type = 'String' }
+
+            # Meta: attributes that are CreateIdentity-only and must NOT be used in EnsureAttribute.
+            # Any attribute not listed above and not in _BlockedAttributes.Values is accepted as a
+            # custom LDAP attribute and routed via Set-ADUser -Replace (set) or -Clear (null).
+            _BlockedAttributes       = @{
+                Target = 'Meta'
+                Type   = 'String[]'
+                Values = @(
+                    'SamAccountName'
+                    'Path'
+                    'Name'
+                    'AccountPassword'
+                    'AccountPasswordAsPlainText'
+                    'ResetOnFirstLogin'
+                    'AllowPlainTextPasswordOutput'
+                    'Enabled'
+                    'OtherAttributes'
+                )
+            }
         }
     }
 }

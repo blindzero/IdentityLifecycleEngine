@@ -529,24 +529,39 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        switch ($AttributeName) {
-            'GivenName' { $params['GivenName'] = $Value }
-            'Surname' { $params['Surname'] = $Value }
-            'DisplayName' { $params['DisplayName'] = $Value }
-            'Description' { $params['Description'] = $Value }
-            'Department' { $params['Department'] = $Value }
-            'Title' { $params['Title'] = $Value }
-            'EmailAddress' { $params['EmailAddress'] = $Value }
-            'UserPrincipalName' { $params['UserPrincipalName'] = $Value }
-            'Manager' {
-                # Expect $Value to be a normalized DN or $null.
-                if ($null -eq $Value) {
-                    $params['Clear'] = 'manager'
-                } else {
-                    $params['Manager'] = $Value
-                }
+        # Named Set-ADUser parameters: attribute name → Set-ADUser parameter name
+        $namedParams = @{
+            GivenName         = 'GivenName'
+            Surname           = 'Surname'
+            DisplayName       = 'DisplayName'
+            Description       = 'Description'
+            Department        = 'Department'
+            Title             = 'Title'
+            EmailAddress      = 'EmailAddress'
+            UserPrincipalName = 'UserPrincipalName'
+        }
+
+        if ($AttributeName -eq 'Manager') {
+            # Manager requires a pre-resolved DN; $null clears the attribute
+            if ($null -eq $Value) {
+                $params['Clear'] = 'manager'
+            } else {
+                $params['Manager'] = $Value
             }
-            default {
+        }
+        elseif ($namedParams.ContainsKey($AttributeName)) {
+            # Known Set-ADUser named parameter: set directly or clear on null
+            if ($null -eq $Value) {
+                $params['Clear'] = $namedParams[$AttributeName]
+            } else {
+                $params[$namedParams[$AttributeName]] = $Value
+            }
+        }
+        else {
+            # Custom LDAP attribute: use -Replace to set, -Clear to unset
+            if ($null -eq $Value) {
+                $params['Clear'] = $AttributeName
+            } else {
                 $params['Replace'] = @{ $AttributeName = $Value }
             }
         }

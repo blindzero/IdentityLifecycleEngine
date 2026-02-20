@@ -1661,22 +1661,38 @@ Describe 'AD identity provider' {
                 Should -Throw -ExpectedMessage '*OtherAttributes*must be a hashtable*'
         }
 
-        It 'EnsureAttribute throws when unsupported attribute is requested' {
-            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'InvalidAttribute', 'Value') } | 
+        It 'EnsureAttribute throws when a blocked (CreateIdentity-only) attribute is requested' {
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'AccountPassword', 'Value') } | 
                 Should -Throw -ExpectedMessage '*Unsupported attribute*'
         }
 
-        It 'EnsureAttribute error message lists the unsupported attribute' {
-            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'CustomLdapAttr', 'Value') } | 
-                Should -Throw -ExpectedMessage '*CustomLdapAttr*'
+        It 'EnsureAttribute error message includes the blocked attribute name' {
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'Enabled', 'Value') } | 
+                Should -Throw -ExpectedMessage '*Enabled*'
         }
 
-        It 'EnsureAttribute succeeds with supported attributes' {
+        It 'EnsureAttribute succeeds with named Set-ADUser parameter attributes' {
             $supportedAttrs = @('GivenName', 'Surname', 'DisplayName', 'Description', 'Department', 'Title', 'EmailAddress', 'UserPrincipalName', 'Manager')
 
             foreach ($attr in $supportedAttrs) {
                 { $script:ValidationTestProvider.EnsureAttribute('validationtest1', $attr, 'TestValue') } | Should -Not -Throw
             }
+        }
+
+        It 'EnsureAttribute succeeds with custom LDAP attributes' {
+            $customAttrs = @('mobile', 'telephoneNumber', 'homePhone', 'extensionAttribute1', 'employeeType')
+
+            foreach ($attr in $customAttrs) {
+                { $script:ValidationTestProvider.EnsureAttribute('validationtest1', $attr, 'TestValue') } | Should -Not -Throw
+            }
+        }
+
+        It 'EnsureAttribute succeeds with null value for custom LDAP attribute (clear/unset)' {
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'mobile', $null) } | Should -Not -Throw
+        }
+
+        It 'EnsureAttribute succeeds with null value for named attribute (clear/unset)' {
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'GivenName', $null) } | Should -Not -Throw
         }
 
         It 'EnsureAttribute rejects CreateIdentity-only attributes' {
