@@ -1718,6 +1718,15 @@ Describe 'AD identity provider' {
             $result.Changed | Should -BeTrue
         }
 
+        It 'EnsureAttribute with OtherAttributes is idempotent when LDAP attribute is already null' {
+            # Pre-set the custom LDAP attribute to null
+            $testUser = $script:ValidationTestAdapter.GetUserBySam('validationtest1')
+            $testUser | Add-Member -MemberType NoteProperty -Name 'mobile' -Value $null -Force
+
+            $result = $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', @{ mobile = $null })
+
+            $result.Changed | Should -BeFalse
+        }
         It 'EnsureAttribute with $null value clears a named attribute' {
             # Pre-set an attribute on the user
             $testUser = $script:ValidationTestAdapter.GetUserBySam('validationtest1')
