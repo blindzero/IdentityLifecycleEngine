@@ -565,7 +565,7 @@ function New-IdleADIdentityProvider {
         )
 
         # Validate attribute against contract (strict mode - will throw on unsupported attributes)
-        $validationResult = Test-IdleADAttributeContract -Operation 'EnsureAttribute' -AttributeName $Name
+        $validationResult = Test-IdleADAttributeContract -Operation 'EnsureAttributes' -AttributeName $Name
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
@@ -577,25 +577,63 @@ function New-IdleADIdentityProvider {
         }
 
         $changed = $false
-        if ($currentValue -ne $Value) {
-            # Special handling for Manager attribute - resolve to DN
-            $valueToSet = $Value
-            if ($Name -eq 'Manager' -and $null -ne $Value) {
-                $valueToSet = $adapter.ResolveManagerDN($Value)
-            }
-            
-            $adapter.SetUser($user.DistinguishedName, $Name, $valueToSet)
-            $changed = $true
 
-            # Emit observability event
-            if ($this.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $this.EventSink) {
-                $eventData = @{
-                    IdentityKey  = $IdentityKey
-                    AttributeName = $Name
-                    OldValue     = $currentValue
-                    NewValue     = $Value
+        # Handle OtherAttributes container: apply each sub-attribute individually
+        if ($Name -eq 'OtherAttributes') {
+            if ($null -ne $Value -and $Value -isnot [hashtable]) {
+                throw "AD Provider: 'OtherAttributes' must be a hashtable. Received type: $($Value.GetType().FullName)"
+            }
+            if ($null -ne $Value -and $Value -is [hashtable]) {
+                foreach ($ldapAttr in $Value.Keys) {
+                    $ldapValue = $Value[$ldapAttr]
+                    $currentLdapValue = $null
+                    if ($user.PSObject.Properties.Name -contains $ldapAttr) {
+                        $currentLdapValue = $user.$ldapAttr
+                    }
+                    $attrChanged = if ($null -eq $currentLdapValue -and $null -eq $ldapValue) {
+                        $false
+                    } elseif ($null -eq $currentLdapValue -or $null -eq $ldapValue) {
+                        $true
+                    } else {
+                        $currentLdapValue -ne $ldapValue
+                    }
+                    if ($attrChanged) {
+                        $adapter.SetUser($user.DistinguishedName, $ldapAttr, $ldapValue, $currentLdapValue)
+                        $changed = $true
+                    }
                 }
-                $this.EventSink.WriteEvent('Provider.AD.EnsureAttribute.AttributeChanged', "Attribute '$Name' changed", 'EnsureAttribute', $eventData)
+            }
+        }
+        else {
+            # Use reference equality check that treats $null correctly
+            $needsChange = if ($null -eq $currentValue -and $null -eq $Value) {
+                $false
+            } elseif ($null -eq $currentValue -or $null -eq $Value) {
+                $true
+            } else {
+                $currentValue -ne $Value
+            }
+
+            if ($needsChange) {
+                # Special handling for Manager attribute - resolve to DN
+                $valueToSet = $Value
+                if ($Name -eq 'Manager' -and $null -ne $Value) {
+                    $valueToSet = $adapter.ResolveManagerDN($Value)
+                }
+
+                $adapter.SetUser($user.DistinguishedName, $Name, $valueToSet, $currentValue)
+                $changed = $true
+
+                # Emit observability event
+                if ($this.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $this.EventSink) {
+                    $eventData = @{
+                        IdentityKey  = $IdentityKey
+                        AttributeName = $Name
+                        OldValue     = $currentValue
+                        NewValue     = $Value
+                    }
+                    $this.EventSink.WriteEvent('Provider.AD.EnsureAttribute.AttributeChanged', "Attribute '$Name' changed", 'EnsureAttribute', $eventData)
+                }
             }
         }
 

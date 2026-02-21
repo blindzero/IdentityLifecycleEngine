@@ -115,6 +115,59 @@ $provider = New-IdleADIdentityProvider -AllowDelete
 - **Safety defaults:** deletion is disabled unless you pass `-AllowDelete`
 - **Entitlements:** groups only (`Kind='Group'`)
 
+## Attribute handling
+
+### CreateIdentity attributes
+
+`IdLE.Step.CreateIdentity` maps attributes to `New-ADUser` named parameters. Attributes not listed in the named parameter set can be passed via the `OtherAttributes` container using their **LDAP attribute names** as keys.
+
+```powershell
+@{
+    Name = 'Create AD user'
+    Type = 'IdLE.Step.CreateIdentity'
+    With = @{
+        IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
+        Provider    = 'AD'
+        Attributes  = @{
+            GivenName   = '{{Request.GivenName}}'
+            Surname     = '{{Request.Surname}}'
+            OtherAttributes = @{
+                extensionAttribute1 = '{{Request.Department}}'
+            }
+        }
+    }
+}
+```
+
+> **Note:** Keys in `OtherAttributes` must be valid **LDAP attribute names** (e.g. `extensionAttribute1`, `employeeType`), not PowerShell parameter names.
+
+### EnsureAttributes attributes
+
+`IdLE.Step.EnsureAttributes` maps attributes to `Set-ADUser` named parameters. Setting an attribute to `$null` clears the value from the directory. Attributes not listed in the named parameter set can be set or cleared via the `OtherAttributes` container using their **LDAP attribute names** as keys.
+
+**Custom LDAP attributes** (via OtherAttributes container):
+
+```powershell
+@{
+    Name = 'Clear phone numbers'
+    Type = 'IdLE.Step.EnsureAttributes'
+    With = @{
+        IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
+        Provider    = 'AD'
+        Attributes  = @{
+            MobilePhone     = $null      # Clears the mobile attribute
+            OfficePhone     = $null      # Clears the telephoneNumber attribute
+            OtherAttributes = @{
+                extensionAttribute1 = 'NewValue'    # Sets custom LDAP attribute
+                employeeType        = $null         # Clears custom LDAP attribute
+            }
+        }
+    }
+}
+```
+
+> **Note:** Keys in `OtherAttributes` must be valid **LDAP attribute names** (e.g. `mobile`, `telephoneNumber`, `extensionAttribute1`), not PowerShell parameter names. Setting a key to `$null` clears that LDAP attribute.
+
 ## Examples
 
 These are the canonical, **doc-embed friendly** templates for AD.

@@ -191,7 +191,7 @@ function New-IdleADAdapter {
         $escapedUpn = $escapedUpn -replace '''', ''''''
         $params = @{
             Filter     = "UserPrincipalName -eq '$escapedUpn'"
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
+            Properties = '*'
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -220,7 +220,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Filter     = "sAMAccountName -eq '$escapedSam'"
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
+            Properties = '*'
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -245,7 +245,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Identity   = $Guid
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
+            Properties = '*'
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -517,7 +517,11 @@ function New-IdleADAdapter {
 
             [Parameter()]
             [AllowNull()]
-            [object] $Value
+            [object] $Value,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $CurrentValue
         )
 
         $params = @{
@@ -529,24 +533,28 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        switch ($AttributeName) {
-            'GivenName' { $params['GivenName'] = $Value }
-            'Surname' { $params['Surname'] = $Value }
-            'DisplayName' { $params['DisplayName'] = $Value }
-            'Description' { $params['Description'] = $Value }
-            'Department' { $params['Department'] = $Value }
-            'Title' { $params['Title'] = $Value }
-            'EmailAddress' { $params['EmailAddress'] = $Value }
-            'UserPrincipalName' { $params['UserPrincipalName'] = $Value }
-            'Manager' {
-                # Expect $Value to be a normalized DN or $null.
-                if ($null -eq $Value) {
-                    $params['Clear'] = 'manager'
-                } else {
-                    $params['Manager'] = $Value
-                }
+        # Use the EnsureAttributes contract to determine if this is a named Set-ADUser parameter.
+        # Named parameters are set/cleared directly; custom LDAP attributes use -Replace/-Clear.
+        $ensureContract = Get-IdleADAttributeContract -Operation 'EnsureAttributes'
+
+        if ($ensureContract.ContainsKey($AttributeName) -and $ensureContract[$AttributeName].Target -eq 'Parameter') {
+            # Named Set-ADUser parameter: clear via LDAP field name or set via parameter name
+            $ldapField = Get-IdleADAttributeLDAPField -AttributeName $AttributeName
+            if ($null -eq $Value) {
+                # Fallback to attribute name if no LDAP mapping exists (safety guard)
+                $params['Clear'] = if ($null -ne $ldapField) { $ldapField } else { $AttributeName }
             }
-            default {
+            else {
+                $params[$AttributeName] = $Value
+            }
+        }
+        else {
+            # Custom LDAP attribute: use -Clear for null, -Replace for non-null.
+            # -Replace works regardless of whether $CurrentValue is set or not.
+            if ($null -eq $Value) {
+                $params['Clear'] = $AttributeName
+            }
+            else {
                 $params['Replace'] = @{ $AttributeName = $Value }
             }
         }

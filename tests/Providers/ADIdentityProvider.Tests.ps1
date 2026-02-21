@@ -349,7 +349,7 @@ Describe 'AD identity provider' {
             } -Force
 
             $adapter | Add-Member -MemberType ScriptMethod -Name SetUser -Value {
-                param([string]$Identity, [string]$AttributeName, $Value)
+                param([string]$Identity, [string]$AttributeName, $Value, $CurrentValue)
                 
                 $user = $null
                 foreach ($key in $this.Store.Keys) {
@@ -374,10 +374,17 @@ Describe 'AD identity provider' {
                     return
                 }
 
-                # Handle known properties
-                $knownProps = @('GivenName', 'Surname', 'DisplayName', 'Description', 'Department', 'Title', 'EmailAddress', 'UserPrincipalName')
-                if ($AttributeName -in $knownProps -and $null -ne $user.PSObject.Properties[$AttributeName]) {
-                    $user.$AttributeName = $Value
+                # Handle known properties (set or clear)
+                $knownProps = @('GivenName', 'Surname', 'DisplayName', 'Description', 'Department', 'Title', 'EmailAddress', 'UserPrincipalName',
+                                'SamAccountName', 'Initials', 'Company', 'Division', 'Office', 'EmployeeID', 'EmployeeNumber',
+                                'OfficePhone', 'MobilePhone', 'HomePhone', 'Fax', 'StreetAddress', 'City', 'State',
+                                'PostalCode', 'Country', 'POBox', 'HomePage', 'HomeDirectory', 'HomeDrive', 'ProfilePath', 'ScriptPath')
+                if ($AttributeName -in $knownProps) {
+                    if ($null -ne $user.PSObject.Properties[$AttributeName]) {
+                        $user.$AttributeName = $Value
+                    } else {
+                        $user | Add-Member -MemberType NoteProperty -Name $AttributeName -Value $Value -Force
+                    }
                 } else {
                     # Add as a dynamic property if it doesn't exist
                     if ($null -eq $user.PSObject.Properties[$AttributeName]) {
@@ -1672,7 +1679,14 @@ Describe 'AD identity provider' {
         }
 
         It 'EnsureAttribute succeeds with supported attributes' {
-            $supportedAttrs = @('GivenName', 'Surname', 'DisplayName', 'Description', 'Department', 'Title', 'EmailAddress', 'UserPrincipalName', 'Manager')
+            $supportedAttrs = @(
+                'GivenName', 'Surname', 'DisplayName', 'Description', 'Department', 'Title',
+                'EmailAddress', 'UserPrincipalName', 'Manager',
+                'SamAccountName', 'Initials', 'Company', 'Division', 'Office',
+                'EmployeeID', 'EmployeeNumber', 'OfficePhone', 'MobilePhone', 'HomePhone', 'Fax',
+                'StreetAddress', 'City', 'State', 'PostalCode', 'Country', 'POBox', 'HomePage',
+                'HomeDirectory', 'HomeDrive', 'ProfilePath', 'ScriptPath'
+            )
 
             foreach ($attr in $supportedAttrs) {
                 { $script:ValidationTestProvider.EnsureAttribute('validationtest1', $attr, 'TestValue') } | Should -Not -Throw
@@ -1688,9 +1702,55 @@ Describe 'AD identity provider' {
             }
         }
 
-        It 'EnsureAttribute rejects OtherAttributes' {
-            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', @{}) } | 
-                Should -Throw -ExpectedMessage '*Unsupported attribute*'
+        It 'EnsureAttribute accepts OtherAttributes container with LDAP attribute hashtable' {
+            # OtherAttributes is now a supported container for custom LDAP attributes
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', @{ mobile = 'test' }) } | 
+                Should -Not -Throw
+        }
+
+        It 'EnsureAttribute throws when OtherAttributes value is not a hashtable' {
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', 'mobile=123') } | 
+                Should -Throw -ExpectedMessage "*'OtherAttributes' must be a hashtable*"
+        }
+
+        It 'EnsureAttribute with OtherAttributes sets $null value to clear LDAP attribute' {
+            # Pre-set the custom attribute on the user
+            $testUser = $script:ValidationTestAdapter.GetUserBySam('validationtest1')
+            $testUser | Add-Member -MemberType NoteProperty -Name 'mobile' -Value '+1234567890' -Force
+
+            $result = $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', @{ mobile = $null })
+
+            $result.Changed | Should -BeTrue
+        }
+
+        It 'EnsureAttribute with OtherAttributes is idempotent when LDAP attribute is already null' {
+            # Pre-set the custom LDAP attribute to null
+            $testUser = $script:ValidationTestAdapter.GetUserBySam('validationtest1')
+            $testUser | Add-Member -MemberType NoteProperty -Name 'mobile' -Value $null -Force
+
+            $result = $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', @{ mobile = $null })
+
+            $result.Changed | Should -BeFalse
+        }
+        It 'EnsureAttribute with $null value clears a named attribute' {
+            # Pre-set an attribute on the user
+            $testUser = $script:ValidationTestAdapter.GetUserBySam('validationtest1')
+            $testUser.GivenName = 'OldFirst'
+
+            $result = $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'GivenName', $null)
+
+            $result.Changed | Should -BeTrue
+            $result.Value | Should -BeNullOrEmpty
+        }
+
+        It 'EnsureAttribute with $null is idempotent when attribute is already null' {
+            # Pre-set the attribute to null
+            $testUser = $script:ValidationTestAdapter.GetUserBySam('validationtest1')
+            $testUser.GivenName = $null
+
+            $result = $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'GivenName', $null)
+
+            $result.Changed | Should -BeFalse
         }
     }
 
