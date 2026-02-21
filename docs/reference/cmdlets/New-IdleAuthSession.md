@@ -29,13 +29,13 @@ This is a thin wrapper that delegates to IdLE.Core\New-IdleAuthSessionBroker.
 ### EXAMPLE 1
 ```
 # Simple broker with single credential
-$broker = New-IdleAuthSession -DefaultAuthSession $credential -AuthSessionType 'Credential'
+$authSessionBroker = New-IdleAuthSession -DefaultAuthSession $credential -AuthSessionType 'Credential'
 ```
 
 ### EXAMPLE 2
 ```
 # Mixed-type broker for AD + EXO
-$broker = New-IdleAuthSession -SessionMap @{
+$authSessionBroker = New-IdleAuthSession -SessionMap @{
     @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $adCred }
     @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $token }
 }

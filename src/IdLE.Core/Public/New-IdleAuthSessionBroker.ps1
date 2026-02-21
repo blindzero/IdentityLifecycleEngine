@@ -48,44 +48,44 @@ function New-IdleAuthSessionBroker {
 
     .EXAMPLE
     # Simple single-credential broker (with AuthSessionType)
-    $broker = New-IdleAuthSessionBroker -DefaultAuthSession $admCred -AuthSessionType 'Credential'
+    $authSessionBroker = New-IdleAuthSessionBroker -DefaultAuthSession $admCred -AuthSessionType 'Credential'
 
     .EXAMPLE
     # AuthSessionName-based routing with roles (with AuthSessionType)
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
+    $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ AuthSessionName = 'AD'; Role = 'ADAdm' } = $tier0Credential
         @{ AuthSessionName = 'AD'; Role = 'ADRead' } = $readOnlyCredential
     } -DefaultAuthSession $adminCredential -AuthSessionType 'Credential'
 
     .EXAMPLE
     # OAuth broker with token strings (with AuthSessionType)
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
+    $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Role = 'Admin' } = $graphToken
     } -DefaultAuthSession $graphToken -AuthSessionType 'OAuth'
 
     .EXAMPLE
     # Domain-based broker for multi-forest scenarios (with AuthSessionType)
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
+    $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Domain = 'SourceAD' } = $sourceCred
         @{ Domain = 'TargetAD' } = $targetCred
     } -AuthSessionType 'Credential'
 
     .EXAMPLE
     # PSRemoting broker for Entra Connect directory sync (with AuthSessionType)
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
+    $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Server = 'AADConnect01' } = $remoteSessionCred
     } -AuthSessionType 'PSRemoting'
 
     .EXAMPLE
     # Environment-based routing (with AuthSessionType)
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
+    $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Environment = 'Production' } = $prodCred
         @{ Environment = 'Test' } = $testCred
     } -DefaultAuthSession $devCred -AuthSessionType 'Credential'
 
     .EXAMPLE
     # Mixed-type broker for AD (Credential) + EXO (OAuth) - typed descriptors
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
+    $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $adCred }
         @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $exoToken }
     }

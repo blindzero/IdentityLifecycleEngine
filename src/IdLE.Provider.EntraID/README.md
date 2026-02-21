@@ -12,7 +12,7 @@ Import-Module IdLE
 $token = Get-GraphToken
 
 # Create broker for auth routing
-$broker = New-IdleAuthSessionBroker -SessionMap @{
+$authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
     @{} = $token
 } -DefaultCredential $token
 
@@ -22,7 +22,7 @@ $provider = New-IdleEntraIDIdentityProvider
 # Use in workflows
 $providers = @{
     Identity = $provider
-    AuthSessionBroker = $broker
+    AuthSessionBroker = $authSessionBroker
 }
 $plan = New-IdlePlan -WorkflowPath '.\joiner.psd1' -Request $request -Providers $providers
 ```
