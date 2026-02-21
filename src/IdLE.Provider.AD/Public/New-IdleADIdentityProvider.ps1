@@ -580,6 +580,9 @@ function New-IdleADIdentityProvider {
 
         # Handle OtherAttributes container: apply each sub-attribute individually
         if ($Name -eq 'OtherAttributes') {
+            if ($null -ne $Value -and $Value -isnot [hashtable]) {
+                throw "AD Provider: 'OtherAttributes' must be a hashtable. Received type: $($Value.GetType().FullName)"
+            }
             if ($null -ne $Value -and $Value -is [hashtable]) {
                 foreach ($ldapAttr in $Value.Keys) {
                     $ldapValue = $Value[$ldapAttr]

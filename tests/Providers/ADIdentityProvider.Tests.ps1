@@ -1708,6 +1708,11 @@ Describe 'AD identity provider' {
                 Should -Not -Throw
         }
 
+        It 'EnsureAttribute throws when OtherAttributes value is not a hashtable' {
+            { $script:ValidationTestProvider.EnsureAttribute('validationtest1', 'OtherAttributes', 'mobile=123') } | 
+                Should -Throw -ExpectedMessage "*'OtherAttributes' must be a hashtable*"
+        }
+
         It 'EnsureAttribute with OtherAttributes sets $null value to clear LDAP attribute' {
             # Pre-set the custom attribute on the user
             $testUser = $script:ValidationTestAdapter.GetUserBySam('validationtest1')
