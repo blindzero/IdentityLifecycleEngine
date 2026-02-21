@@ -22,9 +22,10 @@ function Resolve-IdleTemplateString {
     - Request.Actor
 
     Escaping:
-    - \{{ → literal {{ (backslash escapes the opening braces when not followed by a template path)
-    - \{{path}} treats \ as a literal character and resolves the template normally
+    - \{{ → literal {{ (backslash escapes the opening braces when not followed by a valid allowed-root template path+}})
+    - \{{path}} where path is a valid allowed-root path treats \ as a literal character and resolves the template normally
       (e.g. DOMAIN\{{Request.IdentityKeys.sAMAccountName}} → DOMAIN\<resolved value>)
+    - \{{Request.InvalidRoot}} or \{{Request..Bad}} → escaped to literal {{...}} (invalid paths are never treated as templates)
 
     .PARAMETER Value
     The string value to resolve. If not a string, returns the value unchanged.
@@ -199,13 +200,14 @@ function Resolve-IdleTemplateString {
         }
     }
 
-    # Escape sequence normalization: \{{ (not followed by a valid template path+}}) → literal {{.
+    # Escape sequence normalization: \{{ (not followed by a valid allowed-root template path+}}) → literal {{.
     # Use a Unicode Private Use Area character as placeholder so template matching does not see the
     # escaped braces. This character is extremely unlikely to appear in real workflow configuration.
-    # When \{{ is immediately followed by a valid path and }} (e.g. DOMAIN\{{Request.Input.Name}}),
-    # the backslash is treated as a literal character and the template is resolved normally.
+    # The lookahead is intentionally restricted to the exact set of allowed roots so that sequences
+    # like \{{Request.Foo}} (invalid root) or \{{Request..Name}} (double dot) are still escaped to
+    # literal {{, rather than flowing into template parsing and failing with path/root errors.
     $litOpenPlaceholder = [string][char]0xE001
-    $backslashEscapePattern = '\\{{(?![A-Za-z][A-Za-z0-9_.]*}})'
+    $backslashEscapePattern = '\\{{(?!Request\.(?:(?:Input|DesiredState|IdentityKeys|Changes)(?:\.[A-Za-z0-9_]+)*|LifecycleEvent|CorrelationId|Actor)}})'
     $normalizedValue = if ($stringValue -match '\\{{') {
         [regex]::Replace($stringValue, $backslashEscapePattern, $litOpenPlaceholder)
     } else {

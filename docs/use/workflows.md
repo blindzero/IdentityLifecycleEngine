@@ -120,21 +120,26 @@ IdentityKey = 'DOMAIN\{{Request.IdentityKeys.sAMAccountName}}'
 
 ### Escaping a literal `{{`
 
-To include a literal `{{` in the output, prefix it with `\` and ensure no valid template path
-follows the opening braces:
+To include a literal `{{` in the output, prefix it with `\`. The escape is applied whenever
+`\{{` is **not** immediately followed by a valid allowed-root template path and `}}`:
 
 ```powershell
 # \{{ not followed by a valid path+}} → literal {{ in output
 Value = 'Literal \{{ braces here'
 # → 'Literal {{ braces here'
+
+# \{{ followed by an invalid/disallowed path → also escaped (literal {{ in output)
+Value = '\{{Request.InvalidRoot}}'
+# → '{{Request.InvalidRoot}}'
 ```
 
 Summary of backslash behaviour:
 
 | Input | Result |
 | ----- | ------ |
-| `DOMAIN\{{Request.IdentityKeys.sAMAccountName}}` | `DOMAIN\jdoe` — `\` literal, template resolved |
+| `DOMAIN\{{Request.IdentityKeys.sAMAccountName}}` | `DOMAIN\jdoe` — `\` literal, valid template resolved |
 | `Literal \{{ braces here` | `Literal {{ braces here` — escape applied |
+| `\{{Request.InvalidRoot}}` | `{{Request.InvalidRoot}}` — invalid root, escape applied |
 | `Literal \{{ and {{Request.Input.Name}}` | `Literal {{ and TestName` — escape + template |
 
 ### Validation
