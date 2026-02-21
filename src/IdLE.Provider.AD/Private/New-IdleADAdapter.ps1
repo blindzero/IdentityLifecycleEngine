@@ -191,7 +191,7 @@ function New-IdleADAdapter {
         $escapedUpn = $escapedUpn -replace '''', ''''''
         $params = @{
             Filter     = "UserPrincipalName -eq '$escapedUpn'"
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
+            Properties = '*'
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -220,7 +220,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Filter     = "sAMAccountName -eq '$escapedSam'"
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
+            Properties = '*'
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -245,7 +245,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Identity   = $Guid
-            Properties = @('Enabled', 'DistinguishedName', 'ObjectGuid', 'UserPrincipalName', 'sAMAccountName', 'Manager')
+            Properties = '*'
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -517,7 +517,11 @@ function New-IdleADAdapter {
 
             [Parameter()]
             [AllowNull()]
-            [object] $Value
+            [object] $Value,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $CurrentValue
         )
 
         $params = @{
@@ -529,15 +533,100 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
+        # Resolve the LDAP field name for -Clear operations on named parameters
+        $ldapField = Get-IdleADAttributeLDAPField -AttributeName $AttributeName
+
         switch ($AttributeName) {
-            'GivenName' { $params['GivenName'] = $Value }
-            'Surname' { $params['Surname'] = $Value }
-            'DisplayName' { $params['DisplayName'] = $Value }
-            'Description' { $params['Description'] = $Value }
-            'Department' { $params['Department'] = $Value }
-            'Title' { $params['Title'] = $Value }
-            'EmailAddress' { $params['EmailAddress'] = $Value }
-            'UserPrincipalName' { $params['UserPrincipalName'] = $Value }
+            'GivenName' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['GivenName'] = $Value }
+            }
+            'Surname' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Surname'] = $Value }
+            }
+            'DisplayName' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['DisplayName'] = $Value }
+            }
+            'Description' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Description'] = $Value }
+            }
+            'Department' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Department'] = $Value }
+            }
+            'Title' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Title'] = $Value }
+            }
+            'EmailAddress' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['EmailAddress'] = $Value }
+            }
+            'UserPrincipalName' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['UserPrincipalName'] = $Value }
+            }
+            'SamAccountName' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['SamAccountName'] = $Value }
+            }
+            'Initials' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Initials'] = $Value }
+            }
+            'Company' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Company'] = $Value }
+            }
+            'Division' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Division'] = $Value }
+            }
+            'Office' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Office'] = $Value }
+            }
+            'EmployeeID' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['EmployeeID'] = $Value }
+            }
+            'EmployeeNumber' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['EmployeeNumber'] = $Value }
+            }
+            'OfficePhone' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['OfficePhone'] = $Value }
+            }
+            'MobilePhone' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['MobilePhone'] = $Value }
+            }
+            'HomePhone' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['HomePhone'] = $Value }
+            }
+            'Fax' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Fax'] = $Value }
+            }
+            'StreetAddress' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['StreetAddress'] = $Value }
+            }
+            'City' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['City'] = $Value }
+            }
+            'State' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['State'] = $Value }
+            }
+            'PostalCode' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['PostalCode'] = $Value }
+            }
+            'Country' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['Country'] = $Value }
+            }
+            'POBox' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['POBox'] = $Value }
+            }
+            'HomePage' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['HomePage'] = $Value }
+            }
+            'HomeDirectory' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['HomeDirectory'] = $Value }
+            }
+            'HomeDrive' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['HomeDrive'] = $Value }
+            }
+            'ProfilePath' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['ProfilePath'] = $Value }
+            }
+            'ScriptPath' {
+                if ($null -eq $Value) { $params['Clear'] = $ldapField } else { $params['ScriptPath'] = $Value }
+            }
             'Manager' {
                 # Expect $Value to be a normalized DN or $null.
                 if ($null -eq $Value) {
@@ -547,7 +636,16 @@ function New-IdleADAdapter {
                 }
             }
             default {
-                $params['Replace'] = @{ $AttributeName = $Value }
+                # Custom LDAP attribute: use -Clear for null, -Add when no current value, -Replace when updating
+                if ($null -eq $Value) {
+                    $params['Clear'] = $AttributeName
+                }
+                elseif ($null -eq $CurrentValue) {
+                    $params['Add'] = @{ $AttributeName = $Value }
+                }
+                else {
+                    $params['Replace'] = @{ $AttributeName = $Value }
+                }
             }
         }
 

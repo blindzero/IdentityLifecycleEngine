@@ -115,6 +115,97 @@ $provider = New-IdleADIdentityProvider -AllowDelete
 - **Safety defaults:** deletion is disabled unless you pass `-AllowDelete`
 - **Entitlements:** groups only (`Kind='Group'`)
 
+## Attribute handling
+
+### CreateIdentity attributes
+
+`IdLE.Step.CreateIdentity` maps attributes to `New-ADUser` named parameters. Attributes not listed in the named parameter set can be passed via the `OtherAttributes` container using their **LDAP attribute names** as keys.
+
+```powershell
+@{
+    Name = 'Create AD user'
+    Type = 'IdLE.Step.CreateIdentity'
+    With = @{
+        IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
+        Provider    = 'AD'
+        Attributes  = @{
+            GivenName   = '{{Request.GivenName}}'
+            Surname     = '{{Request.Surname}}'
+            OtherAttributes = @{
+                extensionAttribute1 = '{{Request.Department}}'
+            }
+        }
+    }
+}
+```
+
+> **Note:** Keys in `OtherAttributes` must be valid **LDAP attribute names** (e.g. `extensionAttribute1`, `employeeType`), not PowerShell parameter names.
+
+### EnsureAttributes attributes
+
+`IdLE.Step.EnsureAttributes` maps attributes to `Set-ADUser` named parameters. Setting an attribute to `$null` clears the value from the directory. Attributes not listed in the named parameter set can be set or cleared via the `OtherAttributes` container using their **LDAP attribute names** as keys.
+
+**Named parameter attributes** (PowerShell parameter names used as keys):
+
+| Key | LDAP attribute | Description |
+| --- | --- | --- |
+| `GivenName` | `givenName` | First name |
+| `Surname` | `sn` | Last name |
+| `DisplayName` | `displayName` | Display name |
+| `Initials` | `initials` | Initials |
+| `SamAccountName` | `sAMAccountName` | Login name |
+| `UserPrincipalName` | `userPrincipalName` | UPN |
+| `Description` | `description` | Description |
+| `Department` | `department` | Department |
+| `Title` | `title` | Job title |
+| `Company` | `company` | Company |
+| `Division` | `division` | Division |
+| `Office` | `physicalDeliveryOfficeName` | Office location |
+| `EmployeeID` | `employeeID` | Employee ID |
+| `EmployeeNumber` | `employeeNumber` | Employee number |
+| `EmailAddress` | `mail` | Email address |
+| `OfficePhone` | `telephoneNumber` | Office phone number |
+| `MobilePhone` | `mobile` | Mobile phone number |
+| `HomePhone` | `homePhone` | Home phone number |
+| `Fax` | `facsimileTelephoneNumber` | Fax number |
+| `StreetAddress` | `streetAddress` | Street address |
+| `City` | `l` | City |
+| `State` | `st` | State/province |
+| `PostalCode` | `postalCode` | Postal code |
+| `Country` | `co` | Country (full name) |
+| `POBox` | `postOfficeBox` | P.O. box |
+| `HomePage` | `wWWHomePage` | Web page |
+| `Manager` | `manager` | Manager (DN, UPN, GUID, or sAMAccountName) |
+| `HomeDirectory` | `homeDirectory` | Home directory path |
+| `HomeDrive` | `homeDrive` | Home drive letter |
+| `ProfilePath` | `profilePath` | Profile path |
+| `ScriptPath` | `scriptPath` | Logon script path |
+
+Setting any of these to `$null` clears the attribute in AD using the `-Clear` parameter of `Set-ADUser`.
+
+**Custom LDAP attributes** (via OtherAttributes container):
+
+```powershell
+@{
+    Name = 'Clear phone numbers'
+    Type = 'IdLE.Step.EnsureAttributes'
+    With = @{
+        IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
+        Provider    = 'AD'
+        Attributes  = @{
+            MobilePhone     = $null      # Clears the mobile attribute
+            OfficePhone     = $null      # Clears the telephoneNumber attribute
+            OtherAttributes = @{
+                extensionAttribute1 = 'NewValue'    # Sets custom LDAP attribute
+                employeeType        = $null         # Clears custom LDAP attribute
+            }
+        }
+    }
+}
+```
+
+> **Note:** Keys in `OtherAttributes` must be valid **LDAP attribute names** (e.g. `mobile`, `telephoneNumber`, `extensionAttribute1`), not PowerShell parameter names. Setting a key to `$null` clears that LDAP attribute.
+
 ## Examples
 
 These are the canonical, **doc-embed friendly** templates for AD.

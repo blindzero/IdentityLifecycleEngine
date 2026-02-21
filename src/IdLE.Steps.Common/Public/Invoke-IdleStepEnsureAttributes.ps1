@@ -122,12 +122,24 @@ function Invoke-IdleStepEnsureAttributes {
             $attrValue = $attributes[$key]
             
             try {
+                # Explicitly construct the arguments array to preserve $null values.
+                # Using @() with a $null element can drop the null in some PowerShell contexts;
+                # a typed object array guarantees the null is included as a positional argument.
+                $callArgs = [object[]]::new(2)
+                $callArgs[0] = [string]$with.IdentityKey
+                $callArgs[1] = $attrName
+                # Append value as third element preserving $null
+                $callArgsWithValue = [object[]]::new(3)
+                $callArgsWithValue[0] = $callArgs[0]
+                $callArgsWithValue[1] = $callArgs[1]
+                $callArgsWithValue[2] = $attrValue
+
                 $result = Invoke-IdleProviderMethod `
                     -Context $Context `
                     -With $with `
                     -ProviderAlias $providerAlias `
                     -MethodName 'EnsureAttribute' `
-                    -MethodArguments @([string]$with.IdentityKey, $attrName, $attrValue)
+                    -MethodArguments $callArgsWithValue
                 
                 $changed = $false
                 if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
