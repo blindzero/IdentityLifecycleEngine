@@ -23,3 +23,4 @@ Content here is not tutorial-style and usually assumes prior knowledge from the 
 - [Capability reference](capabilities.md)
 - Specifications (schemas, formats, contracts)
   - [Plan Export JSON Schema](./specs/plan-export.md)
+  - [Template Substitution](./specs/template-substitution.md)

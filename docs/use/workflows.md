@@ -67,6 +67,24 @@ Start with [Quick Start](quickstart.md).
 
 ---
 
+## Template substitution
+
+Step configuration values (`With.*`) support `{{path}}` placeholders that are resolved against the
+request during plan build. For example:
+
+```powershell
+IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
+Message     = 'User {{Request.DesiredState.DisplayName}} is joining.'
+
+# Backslash is a literal character — domain paths work without extra escaping:
+IdentityKey = 'DOMAIN\{{Request.IdentityKeys.sAMAccountName}}'
+```
+
+See [Reference: Template Substitution](../reference/specs/template-substitution.md) for the full
+syntax, allowed roots, escaping rules, and validation behaviour.
+
+---
+
 ## Reference
 
 For full definitions and reference, see:
