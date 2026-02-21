@@ -131,7 +131,7 @@ A minimal broker for a single credential:
 ```powershell
 $cred = Get-Credential
 
-$broker = New-IdleAuthSession -DefaultAuthSession $cred -AuthSessionType 'Credential'
+$authSessionBroker = New-IdleAuthSession -DefaultAuthSession $cred -AuthSessionType 'Credential'
 ```
 
 A broker that supports named routing (example: `AD` and `EXO`):
@@ -140,7 +140,7 @@ A broker that supports named routing (example: `AD` and `EXO`):
 $adCred  = Get-Credential
 $exoToken = '<token-or-object-from-your-exo-login-flow>'
 
-$broker = New-IdleAuthSession -SessionMap @{
+$authSessionBroker = New-IdleAuthSession -SessionMap @{
   @{ AuthSessionName = 'AD' }  = @{ AuthSessionType = 'Credential'; Credential = $adCred }
   @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth';       Credential = $exoToken }
 }
@@ -161,7 +161,7 @@ To make the broker available at runtime, add it to the provider registry under t
 ```powershell
 $providers = @{
   Identity         = New-IdleMockIdentityProvider
-  AuthSessionBroker = $broker
+  AuthSessionBroker = $authSessionBroker
 }
 ```
 
