@@ -11,7 +11,7 @@ function Get-IdleADAttributeContract {
     - Target: 'Parameter' (Set-ADUser/New-ADUser named parameter) or 'Container' (special handling)
     - Type: expected value type
     - Required: whether the attribute is required
-    - LdapField: the verified LDAP schema attribute name (used for -Clear/-Replace in Set-ADUser)
+    - LdapField: the verified LDAP schema attribute name, resolved via Get-IdleADAttributeLDAPField
 
     For CreateIdentity, attributes map to New-ADUser named parameters.
     For EnsureAttributes, attributes map to Set-ADUser named parameters.
@@ -31,7 +31,7 @@ function Get-IdleADAttributeContract {
 
     .EXAMPLE
     $contract = Get-IdleADAttributeContract -Operation 'EnsureAttributes'
-    $contract['GivenName'].LdapField   # Returns 'givenName'
+    $contract['GivenName'].LdapField   # Returns 'givenName' via Get-IdleADAttributeLDAPField
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -42,93 +42,105 @@ function Get-IdleADAttributeContract {
     )
 
     if ($Operation -eq 'CreateIdentity') {
-        return @{
+        $contract = @{
             # Identity Attributes
-            SamAccountName           = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'sAMAccountName' }
-            UserPrincipalName        = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'userPrincipalName' }
-            Path                     = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = $null }
+            SamAccountName           = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            UserPrincipalName        = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            Path                     = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
 
             # Name Attributes
-            Name                     = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'cn' }
-            GivenName                = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'givenName' }
-            Surname                  = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'sn' }
-            DisplayName              = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'displayName' }
+            Name                     = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            GivenName                = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            Surname                  = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            DisplayName              = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
 
             # Organizational Attributes
-            Description              = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'description' }
-            Department               = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'department' }
-            Title                    = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'title' }
+            Description              = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            Department               = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            Title                    = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
 
             # Contact Attributes
-            EmailAddress             = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'mail' }
+            EmailAddress             = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
 
             # Relationship Attributes
-            Manager                  = @{ Target = 'Parameter'; Type = 'String';              Required = $false; LdapField = 'manager' }
+            Manager                  = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
 
             # Password Attributes
-            AccountPassword          = @{ Target = 'Parameter'; Type = 'SecureString|String'; Required = $false; LdapField = $null }
-            AccountPasswordAsPlainText = @{ Target = 'Parameter'; Type = 'String';            Required = $false; LdapField = $null }
-            ResetOnFirstLogin        = @{ Target = 'Parameter'; Type = 'Boolean';             Required = $false; LdapField = $null }
-            AllowPlainTextPasswordOutput = @{ Target = 'Parameter'; Type = 'Boolean';         Required = $false; LdapField = $null }
+            AccountPassword          = @{ Target = 'Parameter'; Type = 'SecureString|String'; Required = $false }
+            AccountPasswordAsPlainText = @{ Target = 'Parameter'; Type = 'String';            Required = $false }
+            ResetOnFirstLogin        = @{ Target = 'Parameter'; Type = 'Boolean';             Required = $false }
+            AllowPlainTextPasswordOutput = @{ Target = 'Parameter'; Type = 'Boolean';         Required = $false }
 
             # State Attributes
-            Enabled                  = @{ Target = 'Parameter'; Type = 'Boolean';             Required = $false; LdapField = $null }
+            Enabled                  = @{ Target = 'Parameter'; Type = 'Boolean';             Required = $false }
 
             # Extension Container (keys must be valid LDAP attribute names)
-            OtherAttributes          = @{ Target = 'Container'; Type = 'Hashtable';           Required = $false; LdapField = $null }
+            OtherAttributes          = @{ Target = 'Container'; Type = 'Hashtable';           Required = $false }
         }
     }
     elseif ($Operation -eq 'EnsureAttributes') {
-        return @{
+        $contract = @{
             # Name Attributes
-            GivenName                = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'givenName' }
-            Surname                  = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'sn' }
-            DisplayName              = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'displayName' }
-            Initials                 = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'initials' }
+            GivenName                = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Surname                  = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            DisplayName              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Initials                 = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
 
             # Identity Attributes
-            SamAccountName           = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'sAMAccountName' }
-            UserPrincipalName        = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'userPrincipalName' }
+            SamAccountName           = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            UserPrincipalName        = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
 
             # Organizational Attributes
-            Description              = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'description' }
-            Department               = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'department' }
-            Title                    = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'title' }
-            Company                  = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'company' }
-            Division                 = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'division' }
-            Office                   = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'physicalDeliveryOfficeName' }
-            EmployeeID               = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'employeeID' }
-            EmployeeNumber           = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'employeeNumber' }
+            Description              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Department               = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Title                    = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Company                  = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Division                 = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Office                   = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            EmployeeID               = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            EmployeeNumber           = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
 
             # Contact Attributes
-            EmailAddress             = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'mail' }
-            OfficePhone              = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'telephoneNumber' }
-            MobilePhone              = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'mobile' }
-            HomePhone                = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'homePhone' }
-            Fax                      = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'facsimileTelephoneNumber' }
+            EmailAddress             = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            OfficePhone              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            MobilePhone              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            HomePhone                = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Fax                      = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
 
             # Address Attributes
-            StreetAddress            = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'streetAddress' }
-            City                     = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'l' }
-            State                    = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'st' }
-            PostalCode               = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'postalCode' }
-            Country                  = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'co' }
-            POBox                    = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'postOfficeBox' }
+            StreetAddress            = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            City                     = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            State                    = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            PostalCode               = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Country                  = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            POBox                    = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
 
             # Web / Profile Attributes
-            HomePage                 = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'wWWHomePage' }
+            HomePage                 = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
 
             # Relationship Attributes
-            Manager                  = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'manager' }
+            Manager                  = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
 
             # Account / Profile Path Attributes
-            HomeDirectory            = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'homeDirectory' }
-            HomeDrive                = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'homeDrive' }
-            ProfilePath              = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'profilePath' }
-            ScriptPath               = @{ Target = 'Parameter'; Type = 'String';  Required = $false; LdapField = 'scriptPath' }
+            HomeDirectory            = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            HomeDrive                = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            ProfilePath              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            ScriptPath               = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
 
             # Extension Container (keys must be valid LDAP attribute names, e.g. 'mobile', 'telephoneNumber')
-            OtherAttributes          = @{ Target = 'Container'; Type = 'Hashtable'; Required = $false; LdapField = $null }
+            OtherAttributes          = @{ Target = 'Container'; Type = 'Hashtable'; Required = $false }
         }
     }
+
+    # Enrich each Parameter entry with its LDAP field name from the dedicated mapping function
+    foreach ($key in @($contract.Keys)) {
+        if ($contract[$key].Target -eq 'Parameter') {
+            $contract[$key]['LdapField'] = Get-IdleADAttributeLDAPField -AttributeName $key
+        } else {
+            $contract[$key]['LdapField'] = $null
+        }
+    }
+
+    return $contract
 }
+

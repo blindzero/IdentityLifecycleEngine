@@ -145,44 +145,6 @@ $provider = New-IdleADIdentityProvider -AllowDelete
 
 `IdLE.Step.EnsureAttributes` maps attributes to `Set-ADUser` named parameters. Setting an attribute to `$null` clears the value from the directory. Attributes not listed in the named parameter set can be set or cleared via the `OtherAttributes` container using their **LDAP attribute names** as keys.
 
-**Named parameter attributes** (PowerShell parameter names used as keys):
-
-| Key | LDAP attribute | Description |
-| --- | --- | --- |
-| `GivenName` | `givenName` | First name |
-| `Surname` | `sn` | Last name |
-| `DisplayName` | `displayName` | Display name |
-| `Initials` | `initials` | Initials |
-| `SamAccountName` | `sAMAccountName` | Login name |
-| `UserPrincipalName` | `userPrincipalName` | UPN |
-| `Description` | `description` | Description |
-| `Department` | `department` | Department |
-| `Title` | `title` | Job title |
-| `Company` | `company` | Company |
-| `Division` | `division` | Division |
-| `Office` | `physicalDeliveryOfficeName` | Office location |
-| `EmployeeID` | `employeeID` | Employee ID |
-| `EmployeeNumber` | `employeeNumber` | Employee number |
-| `EmailAddress` | `mail` | Email address |
-| `OfficePhone` | `telephoneNumber` | Office phone number |
-| `MobilePhone` | `mobile` | Mobile phone number |
-| `HomePhone` | `homePhone` | Home phone number |
-| `Fax` | `facsimileTelephoneNumber` | Fax number |
-| `StreetAddress` | `streetAddress` | Street address |
-| `City` | `l` | City |
-| `State` | `st` | State/province |
-| `PostalCode` | `postalCode` | Postal code |
-| `Country` | `co` | Country (full name) |
-| `POBox` | `postOfficeBox` | P.O. box |
-| `HomePage` | `wWWHomePage` | Web page |
-| `Manager` | `manager` | Manager (DN, UPN, GUID, or sAMAccountName) |
-| `HomeDirectory` | `homeDirectory` | Home directory path |
-| `HomeDrive` | `homeDrive` | Home drive letter |
-| `ProfilePath` | `profilePath` | Profile path |
-| `ScriptPath` | `scriptPath` | Logon script path |
-
-Setting any of these to `$null` clears the attribute in AD using the `-Clear` parameter of `Set-ADUser`.
-
 **Custom LDAP attributes** (via OtherAttributes container):
 
 ```powershell
