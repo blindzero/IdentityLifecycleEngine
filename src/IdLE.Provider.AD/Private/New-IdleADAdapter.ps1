@@ -636,12 +636,10 @@ function New-IdleADAdapter {
                 }
             }
             default {
-                # Custom LDAP attribute: use -Clear for null, -Add when no current value, -Replace when updating
+                # Custom LDAP attribute: use -Clear for null, -Replace for all non-null values.
+                # -Replace works for both new (attribute not yet set) and existing values in AD.
                 if ($null -eq $Value) {
                     $params['Clear'] = $AttributeName
-                }
-                elseif ($null -eq $CurrentValue) {
-                    $params['Add'] = @{ $AttributeName = $Value }
                 }
                 else {
                     $params['Replace'] = @{ $AttributeName = $Value }

@@ -587,7 +587,7 @@ function New-IdleADIdentityProvider {
                     if ($user.PSObject.Properties.Name -contains $ldapAttr) {
                         $currentLdapValue = $user.$ldapAttr
                     }
-                    $attrChanged = ($null -ne $ldapValue -or $null -ne $currentLdapValue) -and ($currentLdapValue -ne $ldapValue)
+                    $attrChanged = $currentLdapValue -ne $ldapValue
                     if ($attrChanged) {
                         $adapter.SetUser($user.DistinguishedName, $ldapAttr, $ldapValue, $currentLdapValue)
                         $changed = $true
