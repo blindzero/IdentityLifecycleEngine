@@ -539,7 +539,7 @@ function New-IdleADAdapter {
 
         if ($ensureContract.ContainsKey($AttributeName) -and $ensureContract[$AttributeName].Target -eq 'Parameter') {
             # Named Set-ADUser parameter: clear via LDAP field name or set via parameter name
-            $ldapField = $ensureContract[$AttributeName].LdapField
+            $ldapField = Get-IdleADAttributeLDAPField -AttributeName $AttributeName
             if ($null -eq $Value) {
                 # Fallback to attribute name if no LDAP mapping exists (safety guard)
                 $params['Clear'] = if ($null -ne $ldapField) { $ldapField } else { $AttributeName }

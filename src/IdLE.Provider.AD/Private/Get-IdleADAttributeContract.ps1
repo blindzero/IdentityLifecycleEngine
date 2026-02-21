@@ -11,12 +11,14 @@ function Get-IdleADAttributeContract {
     - Target: 'Parameter' (Set-ADUser/New-ADUser named parameter) or 'Container' (special handling)
     - Type: expected value type
     - Required: whether the attribute is required
-    - LdapField: the verified LDAP schema attribute name, resolved via Get-IdleADAttributeLDAPField
 
     For CreateIdentity, attributes map to New-ADUser named parameters.
     For EnsureAttributes, attributes map to Set-ADUser named parameters.
     Custom LDAP attributes not listed here can be set via the OtherAttributes container
     (keys must be valid LDAP attribute names, e.g. 'mobile', 'telephoneNumber').
+
+    To resolve the underlying LDAP attribute name for a contract key, use
+    Get-IdleADAttributeLDAPField.
 
     .PARAMETER Operation
     The operation to get the contract for: 'CreateIdentity' or 'EnsureAttributes'.
@@ -31,7 +33,7 @@ function Get-IdleADAttributeContract {
 
     .EXAMPLE
     $contract = Get-IdleADAttributeContract -Operation 'EnsureAttributes'
-    $contract['GivenName'].LdapField   # Returns 'givenName' via Get-IdleADAttributeLDAPField
+    $supportedKeys = $contract.Keys
     #>
     [CmdletBinding()]
     [OutputType([hashtable])]
@@ -129,15 +131,6 @@ function Get-IdleADAttributeContract {
 
             # Extension Container (keys must be valid LDAP attribute names, e.g. 'mobile', 'telephoneNumber')
             OtherAttributes          = @{ Target = 'Container'; Type = 'Hashtable'; Required = $false }
-        }
-    }
-
-    # Enrich each Parameter entry with its LDAP field name from the dedicated mapping function
-    foreach ($key in @($contract.Keys)) {
-        if ($contract[$key].Target -eq 'Parameter') {
-            $contract[$key]['LdapField'] = Get-IdleADAttributeLDAPField -AttributeName $key
-        } else {
-            $contract[$key]['LdapField'] = $null
         }
     }
 
