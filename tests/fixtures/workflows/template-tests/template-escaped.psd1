@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        Value = 'Literal {{{{ braces here'
+        Value = 'Literal \{{ braces here'
       }
     }
   )

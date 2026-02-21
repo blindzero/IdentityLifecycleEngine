@@ -22,7 +22,9 @@ function Resolve-IdleTemplateString {
     - Request.Actor
 
     Escaping:
-    - {{{{ → literal {{ (four consecutive opening braces produce two literal opening braces)
+    - \{{ → literal {{ (backslash escapes the opening braces when not followed by a template path)
+    - \{{path}} treats \ as a literal character and resolves the template normally
+      (e.g. DOMAIN\{{Request.IdentityKeys.sAMAccountName}} → DOMAIN\<resolved value>)
 
     .PARAMETER Value
     The string value to resolve. If not a string, returns the value unchanged.
@@ -197,13 +199,15 @@ function Resolve-IdleTemplateString {
         }
     }
 
-    # Escape sequence normalization: {{{{ → literal {{ in output.
+    # Escape sequence normalization: \{{ (not followed by a valid template path+}}) → literal {{.
     # Use a Unicode Private Use Area character as placeholder so template matching does not see the
     # escaped braces. This character is extremely unlikely to appear in real workflow configuration.
-    # Backslash is NOT an escape character; use {{{{ for a literal {{ in the result.
+    # When \{{ is immediately followed by a valid path and }} (e.g. DOMAIN\{{Request.Input.Name}}),
+    # the backslash is treated as a literal character and the template is resolved normally.
     $litOpenPlaceholder = [string][char]0xE001
-    $normalizedValue = if ($stringValue -like '*{{{{*') {
-        $stringValue.Replace('{{{{', $litOpenPlaceholder)
+    $backslashEscapePattern = '\\{{(?![A-Za-z][A-Za-z0-9_.]*}})'
+    $normalizedValue = if ($stringValue -match '\\{{') {
+        [regex]::Replace($stringValue, $backslashEscapePattern, $litOpenPlaceholder)
     } else {
         $stringValue
     }
@@ -217,8 +221,8 @@ function Resolve-IdleTemplateString {
     # Check for unbalanced braces (typo safety)
     # Skip this validation for pure placeholders as we already validated them
     if (-not $isPurePlaceholder) {
-        # Count opening and closing braces on the normalized string so that {{{{ escape sequences
-        # are correctly excluded from the counts (each {{{{ is replaced by the placeholder).
+        # Count opening and closing braces on the normalized string so that \{{ escape sequences
+        # are correctly excluded from the counts (each \{{ escape is replaced by the placeholder).
         $openCount = ([regex]::Matches($normalizedValue, '\{\{')).Count
         # For closing braces, only count those that belong to templates (have a corresponding opening)
         # We can do this by counting matches of the full template pattern
@@ -287,7 +291,7 @@ function Resolve-IdleTemplateString {
         $result = $result.Replace($placeholder, $stringReplacement)
     }
 
-    # Post-process: restore {{{{ escape sequences → literal {{
+    # Post-process: restore \{{ escape sequences → literal {{
     $result = $result.Replace($litOpenPlaceholder, '{{')
 
     return $result
