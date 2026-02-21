@@ -22,7 +22,7 @@ function Resolve-IdleTemplateString {
     - Request.Actor
 
     Escaping:
-    - \{{ → literal {{ (escape removed after resolution)
+    - {{{{ → literal {{ (four consecutive opening braces produce two literal opening braces)
 
     .PARAMETER Value
     The string value to resolve. If not a string, returns the value unchanged.
@@ -64,10 +64,6 @@ function Resolve-IdleTemplateString {
 
     # Quick exit: no template markers present
     if ($stringValue -notlike '*{{*' -and $stringValue -notlike '*}}*') {
-        # Handle escaped braces with no actual templates
-        if ($stringValue -like '*\{{*') {
-            return $stringValue -replace '\\{{', '{{'
-        }
         return $stringValue
     }
 
@@ -201,36 +197,51 @@ function Resolve-IdleTemplateString {
         }
     }
 
+    # Escape sequence normalization: {{{{ → literal {{ in output.
+    # Use a Unicode Private Use Area character as placeholder so template matching does not see the
+    # escaped braces. This character is extremely unlikely to appear in real workflow configuration.
+    # Backslash is NOT an escape character; use {{{{ for a literal {{ in the result.
+    $litOpenPlaceholder = [string][char]0xE001
+    $normalizedValue = if ($stringValue -like '*{{{{*') {
+        $stringValue.Replace('{{{{', $litOpenPlaceholder)
+    } else {
+        $stringValue
+    }
+
     # Check if this is a pure placeholder (no prefix/suffix text, single placeholder)
     # If so, we can preserve the type instead of coercing to string
     $purePattern = '^\s*\{\{([^}]+)\}\}\s*$'
-    $pureMatch = [regex]::Match($stringValue, $purePattern)
+    $pureMatch = [regex]::Match($normalizedValue, $purePattern)
     $isPurePlaceholder = $pureMatch.Success
 
     # Check for unbalanced braces (typo safety)
     # Skip this validation for pure placeholders as we already validated them
     if (-not $isPurePlaceholder) {
-        # Count non-escaped opening braces
-        $openCount = ([regex]::Matches($stringValue, '(?<!\\)\{\{')).Count
-        # For closing braces, only count those that belong to templates (have a corresponding non-escaped opening)
+        # Count opening and closing braces on the normalized string so that {{{{ escape sequences
+        # are correctly excluded from the counts (each {{{{ is replaced by the placeholder).
+        $openCount = ([regex]::Matches($normalizedValue, '\{\{')).Count
+        # For closing braces, only count those that belong to templates (have a corresponding opening)
         # We can do this by counting matches of the full template pattern
-        $templatePattern = '(?<!\\)\{\{([^}]+)\}\}'
-        $templateCount = ([regex]::Matches($stringValue, $templatePattern)).Count
+        $templatePattern = '\{\{([^}]+)\}\}'
+        $templateCount = ([regex]::Matches($normalizedValue, $templatePattern)).Count
         # Any }} that's part of a template is matched. Any other }} is unbalanced.
-        $allCloseCount = ([regex]::Matches($stringValue, '\}\}')).Count
+        $allCloseCount = ([regex]::Matches($normalizedValue, '\}\}')).Count
         
         # The expected close count should equal template count (each template has one closing)
         if ($openCount -ne $templateCount -or $allCloseCount -ne $templateCount) {
             throw [System.ArgumentException]::new(
-                ("Template syntax error in step '{0}': Unbalanced braces in value '{1}'. Found {2} opening '{{{{' and {3} closing '}}}}'. Check for typos or missing braces." -f $StepName, $stringValue, $openCount, $allCloseCount),
+                ("Template syntax error in step '{0}': Unbalanced braces in value '{1}'. Found {2} opening '{{{{' and {3} closing '}}}}'. Check for typos or missing braces." -f $StepName, ([string]$Value), $openCount, $allCloseCount),
                 'Workflow'
             )
         }
     }
 
+    # Commit the normalized (escape-processed) string for template matching
+    $stringValue = $normalizedValue
+
     # Parse and resolve placeholders
     $result = $stringValue
-    $pattern = '(?<!\\)\{\{([^}]+)\}\}'
+    $pattern = '\{\{([^}]+)\}\}'
     $matches = [regex]::Matches($stringValue, $pattern)
 
     # For pure placeholders, we'll return the typed value directly
@@ -276,8 +287,8 @@ function Resolve-IdleTemplateString {
         $result = $result.Replace($placeholder, $stringReplacement)
     }
 
-    # Process escape sequences (unescape \{{ to {{)
-    $result = $result -replace '\\{{', '{{'
+    # Post-process: restore {{{{ escape sequences → literal {{
+    $result = $result.Replace($litOpenPlaceholder, '{{')
 
     return $result
 }

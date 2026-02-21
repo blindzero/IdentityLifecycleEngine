@@ -1,12 +1,12 @@
 @{
-  Name           = 'Template Test - Escaped Mixed'
+  Name           = 'Template Test - Backslash Before Template'
   LifecycleEvent = 'Joiner'
   Steps          = @(
     @{
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        Value = 'Literal {{{{ and template {{Request.Input.Name}}'
+        IdentityKey = 'DOMAIN\{{Request.IdentityKeys.sAMAccountName}}'
       }
     }
   )

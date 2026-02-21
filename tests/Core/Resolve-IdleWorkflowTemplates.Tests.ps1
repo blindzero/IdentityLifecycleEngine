@@ -336,6 +336,20 @@ Describe 'Template Substitution' {
 
             $plan.Steps[0].With.Value | Should -Be 'Literal {{ and template TestName'
         }
+
+        It 'treats backslash before {{ as a literal character (not an escape)' {
+            $wfPath = Get-TemplateTestFixture 'template-backslash'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ sAMAccountName = 'jdoe' }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.IdentityKey | Should -Be 'DOMAIN\jdoe'
+        }
     }
 
     Context 'OnFailureSteps template resolution' {
