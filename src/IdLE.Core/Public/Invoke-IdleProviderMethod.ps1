@@ -66,6 +66,7 @@ function Invoke-IdleProviderMethod {
         [string] $MethodName,
 
         [Parameter(Mandatory)]
+        [AllowNull()]
         [AllowEmptyCollection()]
         [object[]] $MethodArguments
     )
