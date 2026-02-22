@@ -326,6 +326,7 @@ function Invoke-IdlePlanObject {
         if ($null -ne $stepPreconditions -and @($stepPreconditions).Count -gt 0) {
             $preconditionPassed = $true
             foreach ($pc in @($stepPreconditions)) {
+                if ($pc -isnot [System.Collections.IDictionary]) { continue }
                 if (-not (Test-IdleCondition -Condition ([hashtable]$pc) -Context $preconditionContext)) {
                     $preconditionPassed = $false
                     break
@@ -354,15 +355,9 @@ function Invoke-IdlePlanObject {
                     $pcEvtType = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Type')
                     $pcEvtMsg  = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Message')
                     $pcEvtData = Get-IdlePropertyValue -Object $pcEvt -Name 'Data'
-                    $pcEvtDataHt = if ($pcEvtData -is [System.Collections.IDictionary]) {
-                        [hashtable]$pcEvtData
-                    } elseif ($null -ne $pcEvtData) {
-                        $ht = @{}
-                        foreach ($prop in $pcEvtData.PSObject.Properties) { $ht[$prop.Name] = $prop.Value }
-                        $ht
-                    } else {
-                        $null
-                    }
+                    # PreconditionEvent.Data is validated as a hashtable at planning time and
+                    # stored via Copy-IdleDataObject, so it will be a hashtable (IDictionary) here.
+                    $pcEvtDataHt = if ($pcEvtData -is [System.Collections.IDictionary]) { [hashtable]$pcEvtData } else { $null }
                     $context.EventSink.WriteEvent($pcEvtType, $pcEvtMsg, $stepName, $pcEvtDataHt)
                 }
 

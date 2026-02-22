@@ -70,6 +70,8 @@ Add these optional properties to a workflow step definition:
       }
 
       # Runtime guard: only execute if BYOD wipe is confirmed.
+      # Note: the condition DSL compares values as strings.
+      # Request.Context.Byod.WipeConfirmed must be the string 'true' (e.g. set by a ContextResolver).
       Preconditions      = @(
         @{
           Equals = @{
@@ -170,6 +172,11 @@ If `PreconditionEvent` is configured, an additional event is emitted with:
 :::warning Log safety
 `PreconditionEvent.Data` is surfaced as a structured event and may be forwarded to audit sinks.
 Do **not** include secrets, credentials, or personal data in `Data`.
+:::
+
+:::note String comparison
+The condition DSL always compares values as **strings** (for example, boolean `$true` becomes `'True'`).
+Ensure context values are stored as strings when using `Equals` or `In` operators.
 :::
 
 ---

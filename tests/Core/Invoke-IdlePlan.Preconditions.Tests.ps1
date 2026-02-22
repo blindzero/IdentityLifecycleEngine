@@ -37,7 +37,7 @@ BeforeAll {
             [object] $Step
         )
 
-        $Context.EventSink.WriteEvent('SecondStepRan', 'Second step executed', $Step.Name, @{})
+        $Context.EventSink.WriteEvent('SecondStepRan', 'Second step executed', $Step.Name, @{ StepType = $Step.Type })
 
         return [pscustomobject]@{
             PSTypeName = 'IdLE.StepResult'
@@ -60,7 +60,7 @@ BeforeAll {
             [object] $Step
         )
 
-        $Context.EventSink.WriteEvent('OnFailureRan', 'OnFailure step executed', $Step.Name, @{})
+        $Context.EventSink.WriteEvent('OnFailureRan', 'OnFailure step executed', $Step.Name, @{ StepType = $Step.Type })
 
         return [pscustomobject]@{
             PSTypeName = 'IdLE.StepResult'
