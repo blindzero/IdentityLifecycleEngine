@@ -182,7 +182,8 @@ function Test-IdleWorkflowSchema {
             $errors.Add("'ContextResolvers' must be an array/list of resolver hashtables.")
         }
         else {
-            $allowedResolverKeys = @('Capability', 'To', 'Provider', 'With')
+            # 'To' is not user-configurable; each capability has a predefined output path.
+            $allowedResolverKeys = @('Capability', 'Provider', 'With')
 
             $i = 0
             foreach ($resolver in $Workflow.ContextResolvers) {
@@ -202,16 +203,6 @@ function Test-IdleWorkflowSchema {
 
                 if (-not $resolver.ContainsKey('Capability') -or [string]::IsNullOrWhiteSpace([string]$resolver.Capability)) {
                     $errors.Add("Missing or empty required key '$resolverPath.Capability'.")
-                }
-
-                if (-not $resolver.ContainsKey('To') -or [string]::IsNullOrWhiteSpace([string]$resolver.To)) {
-                    $errors.Add("Missing or empty required key '$resolverPath.To'.")
-                }
-                elseif (-not ([string]$resolver.To).StartsWith('Context.', [System.StringComparison]::OrdinalIgnoreCase)) {
-                    $errors.Add("'$resolverPath.To' value '$($resolver.To)' must start with 'Context.' (writes are restricted to Request.Context.*).")
-                }
-                elseif ([string]::IsNullOrWhiteSpace(([string]$resolver.To).Substring('Context.'.Length))) {
-                    $errors.Add("'$resolverPath.To' must specify a path under 'Context.' (e.g., 'Context.Identity.Entitlements').")
                 }
 
                 # 'With' is optional but must be a hashtable if present.

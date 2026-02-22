@@ -4,6 +4,8 @@ BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
 
+    $script:FixturesPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows'
+
     function global:Invoke-IdleContextResolverTestNoopStep {
         [CmdletBinding()]
         param(
@@ -34,27 +36,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
     Context 'Resolver runs before conditions and influences step applicability' {
         It 'resolver populates Request.Context and condition references resolved data' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-condition.psd1' -Content @'
-@{
-  Name           = 'Resolver Condition Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      Provider   = 'Identity'
-      With       = @{ IdentityKey = 'user1' }
-      To         = 'Context.Identity.Entitlements'
-    }
-  )
-  Steps = @(
-    @{
-      Name      = 'ConditionalStep'
-      Type      = 'IdLE.Step.EmitEvent'
-      Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
-    }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'resolver-condition.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
 
@@ -64,7 +46,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
                     Enabled      = $true
                     Attributes   = @{}
                     Entitlements = @(
-                        @{ Kind = 'Group'; Id = 'g1'; DisplayName = 'Group 1' }
+                        @{ Kind = 'Group'; Id = 'g1' }
                     )
                 }
             }
@@ -79,7 +61,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan | Should -Not -BeNullOrEmpty
             $plan.Steps[0].Status | Should -Be 'Planned'
 
-            # Snapshot captures resolved context
+            # Snapshot captures resolved context (predefined path: Identity.Entitlements)
             $plan.Request.Context | Should -Not -BeNullOrEmpty
             $plan.Request.Context.Identity | Should -Not -BeNullOrEmpty
             $entitlements = @($plan.Request.Context.Identity.Entitlements)
@@ -88,27 +70,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
         }
 
         It 'step is NotApplicable when resolver returns empty entitlements and condition requires them' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-empty.psd1' -Content @'
-@{
-  Name           = 'Resolver Empty Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      Provider   = 'Identity'
-      With       = @{ IdentityKey = 'user2' }
-      To         = 'Context.Identity.Entitlements'
-    }
-  )
-  Steps = @(
-    @{
-      Name      = 'NeedsEntitlements'
-      Type      = 'IdLE.Step.EmitEvent'
-      Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
-    }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'resolver-empty-entitlements.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user2' }
 
@@ -134,76 +96,50 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan | Should -Not -BeNullOrEmpty
             $plan.Steps[0].Status | Should -Be 'NotApplicable'
         }
+
+        It 'IdLE.Identity.Read resolver populates Request.Context.Identity.Profile' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{ Department = 'IT' }
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+            # Predefined path for IdLE.Identity.Read is Identity.Profile
+            $plan.Steps[0].Status | Should -Be 'Planned'
+            $plan.Request.Context.Identity.Profile | Should -Not -BeNullOrEmpty
+            $plan.Request.Context.Identity.Profile.IdentityKey | Should -Be 'user1'
+        }
     }
 
-    Context 'To path validation' {
-        It 'rejects To value outside Context. namespace' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-bad-to.psd1' -Content @'
-@{
-  Name           = 'Bad To Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      With       = @{ IdentityKey = 'user1' }
-      To         = 'Intent.Entitlements'
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
+    Context 'To is not a supported key (output path is predefined per capability)' {
+        It 'rejects a resolver entry that specifies To (unknown key)' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-with-to-key.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req } |
-                Should -Throw -ExpectedMessage "*must start with 'Context.'*"
-        }
-
-        It 'rejects To = Context. without a sub-path' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-bare-context.psd1' -Content @'
-@{
-  Name           = 'Bare Context To Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      With       = @{ IdentityKey = 'user1' }
-      To         = 'Context.'
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
-
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
-
-            # Schema validation rejects empty sub-path (starts with 'Context.' but nothing after)
-            { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw
+                Should -Throw -ExpectedMessage "*Unknown key*To*"
         }
     }
 
     Context 'Non-allow-listed capability' {
         It 'rejects a resolver that uses a capability not in the read-only allow-list' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-mutating-cap.psd1' -Content @'
-@{
-  Name           = 'Mutating Capability Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.Grant'
-      With       = @{ IdentityKey = 'user1' }
-      To         = 'Context.Result'
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'resolver-non-allowlisted-cap.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
@@ -214,23 +150,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
     Context 'Resolver output captured in plan snapshot' {
         It 'plan.Request.Context contains the resolved value after planning' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-snapshot.psd1' -Content @'
-@{
-  Name           = 'Snapshot Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      Provider   = 'Identity'
-      With       = @{ IdentityKey = 'snap-user' }
-      To         = 'Context.Snap.Entitlements'
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'resolver-snapshot.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
@@ -240,7 +160,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
                     Enabled      = $true
                     Attributes   = @{}
                     Entitlements = @(
-                        @{ Kind = 'Role'; Id = 'admin'; DisplayName = 'Admin Role' }
+                        @{ Kind = 'Role'; Id = 'admin' }
                     )
                 }
             }
@@ -254,8 +174,8 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $plan.Request | Should -Not -BeNullOrEmpty
             $plan.Request.Context | Should -Not -BeNullOrEmpty
-            $plan.Request.Context.Snap | Should -Not -BeNullOrEmpty
-            $snap = @($plan.Request.Context.Snap.Entitlements)
+            # IdLE.Entitlement.List always writes to predefined path: Identity.Entitlements
+            $snap = @($plan.Request.Context.Identity.Entitlements)
             $snap.Count | Should -Be 1
             $snap[0].Kind | Should -Be 'Role'
             $snap[0].Id | Should -Be 'admin'
@@ -264,22 +184,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
     Context 'Provider auto-selection' {
         It 'auto-selects provider when Provider is not specified in resolver' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-autoselect.psd1' -Content @'
-@{
-  Name           = 'Auto Select Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      With       = @{ IdentityKey = 'auto-user' }
-      To         = 'Context.Identity.Entitlements'
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'resolver-autoselect.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
@@ -289,7 +194,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
                     Enabled      = $true
                     Attributes   = @{}
                     Entitlements = @(
-                        @{ Kind = 'Group'; Id = 'grp-auto'; DisplayName = 'Auto Group' }
+                        @{ Kind = 'Group'; Id = 'grp-auto' }
                     )
                 }
             }
@@ -309,22 +214,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
         }
 
         It 'fails when no provider supports the capability and Provider is not specified' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-no-provider.psd1' -Content @'
-@{
-  Name           = 'No Provider Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      With       = @{ IdentityKey = 'user1' }
-      To         = 'Context.Identity.Entitlements'
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'resolver-no-provider.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
@@ -344,23 +234,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
     Context 'Workflow schema validation for ContextResolvers' {
         It 'rejects unknown keys in a resolver entry' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-unknown-key.psd1' -Content @'
-@{
-  Name           = 'Unknown Key Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      With       = @{ IdentityKey = 'user1' }
-      To         = 'Context.Identity.Entitlements'
-      UnknownKey = 'bad'
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'resolver-unknown-key.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
@@ -369,71 +243,18 @@ Describe 'New-IdlePlan - ContextResolvers' {
         }
 
         It 'rejects a resolver missing the required Capability key' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-missing-cap.psd1' -Content @'
-@{
-  Name           = 'Missing Capability Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      With = @{ IdentityKey = 'user1' }
-      To   = 'Context.Identity.Entitlements'
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'resolver-missing-capability.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req } |
                 Should -Throw -ExpectedMessage "*Capability*"
         }
-
-        It 'rejects a resolver missing the required To key' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-missing-to.psd1' -Content @'
-@{
-  Name           = 'Missing To Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      With       = @{ IdentityKey = 'user1' }
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
-
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
-
-            { New-IdlePlan -WorkflowPath $wfPath -Request $req } |
-                Should -Throw -ExpectedMessage "*To*"
-        }
     }
 
     Context 'Template resolution in With' {
         It 'resolves Request.IdentityKeys template in With.IdentityKey' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'resolver-template.psd1' -Content @'
-@{
-  Name           = 'Template Test'
-  LifecycleEvent = 'Joiner'
-  ContextResolvers = @(
-    @{
-      Capability = 'IdLE.Entitlement.List'
-      Provider   = 'Identity'
-      With       = @{ IdentityKey = '{{Request.IdentityKeys.Id}}' }
-      To         = 'Context.Identity.Entitlements'
-    }
-  )
-  Steps = @(
-    @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'resolver-template.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'tmpl-user' }
 
@@ -443,7 +264,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
                     Enabled      = $true
                     Attributes   = @{}
                     Entitlements = @(
-                        @{ Kind = 'Group'; Id = 'tmpl-grp'; DisplayName = 'Template Group' }
+                        @{ Kind = 'Group'; Id = 'tmpl-grp' }
                     )
                 }
             }

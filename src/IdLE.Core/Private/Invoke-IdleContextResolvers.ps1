@@ -8,11 +8,12 @@ function Invoke-IdleContextResolvers {
     .DESCRIPTION
     Runs each configured resolver in declared order, invoking the appropriate
     provider capability and writing the result under Request.Context at the
-    path specified by the resolver's 'To' property.
+    predefined path for that capability (see Get-IdleCapabilityContextPath).
 
     Rules enforced:
     - Only capabilities in the read-only allow-list (Get-IdleReadOnlyCapabilities) may be used.
-    - 'To' must start with 'Context.' (writes are restricted to Request.Context.*).
+    - Each capability writes to a fixed, predefined path under Request.Context.
+      The output path is not user-configurable.
     - Provider is selected by alias when 'Provider' is specified; otherwise the first
       provider that advertises the capability is used.
 
@@ -72,29 +73,6 @@ function Invoke-IdleContextResolvers {
             )
         }
 
-        # --- To ---
-        if (-not $resolver.Contains('To') -or [string]::IsNullOrWhiteSpace([string]$resolver.To)) {
-            throw [System.ArgumentException]::new("$resolverPath is missing required key 'To'.", 'Workflow')
-        }
-
-        $to = [string]$resolver.To
-
-        if (-not $to.StartsWith('Context.', [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw [System.ArgumentException]::new(
-                "$resolverPath 'To' value '$to' must start with 'Context.' (writes are restricted to Request.Context.*).",
-                'Workflow'
-            )
-        }
-
-        $contextSubPath = $to.Substring('Context.'.Length)
-
-        if ([string]::IsNullOrWhiteSpace($contextSubPath)) {
-            throw [System.ArgumentException]::new(
-                "$resolverPath 'To' value '$to' must specify a path under 'Context.' (e.g., 'Context.Identity.Entitlements').",
-                'Workflow'
-            )
-        }
-
         # --- With (optional, template-resolved) ---
         $with = if ($resolver.Contains('With') -and $null -ne $resolver.With) {
             Copy-IdleDataObject -Value $resolver.With
@@ -123,7 +101,8 @@ function Invoke-IdleContextResolvers {
         # --- Dispatch ---
         $result = Invoke-IdleResolverCapabilityDispatch -Capability $capability -Provider $provider -With $with -ResolverPath $resolverPath
 
-        # --- Write to Request.Context ---
+        # --- Write to predefined Request.Context path ---
+        $contextSubPath = Get-IdleCapabilityContextPath -Capability $capability
         Set-IdleContextValue -Context $Request.Context -Path $contextSubPath -Value $result
 
         $i++
@@ -240,6 +219,25 @@ function Invoke-IdleResolverCapabilityDispatch {
             }
 
             return @($Provider.ListEntitlements($identityKey))
+        }
+
+        'IdLE.Identity.Read' {
+            if ($null -eq $With -or -not $With.Contains('IdentityKey') -or [string]::IsNullOrWhiteSpace([string]$With.IdentityKey)) {
+                throw [System.ArgumentException]::new(
+                    "$ResolverPath with capability 'IdLE.Identity.Read' requires With.IdentityKey (non-empty string).",
+                    'Workflow'
+                )
+            }
+
+            $identityKey = [string]$With.IdentityKey
+
+            if (-not ($Provider.PSObject.Methods.Name -contains 'GetIdentity')) {
+                throw [System.InvalidOperationException]::new(
+                    "${ResolverPath}: Provider does not implement 'GetIdentity', which is required for capability 'IdLE.Identity.Read'."
+                )
+            }
+
+            return $Provider.GetIdentity($identityKey)
         }
 
         default {

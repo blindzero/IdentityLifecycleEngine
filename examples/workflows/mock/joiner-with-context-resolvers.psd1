@@ -4,31 +4,29 @@
   # ContextResolvers run BEFORE step conditions are evaluated. They use read-only provider
   # capabilities to fetch data and write it under Request.Context.*.
   #
-  # This example uses IdLE.Entitlement.List to pre-fetch the identity's current entitlements.
-  # Steps can then reference Request.Context.Identity.Entitlements in their Condition.
+  # Each capability writes to a predefined path (no user-configurable 'To'):
+  #   IdLE.Entitlement.List -> Request.Context.Identity.Entitlements
+  #   IdLE.Identity.Read    -> Request.Context.Identity.Profile
 
   Name           = 'Joiner - ContextResolvers Demo'
   LifecycleEvent = 'Joiner'
 
-  # Planning-time resolvers: run before condition evaluation, write to Request.Context.*
+  # Planning-time resolvers: run before condition evaluation.
+  # Each capability has a predefined output path under Request.Context.*
   ContextResolvers = @(
     @{
       # Fetch current entitlements for the identity being onboarded.
+      # Writes to Request.Context.Identity.Entitlements (predefined).
       Capability = 'IdLE.Entitlement.List'
 
       # The provider alias that supports IdLE.Entitlement.List.
       # If omitted, the first provider advertising the capability is used.
       Provider   = 'Identity'
 
-      # Resolver inputs - use the identity key for this workflow.
-      # In real workflows, use template placeholders like '{{Request.IdentityKeys.EmployeeId}}'.
+      # Resolver inputs.
       With       = @{
         IdentityKey = 'user1'
       }
-
-      # Write resolved entitlements to Request.Context.Identity.Entitlements.
-      # 'To' must always start with 'Context.' (writes restricted to Request.Context.*).
-      To         = 'Context.Identity.Entitlements'
     }
   )
 
@@ -38,16 +36,16 @@
       Name = 'EnsureBaseGroup'
       Type = 'IdLE.Step.EnsureEntitlement'
       With = @{
-        IdentityKey  = 'user1'
-        Entitlement  = @{ Kind = 'Group'; Id = 'all-employees'; DisplayName = 'All Employees' }
-        State        = 'Present'
-        Provider     = 'Identity'
+        IdentityKey = 'user1'
+        Entitlement = @{ Kind = 'Group'; Id = 'all-employees' }
+        State       = 'Present'
+        Provider    = 'Identity'
       }
     }
 
     @{
-      # Only grant the IT team group if the identity does not already have it.
-      # This uses the pre-resolved entitlements from Request.Context.Identity.Entitlements.
+      # Runs only when entitlements were successfully pre-resolved by the ContextResolver.
+      # References the predefined context path for IdLE.Entitlement.List.
       Name = 'EmitContextAvailable'
       Type = 'IdLE.Step.EmitEvent'
       Condition = @{

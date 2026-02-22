@@ -125,3 +125,41 @@ Recommended provider documentation pattern:
 
 - List supported capabilities in the provider documentation.
 - If a capability is only partially supported (e.g., limited attribute set), document constraints explicitly.
+
+
+---
+
+## ContextResolvers: read-only capabilities and predefined Context paths
+
+Workflows may declare a `ContextResolvers` section to populate `Request.Context.*` at planning time using read-only provider capabilities. Only the capabilities listed below are permitted in `ContextResolvers`.
+
+Each capability writes to a **predefined, fixed path** under `Request.Context`. This path is not user-configurable, which prevents accidental overwrites and ensures a consistent context shape across all workflows.
+
+| Capability | Predefined `Request.Context` path | Required `With` keys |
+|---|---|---|
+| `IdLE.Entitlement.List` | `Request.Context.Identity.Entitlements` | `IdentityKey` (string) |
+| `IdLE.Identity.Read` | `Request.Context.Identity.Profile` | `IdentityKey` (string) |
+
+### Example
+
+```powershell
+ContextResolvers = @(
+    @{
+        Capability = 'IdLE.Entitlement.List'
+        Provider   = 'Identity'          # optional; auto-selected if omitted
+        With       = @{ IdentityKey = '{{Request.IdentityKeys.EmployeeId}}' }
+        # Writes to Request.Context.Identity.Entitlements (predefined, not configurable)
+    }
+    @{
+        Capability = 'IdLE.Identity.Read'
+        With       = @{ IdentityKey = '{{Request.IdentityKeys.EmployeeId}}' }
+        # Writes to Request.Context.Identity.Profile (predefined, not configurable)
+    }
+)
+```
+
+Steps can then reference the resolved data in their `Condition`:
+
+```powershell
+Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
+```
