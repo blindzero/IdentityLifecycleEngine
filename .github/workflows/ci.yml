@@ -25,6 +25,7 @@ jobs:
       contents: read
       actions: write
       checks: write
+      pull-requests: write
 
     strategy:
       fail-fast: false
