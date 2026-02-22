@@ -24,6 +24,7 @@ Creates and normalizes an IdLE LifecycleRequest representing business intent
 Joiner/Mover/Leaver).
 CorrelationId is generated if missing.
 Actor is optional.
+
 ## EXAMPLES
 
 ### EXAMPLE 1
