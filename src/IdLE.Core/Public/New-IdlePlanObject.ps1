@@ -8,6 +8,7 @@ function New-IdlePlanObject {
     This is a planning-only artifact. Execution is handled by Invoke-IdlePlanObject later.
 
     Planning responsibilities:
+    - Execute ContextResolvers (read-only) to populate Request.Context before condition evaluation.
     - Create a data-only request snapshot for deterministic exports and auditing.
     - Normalize workflow steps to IdLE.PlanStep objects.
     - Evaluate step conditions during planning and mark steps as NotApplicable.
@@ -62,7 +63,17 @@ function New-IdlePlanObject {
         )
     }
 
-    # Create a data-only snapshot of the incoming request for deterministic exports.
+    # Validate workflow and ensure it matches the request's LifecycleEvent.
+    $workflow = Test-IdleWorkflowDefinitionObject -WorkflowPath $WorkflowPath -Request $Request
+
+    # Execute ContextResolvers (planning-time, read-only) before condition evaluation.
+    # Resolvers populate Request.Context.* so that conditions can reference resolved data.
+    $workflowContextResolvers = Get-IdlePropertyValue -Object $workflow -Name 'ContextResolvers'
+    if ($null -ne $workflowContextResolvers -and @($workflowContextResolvers).Count -gt 0) {
+        Invoke-IdleContextResolvers -Resolvers @($workflowContextResolvers) -Providers $Providers -Request $Request
+    }
+
+    # Create a data-only snapshot AFTER resolvers have run so that resolved context is captured.
     $requestSnapshot = [pscustomobject]@{
         PSTypeName     = 'IdLE.LifecycleRequestSnapshot'
         LifecycleEvent = ConvertTo-NullIfEmptyString -Value ([string]$Request.LifecycleEvent)
@@ -72,9 +83,6 @@ function New-IdlePlanObject {
         Intent         = if ($reqProps -contains 'Intent') { Copy-IdleDataObject -Value $Request.Intent } else { $null }
         Context        = if ($reqProps -contains 'Context') { Copy-IdleDataObject -Value $Request.Context } else { $null }
     }
-
-    # Validate workflow and ensure it matches the request's LifecycleEvent.
-    $workflow = Test-IdleWorkflowDefinitionObject -WorkflowPath $WorkflowPath -Request $Request
 
     # Create the plan object (planning artifact).
     $plan = [pscustomobject]@{

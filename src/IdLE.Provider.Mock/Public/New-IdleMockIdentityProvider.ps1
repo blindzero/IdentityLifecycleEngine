@@ -283,7 +283,7 @@ function New-IdleMockIdentityProvider {
         )
 
         if (-not $this.Store.ContainsKey($IdentityKey)) {
-            throw "Identity '$IdentityKey' does not exist in the mock provider store."
+            return @()
         }
 
         $identity = $this.Store[$IdentityKey]
