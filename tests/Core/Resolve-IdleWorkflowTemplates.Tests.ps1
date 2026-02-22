@@ -336,6 +336,36 @@ Describe 'Template Substitution' {
 
             $plan.Steps[0].With.Value | Should -Be 'Literal {{ and template TestName'
         }
+
+        It 'treats backslash before {{ as a literal character (not an escape)' {
+            $wfPath = Get-TemplateTestFixture 'template-backslash'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ sAMAccountName = 'jdoe' }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.IdentityKey | Should -Be 'DOMAIN\jdoe'
+        }
+
+        It 'escapes \{{ followed by an invalid (non-allowed) root — throws unbalanced braces, not path error' {
+            # With the tight allowed-root lookahead, \{{InvalidRoot}} is escaped (placeholder replaces \{{)
+            # leaving }} orphaned → "unbalanced braces" error, same as original code.
+            # A loose lookahead would let this through to template parsing → wrong "path not allowed" error.
+            $wfPath = Get-TemplateTestFixture 'template-escaped-invalid-root'
+
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage '*Unbalanced braces*'
+        }
     }
 
     Context 'OnFailureSteps template resolution' {

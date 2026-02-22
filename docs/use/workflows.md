@@ -67,6 +67,93 @@ Start with [Quick Start](quickstart.md).
 
 ---
 
+## Template substitution
+
+Step configuration values (`With.*`) support `{{path}}` placeholders that are resolved against the
+request during plan build (`New-IdlePlan`). Multiple placeholders may appear in a single value.
+
+```powershell
+IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
+DisplayName = '{{Request.DesiredState.GivenName}}'
+Message     = 'User {{Request.DesiredState.DisplayName}} is joining.'
+```
+
+### Allowed roots
+
+For security, only these path roots are permitted:
+
+| Root | Description |
+| ---- | ----------- |
+| `Request.DesiredState.*` | Intended target state of the identity |
+| `Request.IdentityKeys.*` | Identifiers of the target identity |
+| `Request.Changes.*` | Explicit deltas (Mover events) |
+| `Request.LifecycleEvent` | Lifecycle event type (e.g. `Joiner`) |
+| `Request.CorrelationId` | Stable correlation identifier |
+| `Request.Actor` | Originator of the request |
+| `Request.Input.*` | Alias for `Request.DesiredState.*` when no `Input` property exists |
+
+### Pure vs. mixed placeholders
+
+A value containing **only** a single placeholder preserves the resolved type (bool, int, datetime, guid, string):
+
+```powershell
+# Resolves to the actual [bool] value, not the string "True"
+Enabled = '{{Request.DesiredState.IsEnabled}}'
+```
+
+A value with surrounding text always produces a **string**:
+
+```powershell
+Message = 'Account for {{Request.DesiredState.DisplayName}} created.'
+```
+
+### Backslash and special characters
+
+Backslash (`\`) is a **literal character** in template strings and requires no escaping.
+Windows-style paths and domain-qualified names work as-is:
+
+```powershell
+# \ is kept as-is; only the placeholder is substituted
+IdentityKey = 'DOMAIN\{{Request.IdentityKeys.sAMAccountName}}'
+# → e.g. 'DOMAIN\jdoe'
+```
+
+### Escaping a literal `{{`
+
+To include a literal `{{` in the output, prefix it with `\`. The escape is applied whenever
+`\{{` is **not** immediately followed by a valid allowed-root template path and `}}`:
+
+```powershell
+# \{{ not followed by a valid path+}} → literal {{ in output
+Value = 'Literal \{{ braces here'
+# → 'Literal {{ braces here'
+
+# \{{ followed by an invalid/disallowed path → also escaped (literal {{ in output)
+Value = '\{{Request.InvalidRoot}}'
+# → '{{Request.InvalidRoot}}'
+```
+
+Summary of backslash behaviour:
+
+| Input | Result |
+| ----- | ------ |
+| `DOMAIN\{{Request.IdentityKeys.sAMAccountName}}` | `DOMAIN\jdoe` — `\` literal, valid template resolved |
+| `Literal \{{ braces here` | `Literal {{ braces here` — escape applied |
+| `\{{Request.InvalidRoot}}` | `{{Request.InvalidRoot}}` — invalid root, escape applied |
+| `Literal \{{ and {{Request.Input.Name}}` | `Literal {{ and TestName` — escape + template |
+
+### Validation
+
+During plan build, IdLE validates every template value:
+
+- **Unbalanced braces** — mismatched `{{`/`}}` pairs throw a syntax error.
+- **Invalid path** — paths must use dot-separated identifiers (letters, numbers, underscores).
+- **Disallowed root** — paths outside the allowlist throw a security error.
+- **Null or missing value** — if the resolved path does not exist, an error is thrown.
+- **Non-scalar value** — resolving to a hashtable or array is not allowed.
+
+---
+
 ## Reference
 
 For full definitions and reference, see:
