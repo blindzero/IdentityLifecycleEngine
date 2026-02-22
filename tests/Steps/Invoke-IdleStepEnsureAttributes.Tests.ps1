@@ -322,6 +322,38 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             $attributeNames | Should -Contain 'Title'
             $attributeNames | Should -Contain 'Office'
         }
+
+        It 'passes $null attribute values without error (regression: MethodArguments binding)' {
+            # When attributes contain $null values (e.g., to unset/clear an attribute),
+            # Invoke-IdleProviderMethod must not fail with "Cannot bind argument to parameter
+            # 'MethodArguments' because it is null." - caused by PS binding an [object[]]
+            # containing $null elements to a [Mandatory] parameter without [AllowNull()].
+            $step = [pscustomobject]@{
+                Name = 'Unset phone attributes'
+                Type = 'IdLE.Step.EnsureAttributes'
+                With = @{
+                    Provider    = 'Identity'
+                    IdentityKey = 'user@contoso.com'
+                    Attributes  = @{
+                        mobile          = $null
+                        telephoneNumber = $null
+                    }
+                }
+            }
+
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
+            { & $handler -Context $script:Context -Step $step } | Should -Not -Throw
+
+            # Both attributes should have been called with $null value
+            $callsByName = @{}
+            $script:FakeProviderLegacy.CallLog | ForEach-Object {
+                $callsByName[$_.Name] = $_
+            }
+            $callsByName.Keys | Should -Contain 'mobile'
+            $callsByName.Keys | Should -Contain 'telephoneNumber'
+            $callsByName['mobile'].Value | Should -BeNullOrEmpty
+            $callsByName['telephoneNumber'].Value | Should -BeNullOrEmpty
+        }
     }
 
     Context 'StepResult shape' {
