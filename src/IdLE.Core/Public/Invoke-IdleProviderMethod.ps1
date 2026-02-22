@@ -73,7 +73,14 @@ function Invoke-IdleProviderMethod {
 
     # Auth session acquisition (optional, data-only)
     $authSession = $null
-    
+
+    # [AllowNull()] on $MethodArguments is required so PowerShell's parameter binder accepts
+    # [object[]] arrays that contain $null elements (e.g., a $null attribute value to clear).
+    # However, the array reference itself must never be null - that would indicate a caller bug.
+    if ($null -eq $MethodArguments) {
+        throw "MethodArguments must not be null. Pass an empty array if no arguments are needed."
+    }
+
     # Validate AuthSessionOptions early (regardless of broker availability)
     if ($With.ContainsKey('AuthSessionOptions')) {
         $sessionOptions = $With.AuthSessionOptions
