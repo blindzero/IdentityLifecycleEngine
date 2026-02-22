@@ -95,7 +95,7 @@ Describe 'Template Substitution' {
     }
 
     Context 'Multiple placeholders in one string' {
-        It 'resolves multiple placeholders in a single string' {
+        It 'resolves multiple Intent placeholders in a single string' {
             $wfPath = Get-TemplateTestFixture 'template-multiple'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{
@@ -113,10 +113,31 @@ Describe 'Template Substitution' {
 
             $plan.Steps[0].With.Message | Should -Be 'User John Doe (jdoe@example.com) is joining.'
         }
+
+        It 'resolves multiple Context placeholders in a single string' {
+            $wfPath = Get-TemplateTestFixture 'template-context-multiple'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{
+                Identity = @{
+                    DisplayName = 'Jane Smith'
+                    ObjectId    = 'abc-123'
+                }
+            }
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.Message | Should -Be 'Identity Jane Smith (abc-123) loaded.'
+        }
     }
 
     Context 'Nested hashtable and array substitution' {
-        It 'resolves templates in nested hashtables' {
+        It 'resolves Intent templates in nested hashtables' {
             $wfPath = Get-TemplateTestFixture 'template-nested-hash'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{
@@ -134,6 +155,28 @@ Describe 'Template Substitution' {
 
             $plan.Steps[0].With.User.Name | Should -Be 'Jane Smith'
             $plan.Steps[0].With.User.Email | Should -Be 'jsmith@example.com'
+        }
+
+        It 'resolves Context templates in nested hashtables' {
+            $wfPath = Get-TemplateTestFixture 'template-context-nested-hash'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{
+                Identity = @{
+                    DisplayName = 'Alice Brown'
+                    Mail        = 'alice.brown@example.com'
+                }
+            }
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.Identity.Name | Should -Be 'Alice Brown'
+            $plan.Steps[0].With.Identity.Email | Should -Be 'alice.brown@example.com'
         }
 
         It 'resolves templates in arrays' {
@@ -214,10 +257,23 @@ Describe 'Template Substitution' {
     }
 
     Context 'Missing path segments' {
-        It 'throws when path does not exist' {
+        It 'throws when Intent path does not exist' {
             $wfPath = Get-TemplateTestFixture 'template-missing-path'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage '*resolved to null or does not exist*'
+        }
+
+        It 'throws when Context path does not exist' {
+            $wfPath = Get-TemplateTestFixture 'template-context-missing-path'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{ Identity = @{ ObjectId = 'abc' } }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')

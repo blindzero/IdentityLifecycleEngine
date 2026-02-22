@@ -32,10 +32,12 @@ function New-IdleRequest {
     Optional hashtable describing changes (typically used for Mover lifecycle events).
 
     .EXAMPLE
+    # Minimal Joiner request — CorrelationId is auto-generated, Intent/Context default to empty
     New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
 
     .EXAMPLE
-    New-IdleRequest -LifecycleEvent Joiner -Intent @{ Department = 'Engineering'; Title = 'Engineer' }
+    # Joiner request with caller-provided action inputs (Intent) and read-only associated context (Context)
+    New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' } -Intent @{ Department = 'Engineering'; Title = 'Engineer' } -Context @{ Identity = @{ ObjectId = 'abc-123' } }
 
     .OUTPUTS
     IdleLifecycleRequest
@@ -56,10 +58,10 @@ function New-IdleRequest {
         [hashtable] $IdentityKeys = @{},
 
         [Parameter()]
-        [hashtable] $Intent,
+        [hashtable] $Intent = @{},
 
         [Parameter()]
-        [hashtable] $Context,
+        [hashtable] $Context = @{},
 
         [Parameter()]
         [hashtable] $Changes

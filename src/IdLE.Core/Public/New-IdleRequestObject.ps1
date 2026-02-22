@@ -90,18 +90,14 @@ function New-IdleRequestObject {
         [hashtable] $IdentityKeys = @{},
 
         [Parameter()]
-        [hashtable] $Intent,
+        [hashtable] $Intent = @{},
 
         [Parameter()]
-        [hashtable] $Context,
+        [hashtable] $Context = @{},
 
         [Parameter()]
         [hashtable] $Changes
     )
-
-    # Default to empty hashtables when not provided.
-    if ($null -eq $Intent) { $Intent = @{} }
-    if ($null -eq $Context) { $Context = @{} }
 
     # Validate that no ScriptBlocks are present in the input data
     Assert-IdleNoScriptBlock -InputObject $IdentityKeys -Path 'IdentityKeys'
