@@ -115,15 +115,17 @@ switch ($DirectorySource) {
 # 2. Build lifecycle request with caller-provided Intent
 Write-Host "==> Building lifecycle request..." -ForegroundColor Cyan
 
-$intent = @{}
+$enrichedIntent = @{
+    UserPrincipalName = $UserPrincipalName
+}
 
 if ($managerInfo) {
-    $intent['Manager'] = $managerInfo
+    $enrichedIntent['Manager'] = $managerInfo
 }
 else {
     # Fallback: use generic support contact
     Write-Warning "No manager found; using generic support contact in OOF message."
-    $intent['Manager'] = @{
+    $enrichedIntent['Manager'] = @{
         DisplayName = 'IT Support'
         Mail        = 'support@contoso.com'
     }
@@ -132,9 +134,7 @@ else {
 $request = New-IdleRequest `
     -LifecycleEvent 'Leaver' `
     -Actor $env:USERNAME `
-    -Intent (@{
-        UserPrincipalName = $UserPrincipalName
-    } + $intent)
+    -Intent $enrichedIntent
 
 Write-Host "  Request CorrelationId: $($request.CorrelationId)" -ForegroundColor Gray
 

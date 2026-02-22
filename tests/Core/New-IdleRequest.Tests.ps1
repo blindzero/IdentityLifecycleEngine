@@ -97,12 +97,6 @@ Describe 'New-IdleRequest' {
 
     Context 'DesiredState transition window' {
         It 'maps DesiredState to Intent when only DesiredState is provided' {
-            $req = $null
-            $warnings = $null
-            $warnings = & {
-                $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Department = 'HR' } -WarningVariable w 3>&1
-                $w
-            }
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Department = 'HR' } 3>$null
             $req.Intent.Department | Should -Be 'HR'
         }
