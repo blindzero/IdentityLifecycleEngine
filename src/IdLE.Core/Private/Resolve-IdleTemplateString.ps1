@@ -16,7 +16,6 @@ function Resolve-IdleTemplateString {
     - Request.Intent.* (canonical caller-provided action inputs)
     - Request.Context.* (read-only associated context)
     - Request.IdentityKeys.*
-    - Request.Changes.*
     - Request.LifecycleEvent
     - Request.CorrelationId
     - Request.Actor
@@ -72,7 +71,7 @@ function Resolve-IdleTemplateString {
 
     # Define validation constants used in multiple paths
     $pathValidationPattern = '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$'
-    $allowedRoots = @('Request.Intent', 'Request.Context', 'Request.IdentityKeys', 'Request.Changes', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
+    $allowedRoots = @('Request.Intent', 'Request.Context', 'Request.IdentityKeys', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
 
     # Helper function to validate path pattern
     $validatePath = {
@@ -188,7 +187,7 @@ function Resolve-IdleTemplateString {
     # like \{{Request.Foo}} (invalid root) or \{{Request..Name}} (double dot) are still escaped to
     # literal {{, rather than flowing into template parsing and failing with path/root errors.
     $litOpenPlaceholder = [string][char]0xE001
-    $backslashEscapePattern = '\\{{(?!Request\.(?:(?:Intent|Context|IdentityKeys|Changes)(?:\.[A-Za-z0-9_]+)*|LifecycleEvent|CorrelationId|Actor)}})'
+    $backslashEscapePattern = '\\{{(?!Request\.(?:(?:Intent|Context|IdentityKeys)(?:\.[A-Za-z0-9_]+)*|LifecycleEvent|CorrelationId|Actor)}})'
     $normalizedValue = if ($stringValue -match '\\{{') {
         [regex]::Replace($stringValue, $backslashEscapePattern, $litOpenPlaceholder)
     } else {

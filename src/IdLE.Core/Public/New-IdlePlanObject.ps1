@@ -71,7 +71,6 @@ function New-IdlePlanObject {
         IdentityKeys   = if ($reqProps -contains 'IdentityKeys') { Copy-IdleDataObject -Value $Request.IdentityKeys } else { $null }
         Intent         = if ($reqProps -contains 'Intent') { Copy-IdleDataObject -Value $Request.Intent } else { $null }
         Context        = if ($reqProps -contains 'Context') { Copy-IdleDataObject -Value $Request.Context } else { $null }
-        Changes        = if ($reqProps -contains 'Changes') { Copy-IdleDataObject -Value $Request.Changes } else { $null }
     }
 
     # Validate workflow and ensure it matches the request's LifecycleEvent.

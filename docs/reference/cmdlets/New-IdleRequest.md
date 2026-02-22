@@ -14,7 +14,7 @@ Creates a lifecycle request object.
 
 ```
 New-IdleRequest [-LifecycleEvent] &lt;String&gt; [[-CorrelationId] &lt;String&gt;] [[-Actor] &lt;String&gt;]
- [[-IdentityKeys] &lt;Hashtable&gt;] [[-Intent] &lt;Hashtable&gt;] [[-Context] &lt;Hashtable&gt;] [[-Changes] &lt;Hashtable&gt;]
+ [[-IdentityKeys] &lt;Hashtable&gt;] [[-Intent] &lt;Hashtable&gt;] [[-Context] &lt;Hashtable&gt;]
  [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
 
@@ -24,7 +24,6 @@ Creates and normalizes an IdLE LifecycleRequest representing business intent
 Joiner/Mover/Leaver).
 CorrelationId is generated if missing.
 Actor is optional.
-Changes is optional and stays $null when omitted.
 
 ## EXAMPLES
 
@@ -136,21 +135,6 @@ Aliases:
 Required: False
 Position: 6
 Default value: @{}
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -Changes
-Optional hashtable describing changes (typically used for Mover lifecycle events).
-
-```yaml
-Type: Hashtable
-Parameter Sets: (All)
-Aliases:
-
-Required: False
-Position: 7
-Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

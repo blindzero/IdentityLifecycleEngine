@@ -14,8 +14,7 @@
       "intent": {
         "department": "IT"
       },
-      "context": {},
-      "changes": null
+      "context": {}
     }
   },
   "plan": {

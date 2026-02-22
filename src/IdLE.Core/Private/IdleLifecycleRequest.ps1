@@ -1,6 +1,5 @@
 # Domain model: LifecycleRequest
 # Actor is intentionally optional in V1 (see architecture).
-# Changes is optional and stays $null if not provided.
 #
 # Intent   - canonical caller-provided input block.
 # Context  - read-only associated context provided by the host or resolvers.
@@ -10,7 +9,6 @@ class IdleLifecycleRequest {
     [hashtable] $IdentityKeys
     [hashtable] $Intent
     [hashtable] $Context
-    [hashtable] $Changes
     [string] $CorrelationId
     [string] $Actor
 
@@ -19,7 +17,6 @@ class IdleLifecycleRequest {
         [hashtable] $identityKeys,
         [hashtable] $intent,
         [hashtable] $context,
-        [hashtable] $changes,
         [string] $correlationId,
         [string] $actor
     ) {
@@ -27,7 +24,6 @@ class IdleLifecycleRequest {
         $this.IdentityKeys = $identityKeys
         $this.Intent = $intent
         $this.Context = $context
-        $this.Changes = $changes
         $this.CorrelationId = $correlationId
         $this.Actor = $actor
 
@@ -49,11 +45,6 @@ class IdleLifecycleRequest {
 
         if ($null -eq $this.Context) {
             $this.Context = @{}
-        }
-
-        # Changes stays $null if not provided. If provided, it must be a hashtable.
-        if ($null -ne $this.Changes -and $this.Changes -isnot [hashtable]) {
-            throw [System.ArgumentException]::new('Changes must be a hashtable when provided.', 'Changes')
         }
 
         if ([string]::IsNullOrWhiteSpace($this.CorrelationId)) {

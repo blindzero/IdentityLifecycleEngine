@@ -46,26 +46,6 @@ Describe 'New-IdleRequest' {
     }
 
     Context 'Optional properties' {
-        It 'leaves Changes as null when omitted' {
-            $req = New-IdleRequest -LifecycleEvent 'Mover'
-            $req.Changes | Should -BeNullOrEmpty
-        }
-
-        It 'accepts Changes when provided' {
-            $req = New-IdleRequest -LifecycleEvent 'Mover' -Changes @{
-                Attributes = @{
-                    Department = @{
-                        From = 'Sales'
-                        To   = 'IT'
-                    }
-                }
-            }
-
-            $req.Changes | Should -BeOfType 'hashtable'
-            $req.Changes.Attributes.Department.From | Should -Be 'Sales'
-            $req.Changes.Attributes.Department.To   | Should -Be 'IT'
-        }
-
         It 'treats Actor as optional (null when omitted)' {
             $req = New-IdleRequest -LifecycleEvent 'Joiner'
             $req.Actor | Should -BeNullOrEmpty
@@ -121,19 +101,6 @@ Describe 'New-IdleRequest - data-only validation' {
                     Identity = @{ Value = { 'NOPE' } }
                 }
             } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*'
-        }
-
-        It 'rejects ScriptBlock in Changes when provided' {
-            {
-                New-IdleRequest -LifecycleEvent 'Joiner' -Changes @{
-                    Attributes = @{
-                        Department = @{
-                            From = 'Sales'
-                            To   = { 'IT' }
-                        }
-                    }
-                }
-            } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*Changes*'
         }
     }
 }

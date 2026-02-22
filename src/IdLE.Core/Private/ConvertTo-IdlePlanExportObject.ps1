@@ -80,19 +80,17 @@ function ConvertTo-IdlePlanExportObject {
         $requestInput = Get-FirstPropertyValue -Object $request -Names @('Input', 'Data', 'Payload', 'Attributes')
 
         if ($null -eq $requestInput) {
-            # IdLE lifecycle requests store business intent as IdentityKeys/Intent/Context/Changes.
+            # IdLE lifecycle requests store business intent as IdentityKeys/Intent/Context.
             # When present, export these as the canonical request.input payload.
             $identityKeys = Get-FirstPropertyValue -Object $request -Names @('IdentityKeys', 'IdentityKey', 'Keys')
             $intent = Get-FirstPropertyValue -Object $request -Names @('Intent', 'TargetState')
             $context = Get-FirstPropertyValue -Object $request -Names @('Context')
-            $changes = Get-FirstPropertyValue -Object $request -Names @('Changes', 'Delta')
 
-            if ($null -ne $identityKeys -or $null -ne $intent -or $null -ne $context -or $null -ne $changes) {
+            if ($null -ne $identityKeys -or $null -ne $intent -or $null -ne $context) {
                 $requestInput = New-OrderedMap
                 $requestInput.identityKeys = $identityKeys
                 $requestInput.intent = $intent
                 $requestInput.context = $context
-                $requestInput.changes = $changes
             }
         }
     }

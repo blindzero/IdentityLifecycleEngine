@@ -6,7 +6,6 @@ function New-IdleRequest {
     .DESCRIPTION
     Creates and normalizes an IdLE LifecycleRequest representing business intent
     (e.g. Joiner/Mover/Leaver). CorrelationId is generated if missing. Actor is optional.
-    Changes is optional and stays $null when omitted.
 
     .PARAMETER LifecycleEvent
     The lifecycle event name (e.g. Joiner, Mover, Leaver).
@@ -27,9 +26,6 @@ function New-IdleRequest {
     .PARAMETER Context
     A hashtable containing read-only associated context provided by the host or resolvers
     (e.g. identity snapshots, device hints). Must not be treated as mutable state within IdLE.
-
-    .PARAMETER Changes
-    Optional hashtable describing changes (typically used for Mover lifecycle events).
 
     .EXAMPLE
     # Minimal Joiner request — CorrelationId is auto-generated, Intent/Context default to empty
@@ -61,10 +57,7 @@ function New-IdleRequest {
         [hashtable] $Intent = @{},
 
         [Parameter()]
-        [hashtable] $Context = @{},
-
-        [Parameter()]
-        [hashtable] $Changes
+        [hashtable] $Context = @{}
     )
 
     # Use core-exported factory to construct the domain object. Keeps domain model inside IdLE.Core.

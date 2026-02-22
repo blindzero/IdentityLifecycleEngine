@@ -94,8 +94,7 @@ The request object captures *why* a plan was created, independent of *how* it wi
     },
     "desiredState": {
       "department": "IT"
-    },
-    "changes": null
+    }
   }
 }
 ```
@@ -122,7 +121,6 @@ The request object captures *why* a plan was created, independent of *how* it wi
 - For **IdLE-native lifecycle requests**, `input` SHOULD contain:
   - `identityKeys` – identifiers of the target identity
   - `desiredState` – intended target state
-  - `changes` – explicit deltas, if applicable
 - Hosts MAY include additional fields in `input`.
 - The request payload is exported for **audit, approval, and traceability purposes** and MUST remain stable once the plan is created.
 
