@@ -51,8 +51,8 @@ Example workflow usage:
     Provider    = 'Identity'
     IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
     Attributes  = @{
-      GivenName = '{{Request.DesiredState.GivenName}}'
-      Surname   = '{{Request.DesiredState.Surname}}'
+      GivenName = '{{Request.Intent.GivenName}}'
+      Surname   = '{{Request.Intent.Surname}}'
     }
   }
 }
@@ -108,7 +108,7 @@ Example (step requests a named session):
 
     IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
     Attributes  = @{
-      Department = '{{Request.DesiredState.Department}}'
+      Department = '{{Request.Intent.Department}}'
     }
   }
 }

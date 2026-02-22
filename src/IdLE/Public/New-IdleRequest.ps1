@@ -8,6 +8,11 @@ function New-IdleRequest {
     (e.g. Joiner/Mover/Leaver). CorrelationId is generated if missing. Actor is optional.
     Changes is optional and stays $null when omitted.
 
+    Transition window (DesiredState → Intent):
+    - Providing only -DesiredState maps it to -Intent and emits a deprecation warning.
+    - Providing both -DesiredState and -Intent fails fast with a validation error.
+    - After the transition window, -DesiredState support will be removed.
+
     .PARAMETER LifecycleEvent
     The lifecycle event name (e.g. Joiner, Mover, Leaver).
 
@@ -20,14 +25,26 @@ function New-IdleRequest {
     .PARAMETER IdentityKeys
     A hashtable of system-neutral identity keys (e.g. EmployeeId, UPN, ObjectId).
 
+    .PARAMETER Intent
+    A hashtable containing the caller-provided action inputs for the workflow (attributes,
+    entitlements, operator flags, etc.). Canonical replacement for DesiredState.
+
+    .PARAMETER Context
+    A hashtable containing read-only associated context provided by the host or resolvers
+    (e.g. identity snapshots, device hints). Must not be treated as mutable state within IdLE.
+
     .PARAMETER DesiredState
-    A hashtable describing the desired state (attributes, entitlements, etc.).
+    Deprecated. Use -Intent instead. Providing only -DesiredState maps it to -Intent and emits
+    a deprecation warning. Providing both -DesiredState and -Intent is an error.
 
     .PARAMETER Changes
     Optional hashtable describing changes (typically used for Mover lifecycle events).
 
     .EXAMPLE
     New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
+
+    .EXAMPLE
+    New-IdleRequest -LifecycleEvent Joiner -Intent @{ Department = 'Engineering'; Title = 'Engineer' }
 
     .OUTPUTS
     IdleLifecycleRequest
@@ -48,7 +65,13 @@ function New-IdleRequest {
         [hashtable] $IdentityKeys = @{},
 
         [Parameter()]
-        [hashtable] $DesiredState = @{},
+        [hashtable] $Intent,
+
+        [Parameter()]
+        [hashtable] $Context,
+
+        [Parameter()]
+        [hashtable] $DesiredState,
 
         [Parameter()]
         [hashtable] $Changes

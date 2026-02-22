@@ -1,10 +1,16 @@
 # Domain model: LifecycleRequest
 # Actor is intentionally optional in V1 (see architecture).
-# Changes is optional and stays $null if not provided (intent-only requests typically only provide DesiredState).
+# Changes is optional and stays $null if not provided.
+#
+# Intent   - canonical caller-provided input block (replaces DesiredState).
+# Context  - read-only associated context provided by the host or resolvers.
+# DesiredState - backward-compat alias mirroring Intent during the transition window.
 
 class IdleLifecycleRequest {
     [string] $LifecycleEvent
     [hashtable] $IdentityKeys
+    [hashtable] $Intent
+    [hashtable] $Context
     [hashtable] $DesiredState
     [hashtable] $Changes
     [string] $CorrelationId
@@ -13,14 +19,16 @@ class IdleLifecycleRequest {
     IdleLifecycleRequest(
         [string] $lifecycleEvent,
         [hashtable] $identityKeys,
-        [hashtable] $desiredState,
+        [hashtable] $intent,
+        [hashtable] $context,
         [hashtable] $changes,
         [string] $correlationId,
         [string] $actor
     ) {
         $this.LifecycleEvent = $lifecycleEvent
         $this.IdentityKeys = $identityKeys
-        $this.DesiredState = $desiredState
+        $this.Intent = $intent
+        $this.Context = $context
         $this.Changes = $changes
         $this.CorrelationId = $correlationId
         $this.Actor = $actor
@@ -37,9 +45,17 @@ class IdleLifecycleRequest {
             $this.IdentityKeys = @{}
         }
 
-        if ($null -eq $this.DesiredState) {
-            $this.DesiredState = @{}
+        if ($null -eq $this.Intent) {
+            $this.Intent = @{}
         }
+
+        if ($null -eq $this.Context) {
+            $this.Context = @{}
+        }
+
+        # DesiredState mirrors Intent for backward compatibility during the transition window.
+        # Templates that reference Request.DesiredState.* continue to resolve correctly.
+        $this.DesiredState = $this.Intent
 
         # Changes stays $null if not provided. If provided, it must be a hashtable.
         if ($null -ne $this.Changes -and $this.Changes -isnot [hashtable]) {

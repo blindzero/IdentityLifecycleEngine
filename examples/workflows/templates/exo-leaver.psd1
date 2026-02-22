@@ -9,7 +9,7 @@
             Type = 'IdLE.Step.Mailbox.GetInfo'
             With = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey = '{{Request.Intent.UserPrincipalName}}'
             }
         }
         @{
@@ -17,7 +17,7 @@
             Type = 'IdLE.Step.Mailbox.EnsureType'
             With = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey = '{{Request.Intent.UserPrincipalName}}'
                 MailboxType = 'Shared'
             }
         }
@@ -26,7 +26,7 @@
             Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
             With = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey = '{{Request.Intent.UserPrincipalName}}'
                 Config      = @{
                     Mode             = 'Enabled'
                     MessageFormat    = 'Html'
@@ -35,14 +35,14 @@
 <p>This mailbox is no longer monitored.</p>
 <p>For urgent matters, please contact:</p>
 <ul>
-  <li><strong>Manager:</strong> <a href="mailto:{{Request.DesiredState.Manager.Mail}}">{{Request.DesiredState.Manager.DisplayName}}</a></li>
-  <li><strong>Service Desk:</strong> <a href="mailto:{{Request.Input.ServiceDesk.Mail}}">{{Request.Input.ServiceDesk.DisplayName}}</a></li>
+  <li><strong>Manager:</strong> <a href="mailto:{{Request.Intent.Manager.Mail}}">{{Request.Intent.Manager.DisplayName}}</a></li>
+  <li><strong>Service Desk:</strong> <a href="mailto:{{Request.Intent.ServiceDesk.Mail}}">{{Request.Intent.ServiceDesk.DisplayName}}</a></li>
 </ul>
 '@
 
                     ExternalMessage  = @'
 <p>This mailbox is no longer monitored.</p>
-<p>Please contact our <strong>Service Desk</strong> at <a href="mailto:{{Request.Input.ServiceDesk.Mail}}">{{Request.Input.ServiceDesk.Mail}}</a>.</p>
+<p>Please contact our <strong>Service Desk</strong> at <a href="mailto:{{Request.Intent.ServiceDesk.Mail}}">{{Request.Intent.ServiceDesk.Mail}}</a>.</p>
 '@
 
                     ExternalAudience = 'All'
@@ -53,7 +53,7 @@
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'Mailbox offboarding completed for {{Request.Input.UserPrincipalName}}.'
+                Message = 'Mailbox offboarding completed for {{Request.Intent.UserPrincipalName}}.'
             }
         }
     )

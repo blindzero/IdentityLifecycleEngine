@@ -13,9 +13,10 @@ Creates a lifecycle request object.
 ## SYNTAX
 
 ```
-New-IdleRequest [-LifecycleEvent] &lt;String&gt; [[-CorrelationId] &lt;String&gt;] [[-Actor] &lt;String&gt;]
- [[-IdentityKeys] &lt;Hashtable&gt;] [[-DesiredState] &lt;Hashtable&gt;] [[-Changes] &lt;Hashtable&gt;]
- [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
+New-IdleRequest [-LifecycleEvent] <String> [[-CorrelationId] <String>] [[-Actor] <String>]
+ [[-IdentityKeys] <Hashtable>] [[-Intent] <Hashtable>] [[-Context] <Hashtable>]
+ [[-DesiredState] <Hashtable>] [[-Changes] <Hashtable>]
+ [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -26,11 +27,21 @@ CorrelationId is generated if missing.
 Actor is optional.
 Changes is optional and stays $null when omitted.
 
+Transition window (DesiredState → Intent):
+- Providing only -DesiredState maps it to -Intent and emits a deprecation warning.
+- Providing both -DesiredState and -Intent fails fast with a validation error.
+- After the transition window, -DesiredState support will be removed.
+
 ## EXAMPLES
 
 ### EXAMPLE 1
 ```
 New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
+```
+
+### EXAMPLE 2
+```
+New-IdleRequest -LifecycleEvent Joiner -Intent @{ Department = 'Engineering'; Title = 'Engineer' }
 ```
 
 ## PARAMETERS
@@ -99,8 +110,10 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -DesiredState
-A hashtable describing the desired state (attributes, entitlements, etc.).
+### -Intent
+A hashtable containing the caller-provided action inputs for the workflow (attributes,
+entitlements, operator flags, etc.).
+Canonical replacement for DesiredState.
 
 ```yaml
 Type: Hashtable
@@ -109,7 +122,44 @@ Aliases:
 
 Required: False
 Position: 5
-Default value: @{}
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Context
+A hashtable containing read-only associated context provided by the host or resolvers
+(e.g.
+identity snapshots, device hints).
+Must not be treated as mutable state within IdLE.
+
+```yaml
+Type: Hashtable
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: 6
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -DesiredState
+Deprecated.
+Use -Intent instead.
+Providing only -DesiredState maps it to -Intent and emits
+a deprecation warning.
+Providing both -DesiredState and -Intent is an error.
+
+```yaml
+Type: Hashtable
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: 7
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -123,7 +173,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: False
-Position: 6
+Position: 8
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False

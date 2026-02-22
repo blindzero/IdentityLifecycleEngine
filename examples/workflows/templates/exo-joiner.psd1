@@ -10,7 +10,7 @@
             Description = 'Reads mailbox details (useful for auditing and troubleshooting).'
             With        = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey = '{{Request.Intent.UserPrincipalName}}'
             }
         }
 
@@ -20,7 +20,7 @@
             Description = 'Ensures the mailbox is a regular user mailbox.'
             With        = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey = '{{Request.Intent.UserPrincipalName}}'
                 # Allowed values: User | Shared | Room | Equipment
                 MailboxType = 'User'
             }
@@ -32,7 +32,7 @@
             Description = 'Ensures Out of Office is disabled for a new joiner mailbox.'
             With        = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey = '{{Request.Intent.UserPrincipalName}}'
                 Config      = @{
                     # Allowed values: Disabled | Enabled | Scheduled
                     Mode = 'Disabled'

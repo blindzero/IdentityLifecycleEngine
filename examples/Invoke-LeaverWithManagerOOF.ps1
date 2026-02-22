@@ -10,7 +10,7 @@ template variables in Out of Office messages.
 Key concepts:
 - Manager lookup is performed HOST-SIDE, not inside workflow steps
 - Request enrichment happens before calling New-IdlePlan
-- Templates like {{Request.DesiredState.Manager.DisplayName}} are resolved during planning
+- Templates like {{Request.Intent.Manager.DisplayName}} are resolved during planning
 
 .NOTES
 This is an example only. Adapt authentication, provider setup, and directory queries
@@ -112,18 +112,18 @@ switch ($DirectorySource) {
     }
 }
 
-# 2. Build lifecycle request with enriched DesiredState
+# 2. Build lifecycle request with caller-provided Intent
 Write-Host "==> Building lifecycle request..." -ForegroundColor Cyan
 
-$desiredState = @{}
+$intent = @{}
 
 if ($managerInfo) {
-    $desiredState['Manager'] = $managerInfo
+    $intent['Manager'] = $managerInfo
 }
 else {
     # Fallback: use generic support contact
     Write-Warning "No manager found; using generic support contact in OOF message."
-    $desiredState['Manager'] = @{
+    $intent['Manager'] = @{
         DisplayName = 'IT Support'
         Mail        = 'support@contoso.com'
     }
@@ -132,10 +132,9 @@ else {
 $request = New-IdleRequest `
     -LifecycleEvent 'Leaver' `
     -Actor $env:USERNAME `
-    -Input @{
+    -Intent (@{
         UserPrincipalName = $UserPrincipalName
-    } `
-    -DesiredState $desiredState
+    } + $intent)
 
 Write-Host "  Request CorrelationId: $($request.CorrelationId)" -ForegroundColor Gray
 

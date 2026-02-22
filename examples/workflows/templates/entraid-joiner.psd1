@@ -12,26 +12,26 @@
                 AuthSessionOptions = @{ Role = 'Admin' }
                 
                 # Using UPN keeps it human-friendly in templates.
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
 
                 Attributes         = @{
-                    UserPrincipalName = '{{Request.Input.UserPrincipalName}}'
-                    DisplayName       = '{{Request.Input.DisplayName}}'
-                    GivenName         = '{{Request.Input.GivenName}}'
-                    Surname           = '{{Request.Input.Surname}}'
-                    Mail              = '{{Request.Input.Mail}}'
+                    UserPrincipalName = '{{Request.Intent.UserPrincipalName}}'
+                    DisplayName       = '{{Request.Intent.DisplayName}}'
+                    GivenName         = '{{Request.Intent.GivenName}}'
+                    Surname           = '{{Request.Intent.Surname}}'
+                    Mail              = '{{Request.Intent.Mail}}'
 
                     # Optional org attributes (safe when empty)
-                    Department        = '{{Request.Input.Department}}'
-                    JobTitle          = '{{Request.Input.JobTitle}}'
-                    OfficeLocation    = '{{Request.Input.OfficeLocation}}'
-                    CompanyName       = '{{Request.Input.CompanyName}}'
+                    Department        = '{{Request.Intent.Department}}'
+                    JobTitle          = '{{Request.Intent.JobTitle}}'
+                    OfficeLocation    = '{{Request.Intent.OfficeLocation}}'
+                    CompanyName       = '{{Request.Intent.CompanyName}}'
 
                     # Password profile is typically relevant for "new user" scenarios.
-                    # Your host can generate and provide a temporary password in Request.Input.
+                    # Your host can generate and provide a temporary password in Request.Intent.
                     PasswordProfile   = @{
                         forceChangePasswordNextSignIn = $true
-                        password                      = '{{Request.Input.TemporaryPassword}}'
+                        password                      = '{{Request.Intent.TemporaryPassword}}'
                     }
                 }
             }
@@ -45,19 +45,19 @@
                 AuthSessionOptions = @{ Role = 'Admin' }
 
                 # Using UPN keeps it human-friendly in templates.
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
 
                 # Baseline groups should be explicit and driven by request input (no hardcoding).
                 Desired            = @(
                     @{
                         Kind        = 'Group'
-                        Id          = '{{Request.Input.AllEmployeesGroupId}}'
-                        DisplayName = '{{Request.Input.AllEmployeesGroupName}}'
+                        Id          = '{{Request.Intent.AllEmployeesGroupId}}'
+                        DisplayName = '{{Request.Intent.AllEmployeesGroupName}}'
                     }
                     @{
                         Kind        = 'Group'
-                        Id          = '{{Request.Input.DepartmentGroupId}}'
-                        DisplayName = '{{Request.Input.DepartmentGroupName}}'
+                        Id          = '{{Request.Intent.DepartmentGroupId}}'
+                        DisplayName = '{{Request.Intent.DepartmentGroupName}}'
                     }
                 )
             }
@@ -69,13 +69,13 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
             }
         }
 
         # ----------------------------
         # Mover patterns (optional)
-        # Enable by setting: Request.Input.IsMover = $true
+        # Enable by setting: Request.Intent.IsMover = $true
         # ----------------------------
 
         @{
@@ -86,7 +86,7 @@
                 All = @(
                     @{
                         Equals = @{
-                            Path  = 'Request.Input.IsMover'
+                            Path  = 'Request.Intent.IsMover'
                             Value = $true
                         }
                     }
@@ -95,13 +95,13 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
 
                 Attributes         = @{
-                    Department     = '{{Request.Input.NewDepartment}}'
-                    JobTitle        = '{{Request.Input.NewJobTitle}}'
-                    OfficeLocation  = '{{Request.Input.NewOfficeLocation}}'
-                    Manager         = '{{Request.Input.NewManagerObjectId}}'
+                    Department     = '{{Request.Intent.NewDepartment}}'
+                    JobTitle        = '{{Request.Intent.NewJobTitle}}'
+                    OfficeLocation  = '{{Request.Intent.NewOfficeLocation}}'
+                    Manager         = '{{Request.Intent.NewManagerObjectId}}'
                 }
             }
         }
@@ -113,7 +113,7 @@
                 All = @(
                     @{
                         Equals = @{
-                            Path  = 'Request.Input.IsMover'
+                            Path  = 'Request.Intent.IsMover'
                             Value = $true
                         }
                     }
@@ -122,19 +122,19 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
 
                 # Optional: add department/project groups as part of a move.
                 Desired            = @(
                     @{
                         Kind        = 'Group'
-                        Id          = '{{Request.Input.DepartmentGroupId}}'
-                        DisplayName = '{{Request.Input.DepartmentGroupName}}'
+                        Id          = '{{Request.Intent.DepartmentGroupId}}'
+                        DisplayName = '{{Request.Intent.DepartmentGroupName}}'
                     }
                     @{
                         Kind        = 'Group'
-                        Id          = '{{Request.Input.ProjectGroupId}}'
-                        DisplayName = '{{Request.Input.ProjectGroupName}}'
+                        Id          = '{{Request.Intent.ProjectGroupId}}'
+                        DisplayName = '{{Request.Intent.ProjectGroupName}}'
                     }
                 )
             }
@@ -144,7 +144,7 @@
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'EntraID user {{Request.Input.UserPrincipalName}} created/updated successfully.'
+                Message = 'EntraID user {{Request.Intent.UserPrincipalName}} created/updated successfully.'
             }
         }
     )

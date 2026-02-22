@@ -77,8 +77,8 @@ $workflowContent = @'
         Provider    = 'Identity'
         IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
         Attributes  = @{
-          GivenName = '{{Request.DesiredState.GivenName}}'
-          Surname   = '{{Request.DesiredState.Surname}}'
+          GivenName = '{{Request.Intent.GivenName}}'
+          Surname   = '{{Request.Intent.Surname}}'
         }
       }
     }
@@ -105,7 +105,7 @@ A request represents business intent (Joiner/Mover/Leaver) plus input data.
 ```powershell
 $request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
   EmployeeId = '12345'
-} -DesiredState @{
+} -Intent @{
   GivenName = 'Max'
   Surname   = 'Power'
 }
@@ -128,7 +128,7 @@ $providers = @{
 ## 5) Build the plan (validation + template resolution)
 
 Plan building is a **fail-fast** step. IdLE validates the workflow and resolves templates like
-`{{Request.DesiredState.GivenName}}`.
+`{{Request.Intent.GivenName}}`.
 
 ```powershell
 $plan = New-IdlePlan -WorkflowPath $workflowPath -Request $request -Providers $providers

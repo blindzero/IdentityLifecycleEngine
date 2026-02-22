@@ -17,7 +17,7 @@
                 }
 
                 # Delta or Initial
-                PolicyType          = '{{Request.Input.PolicyType}}'
+                PolicyType          = '{{Request.Intent.PolicyType}}'
 
                 # Optional wait/polling behavior (step-specific)
                 Wait                = $true
@@ -30,7 +30,7 @@
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'Entra Connect sync cycle ({{Request.Input.PolicyType}}) triggered successfully.'
+                Message = 'Entra Connect sync cycle ({{Request.Intent.PolicyType}}) triggered successfully.'
             }
         }
     )

@@ -74,6 +74,42 @@ Describe 'Template Substitution' {
 
             $plan.Steps[0].With.Department | Should -Be 'Engineering'
         }
+
+        It 'resolves Request.Intent placeholder' {
+            $wfPath = Get-TemplateTestFixture 'template-intent'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{
+                Department = 'Engineering'
+            }
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.Department | Should -Be 'Engineering'
+        }
+
+        It 'resolves Request.Context placeholder' {
+            $wfPath = Get-TemplateTestFixture 'template-context'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{
+                Identity = @{ ObjectId = 'obj-abc-123' }
+            }
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.ObjectId | Should -Be 'obj-abc-123'
+        }
     }
 
     Context 'Multiple placeholders in one string' {

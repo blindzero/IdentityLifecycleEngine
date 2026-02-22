@@ -13,8 +13,10 @@ function Resolve-IdleTemplateString {
     - Multiple placeholders are supported in one string
 
     Allowed roots (security boundary):
-    - Request.Input.* (aliased to Request.DesiredState.* if Input does not exist)
-    - Request.DesiredState.*
+    - Request.Intent.* (canonical caller-provided action inputs)
+    - Request.Context.* (read-only associated context)
+    - Request.Input.* (aliased to Request.Intent.* if Input does not exist)
+    - Request.DesiredState.* (deprecated alias for Request.Intent.*; supported during transition window)
     - Request.IdentityKeys.*
     - Request.Changes.*
     - Request.LifecycleEvent
@@ -72,7 +74,7 @@ function Resolve-IdleTemplateString {
 
     # Define validation constants used in multiple paths
     $pathValidationPattern = '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$'
-    $allowedRoots = @('Request.Input', 'Request.DesiredState', 'Request.IdentityKeys', 'Request.Changes', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
+    $allowedRoots = @('Request.Intent', 'Request.Context', 'Request.Input', 'Request.DesiredState', 'Request.IdentityKeys', 'Request.Changes', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
 
     # Helper function to validate path pattern
     $validatePath = {
@@ -107,7 +109,7 @@ function Resolve-IdleTemplateString {
     $resolvePath = {
         param([string]$Path)
 
-        # Handle Request.Input.* alias to Request.DesiredState.*
+        # Handle Request.Input.* alias to Request.Intent.* (or Request.DesiredState.* for backward compat)
         $targetPath = $Path
         $hasInputProperty = $false
         if ($Request.PSObject.Properties['Input']) {
@@ -116,13 +118,24 @@ function Resolve-IdleTemplateString {
 
         if ($Path.StartsWith('Request.Input.')) {
             if (-not $hasInputProperty) {
-                # Alias to DesiredState
-                $targetPath = $Path -replace '^Request\.Input\.', 'Request.DesiredState.'
+                # Alias to Intent (canonical); DesiredState mirrors Intent so either works
+                $targetPath = $Path -replace '^Request\.Input\.', 'Request.Intent.'
             }
         }
         elseif ($Path -eq 'Request.Input') {
             if (-not $hasInputProperty) {
-                $targetPath = 'Request.DesiredState'
+                $targetPath = 'Request.Intent'
+            }
+        }
+
+        # Handle Request.DesiredState.* alias to Request.Intent.* when DesiredState is absent
+        # but Intent is present. This supports requests built with custom PSObjects that only
+        # expose Intent (no DesiredState backward-compat mirror).
+        if ($targetPath.StartsWith('Request.DesiredState.') -or $targetPath -eq 'Request.DesiredState') {
+            $hasDesiredStateProperty = $null -ne $Request.PSObject.Properties['DesiredState']
+            $hasIntentProperty = $null -ne $Request.PSObject.Properties['Intent']
+            if (-not $hasDesiredStateProperty -and $hasIntentProperty) {
+                $targetPath = $targetPath -replace '^Request\.DesiredState', 'Request.Intent'
             }
         }
 
@@ -207,7 +220,7 @@ function Resolve-IdleTemplateString {
     # like \{{Request.Foo}} (invalid root) or \{{Request..Name}} (double dot) are still escaped to
     # literal {{, rather than flowing into template parsing and failing with path/root errors.
     $litOpenPlaceholder = [string][char]0xE001
-    $backslashEscapePattern = '\\{{(?!Request\.(?:(?:Input|DesiredState|IdentityKeys|Changes)(?:\.[A-Za-z0-9_]+)*|LifecycleEvent|CorrelationId|Actor)}})'
+    $backslashEscapePattern = '\\{{(?!Request\.(?:(?:Intent|Context|Input|DesiredState|IdentityKeys|Changes)(?:\.[A-Za-z0-9_]+)*|LifecycleEvent|CorrelationId|Actor)}})'
     $normalizedValue = if ($stringValue -match '\\{{') {
         [regex]::Replace($stringValue, $backslashEscapePattern, $litOpenPlaceholder)
     } else {

@@ -52,8 +52,8 @@ Create a file `joiner.psd1` with this content:
         Provider    = 'Identity'
         IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
         Attributes  = @{
-          GivenName = '{{Request.DesiredState.GivenName}}'
-          Surname   = '{{Request.DesiredState.Surname}}'
+          GivenName = '{{Request.Intent.GivenName}}'
+          Surname   = '{{Request.Intent.Surname}}'
         }
       }
     }
@@ -74,7 +74,7 @@ Workflows are treated as **untrusted input** and must remain **data-only**.
 - `Steps` is an ordered list.
 - Each step references a **StepType** by name (`Type`).
 - Step configuration lives under `With`.
-- Template expressions like `{{Request.DesiredState.GivenName}}` are resolved when building the plan.
+- Template expressions like `{{Request.Intent.GivenName}}` are resolved when building the plan.
 
 ---
 

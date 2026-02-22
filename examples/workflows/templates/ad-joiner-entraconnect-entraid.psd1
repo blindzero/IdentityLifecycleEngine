@@ -9,14 +9,14 @@
             Type = 'IdLE.Step.CreateIdentity'
             With = @{
                 Provider         = 'Directory'
-                AuthSessionName  = '{{Request.Input.Auth.Directory}}'
+                AuthSessionName  = '{{Request.Intent.Auth.Directory}}'
 
-                IdentityKey      = '{{Request.Input.SamAccountName}}'
+                IdentityKey      = '{{Request.Intent.SamAccountName}}'
 
                 Attributes       = @{
-                    GivenName   = '{{Request.Input.GivenName}}'
-                    Surname     = '{{Request.Input.Surname}}'
-                    Department  = '{{Request.Input.Department}}'
+                    GivenName   = '{{Request.Intent.GivenName}}'
+                    Surname     = '{{Request.Intent.Surname}}'
+                    Department  = '{{Request.Intent.Department}}'
                 }
             }
         }
@@ -48,12 +48,12 @@
                     Role = 'Admin'
                 }
 
-                IdentityKey         = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey         = '{{Request.Intent.UserPrincipalName}}'
 
                 Entitlement         = @{
                     Kind        = 'Group'
-                    Id          = '{{Request.Input.AllEmployeesGroupId}}'
-                    DisplayName = '{{Request.Input.AllEmployeesGroupName}}'
+                    Id          = '{{Request.Intent.AllEmployeesGroupId}}'
+                    DisplayName = '{{Request.Intent.AllEmployeesGroupName}}'
                 }
                 State               = 'Present'
             }
