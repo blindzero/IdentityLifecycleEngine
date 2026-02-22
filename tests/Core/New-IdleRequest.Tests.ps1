@@ -55,16 +55,6 @@ Describe 'New-IdleRequest' {
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Actor 'alice@contoso.com'
             $req.Actor | Should -Be 'alice@contoso.com'
         }
-
-        It 'does not expose a Changes property' {
-            $req = New-IdleRequest -LifecycleEvent 'Joiner'
-            $req.PSObject.Properties.Name | Should -Not -Contain 'Changes'
-        }
-
-        It 'does not accept a -Changes parameter' {
-            { New-IdleRequest -LifecycleEvent 'Joiner' -Changes @{ Foo = 'Bar' } } |
-                Should -Throw
-        }
     }
 
     Context 'Intent parameter' {
@@ -112,47 +102,6 @@ Describe 'New-IdleRequest - data-only validation' {
                 }
             } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*'
         }
-    }
-}
-
-Describe 'New-IdlePlan - Request.Changes rejection' {
-    BeforeAll {
-        function global:Invoke-IdleTestNoopStep2 {
-            [CmdletBinding()]
-            param(
-                [Parameter(Mandatory)][ValidateNotNull()][object] $Context,
-                [Parameter(Mandatory)][ValidateNotNull()][object] $Step
-            )
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.StepResult'
-                Name       = [string]$Step.Name
-                Type       = [string]$Step.Type
-                Status     = 'Completed'
-                Error      = $null
-            }
-        }
-    }
-
-    AfterAll {
-        Remove-Item -Path 'Function:\Invoke-IdleTestNoopStep2' -ErrorAction SilentlyContinue
-    }
-
-    It 'rejects a request object that contains a Changes property' {
-        $badRequest = [pscustomobject]@{
-            PSTypeName     = 'IdLE.LifecycleRequest'
-            LifecycleEvent = 'Joiner'
-            CorrelationId  = [guid]::NewGuid().ToString()
-            Changes        = @{ Department = @{ From = 'Sales'; To = 'IT' } }
-        }
-
-        $wfPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows/template-tests/template-simple.psd1'
-        $providers = @{
-            StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep2' }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
-        }
-
-        { New-IdlePlan -WorkflowPath $wfPath -Request $badRequest -Providers $providers } |
-            Should -Throw -ExpectedMessage "*must not contain property 'Changes'*"
     }
 }
 

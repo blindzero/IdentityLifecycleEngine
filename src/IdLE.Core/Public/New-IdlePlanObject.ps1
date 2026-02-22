@@ -62,15 +62,6 @@ function New-IdlePlanObject {
         )
     }
 
-    # Reject requests that contain Request.Changes — this property has been removed.
-    # Model delta-like instructions explicitly under Request.Intent instead.
-    if ($reqProps -contains 'Changes') {
-        throw [System.ArgumentException]::new(
-            "Request object must not contain property 'Changes'. 'Changes' has been removed from the request model. Model delta-like instructions explicitly under 'Intent' instead.",
-            'Request'
-        )
-    }
-
     # Create a data-only snapshot of the incoming request for deterministic exports.
     $requestSnapshot = [pscustomobject]@{
         PSTypeName     = 'IdLE.LifecycleRequestSnapshot'
