@@ -23,7 +23,7 @@ function Test-IdleWorkflowSchema {
             [System.Collections.Generic.List[string]] $ErrorList
         )
 
-        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RetryProfile')
+        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RetryProfile', 'Preconditions', 'OnPreconditionFalse', 'PreconditionEvent')
         foreach ($k in $Step.Keys) {
             if ($allowedStepKeys -notcontains $k) {
                 $ErrorList.Add("Unknown key '$k' in $StepPath. Allowed keys: $($allowedStepKeys -join ', ').")
@@ -53,6 +53,62 @@ function Test-IdleWorkflowSchema {
             }
             elseif ($retryProfile -notmatch '^[A-Za-z0-9_.-]{1,64}$') {
                 $ErrorList.Add("'$StepPath.RetryProfile' value '$retryProfile' is invalid. Must match pattern: ^[A-Za-z0-9_.-]{1,64}$")
+            }
+        }
+    }
+
+    # Helper: Validate Preconditions, OnPreconditionFalse, and PreconditionEvent fields on a step.
+    function Test-IdleWorkflowStepPreconditions {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [hashtable] $Step,
+
+            [Parameter(Mandatory)]
+            [string] $StepPath,
+
+            [Parameter(Mandatory)]
+            [AllowEmptyCollection()]
+            [System.Collections.Generic.List[string]] $ErrorList
+        )
+
+        if ($Step.ContainsKey('Preconditions') -and $null -ne $Step.Preconditions) {
+            if (-not ($Step.Preconditions -is [System.Collections.IEnumerable]) -or $Step.Preconditions -is [string]) {
+                $ErrorList.Add("'$StepPath.Preconditions' must be an array/list of condition hashtables.")
+            }
+            else {
+                $pcIdx = 0
+                foreach ($pc in @($Step.Preconditions)) {
+                    if ($pc -isnot [hashtable]) {
+                        $ErrorList.Add("'$StepPath.Preconditions[$pcIdx]' must be a hashtable (condition node).")
+                    }
+                    $pcIdx++
+                }
+            }
+        }
+
+        if ($Step.ContainsKey('OnPreconditionFalse') -and $null -ne $Step.OnPreconditionFalse) {
+            $opf = [string]$Step.OnPreconditionFalse
+            if ($opf -notin @('Blocked', 'Fail')) {
+                $ErrorList.Add("'$StepPath.OnPreconditionFalse' must be 'Blocked' or 'Fail'. Got: '$opf'.")
+            }
+        }
+
+        if ($Step.ContainsKey('PreconditionEvent') -and $null -ne $Step.PreconditionEvent) {
+            if ($Step.PreconditionEvent -isnot [hashtable]) {
+                $ErrorList.Add("'$StepPath.PreconditionEvent' must be a hashtable.")
+            }
+            else {
+                $pcEvt = $Step.PreconditionEvent
+                if (-not $pcEvt.ContainsKey('Type') -or [string]::IsNullOrWhiteSpace([string]$pcEvt.Type)) {
+                    $ErrorList.Add("'$StepPath.PreconditionEvent.Type' is required and must be a non-empty string.")
+                }
+                if (-not $pcEvt.ContainsKey('Message') -or [string]::IsNullOrWhiteSpace([string]$pcEvt.Message)) {
+                    $ErrorList.Add("'$StepPath.PreconditionEvent.Message' is required and must be a non-empty string.")
+                }
+                if ($pcEvt.ContainsKey('Data') -and $null -ne $pcEvt.Data -and $pcEvt.Data -isnot [hashtable]) {
+                    $ErrorList.Add("'$StepPath.PreconditionEvent.Data' must be a hashtable when provided.")
+                }
             }
         }
     }
@@ -120,6 +176,9 @@ function Test-IdleWorkflowSchema {
             # Validate RetryProfile
             Test-IdleWorkflowStepRetryProfile -Step $step -StepPath $stepPath -ErrorList $errors
 
+            # Validate Preconditions, OnPreconditionFalse, PreconditionEvent
+            Test-IdleWorkflowStepPreconditions -Step $step -StepPath $stepPath -ErrorList $errors
+
             $i++
         }
     }
@@ -170,6 +229,9 @@ function Test-IdleWorkflowSchema {
 
                 # Validate RetryProfile
                 Test-IdleWorkflowStepRetryProfile -Step $step -StepPath $stepPath -ErrorList $errors
+
+                # Validate Preconditions, OnPreconditionFalse, PreconditionEvent
+                Test-IdleWorkflowStepPreconditions -Step $step -StepPath $stepPath -ErrorList $errors
 
                 $i++
             }
