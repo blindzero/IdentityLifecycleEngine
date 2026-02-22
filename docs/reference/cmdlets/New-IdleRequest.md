@@ -134,7 +134,7 @@ Aliases:
 
 Required: False
 Position: 6
-Default value: None
+Default value: @{}
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
