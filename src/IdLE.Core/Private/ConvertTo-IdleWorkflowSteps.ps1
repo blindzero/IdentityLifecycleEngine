@@ -126,6 +126,59 @@ function ConvertTo-IdleWorkflowSteps {
             $null
         }
 
+        # Parse runtime preconditions (evaluated at execution time, not planning time).
+        $preconditions = if (Test-IdleWorkflowStepKey -Step $s -Key 'Preconditions') {
+            $rawPc = Get-IdlePropertyValue -Object $s -Name 'Preconditions'
+            if ($null -ne $rawPc) {
+                $pcList = @($rawPc)
+                $pcIdx = 0
+                foreach ($pc in $pcList) {
+                    if ($pc -isnot [hashtable]) {
+                        throw [System.ArgumentException]::new(
+                            ("Preconditions[{0}] on step '{1}' must be a hashtable (declarative condition object)." -f $pcIdx, $stepName),
+                            'Workflow'
+                        )
+                    }
+                    $pcErrors = Test-IdleConditionSchema -Condition $pc -StepName $stepName
+                    if (@($pcErrors).Count -gt 0) {
+                        throw [System.ArgumentException]::new(
+                            ("Invalid Preconditions[{0}] on step '{1}': {2}" -f $pcIdx, $stepName, ([string]::Join(' ', @($pcErrors)))),
+                            'Workflow'
+                        )
+                    }
+                    $pcIdx++
+                }
+                Copy-IdleDataObject -Value $pcList
+            }
+            else {
+                @()
+            }
+        }
+        else {
+            @()
+        }
+
+        $onPreconditionFalse = if (Test-IdleWorkflowStepKey -Step $s -Key 'OnPreconditionFalse') {
+            $opf = [string](Get-IdlePropertyValue -Object $s -Name 'OnPreconditionFalse')
+            if ($opf -notin @('Blocked', 'Fail')) {
+                throw [System.ArgumentException]::new(
+                    ("Step '{0}' has invalid OnPreconditionFalse value '{1}'. Allowed values: Blocked, Fail." -f $stepName, $opf),
+                    'Workflow'
+                )
+            }
+            $opf
+        }
+        else {
+            'Blocked'
+        }
+
+        $preconditionEvent = if (Test-IdleWorkflowStepKey -Step $s -Key 'PreconditionEvent') {
+            Copy-IdleDataObject -Value (Get-IdlePropertyValue -Object $s -Name 'PreconditionEvent')
+        }
+        else {
+            $null
+        }
+
         $normalizedSteps += [pscustomobject]@{
             PSTypeName           = 'IdLE.PlanStep'
             Name                 = $stepName
@@ -136,6 +189,9 @@ function ConvertTo-IdleWorkflowSteps {
             RequiresCapabilities = $requiresCaps
             Status               = $status
             RetryProfile         = $retryProfile
+            Preconditions        = $preconditions
+            OnPreconditionFalse  = $onPreconditionFalse
+            PreconditionEvent    = $preconditionEvent
         }
     }
 

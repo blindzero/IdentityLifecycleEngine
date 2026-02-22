@@ -269,6 +269,7 @@ function Invoke-IdlePlanObject {
     )
 
     $failed = $false
+    $blocked = $false
     $stepResults = @()
 
     $i = 0
@@ -309,6 +310,78 @@ function Invoke-IdlePlanObject {
 
             $i++
             continue
+        }
+
+        # Evaluate runtime preconditions (read-only guards) before invoking step action.
+        $stepPreconditions = Get-IdlePropertyValue -Object $step -Name 'Preconditions'
+        if ($null -ne $stepPreconditions -and @($stepPreconditions).Count -gt 0) {
+            $preconditionPassed = $true
+            foreach ($pc in @($stepPreconditions)) {
+                if ($pc -is [hashtable]) {
+                    if (-not (Test-IdleCondition -Condition $pc -Context $context)) {
+                        $preconditionPassed = $false
+                        break
+                    }
+                }
+            }
+
+            if (-not $preconditionPassed) {
+                $onPreconditionFalse = [string](Get-IdlePropertyValue -Object $step -Name 'OnPreconditionFalse')
+                if ([string]::IsNullOrEmpty($onPreconditionFalse)) { $onPreconditionFalse = 'Blocked' }
+
+                $stepOutcomeStatus = if ($onPreconditionFalse -eq 'Fail') { 'Failed' } else { 'Blocked' }
+
+                # Emit the optional structured precondition event if configured.
+                $preconditionEvent = Get-IdlePropertyValue -Object $step -Name 'PreconditionEvent'
+                if ($null -ne $preconditionEvent) {
+                    $pcEventType = [string](Get-IdlePropertyValue -Object $preconditionEvent -Name 'Type')
+                    $pcEventMessage = [string](Get-IdlePropertyValue -Object $preconditionEvent -Name 'Message')
+                    $pcEventData = Get-IdlePropertyValue -Object $preconditionEvent -Name 'Data'
+                    if ([string]::IsNullOrEmpty($pcEventType)) { $pcEventType = 'PreconditionFailed' }
+                    if ([string]::IsNullOrEmpty($pcEventMessage)) { $pcEventMessage = "Precondition failed for step '$stepName'." }
+                    $context.EventSink.WriteEvent(
+                        $pcEventType,
+                        $pcEventMessage,
+                        $stepName,
+                        $pcEventData
+                    )
+                }
+
+                $stepResults += [pscustomobject]@{
+                    PSTypeName = 'IdLE.StepResult'
+                    Name       = $stepName
+                    Type       = $stepType
+                    Status     = $stepOutcomeStatus
+                    Attempts   = 0
+                }
+
+                if ($stepOutcomeStatus -eq 'Blocked') {
+                    $blocked = $true
+                    $context.EventSink.WriteEvent(
+                        'StepBlocked',
+                        "Step '$stepName' blocked by precondition.",
+                        $stepName,
+                        @{
+                            StepType = $stepType
+                            Index    = $i
+                        }
+                    )
+                }
+                else {
+                    $failed = $true
+                    $context.EventSink.WriteEvent(
+                        'StepFailed',
+                        "Step '$stepName' failed precondition check.",
+                        $stepName,
+                        @{
+                            StepType = $stepType
+                            Index    = $i
+                        }
+                    )
+                }
+
+                break
+            }
         }
 
         $context.EventSink.WriteEvent(
@@ -437,7 +510,7 @@ function Invoke-IdlePlanObject {
         $i++
     }
 
-    $runStatus = if ($failed) { 'Failed' } else { 'Completed' }
+    $runStatus = if ($blocked) { 'Blocked' } elseif ($failed) { 'Failed' } else { 'Completed' }
 
     # Public result contract: the OnFailure section is always present.
     $onFailure = [pscustomobject]@{

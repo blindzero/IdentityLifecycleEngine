@@ -99,7 +99,24 @@ Hands-on: [Walkthrough 5: Providers and authentication](../use/walkthrough/05-pr
 ### Declarative conditions
 
 Workflows can include declarative conditions (data-only) to decide whether steps should run.
+Conditions are evaluated at **plan build time** to produce a deterministic, auditable plan.
 For details, use the Reference workflow documentation.
+
+### Runtime preconditions
+
+Steps can also include **runtime preconditions** — read-only guards evaluated immediately before
+each step executes. This addresses the safety gap when time passes between plan creation and
+execution (e.g., external state can change).
+
+- `Preconditions`: array of declarative condition nodes (same schema as `Condition`) evaluated at execution time.
+- `OnPreconditionFalse`: `Blocked` (default) or `Fail` — controls the outcome when a precondition fails.
+- `PreconditionEvent`: optional structured event (with `Type`, `Message`, `Data`) emitted when a precondition fails.
+
+When a precondition fails with `Blocked`, execution stops immediately and the run status is `Blocked`.
+Subsequent steps are not executed. This enables policy-driven safety guards (for example, BYOD device
+wipe requirements) without making the planning phase non-deterministic.
+
+For details and examples, see [Use → Runtime Preconditions](../use/preconditions.md).
 
 ---
 
@@ -127,6 +144,15 @@ Hands-on: [Use → Plan Export](../use/plan-export.md).
 Executing a plan runs the steps in order and produces a structured result.
 
 Hands-on: [Walkthrough 4: Invoke and results](../use/walkthrough/04-invoke-results.md).
+
+### Step outcomes
+
+Steps produce one of the following outcome statuses:
+
+- `Completed` — step ran successfully.
+- `Failed` — step encountered an unrecoverable error; execution stops.
+- `NotApplicable` — planning-time condition was not met; step is skipped.
+- `Blocked` — a runtime precondition failed; execution stops immediately (policy guard).
 
 ### Eventing
 

@@ -23,7 +23,7 @@ function Test-IdleWorkflowSchema {
             [System.Collections.Generic.List[string]] $ErrorList
         )
 
-        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RetryProfile')
+        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RetryProfile', 'Preconditions', 'OnPreconditionFalse', 'PreconditionEvent')
         foreach ($k in $Step.Keys) {
             if ($allowedStepKeys -notcontains $k) {
                 $ErrorList.Add("Unknown key '$k' in $StepPath. Allowed keys: $($allowedStepKeys -join ', ').")
@@ -115,6 +115,37 @@ function Test-IdleWorkflowSchema {
             # 'With' is step parameter bag (data-only). Detailed validation comes with step metadata later.
             if ($step.ContainsKey('With') -and $null -ne $step.With -and $step.With -isnot [hashtable]) {
                 $errors.Add("'$stepPath.With' must be a hashtable (step parameters).")
+            }
+
+            # Validate Preconditions (optional array of condition hashtables).
+            if ($step.ContainsKey('Preconditions') -and $null -ne $step.Preconditions) {
+                if ($step.Preconditions -isnot [System.Collections.IEnumerable] -or $step.Preconditions -is [string]) {
+                    $errors.Add("'$stepPath.Preconditions' must be an array/list of condition hashtables.")
+                }
+                else {
+                    $pi = 0
+                    foreach ($pc in @($step.Preconditions)) {
+                        if ($null -eq $pc -or $pc -isnot [hashtable]) {
+                            $errors.Add("'$stepPath.Preconditions[$pi]' must be a hashtable (declarative condition object).")
+                        }
+                        $pi++
+                    }
+                }
+            }
+
+            # Validate OnPreconditionFalse (optional string, must be 'Blocked' or 'Fail').
+            if ($step.ContainsKey('OnPreconditionFalse') -and $null -ne $step.OnPreconditionFalse) {
+                $opf = [string]$step.OnPreconditionFalse
+                if ($opf -notin @('Blocked', 'Fail')) {
+                    $errors.Add("'$stepPath.OnPreconditionFalse' must be 'Blocked' or 'Fail'.")
+                }
+            }
+
+            # Validate PreconditionEvent (optional hashtable).
+            if ($step.ContainsKey('PreconditionEvent') -and $null -ne $step.PreconditionEvent) {
+                if ($step.PreconditionEvent -isnot [hashtable]) {
+                    $errors.Add("'$stepPath.PreconditionEvent' must be a hashtable.")
+                }
             }
 
             # Validate RetryProfile
