@@ -40,7 +40,7 @@ Add these optional properties to a workflow step definition:
 | Property | Type | Required | Description |
 |---|---|---|---|
 | `Preconditions` | `Array[Condition]` | No | One or more condition nodes (same DSL as `Condition`). All must pass for the step to execute. |
-| `OnPreconditionFalse` | `String` | No | Behavior when a precondition fails. `Blocked` (default) or `Fail`. |
+| `OnPreconditionFalse` | `String` | No | Behavior when a precondition fails. `Blocked` (default), `Fail`, or `Continue`. |
 | `PreconditionEvent` | `Hashtable` | No | Structured event emitted when a precondition fails. |
 
 ### PreconditionEvent schema
@@ -124,14 +124,15 @@ resolves identically to `Request.Intent.Department`).
 
 ---
 
-## Blocked vs. Failed outcomes
+## Blocked vs. Failed vs. Continue outcomes
 
-| Outcome | `OnPreconditionFalse` | Meaning | OnFailureSteps triggered? |
-|---|---|---|---|
-| `Blocked` | `Blocked` (default) | A policy or precondition gate stopped execution. Not a technical failure. | **No** |
-| `Failed` | `Fail` | Treated as a genuine failure (same semantics as a step error). | **Yes** |
+| Outcome | `OnPreconditionFalse` | Meaning | Stops execution? | OnFailureSteps triggered? |
+|---|---|---|---|---|
+| `Blocked` | `Blocked` (default) | A policy or precondition gate stopped execution. Not a technical failure. | **Yes** | **No** |
+| `Failed` | `Fail` | Treated as a genuine failure (same semantics as a step error). | **Yes** | **Yes** |
+| `PreconditionSkipped` | `Continue` | Emits observability events and skips the step; subsequent steps run normally. | **No** | **No** |
 
-### Execution result
+### Execution result — Blocked
 
 When a step is `Blocked`:
 
@@ -141,11 +142,27 @@ When a step is `Blocked`:
 - A `StepPreconditionFailed` engine event is always emitted.
 - If `PreconditionEvent` is configured, an additional event of the declared `Type` is also emitted.
 
+### Execution result — Fail
+
 When `OnPreconditionFalse = 'Fail'`:
 
 - `result.Status` is `'Failed'`.
 - `result.Steps[n].Status` is `'Failed'` with `Error = 'Precondition check failed.'`.
 - `OnFailureSteps` run (same behavior as any other step failure).
+
+### Execution result — Continue
+
+When `OnPreconditionFalse = 'Continue'`:
+
+- `result.Status` is `'Completed'` (unless a subsequent step fails for another reason).
+- `result.Steps[n].Status` is `'PreconditionSkipped'` for the skipped step.
+- Subsequent steps execute as normal.
+- A `StepPreconditionFailed` engine event is always emitted for observability.
+- If `PreconditionEvent` is configured, an additional event of the declared `Type` is also emitted.
+
+Use `Continue` when a precondition failure is advisory rather than blocking — for example, to emit
+an audit event noting that an optional step was skipped due to a policy condition, while allowing
+the rest of the workflow to complete.
 
 ---
 

@@ -319,9 +319,9 @@ function Invoke-IdlePlanObject {
         }
 
         # Runtime Preconditions: evaluated immediately before step execution (online, not planning-time).
-        # If any precondition fails, execution stops immediately.
-        # Blocked = policy/precondition gate (does not trigger OnFailureSteps).
-        # Fail = treated as a technical failure (triggers OnFailureSteps).
+        # Blocked = policy/precondition gate (does not trigger OnFailureSteps). Stops execution.
+        # Fail    = treated as a technical failure (triggers OnFailureSteps). Stops execution.
+        # Continue = emits events but skips the step and continues to the next step.
         $stepPreconditions = Get-IdlePropertyValue -Object $step -Name 'Preconditions'
         if ($null -ne $stepPreconditions -and @($stepPreconditions).Count -gt 0) {
             $preconditionPassed = $true
@@ -371,6 +371,18 @@ function Invoke-IdlePlanObject {
                         Error      = 'Precondition check failed.'
                         Attempts   = 0
                     }
+                }
+                elseif ($onPreconditionFalse -eq 'Continue') {
+                    # Emit events and skip the step; continue to subsequent steps.
+                    $stepResults += [pscustomobject]@{
+                        PSTypeName = 'IdLE.StepResult'
+                        Name       = $stepName
+                        Type       = $stepType
+                        Status     = 'PreconditionSkipped'
+                        Attempts   = 0
+                    }
+                    $i++
+                    continue
                 }
                 else {
                     # Default: Blocked. Does not trigger OnFailureSteps.

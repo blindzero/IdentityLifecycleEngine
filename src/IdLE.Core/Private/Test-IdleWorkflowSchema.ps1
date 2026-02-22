@@ -89,8 +89,8 @@ function Test-IdleWorkflowSchema {
 
         if ($Step.ContainsKey('OnPreconditionFalse') -and $null -ne $Step.OnPreconditionFalse) {
             $opf = [string]$Step.OnPreconditionFalse
-            if ($opf -notin @('Blocked', 'Fail')) {
-                $ErrorList.Add("'$StepPath.OnPreconditionFalse' must be 'Blocked' or 'Fail'. Got: '$opf'.")
+            if ($opf -notin @('Blocked', 'Fail', 'Continue')) {
+                $ErrorList.Add("'$StepPath.OnPreconditionFalse' must be 'Blocked', 'Fail', or 'Continue'. Got: '$opf'.")
             }
         }
 

@@ -281,6 +281,103 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
             }
         }
 
+        Context 'Failing precondition - Continue' {
+            It 'emits events, marks step as PreconditionSkipped, and continues execution of subsequent steps' {
+                $wfPath = Join-Path -Path $TestDrive -ChildPath 'continue-precondition.psd1'
+                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Continue Precondition'
+  LifecycleEvent = 'Leaver'
+  Steps          = @(
+    @{
+      Name                = 'Step1'
+      Type                = 'IdLE.Step.ContinuePrecondition'
+      Preconditions       = @(
+        @{
+          Equals = @{
+            Path  = 'Plan.LifecycleEvent'
+            Value = 'Joiner'
+          }
+        }
+      )
+      OnPreconditionFalse = 'Continue'
+    }
+    @{
+      Name = 'Step2'
+      Type = 'IdLE.Step.SecondStep'
+    }
+  )
+}
+'@
+                $req      = New-IdleRequest -LifecycleEvent 'Leaver'
+                $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ContinuePrecondition', 'IdLE.Step.SecondStep') }
+                $providers = @{
+                    StepRegistry = @{
+                        'IdLE.Step.ContinuePrecondition' = 'Invoke-IdlePreconditionTestNoopStep'
+                        'IdLE.Step.SecondStep'           = 'Invoke-IdlePreconditionTestSecondStep'
+                    }
+                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ContinuePrecondition', 'IdLE.Step.SecondStep')
+                }
+
+                $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+                # Overall run completes successfully
+                $result.Status | Should -Be 'Completed'
+                # Step1 is skipped, Step2 runs
+                $result.Steps.Count | Should -Be 2
+                $result.Steps[0].Name   | Should -Be 'Step1'
+                $result.Steps[0].Status | Should -Be 'PreconditionSkipped'
+                $result.Steps[1].Name   | Should -Be 'Step2'
+                $result.Steps[1].Status | Should -Be 'Completed'
+                # Engine event is emitted for observability
+                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 1
+                # Subsequent step ran
+                @($result.Events | Where-Object Type -eq 'SecondStepRan').Count | Should -Be 1
+            }
+
+            It 'emits PreconditionEvent when Continue mode is used' {
+                $wfPath = Join-Path -Path $TestDrive -ChildPath 'continue-precondition-event.psd1'
+                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
+@{
+  Name           = 'Continue With Event'
+  LifecycleEvent = 'Leaver'
+  Steps          = @(
+    @{
+      Name                = 'Step1'
+      Type                = 'IdLE.Step.ContinuePreconditionEvent'
+      Preconditions       = @(
+        @{
+          Equals = @{
+            Path  = 'Plan.LifecycleEvent'
+            Value = 'Joiner'
+          }
+        }
+      )
+      OnPreconditionFalse = 'Continue'
+      PreconditionEvent   = @{
+        Type    = 'PolicyAdvisory'
+        Message = 'Step skipped due to policy advisory'
+        Data    = @{ Hint = 'BYOD check not met' }
+      }
+    }
+  )
+}
+'@
+                $req      = New-IdleRequest -LifecycleEvent 'Leaver'
+                $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ContinuePreconditionEvent') }
+                $providers = @{
+                    StepRegistry = @{ 'IdLE.Step.ContinuePreconditionEvent' = 'Invoke-IdlePreconditionTestNoopStep' }
+                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ContinuePreconditionEvent')
+                }
+
+                $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+                $result.Status | Should -Be 'Completed'
+                $result.Steps[0].Status | Should -Be 'PreconditionSkipped'
+                ($result.Events | Where-Object Type -eq 'PolicyAdvisory').Message | Should -Be 'Step skipped due to policy advisory'
+            }
+        }
+
         Context 'Blocked does not trigger OnFailureSteps' {
             It 'does not run OnFailureSteps when a step is Blocked' {
                 $wfPath = Join-Path -Path $TestDrive -ChildPath 'blocked-no-onfailure.psd1'
