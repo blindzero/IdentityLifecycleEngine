@@ -70,10 +70,19 @@ function New-IdlePlanObject {
     # Resolvers populate Request.Context.* so that conditions can reference resolved data.
     $workflowContextResolvers = Get-IdlePropertyValue -Object $workflow -Name 'ContextResolvers'
     if ($null -ne $workflowContextResolvers -and @($workflowContextResolvers).Count -gt 0) {
+        # Ensure Request.Context exists and is a writable hashtable before invoking resolvers.
+        if ($reqProps -notcontains 'Context') {
+            $Request | Add-Member -MemberType NoteProperty -Name 'Context' -Value @{} -Force
+        }
+        elseif ($null -eq $Request.Context) {
+            $Request.Context = @{}
+        }
+
         Invoke-IdleContextResolvers -Resolvers @($workflowContextResolvers) -Providers $Providers -Request $Request
     }
 
     # Create a data-only snapshot AFTER resolvers have run so that resolved context is captured.
+    # Re-read Context separately since resolvers may have added it to the request dynamically.
     $requestSnapshot = [pscustomobject]@{
         PSTypeName     = 'IdLE.LifecycleRequestSnapshot'
         LifecycleEvent = ConvertTo-NullIfEmptyString -Value ([string]$Request.LifecycleEvent)
@@ -81,7 +90,7 @@ function New-IdlePlanObject {
         Actor          = if ($reqProps -contains 'Actor') { ConvertTo-NullIfEmptyString -Value ([string]$Request.Actor) } else { $null }
         IdentityKeys   = if ($reqProps -contains 'IdentityKeys') { Copy-IdleDataObject -Value $Request.IdentityKeys } else { $null }
         Intent         = if ($reqProps -contains 'Intent') { Copy-IdleDataObject -Value $Request.Intent } else { $null }
-        Context        = if ($reqProps -contains 'Context') { Copy-IdleDataObject -Value $Request.Context } else { $null }
+        Context        = if ($null -ne $Request.PSObject.Properties['Context']) { Copy-IdleDataObject -Value $Request.Context } else { $null }
     }
 
     # Create the plan object (planning artifact).

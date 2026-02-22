@@ -15,7 +15,10 @@ function Invoke-IdleContextResolvers {
     - Each capability writes to a fixed, predefined path under Request.Context.
       The output path is not user-configurable.
     - Provider is selected by alias when 'Provider' is specified; otherwise the first
-      provider that advertises the capability is used.
+      provider (sorted by alias) that advertises the capability is used; ambiguity when
+      multiple providers match causes a fail-fast error.
+    - Auth sessions are supported via With.AuthSessionName / With.AuthSessionOptions,
+      using the AuthSessionBroker in Providers (same pattern as step execution).
 
     This function mutates Request.Context in place so that subsequent condition evaluation
     can reference the resolved data via 'Request.Context.*' paths.
@@ -25,6 +28,7 @@ function Invoke-IdleContextResolvers {
 
     .PARAMETER Providers
     Provider map passed to the plan (same format as -Providers on New-IdlePlanObject).
+    May contain an AuthSessionBroker entry for auth session acquisition.
 
     .PARAMETER Request
     The lifecycle request object. Request.Context is mutated in place.
@@ -96,10 +100,47 @@ function Invoke-IdleContextResolvers {
             $null
         }
 
-        $provider = Select-IdleResolverProvider -Capability $capability -ProviderAlias $providerAlias -Providers $Providers -ResolverPath $resolverPath
+        $resolvedProviderAlias = Select-IdleResolverProviderAlias -Capability $capability -ProviderAlias $providerAlias -Providers $Providers -ResolverPath $resolverPath
+
+        # --- Auth session (optional) ---
+        # Supports With.AuthSessionName + With.AuthSessionOptions using the same pattern as steps.
+        $authSession = $null
+        $authBroker = Get-IdleAuthSessionBroker -Providers $Providers
+
+        if ($with -is [System.Collections.IDictionary] -and $with.Contains('AuthSessionName')) {
+            $sessionName = [string]$with.AuthSessionName
+            $sessionOptions = if ($with.Contains('AuthSessionOptions')) { $with.AuthSessionOptions } else { $null }
+            if ($null -ne $sessionOptions -and $sessionOptions -isnot [hashtable]) {
+                throw [System.ArgumentException]::new("$resolverPath 'With.AuthSessionOptions' must be a hashtable.", 'Workflow')
+            }
+
+            if ($null -eq $authBroker) {
+                throw [System.ArgumentException]::new(
+                    "$resolverPath specifies With.AuthSessionName '$sessionName' but no AuthSessionBroker was found in Providers.",
+                    'Providers'
+                )
+            }
+
+            $authSession = $authBroker.AcquireAuthSession($sessionName, $sessionOptions)
+        }
+        elseif ($null -ne $authBroker) {
+            # No explicit session name - try default acquisition for providers that require auth
+            try {
+                $authSession = $authBroker.AcquireAuthSession('', $null)
+            }
+            catch {
+                $authSession = $null
+            }
+        }
 
         # --- Dispatch ---
-        $result = Invoke-IdleResolverCapabilityDispatch -Capability $capability -Provider $provider -With $with -ResolverPath $resolverPath
+        $result = Invoke-IdleResolverCapabilityDispatch `
+            -Capability $capability `
+            -ProviderAlias $resolvedProviderAlias `
+            -Providers $Providers `
+            -With $with `
+            -AuthSession $authSession `
+            -ResolverPath $resolverPath
 
         # --- Write to predefined Request.Context path ---
         $contextSubPath = Get-IdleCapabilityContextPath -Capability $capability
@@ -109,14 +150,39 @@ function Invoke-IdleContextResolvers {
     }
 }
 
-function Select-IdleResolverProvider {
+function Get-IdleAuthSessionBroker {
     <#
     .SYNOPSIS
-    Selects the appropriate provider for a context resolver capability.
+    Extracts the AuthSessionBroker from a Providers map (if present).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Providers
+    )
+
+    if ($null -eq $Providers -or -not ($Providers -is [System.Collections.IDictionary])) {
+        return $null
+    }
+
+    if ($Providers.ContainsKey('AuthSessionBroker')) {
+        return $Providers['AuthSessionBroker']
+    }
+
+    return $null
+}
+
+function Select-IdleResolverProviderAlias {
+    <#
+    .SYNOPSIS
+    Selects the provider alias for a context resolver capability.
 
     .DESCRIPTION
-    If ProviderAlias is given, looks up that key in Providers.
-    Otherwise, selects the first provider that advertises the capability.
+    If ProviderAlias is given, validates it exists in Providers and returns it.
+    Otherwise, finds all providers advertising the capability, sorts them by alias
+    for determinism, and returns the alias if exactly one matches. Throws an
+    explicit ambiguity error when multiple providers match.
     #>
     [CmdletBinding()]
     param(
@@ -146,25 +212,41 @@ function Select-IdleResolverProvider {
             )
         }
 
-        return $Providers[$ProviderAlias]
+        return $ProviderAlias
     }
 
-    # Auto-select: find first provider advertising the capability
-    $providerInstances = @(Get-IdleProvidersFromMap -Providers $Providers)
+    # Auto-select: collect all providers advertising the capability (sorted by alias for determinism)
+    $normalizedCapability = ConvertTo-IdleNormalizedCapability -Capability $Capability
+    $matchingAliases = [System.Collections.Generic.List[string]]::new()
 
-    foreach ($p in $providerInstances) {
-        if ($null -eq $p) { continue }
-        if (-not ($p.PSObject.Methods.Name -contains 'GetCapabilities')) { continue }
+    if ($null -ne $Providers -and $Providers -is [System.Collections.IDictionary]) {
+        $sortedAliases = @($Providers.Keys | Sort-Object)
+        foreach ($alias in $sortedAliases) {
+            $p = $Providers[$alias]
+            if ($null -eq $p) { continue }
+            if (-not ($p -is [psobject])) { continue }
+            if (-not ($p.PSObject.Methods.Name -contains 'GetCapabilities')) { continue }
 
-        $caps = $p.GetCapabilities()
-        if ($null -eq $caps) { continue }
+            $caps = $p.GetCapabilities()
+            if ($null -eq $caps) { continue }
 
-        $normalized = @(ConvertTo-IdleCapabilityList -Capabilities @($caps) -Normalize -Unique)
-        $normalizedCapability = ConvertTo-IdleNormalizedCapability -Capability $Capability
-
-        if ($normalized -contains $normalizedCapability) {
-            return $p
+            $normalized = @(ConvertTo-IdleCapabilityList -Capabilities @($caps) -Normalize -Unique)
+            if ($normalized -contains $normalizedCapability) {
+                $matchingAliases.Add($alias)
+            }
         }
+    }
+
+    if ($matchingAliases.Count -eq 1) {
+        return $matchingAliases[0]
+    }
+
+    if ($matchingAliases.Count -gt 1) {
+        $aliasList = $matchingAliases -join ', '
+        throw [System.ArgumentException]::new(
+            "${ResolverPath}: Multiple providers advertise capability '$Capability': $aliasList. Specify 'Provider' in the resolver to disambiguate.",
+            'Providers'
+        )
     }
 
     throw [System.ArgumentException]::new(
@@ -180,7 +262,8 @@ function Invoke-IdleResolverCapabilityDispatch {
 
     .DESCRIPTION
     Maps the capability identifier to the appropriate provider method and invokes it
-    with parameters extracted from the With hashtable.
+    with parameters extracted from the With hashtable. Passes AuthSession to methods
+    that support it (backwards-compatible).
     #>
     [CmdletBinding()]
     param(
@@ -189,17 +272,27 @@ function Invoke-IdleResolverCapabilityDispatch {
         [string] $Capability,
 
         [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $ProviderAlias,
+
+        [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Provider,
+        [object] $Providers,
 
         [Parameter()]
         [AllowNull()]
         [System.Collections.IDictionary] $With,
 
+        [Parameter()]
+        [AllowNull()]
+        [object] $AuthSession,
+
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
         [string] $ResolverPath
     )
+
+    $provider = $Providers[$ProviderAlias]
 
     switch ($Capability) {
         'IdLE.Entitlement.List' {
@@ -212,13 +305,18 @@ function Invoke-IdleResolverCapabilityDispatch {
 
             $identityKey = [string]$With.IdentityKey
 
-            if (-not ($Provider.PSObject.Methods.Name -contains 'ListEntitlements')) {
+            $method = $provider.PSObject.Methods['ListEntitlements']
+            if ($null -eq $method) {
                 throw [System.InvalidOperationException]::new(
-                    "${ResolverPath}: Provider does not implement 'ListEntitlements', which is required for capability 'IdLE.Entitlement.List'."
+                    "${ResolverPath}: Provider '$ProviderAlias' does not implement 'ListEntitlements', which is required for capability 'IdLE.Entitlement.List'."
                 )
             }
 
-            return @($Provider.ListEntitlements($identityKey))
+            $supportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $method -ParameterName 'AuthSession'
+            if ($supportsAuthSession -and $null -ne $AuthSession) {
+                return @($provider.ListEntitlements($identityKey, $AuthSession))
+            }
+            return @($provider.ListEntitlements($identityKey))
         }
 
         'IdLE.Identity.Read' {
@@ -231,13 +329,18 @@ function Invoke-IdleResolverCapabilityDispatch {
 
             $identityKey = [string]$With.IdentityKey
 
-            if (-not ($Provider.PSObject.Methods.Name -contains 'GetIdentity')) {
+            $method = $provider.PSObject.Methods['GetIdentity']
+            if ($null -eq $method) {
                 throw [System.InvalidOperationException]::new(
-                    "${ResolverPath}: Provider does not implement 'GetIdentity', which is required for capability 'IdLE.Identity.Read'."
+                    "${ResolverPath}: Provider '$ProviderAlias' does not implement 'GetIdentity', which is required for capability 'IdLE.Identity.Read'."
                 )
             }
 
-            return $Provider.GetIdentity($identityKey)
+            $supportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $method -ParameterName 'AuthSession'
+            if ($supportsAuthSession -and $null -ne $AuthSession) {
+                return $provider.GetIdentity($identityKey, $AuthSession)
+            }
+            return $provider.GetIdentity($identityKey)
         }
 
         default {
@@ -254,8 +357,9 @@ function Set-IdleContextValue {
     Sets a value at a dotted path within a hashtable (the Request.Context).
 
     .DESCRIPTION
-    Navigates the dotted path, creating intermediate hashtables as needed,
-    and assigns the value at the leaf node.
+    Navigates the dotted path, creating new hashtables for missing intermediate nodes,
+    and assigns the value at the leaf. Throws if an existing intermediate node is not
+    a dictionary (prevents silently discarding host-provided context).
     #>
     [CmdletBinding()]
     param(
@@ -285,8 +389,14 @@ function Set-IdleContextValue {
         $seg = $segments[$idx]
         $existing = if ($current -is [System.Collections.IDictionary] -and $current.Contains($seg)) { $current[$seg] } else { $null }
 
-        if ($null -eq $existing -or -not ($existing -is [System.Collections.IDictionary])) {
+        if ($null -eq $existing) {
+            # Create a new intermediate hashtable when there is no existing value.
             $current[$seg] = @{}
+        }
+        elseif (-not ($existing -is [System.Collections.IDictionary])) {
+            throw [System.InvalidOperationException]::new(
+                ("Cannot set context path '{0}': intermediate node '{1}' is of type '{2}', expected a hashtable. Use a unique resolver output path to avoid conflicts with existing context data." -f $Path, $seg, $existing.GetType().FullName)
+            )
         }
 
         $current = $current[$seg]

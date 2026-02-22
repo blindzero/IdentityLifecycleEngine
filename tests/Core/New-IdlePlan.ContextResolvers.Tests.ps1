@@ -281,4 +281,125 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $entitlements[0].Id | Should -Be 'tmpl-grp'
         }
     }
+
+    Context 'Auth session threading' {
+        It 'passes AuthSession to ListEntitlements when provider method supports it' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-with-auth-session.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            # Provider that captures the auth session passed to ListEntitlements
+            $provider = [pscustomobject]@{ CapturedSession = $null }
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+                return @('IdLE.Entitlement.List')
+            }
+            $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param([string]$IdentityKey, [object]$AuthSession)
+                $this.CapturedSession = $AuthSession
+                return @(@{ Kind = 'Group'; Id = 'auth-grp' })
+            }
+
+            $broker = New-IdleAuthSessionBroker -AuthSessionType 'OAuth' -DefaultAuthSession 'test-token'
+
+            $providers = @{
+                Identity          = $provider
+                AuthSessionBroker = $broker
+                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+            # Auth session was passed through to the provider
+            $provider.CapturedSession | Should -Not -BeNullOrEmpty
+            $entitlements = @($plan.Request.Context.Identity.Entitlements)
+            $entitlements.Count | Should -Be 1
+            $entitlements[0].Id | Should -Be 'auth-grp'
+        }
+    }
+
+    Context 'Provider ambiguity detection' {
+        It 'fails when multiple providers support the same capability and Provider is not specified' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-ambiguous-provider.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $makeProvider = {
+                $p = [pscustomobject]@{}
+                $p | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+                $p | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value { param([string]$IdentityKey) return @() }
+                return $p
+            }
+
+            $providers = @{
+                Provider1    = & $makeProvider
+                Provider2    = & $makeProvider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage "*Multiple providers*disambiguate*"
+        }
+    }
+
+    Context 'Context type conflict detection' {
+        It 'fails when an intermediate context node is a non-dictionary type' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-context-type-conflict.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{
+                # Pre-populate Identity as a scalar string, conflicting with the predefined path
+                Identity = 'some-scalar-value'
+            }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{}
+                    Entitlements = @(@{ Kind = 'Group'; Id = 'g1' })
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage "*intermediate node*Identity*"
+        }
+    }
+
+    Context 'Request.Context guard in New-IdlePlanObject' {
+        It 'creates Request.Context when the request has no Context property' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-condition.psd1'
+
+            # Create a minimal request object without Context
+            $req = [pscustomobject]@{
+                LifecycleEvent = 'Joiner'
+                CorrelationId  = [System.Guid]::NewGuid().ToString()
+                IdentityKeys   = @{ Id = 'user1' }
+            }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{}
+                    Entitlements = @(@{ Kind = 'Group'; Id = 'g1' })
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            # Should not throw even though request has no Context property
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+            $plan.Request.Context | Should -Not -BeNullOrEmpty
+        }
+    }
 }

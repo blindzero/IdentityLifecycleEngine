@@ -178,8 +178,10 @@ function Test-IdleWorkflowSchema {
 
     # ContextResolvers are optional. If present, validate each resolver entry.
     if ($Workflow.ContainsKey('ContextResolvers') -and $null -ne $Workflow.ContextResolvers) {
-        if ($Workflow.ContextResolvers -isnot [System.Collections.IEnumerable] -or $Workflow.ContextResolvers -is [string]) {
-            $errors.Add("'ContextResolvers' must be an array/list of resolver hashtables.")
+        if ($Workflow.ContextResolvers -isnot [System.Collections.IEnumerable] -or
+            $Workflow.ContextResolvers -is [string] -or
+            $Workflow.ContextResolvers -is [hashtable]) {
+            $errors.Add("'ContextResolvers' must be an array/list of resolver hashtables, not a single hashtable.")
         }
         else {
             # 'To' is not user-configurable; each capability has a predefined output path.
