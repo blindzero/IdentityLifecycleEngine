@@ -149,10 +149,19 @@ function ConvertTo-IdlePlanExportObject {
     # Enforce per-field size limits on the redacted snapshot fields.
     # identityKeys, intent and context are each bounded to $snapshotFieldSizeLimit bytes (serialized UTF-8).
     # Fields that exceed the limit are replaced with a deterministic truncation marker.
-    if ($null -ne $redactedRequestInput -and $redactedRequestInput -is [System.Collections.IDictionary]) {
+    # Handle both IDictionary (hashtable / ordered) and PSCustomObject shapes.
+    if ($null -ne $redactedRequestInput) {
         foreach ($fieldName in @('identityKeys', 'intent', 'context')) {
-            if ($redactedRequestInput.Contains($fieldName)) {
-                $redactedRequestInput[$fieldName] = Limit-IdleSnapshotField -Value $redactedRequestInput[$fieldName]
+            if ($redactedRequestInput -is [System.Collections.IDictionary]) {
+                if ($redactedRequestInput.Contains($fieldName)) {
+                    $redactedRequestInput[$fieldName] = Limit-IdleSnapshotField -Value $redactedRequestInput[$fieldName]
+                }
+            }
+            else {
+                $prop = $redactedRequestInput.PSObject.Properties[$fieldName]
+                if ($null -ne $prop) {
+                    $prop.Value = Limit-IdleSnapshotField -Value $prop.Value
+                }
             }
         }
     }

@@ -167,6 +167,32 @@ Describe 'RequestSnapshot - plan export contract' {
                 $marker = $json.request.input.intent
                 $marker | Should -Match '^\[TRUNCATED - \d+ bytes\]$'
             }
+
+            It 'enforces size limits when request.input is a PSCustomObject (not a hashtable)' {
+                # Verifies the fix for the path where Copy-IdleRedactedObject returns a PSCustomObject
+                # (e.g. when the caller provides Request.Input as an already-built PSCustomObject).
+                $largeString = 'x' * 70000
+                $plan = [pscustomobject]@{
+                    PSTypeName = 'IdLE.Plan'
+                    Request    = [pscustomobject]@{
+                        PSTypeName    = 'IdLE.LifecycleRequest'
+                        Type          = 'Joiner'
+                        CorrelationId = 'corr-pscobj-01'
+                        Actor         = $null
+                        Input         = [pscustomobject]@{
+                            identityKeys = [pscustomobject]@{ userId = 'jdoe' }
+                            intent       = [pscustomobject]@{ bigField = $largeString }
+                            context      = [pscustomobject]@{}
+                        }
+                    }
+                    Steps          = @()
+                    OnFailureSteps = @()
+                }
+
+                $json = Export-IdlePlanObject -Plan $plan | ConvertFrom-Json
+
+                $json.request.input.intent | Should -BeLike '*TRUNCATED*bytes*'
+            }
         }
     }
 }
