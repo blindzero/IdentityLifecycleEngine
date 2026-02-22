@@ -39,10 +39,10 @@ AfterAll {
 
 Describe 'Template Substitution' {
     Context 'Single placeholder substitution' {
-        It 'resolves a simple Request.Input placeholder' {
+        It 'resolves a simple Request.Intent placeholder' {
             $wfPath = Get-TemplateTestFixture 'template-simple'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{
                 UserPrincipalName = 'jdoe@example.com'
             }
             $providers = @{
@@ -57,10 +57,10 @@ Describe 'Template Substitution' {
             $plan.Steps[0].With.UserName | Should -Be 'jdoe@example.com'
         }
 
-        It 'resolves Request.DesiredState placeholder directly' {
-            $wfPath = Get-TemplateTestFixture 'template-desiredstate'
+        It 'resolves Request.Intent placeholder' {
+            $wfPath = Get-TemplateTestFixture 'template-intent'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{
                 Department = 'Engineering'
             }
             $providers = @{
@@ -74,13 +74,31 @@ Describe 'Template Substitution' {
 
             $plan.Steps[0].With.Department | Should -Be 'Engineering'
         }
+
+        It 'resolves Request.Context placeholder' {
+            $wfPath = Get-TemplateTestFixture 'template-context'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{
+                Identity = @{ ObjectId = 'obj-abc-123' }
+            }
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.ObjectId | Should -Be 'obj-abc-123'
+        }
     }
 
     Context 'Multiple placeholders in one string' {
-        It 'resolves multiple placeholders in a single string' {
+        It 'resolves multiple Intent placeholders in a single string' {
             $wfPath = Get-TemplateTestFixture 'template-multiple'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{
                 DisplayName       = 'John Doe'
                 UserPrincipalName = 'jdoe@example.com'
             }
@@ -95,13 +113,34 @@ Describe 'Template Substitution' {
 
             $plan.Steps[0].With.Message | Should -Be 'User John Doe (jdoe@example.com) is joining.'
         }
+
+        It 'resolves multiple Context placeholders in a single string' {
+            $wfPath = Get-TemplateTestFixture 'template-context-multiple'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{
+                Identity = @{
+                    DisplayName = 'Jane Smith'
+                    ObjectId    = 'abc-123'
+                }
+            }
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.Message | Should -Be 'Identity Jane Smith (abc-123) loaded.'
+        }
     }
 
     Context 'Nested hashtable and array substitution' {
-        It 'resolves templates in nested hashtables' {
+        It 'resolves Intent templates in nested hashtables' {
             $wfPath = Get-TemplateTestFixture 'template-nested-hash'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{
                 DisplayName = 'Jane Smith'
                 Mail        = 'jsmith@example.com'
             }
@@ -118,10 +157,32 @@ Describe 'Template Substitution' {
             $plan.Steps[0].With.User.Email | Should -Be 'jsmith@example.com'
         }
 
+        It 'resolves Context templates in nested hashtables' {
+            $wfPath = Get-TemplateTestFixture 'template-context-nested-hash'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{
+                Identity = @{
+                    DisplayName = 'Alice Brown'
+                    Mail        = 'alice.brown@example.com'
+                }
+            }
+            $providers = @{
+                StepRegistry = @{
+                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan.Steps[0].With.Identity.Name | Should -Be 'Alice Brown'
+            $plan.Steps[0].With.Identity.Email | Should -Be 'alice.brown@example.com'
+        }
+
         It 'resolves templates in arrays' {
             $wfPath = Get-TemplateTestFixture 'template-array'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{
                 PrimaryEmail   = 'primary@example.com'
                 SecondaryEmail = 'secondary@example.com'
             }
@@ -143,7 +204,7 @@ Describe 'Template Substitution' {
         It 'throws on unbalanced opening brace' {
             $wfPath = Get-TemplateTestFixture 'template-unbalanced-open'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -156,7 +217,7 @@ Describe 'Template Substitution' {
         It 'throws on unbalanced closing brace' {
             $wfPath = Get-TemplateTestFixture 'template-unbalanced-close'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -171,7 +232,7 @@ Describe 'Template Substitution' {
         It 'throws on path with spaces' {
             $wfPath = Get-TemplateTestFixture 'template-path-spaces'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{ UserName = 'Test' }
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ UserName = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -184,7 +245,7 @@ Describe 'Template Substitution' {
         It 'throws on path with special characters' {
             $wfPath = Get-TemplateTestFixture 'template-path-special'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{ UserName = 'Test' }
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ UserName = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -196,10 +257,23 @@ Describe 'Template Substitution' {
     }
 
     Context 'Missing path segments' {
-        It 'throws when path does not exist' {
+        It 'throws when Intent path does not exist' {
             $wfPath = Get-TemplateTestFixture 'template-missing-path'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage '*resolved to null or does not exist*'
+        }
+
+        It 'throws when Context path does not exist' {
+            $wfPath = Get-TemplateTestFixture 'template-context-missing-path'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{ Identity = @{ ObjectId = 'abc' } }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -214,7 +288,7 @@ Describe 'Template Substitution' {
         It 'throws when resolved value is null' {
             $wfPath = Get-TemplateTestFixture 'template-null-value'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{ NullField = $null }
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ NullField = $null }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -229,7 +303,7 @@ Describe 'Template Substitution' {
         It 'throws when accessing Plan root' {
             $wfPath = Get-TemplateTestFixture 'template-plan-root'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -242,7 +316,7 @@ Describe 'Template Substitution' {
         It 'throws when accessing Providers root' {
             $wfPath = Get-TemplateTestFixture 'template-providers-root'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -255,7 +329,7 @@ Describe 'Template Substitution' {
         It 'throws when accessing Workflow root' {
             $wfPath = Get-TemplateTestFixture 'template-workflow-root'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -266,53 +340,11 @@ Describe 'Template Substitution' {
         }
     }
 
-    Context 'Request.Input alias behavior' {
-        It 'uses Request.Input when Input property exists' {
-            $wfPath = Get-TemplateTestFixture 'template-input-exists'
-
-            # Create a request with explicit Input property
-            $req = [pscustomobject]@{
-                PSTypeName     = 'IdLE.LifecycleRequest'
-                LifecycleEvent = 'Joiner'
-                CorrelationId  = [guid]::NewGuid().ToString()
-                Input          = @{ Name = 'FromInput' }
-                DesiredState   = @{ Name = 'FromDesiredState' }
-            }
-
-            $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
-            }
-
-            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
-
-            $plan.Steps[0].With.Value | Should -Be 'FromInput'
-        }
-
-        It 'aliases Request.Input to Request.DesiredState when Input does not exist' {
-            $wfPath = Get-TemplateTestFixture 'template-input-alias'
-
-            # Use standard request without explicit Input property
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{
-                Name = 'FromDesiredState'
-            }
-
-            $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
-            }
-
-            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
-
-            $plan.Steps[0].With.Value | Should -Be 'FromDesiredState'
-        }
-    }
-
     Context 'Escaping' {
         It 'handles escaped opening braces' {
             $wfPath = Get-TemplateTestFixture 'template-escaped'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -326,7 +358,7 @@ Describe 'Template Substitution' {
         It 'handles escaped braces mixed with templates' {
             $wfPath = Get-TemplateTestFixture 'template-escaped-mixed'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'TestName' }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'TestName' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -357,7 +389,7 @@ Describe 'Template Substitution' {
             # A loose lookahead would let this through to template parsing → wrong "path not allowed" error.
             $wfPath = Get-TemplateTestFixture 'template-escaped-invalid-root'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -372,7 +404,7 @@ Describe 'Template Substitution' {
         It 'resolves templates in OnFailureSteps' {
             $wfPath = Get-TemplateTestFixture 'template-onfailure'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{
                 Name              = 'John Doe'
                 UserPrincipalName = 'jdoe@example.com'
             }
@@ -394,7 +426,7 @@ Describe 'Template Substitution' {
         It 'allows Request.LifecycleEvent' {
             $wfPath = Get-TemplateTestFixture 'template-lifecycle-event'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -408,7 +440,7 @@ Describe 'Template Substitution' {
         It 'allows Request.CorrelationId' {
             $wfPath = Get-TemplateTestFixture 'template-correlation-id'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -422,7 +454,7 @@ Describe 'Template Substitution' {
         It 'allows Request.Actor' {
             $wfPath = Get-TemplateTestFixture 'template-actor'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Name = 'Test' } -Actor 'admin@example.com'
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' } -Actor 'admin@example.com'
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -438,7 +470,7 @@ Describe 'Template Substitution' {
         It 'resolves numeric types to strings' {
             $wfPath = Get-TemplateTestFixture 'template-numeric'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ UserId = 12345 }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ UserId = 12345 }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -452,7 +484,7 @@ Describe 'Template Substitution' {
         It 'resolves boolean types to strings' {
             $wfPath = Get-TemplateTestFixture 'template-boolean'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ IsEnabled = $true }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ IsEnabled = $true }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -466,7 +498,7 @@ Describe 'Template Substitution' {
         It 'throws when resolving to a hashtable' {
             $wfPath = Get-TemplateTestFixture 'template-hashtable'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{
                 UserData = @{ Name = 'John'; Age = 30 }
             }
             $providers = @{
@@ -481,7 +513,7 @@ Describe 'Template Substitution' {
         It 'throws when resolving to an array' {
             $wfPath = Get-TemplateTestFixture 'template-array-value'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{
                 Tags = @('tag1', 'tag2')
             }
             $providers = @{
@@ -498,7 +530,7 @@ Describe 'Template Substitution' {
         It 'preserves boolean false type for pure placeholder' {
             $wfPath = Get-TemplateTestFixture 'template-pure-boolean-false'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Enabled = $false }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Enabled = $false }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -515,7 +547,7 @@ Describe 'Template Substitution' {
         It 'preserves boolean true type for pure placeholder' {
             $wfPath = Get-TemplateTestFixture 'template-pure-boolean-true'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ IsActive = $true }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ IsActive = $true }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -530,7 +562,7 @@ Describe 'Template Substitution' {
         It 'preserves integer type for pure placeholder' {
             $wfPath = Get-TemplateTestFixture 'template-pure-integer'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ UserId = 12345 }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ UserId = 12345 }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -546,7 +578,7 @@ Describe 'Template Substitution' {
             $wfPath = Get-TemplateTestFixture 'template-pure-datetime'
 
             $testDate = Get-Date '2026-01-15T10:00:00'
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ StartDate = $testDate }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ StartDate = $testDate }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -562,7 +594,7 @@ Describe 'Template Substitution' {
             $wfPath = Get-TemplateTestFixture 'template-pure-guid'
 
             $testGuid = [guid]::NewGuid()
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ ObjectId = $testGuid }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ ObjectId = $testGuid }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
@@ -577,7 +609,7 @@ Describe 'Template Substitution' {
         It 'converts to string for mixed template (string interpolation)' {
             $wfPath = Get-TemplateTestFixture 'template-mixed-boolean'
 
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Enabled = $false }
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Enabled = $false }
             $providers = @{
                 StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')

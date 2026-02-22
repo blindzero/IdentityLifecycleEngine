@@ -13,8 +13,8 @@ function Resolve-IdleTemplateString {
     - Multiple placeholders are supported in one string
 
     Allowed roots (security boundary):
-    - Request.Input.* (aliased to Request.DesiredState.* if Input does not exist)
-    - Request.DesiredState.*
+    - Request.Intent.* (canonical caller-provided action inputs)
+    - Request.Context.* (read-only associated context)
     - Request.IdentityKeys.*
     - Request.Changes.*
     - Request.LifecycleEvent
@@ -72,7 +72,7 @@ function Resolve-IdleTemplateString {
 
     # Define validation constants used in multiple paths
     $pathValidationPattern = '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$'
-    $allowedRoots = @('Request.Input', 'Request.DesiredState', 'Request.IdentityKeys', 'Request.Changes', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
+    $allowedRoots = @('Request.Intent', 'Request.Context', 'Request.IdentityKeys', 'Request.Changes', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
 
     # Helper function to validate path pattern
     $validatePath = {
@@ -107,28 +107,9 @@ function Resolve-IdleTemplateString {
     $resolvePath = {
         param([string]$Path)
 
-        # Handle Request.Input.* alias to Request.DesiredState.*
-        $targetPath = $Path
-        $hasInputProperty = $false
-        if ($Request.PSObject.Properties['Input']) {
-            $hasInputProperty = $true
-        }
-
-        if ($Path.StartsWith('Request.Input.')) {
-            if (-not $hasInputProperty) {
-                # Alias to DesiredState
-                $targetPath = $Path -replace '^Request\.Input\.', 'Request.DesiredState.'
-            }
-        }
-        elseif ($Path -eq 'Request.Input') {
-            if (-not $hasInputProperty) {
-                $targetPath = 'Request.DesiredState'
-            }
-        }
-
         # Resolve the value (shared path resolver handles hashtables and objects)
         $contextWrapper = [pscustomobject]@{ Request = $Request }
-        $resolvedValue = Get-IdleValueByPath -Object $contextWrapper -Path $targetPath
+        $resolvedValue = Get-IdleValueByPath -Object $contextWrapper -Path $Path
 
         # Fail fast on null/missing values
         if ($null -eq $resolvedValue) {
@@ -207,7 +188,7 @@ function Resolve-IdleTemplateString {
     # like \{{Request.Foo}} (invalid root) or \{{Request..Name}} (double dot) are still escaped to
     # literal {{, rather than flowing into template parsing and failing with path/root errors.
     $litOpenPlaceholder = [string][char]0xE001
-    $backslashEscapePattern = '\\{{(?!Request\.(?:(?:Input|DesiredState|IdentityKeys|Changes)(?:\.[A-Za-z0-9_]+)*|LifecycleEvent|CorrelationId|Actor)}})'
+    $backslashEscapePattern = '\\{{(?!Request\.(?:(?:Intent|Context|IdentityKeys|Changes)(?:\.[A-Za-z0-9_]+)*|LifecycleEvent|CorrelationId|Actor)}})'
     $normalizedValue = if ($stringValue -match '\\{{') {
         [regex]::Replace($stringValue, $backslashEscapePattern, $litOpenPlaceholder)
     } else {

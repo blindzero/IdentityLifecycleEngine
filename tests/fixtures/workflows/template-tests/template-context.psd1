@@ -1,12 +1,12 @@
 @{
-  Name           = 'Template Test - Array Value'
+  Name           = 'Template Test - Context'
   LifecycleEvent = 'Joiner'
   Steps          = @(
     @{
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        Value = '{{Request.Intent.Tags}}'
+        ObjectId = '{{Request.Context.Identity.ObjectId}}'
       }
     }
   )

@@ -54,6 +54,14 @@ function New-IdlePlanObject {
         throw [System.ArgumentException]::new("Request object must contain property 'CorrelationId'.", 'Request')
     }
 
+    # Reject requests that contain Request.Identity — identity snapshots belong under Request.Context.Identity.
+    if ($reqProps -contains 'Identity') {
+        throw [System.ArgumentException]::new(
+            "Request object must not contain property 'Identity'. Identity-related data belongs under 'Context.Identity' (see Request.Context).",
+            'Request'
+        )
+    }
+
     # Create a data-only snapshot of the incoming request for deterministic exports.
     $requestSnapshot = [pscustomobject]@{
         PSTypeName     = 'IdLE.LifecycleRequestSnapshot'
@@ -61,7 +69,8 @@ function New-IdlePlanObject {
         CorrelationId  = ConvertTo-NullIfEmptyString -Value ([string]$Request.CorrelationId)
         Actor          = if ($reqProps -contains 'Actor') { ConvertTo-NullIfEmptyString -Value ([string]$Request.Actor) } else { $null }
         IdentityKeys   = if ($reqProps -contains 'IdentityKeys') { Copy-IdleDataObject -Value $Request.IdentityKeys } else { $null }
-        DesiredState   = if ($reqProps -contains 'DesiredState') { Copy-IdleDataObject -Value $Request.DesiredState } else { $null }
+        Intent         = if ($reqProps -contains 'Intent') { Copy-IdleDataObject -Value $Request.Intent } else { $null }
+        Context        = if ($reqProps -contains 'Context') { Copy-IdleDataObject -Value $Request.Context } else { $null }
         Changes        = if ($reqProps -contains 'Changes') { Copy-IdleDataObject -Value $Request.Changes } else { $null }
     }
 

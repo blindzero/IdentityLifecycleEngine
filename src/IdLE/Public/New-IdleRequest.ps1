@@ -20,14 +20,24 @@ function New-IdleRequest {
     .PARAMETER IdentityKeys
     A hashtable of system-neutral identity keys (e.g. EmployeeId, UPN, ObjectId).
 
-    .PARAMETER DesiredState
-    A hashtable describing the desired state (attributes, entitlements, etc.).
+    .PARAMETER Intent
+    A hashtable containing the caller-provided action inputs for the workflow (attributes,
+    entitlements, operator flags, etc.).
+
+    .PARAMETER Context
+    A hashtable containing read-only associated context provided by the host or resolvers
+    (e.g. identity snapshots, device hints). Must not be treated as mutable state within IdLE.
 
     .PARAMETER Changes
     Optional hashtable describing changes (typically used for Mover lifecycle events).
 
     .EXAMPLE
+    # Minimal Joiner request — CorrelationId is auto-generated, Intent/Context default to empty
     New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
+
+    .EXAMPLE
+    # Joiner request with caller-provided action inputs (Intent) and read-only associated context (Context)
+    New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' } -Intent @{ Department = 'Engineering'; Title = 'Engineer' } -Context @{ Identity = @{ ObjectId = 'abc-123' } }
 
     .OUTPUTS
     IdleLifecycleRequest
@@ -48,7 +58,10 @@ function New-IdleRequest {
         [hashtable] $IdentityKeys = @{},
 
         [Parameter()]
-        [hashtable] $DesiredState = @{},
+        [hashtable] $Intent = @{},
+
+        [Parameter()]
+        [hashtable] $Context = @{},
 
         [Parameter()]
         [hashtable] $Changes

@@ -20,7 +20,7 @@ Create a minimal request that matches the workflow from [Walkthrough 1](01-workf
 - A request object that contains:
   - `LifecycleEvent`
   - `IdentityKeys.EmployeeId`
-  - `DesiredState.GivenName` and `DesiredState.Surname`
+  - `Intent.GivenName` and `Intent.Surname`
 
 ---
 
@@ -31,7 +31,7 @@ In PowerShell, create the request like this:
 ```powershell
 $request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
   EmployeeId = '12345'
-} -DesiredState @{
+} -Intent @{
   GivenName = 'Max'
   Surname   = 'Power'
 }
@@ -40,8 +40,8 @@ $request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
 This request provides the values referenced in the workflow templates:
 
 - `{{Request.IdentityKeys.EmployeeId}}`
-- `{{Request.DesiredState.GivenName}}`
-- `{{Request.DesiredState.Surname}}`
+- `{{Request.Intent.GivenName}}`
+- `{{Request.Intent.Surname}}`
 
 ---
 
@@ -56,8 +56,8 @@ Identity keys are typically:
 - unique
 - provided by the upstream system (HR, IAM, ticket)
 
-### DesiredState
-Desired state contains the data you want IdLE to enforce (attributes, entitlements, mailbox settings, …).
+### Intent
+Intent contains the caller-provided action inputs (attributes, entitlements, mailbox settings, …) that the workflow should act on.
 
 For this walkthrough we keep it minimal and only set two attributes.
 

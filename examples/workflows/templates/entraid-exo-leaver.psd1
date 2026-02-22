@@ -8,7 +8,7 @@
             Type = 'IdLE.Step.Mailbox.GetInfo'
             With = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
+                IdentityKey = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }
             }
         }
         @{
@@ -16,7 +16,7 @@
             Type = 'IdLE.Step.Mailbox.EnsureType'
             With = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
+                IdentityKey = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }
                 MailboxType = 'Shared'
             }
         }
@@ -25,7 +25,7 @@
             Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
             With = @{
                 Provider    = 'ExchangeOnline'
-                IdentityKey = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
+                IdentityKey = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }
                 Config      = @{
                     Mode            = 'Enabled'
                     InternalMessage = 'This person is no longer with the organization. For assistance, please contact their manager or the main office.'
@@ -41,7 +41,7 @@
                 Provider           = 'Identity'
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = @{ ValueFrom = 'Request.Input.UserObjectId' }
+                IdentityKey        = @{ ValueFrom = 'Request.Intent.UserObjectId' }
                 Desired            = @()
             }
         }
@@ -52,7 +52,7 @@
                 Provider           = 'Identity'
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = @{ ValueFrom = 'Request.Input.UserObjectId' }
+                IdentityKey        = @{ ValueFrom = 'Request.Intent.UserObjectId' }
                 Attributes         = @{
                     Manager = $null
                 }
@@ -65,7 +65,7 @@
                 Provider           = 'Identity'
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = @{ ValueFrom = 'Request.Input.UserObjectId' }
+                IdentityKey        = @{ ValueFrom = 'Request.Intent.UserObjectId' }
             }
         }
         @{

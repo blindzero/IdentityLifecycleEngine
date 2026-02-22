@@ -19,7 +19,7 @@ Build a plan from your workflow and request, while supplying providers (recommen
 ## You will have
 
 - A plan object that is safe to review and execute
-- Templates resolved (for example `{{Request.DesiredState.GivenName}}`)
+- Templates resolved (for example `{{Request.Intent.GivenName}}`)
 - Validation errors surfaced early (before execution)
 
 ---
@@ -59,7 +59,7 @@ During plan build IdLE typically:
 - validates the workflow structure and step types
 - validates that referenced providers exist (when supplied)
 - checks required capabilities (provider/step contracts)
-- resolves template expressions (for example `{{Request.DesiredState.GivenName}}`)
+- resolves template expressions (for example `{{Request.Intent.GivenName}}`)
 - produces a deterministic execution plan
 
 :::info

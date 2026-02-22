@@ -14,13 +14,13 @@
 
                 # Provider-specific: identify the target identity
                 # The exact key names depend on provider contracts; keep it consistent with your provider docs.
-                IdentityKey  = '{{Request.Input.SamAccountName}}'
+                IdentityKey  = '{{Request.Intent.SamAccountName}}'
 
                 # Optional: initial attributes that are commonly required
                 Attributes = @{
-                    GivenName   = '{{Request.Input.GivenName}}'
-                    Surname     = '{{Request.Input.Surname}}'
-                    DisplayName = '{{Request.Input.DisplayName}}'
+                    GivenName   = '{{Request.Intent.GivenName}}'
+                    Surname     = '{{Request.Intent.Surname}}'
+                    DisplayName = '{{Request.Intent.DisplayName}}'
                 }
             }
         }
@@ -30,16 +30,16 @@
             Name     = 'Ensure core attributes'
             With     = @{
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                IdentityKey         = '{{Request.Input.SamAccountName}}'
+                IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 Attributes = @{
-                    Mail            = '{{Request.Input.Mail}}'
-                    Department      = '{{Request.Input.Department}}'
-                    Title           = '{{Request.Input.Title}}'
-                    Company         = '{{Request.Input.Company}}'
-                    Office          = '{{Request.Input.Office}}'
-                    Manager         = '{{Request.Input.ManagerSamAccountName}}'
-                    TelephoneNumber = '{{Request.Input.Phone}}'
+                    Mail            = '{{Request.Intent.Mail}}'
+                    Department      = '{{Request.Intent.Department}}'
+                    Title           = '{{Request.Intent.Title}}'
+                    Company         = '{{Request.Intent.Company}}'
+                    Office          = '{{Request.Intent.Office}}'
+                    Manager         = '{{Request.Intent.ManagerSamAccountName}}'
+                    TelephoneNumber = '{{Request.Intent.Phone}}'
                 }
             }
         }
@@ -49,11 +49,11 @@
             Name = 'Ensure baseline group membership (1)'
             With = @{
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                IdentityKey     = '{{Request.Input.SamAccountName}}'
+                IdentityKey     = '{{Request.Intent.SamAccountName}}'
                 Entitlement     = @{
                     Kind = 'Group';
-                    Id = '{{Request.Input.BaselineGroups.0}}';
-                    DisplayName = '{{Request.Input.BaselineGroups.0}}'
+                    Id = '{{Request.Intent.BaselineGroups.0}}';
+                    DisplayName = '{{Request.Intent.BaselineGroups.0}}'
                 }
                 State           = 'Present'
             }
@@ -63,11 +63,11 @@
             Name = 'Ensure baseline group membership (2)'
             With = @{
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                IdentityKey     = '{{Request.Input.SamAccountName}}'
+                IdentityKey     = '{{Request.Intent.SamAccountName}}'
                 Entitlement     = @{
                     Kind = 'Group';
-                    Id = '{{Request.Input.BaselineGroups.1}}';
-                    DisplayName = '{{Request.Input.BaselineGroups.1}}'
+                    Id = '{{Request.Intent.BaselineGroups.1}}';
+                    DisplayName = '{{Request.Intent.BaselineGroups.1}}'
                 }
                 State           = 'Present'
             }
@@ -83,14 +83,14 @@
             Name     = 'Mover: update org attributes (optional)'
             With     = @{
                 # Guard by convention: only run when request indicates mover
-                Condition       = '{{Request.Input.IsMover}}'
+                Condition       = '{{Request.Intent.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                IdentityKey         = '{{Request.Input.SamAccountName}}'
+                IdentityKey         = '{{Request.Intent.SamAccountName}}'
                 Attributes      = @{
-                    Department  = '{{Request.Input.NewDepartment}}'
-                    Title       = '{{Request.Input.NewTitle}}'
-                    Office      = '{{Request.Input.NewOffice}}'
-                    Manager     = '{{Request.Input.NewManagerSamAccountName}}'
+                    Department  = '{{Request.Intent.NewDepartment}}'
+                    Title       = '{{Request.Intent.NewTitle}}'
+                    Office      = '{{Request.Intent.NewOffice}}'
+                    Manager     = '{{Request.Intent.NewManagerSamAccountName}}'
                     Description = 'Moved on {{Request.Execution.Timestamp}}'
                 }
             }
@@ -100,12 +100,12 @@
             Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Mover: adjust group memberships (optional, baseline 1)'
             With     = @{
-                Condition       = '{{Request.Input.IsMover}}'
+                Condition       = '{{Request.Intent.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                IdentityKey         = '{{Request.Input.SamAccountName}}'
+                IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 # Optional: baseline + department-specific groups.
-                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.BaselineGroups.0}}' }
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Intent.BaselineGroups.0}}' }
                 State = 'Present'
             }
         }
@@ -113,12 +113,12 @@
             Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Mover: adjust group memberships (optional, baseline 2)'
             With     = @{
-                Condition       = '{{Request.Input.IsMover}}'
+                Condition       = '{{Request.Intent.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                IdentityKey         = '{{Request.Input.SamAccountName}}'
+                IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 # Optional: baseline + department-specific groups.
-                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.BaselineGroups.1}}' }
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Intent.BaselineGroups.1}}' }
                 State = 'Present'
             }
         }
@@ -126,12 +126,12 @@
             Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Mover: adjust group memberships (optional, department 1)'
             With     = @{
-                Condition       = '{{Request.Input.IsMover}}'
+                Condition       = '{{Request.Intent.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                IdentityKey         = '{{Request.Input.SamAccountName}}'
+                IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 # Optional: baseline + department-specific groups.
-                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.DepartmentGroups.0}}' }
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Intent.DepartmentGroups.0}}' }
                 State = 'Present'
             }
         }
@@ -139,12 +139,12 @@
             Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Mover: adjust group memberships (optional, department 2)'
             With     = @{
-                Condition       = '{{Request.Input.IsMover}}'
+                Condition       = '{{Request.Intent.IsMover}}'
                 AuthSessionName = '{{Request.Auth.Directory}}'
-                IdentityKey         = '{{Request.Input.SamAccountName}}'
+                IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 # Optional: baseline + department-specific groups.
-                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Input.DepartmentGroups.1}}' }
+                Entitlement = @{ Kind = 'Group'; Id = '{{Request.Intent.DepartmentGroups.1}}' }
                 State = 'Present'
             }
         }

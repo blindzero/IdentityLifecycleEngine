@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        StartDate = '{{Request.Input.StartDate}}'
+        StartDate = '{{Request.Intent.StartDate}}'
       }
     }
   )

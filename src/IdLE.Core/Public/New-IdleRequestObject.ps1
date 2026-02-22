@@ -8,7 +8,7 @@ function New-IdleRequestObject {
     (e.g. Joiner/Mover/Leaver). This is the core factory function used by the IdLE module wrapper.
     
     The function validates that no ScriptBlocks are present in the input data (IdentityKeys, 
-    DesiredState, Changes) to enforce the data-only configuration principle. Input hashtables 
+    Intent, Context, Changes) to enforce the data-only configuration principle. Input hashtables 
     are cloned to prevent external mutation after object creation.
     
     CorrelationId is preserved if provided; otherwise, the IdleLifecycleRequest class generates 
@@ -30,9 +30,15 @@ function New-IdleRequestObject {
     A hashtable of system-neutral identity keys (e.g. @{ EmployeeId = '12345'; UPN = 'user@contoso.com' }).
     Defaults to an empty hashtable if not provided. Must not contain ScriptBlocks.
 
-    .PARAMETER DesiredState
-    A hashtable describing the desired state for the identity (attributes, entitlements, etc.).
-    Defaults to an empty hashtable if not provided. Must not contain ScriptBlocks.
+    .PARAMETER Intent
+    A hashtable containing the caller-provided action inputs for the workflow (attributes, 
+    entitlements, operator flags, etc.). Defaults to an empty hashtable if not provided.
+    Must not contain ScriptBlocks.
+
+    .PARAMETER Context
+    A hashtable containing read-only associated context provided by the host or resolvers
+    (e.g. identity snapshots, device hints). Defaults to an empty hashtable if not provided.
+    Must not contain ScriptBlocks. Must not be treated as mutable state within IdLE.
 
     .PARAMETER Changes
     Optional hashtable describing changes (typically used for Mover lifecycle events to indicate 
@@ -41,12 +47,12 @@ function New-IdleRequestObject {
     .EXAMPLE
     $request = New-IdleRequestObject -LifecycleEvent 'Joiner'
 
-    Creates a minimal Joiner request with auto-generated CorrelationId and empty IdentityKeys/DesiredState.
+    Creates a minimal Joiner request with auto-generated CorrelationId and empty Intent/Context.
 
     .EXAMPLE
-    $request = New-IdleRequestObject -LifecycleEvent 'Joiner' -CorrelationId (New-Guid).Guid -IdentityKeys @{ EmployeeId = '12345' } -DesiredState @{ Department = 'Engineering'; MailNickname = 'jdoe'; Title = 'Engineer' }
+    $request = New-IdleRequestObject -LifecycleEvent 'Joiner' -CorrelationId (New-Guid).Guid -IdentityKeys @{ EmployeeId = '12345' } -Intent @{ Department = 'Engineering'; MailNickname = 'jdoe'; Title = 'Engineer' }
 
-    Creates a Joiner request with specific identity keys and desired state attributes for a typical onboarding workflow.
+    Creates a Joiner request with specific identity keys and intent attributes for a typical onboarding workflow.
 
     .EXAMPLE
     $request = New-IdleRequestObject -LifecycleEvent 'Mover' -IdentityKeys @{ UPN = 'user@contoso.com' } -Changes @{ Department = 'Sales' } -Actor 'admin@contoso.com'
@@ -60,7 +66,7 @@ function New-IdleRequestObject {
     Security Considerations:
     - Input data must be data-only (no ScriptBlocks or executable objects). The function 
       validates this constraint and throws if violated.
-    - Do not embed secrets in IdentityKeys, DesiredState, or Changes. Use the AuthSessionBroker 
+    - Do not embed secrets in IdentityKeys, Intent, Context, or Changes. Use the AuthSessionBroker 
       pattern for credential/token management.
     - Sensitive data in request objects may be logged or emitted in events. Rely on redaction 
       boundaries defined in the engine's event sink and logging layers.
@@ -84,7 +90,10 @@ function New-IdleRequestObject {
         [hashtable] $IdentityKeys = @{},
 
         [Parameter()]
-        [hashtable] $DesiredState = @{},
+        [hashtable] $Intent = @{},
+
+        [Parameter()]
+        [hashtable] $Context = @{},
 
         [Parameter()]
         [hashtable] $Changes
@@ -92,20 +101,23 @@ function New-IdleRequestObject {
 
     # Validate that no ScriptBlocks are present in the input data
     Assert-IdleNoScriptBlock -InputObject $IdentityKeys -Path 'IdentityKeys'
-    Assert-IdleNoScriptBlock -InputObject $DesiredState -Path 'DesiredState'
+    Assert-IdleNoScriptBlock -InputObject $Intent       -Path 'Intent'
+    Assert-IdleNoScriptBlock -InputObject $Context      -Path 'Context'
     Assert-IdleNoScriptBlock -InputObject $Changes      -Path 'Changes'
 
     # Clone hashtables to avoid external mutation after object creation
     # shallow clone is sufficient as we have already validated no ScriptBlocks are present
     $IdentityKeys = if ($null -eq $IdentityKeys) { @{} } else { $IdentityKeys.Clone() }
-    $DesiredState = if ($null -eq $DesiredState) { @{} } else { $DesiredState.Clone() }
-    $Changes = if ($null -eq $Changes) { $null } else { $Changes.Clone() }
+    $Intent       = if ($null -eq $Intent) { @{} } else { $Intent.Clone() }
+    $Context      = if ($null -eq $Context) { @{} } else { $Context.Clone() }
+    $Changes      = if ($null -eq $Changes) { $null } else { $Changes.Clone() }
 
     # Construct and return the core domain object defined in Private/IdleLifecycleRequest.ps1
     return [IdleLifecycleRequest]::new(
         $LifecycleEvent,
         $IdentityKeys,
-        $DesiredState,
+        $Intent,
+        $Context,
         $Changes,
         $CorrelationId,
         $Actor

@@ -16,7 +16,7 @@ import CodeBlock from '@theme/CodeBlock';
 Use the Mock provider when you want to:
 
 - validate **workflow logic**, conditions, and error handling
-- validate **template placeholders** (e.g. `{{Request.Input...}}`) without external dependencies
+- validate **template placeholders** (e.g. `{{Request.Intent...}}`) without external dependencies
 - build demos or CI checks that should never modify production systems
 
 Non-goals:

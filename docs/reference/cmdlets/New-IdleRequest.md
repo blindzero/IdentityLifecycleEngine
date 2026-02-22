@@ -14,7 +14,7 @@ Creates a lifecycle request object.
 
 ```
 New-IdleRequest [-LifecycleEvent] &lt;String&gt; [[-CorrelationId] &lt;String&gt;] [[-Actor] &lt;String&gt;]
- [[-IdentityKeys] &lt;Hashtable&gt;] [[-DesiredState] &lt;Hashtable&gt;] [[-Changes] &lt;Hashtable&gt;]
+ [[-IdentityKeys] &lt;Hashtable&gt;] [[-Intent] &lt;Hashtable&gt;] [[-Context] &lt;Hashtable&gt;] [[-Changes] &lt;Hashtable&gt;]
  [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
 
@@ -30,7 +30,14 @@ Changes is optional and stays $null when omitted.
 
 ### EXAMPLE 1
 ```
+# Minimal Joiner request - CorrelationId is auto-generated, Intent/Context default to empty
 New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
+```
+
+### EXAMPLE 2
+```
+# Joiner request with caller-provided action inputs (Intent) and read-only associated context (Context)
+New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' } -Intent @{ Department = 'Engineering'; Title = 'Engineer' } -Context @{ Identity = @{ ObjectId = 'abc-123' } }
 ```
 
 ## PARAMETERS
@@ -99,8 +106,9 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -DesiredState
-A hashtable describing the desired state (attributes, entitlements, etc.).
+### -Intent
+A hashtable containing the caller-provided action inputs for the workflow (attributes,
+entitlements, operator flags, etc.).
 
 ```yaml
 Type: Hashtable
@@ -109,6 +117,24 @@ Aliases:
 
 Required: False
 Position: 5
+Default value: @{}
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Context
+A hashtable containing read-only associated context provided by the host or resolvers
+(e.g.
+identity snapshots, device hints).
+Must not be treated as mutable state within IdLE.
+
+```yaml
+Type: Hashtable
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: 6
 Default value: @{}
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -123,7 +149,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: False
-Position: 6
+Position: 7
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False

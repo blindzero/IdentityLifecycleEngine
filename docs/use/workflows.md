@@ -74,8 +74,8 @@ request during plan build (`New-IdlePlan`). Multiple placeholders may appear in 
 
 ```powershell
 IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
-DisplayName = '{{Request.DesiredState.GivenName}}'
-Message     = 'User {{Request.DesiredState.DisplayName}} is joining.'
+DisplayName = '{{Request.Intent.GivenName}}'
+Message     = 'User {{Request.Intent.DisplayName}} is joining.'
 ```
 
 ### Allowed roots
@@ -84,13 +84,13 @@ For security, only these path roots are permitted:
 
 | Root | Description |
 | ---- | ----------- |
-| `Request.DesiredState.*` | Intended target state of the identity |
+| `Request.Intent.*` | Caller-provided action inputs |
+| `Request.Context.*` | Read-only associated context (host/resolver-provided) |
 | `Request.IdentityKeys.*` | Identifiers of the target identity |
 | `Request.Changes.*` | Explicit deltas (Mover events) |
 | `Request.LifecycleEvent` | Lifecycle event type (e.g. `Joiner`) |
 | `Request.CorrelationId` | Stable correlation identifier |
 | `Request.Actor` | Originator of the request |
-| `Request.Input.*` | Alias for `Request.DesiredState.*` when no `Input` property exists |
 
 ### Pure vs. mixed placeholders
 
@@ -98,13 +98,13 @@ A value containing **only** a single placeholder preserves the resolved type (bo
 
 ```powershell
 # Resolves to the actual [bool] value, not the string "True"
-Enabled = '{{Request.DesiredState.IsEnabled}}'
+Enabled = '{{Request.Intent.IsEnabled}}'
 ```
 
 A value with surrounding text always produces a **string**:
 
 ```powershell
-Message = 'Account for {{Request.DesiredState.DisplayName}} created.'
+Message = 'Account for {{Request.Intent.DisplayName}} created.'
 ```
 
 ### Backslash and special characters
@@ -140,7 +140,7 @@ Summary of backslash behaviour:
 | `DOMAIN\{{Request.IdentityKeys.sAMAccountName}}` | `DOMAIN\jdoe` — `\` literal, valid template resolved |
 | `Literal \{{ braces here` | `Literal {{ braces here` — escape applied |
 | `\{{Request.InvalidRoot}}` | `{{Request.InvalidRoot}}` — invalid root, escape applied |
-| `Literal \{{ and {{Request.Input.Name}}` | `Literal {{ and TestName` — escape + template |
+| `Literal \{{ and {{Request.Intent.Name}}` | `Literal {{ and TestName` — escape + template |
 
 ### Validation
 

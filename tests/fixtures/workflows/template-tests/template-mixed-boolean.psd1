@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        Message = 'Account enabled: {{Request.Input.Enabled}}'
+        Message = 'Account enabled: {{Request.Intent.Enabled}}'
       }
     }
   )

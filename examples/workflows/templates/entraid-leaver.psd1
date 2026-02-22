@@ -12,7 +12,7 @@
                 AuthSessionOptions = @{ Role = 'Admin' }
 
                 # Prefer ObjectId for leaver (stable), but you may also use UPN if your provider supports it.
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
             }
         }
 
@@ -22,7 +22,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
             }
         }
 
@@ -32,9 +32,9 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
                 Attributes         = @{
-                    DisplayName = '{{Request.Input.DisplayName}} (LEAVER)'
+                    DisplayName = '{{Request.Intent.DisplayName}} (LEAVER)'
                     Manager     = $null
                 }
             }
@@ -49,7 +49,7 @@
                 All = @(
                     @{
                         Equals = @{
-                            Path  = 'Request.Input.RevokeAllGroupMemberships'
+                            Path  = 'Request.Intent.RevokeAllGroupMemberships'
                             Value = $true
                         }
                     }
@@ -58,7 +58,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
                 Entitlement        = @{
                     Kind = 'Group';
                     Id = '*'
@@ -75,7 +75,7 @@
                 All = @(
                     @{
                         Equals = @{
-                            Path  = 'Request.Input.DeleteAfterDisable'
+                            Path  = 'Request.Intent.DeleteAfterDisable'
                             Value = $true
                         }
                     }
@@ -84,7 +84,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Tier0' }
-                IdentityKey        = '{{Request.Input.UserPrincipalName}}'
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
             }
         }
 
@@ -92,7 +92,7 @@
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'EntraID user {{Request.Input.UserPrincipalName}} offboarding completed.'
+                Message = 'EntraID user {{Request.Intent.UserPrincipalName}} offboarding completed.'
             }
         }
     )

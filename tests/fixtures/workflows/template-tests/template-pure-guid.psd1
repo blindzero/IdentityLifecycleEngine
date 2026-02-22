@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        ObjectId = '{{Request.Input.ObjectId}}'
+        ObjectId = '{{Request.Intent.ObjectId}}'
       }
     }
   )

@@ -11,9 +11,10 @@
       "identityKeys": {
         "userId": "jdoe"
       },
-      "desiredState": {
+      "intent": {
         "department": "IT"
       },
+      "context": {},
       "changes": null
     }
   },

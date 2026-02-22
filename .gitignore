@@ -96,4 +96,11 @@ pids
 *.seed
 *.pid.lock
 
+# Temp directories
+# Temp files
+tmp/
+temp/
+*.tmp
+*.temp
+
 # End of file

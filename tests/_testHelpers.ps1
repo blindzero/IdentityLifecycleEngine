@@ -80,7 +80,10 @@ function New-IdleTestRequest {
         [hashtable] $IdentityKeys,
 
         [Parameter()]
-        [hashtable] $DesiredState,
+        [hashtable] $Intent,
+
+        [Parameter()]
+        [hashtable] $Context,
 
         [Parameter()]
         [hashtable] $Changes,
@@ -95,10 +98,11 @@ function New-IdleTestRequest {
     $params = @{ LifecycleEvent = $LifecycleEvent }
 
     if ($PSBoundParameters.ContainsKey('IdentityKeys')) { $params.IdentityKeys = $IdentityKeys }
-    if ($PSBoundParameters.ContainsKey('DesiredState')) { $params.DesiredState = $DesiredState }
-    if ($PSBoundParameters.ContainsKey('Changes')) { $params.Changes = $Changes }
+    if ($PSBoundParameters.ContainsKey('Intent'))       { $params.Intent = $Intent }
+    if ($PSBoundParameters.ContainsKey('Context'))      { $params.Context = $Context }
+    if ($PSBoundParameters.ContainsKey('Changes'))      { $params.Changes = $Changes }
     if ($PSBoundParameters.ContainsKey('CorrelationId')) { $params.CorrelationId = $CorrelationId }
-    if ($PSBoundParameters.ContainsKey('Actor')) { $params.Actor = $Actor }
+    if ($PSBoundParameters.ContainsKey('Actor'))        { $params.Actor = $Actor }
 
     return New-IdleRequest @params
 }

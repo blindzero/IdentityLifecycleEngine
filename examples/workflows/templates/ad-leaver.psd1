@@ -9,8 +9,8 @@
             Name     = 'Disable identity'
             With     = @{
                 AuthSessionName = 'Directory'
-                IdentityKey     = '{{Request.Input.SamAccountName}}'
-                Reason          = '{{Request.Input.LeaverReason}}'
+                IdentityKey     = '{{Request.Intent.SamAccountName}}'
+                Reason          = '{{Request.Intent.LeaverReason}}'
             }
         }
 
@@ -19,9 +19,9 @@
             Name     = 'Stamp offboarding attributes'
             With     = @{
                 AuthSessionName = 'Directory'
-                IdentityKey = '{{Request.Input.SamAccountName}}'
+                IdentityKey = '{{Request.Intent.SamAccountName}}'
                 Attributes      = @{
-                    Description = 'Leaver (CorrelationId: {{Request.CorrelationId}}) - {{Request.Input.LeaverReason}}'
+                    Description = 'Leaver (CorrelationId: {{Request.CorrelationId}}) - {{Request.Intent.LeaverReason}}'
                 }
             }
         }
@@ -33,14 +33,14 @@
             Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Remove managed group memberships (optional, item 1)'
             With     = @{
-                Condition       = @{ Equals = @{ Path = 'Request.Input.RemoveGroups'; Value = $true } }
+                Condition       = @{ Equals = @{ Path = 'Request.Intent.RemoveGroups'; Value = $true } }
                 AuthSessionName = 'Directory'
-                IdentityKey     = '{{Request.Input.SamAccountName}}'
+                IdentityKey     = '{{Request.Intent.SamAccountName}}'
 
                 # Only remove what you explicitly manage via IdLE.
                 Entitlement = @{
                     Kind = 'Group';
-                    Id = '{{Request.Input.ManagedGroupsToRemove.0}}'
+                    Id = '{{Request.Intent.ManagedGroupsToRemove.0}}'
                 }
                 State = 'Absent'
             }
@@ -49,14 +49,14 @@
             Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Remove managed group memberships (optional, item 2)'
             With     = @{
-                Condition       = @{ Equals = @{ Path = 'Request.Input.RemoveGroups'; Value = $true } }
+                Condition       = @{ Equals = @{ Path = 'Request.Intent.RemoveGroups'; Value = $true } }
                 AuthSessionName = 'Directory'
-                IdentityKey = '{{Request.Input.SamAccountName}}'
+                IdentityKey = '{{Request.Intent.SamAccountName}}'
 
                 # Only remove what you explicitly manage via IdLE.
                 Entitlement = @{
                     Kind = 'Group';
-                    Id = '{{Request.Input.ManagedGroupsToRemove.1}}'
+                    Id = '{{Request.Intent.ManagedGroupsToRemove.1}}'
                 }
                 State = 'Absent'
             }
@@ -70,10 +70,10 @@
             Type = 'IdLE.Step.MoveIdentity'
             Name     = 'Move to Disabled OU (optional)'
             With     = @{
-                Condition       = @{ Equals = @{ Path = 'Request.Input.MoveToDisabledOu'; Value = $true } }
+                Condition       = @{ Equals = @{ Path = 'Request.Intent.MoveToDisabledOu'; Value = $true } }
                 AuthSessionName = 'Directory'
-                IdentityKey     = '{{Request.Input.SamAccountName}}'
-                TargetContainer = '{{Request.Input.DisabledOuPath}}'
+                IdentityKey     = '{{Request.Intent.SamAccountName}}'
+                TargetContainer = '{{Request.Intent.DisabledOuPath}}'
             }
         }
     )

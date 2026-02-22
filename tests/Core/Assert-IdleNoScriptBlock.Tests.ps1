@@ -217,11 +217,11 @@ Describe 'Assert-IdleNoScriptBlock' {
                 Should -Throw -ExceptionType ([System.ArgumentException]) -ExpectedMessage '*ScriptBlocks are not allowed*'
         }
 
-        It 'rejects lifecycle request with ScriptBlock in DesiredState' {
+        It 'rejects lifecycle request with ScriptBlock in Intent' {
             $request = @{
                 LifecycleEvent = 'Joiner'
                 CorrelationId = 'test-123'
-                DesiredState = @{
+                Intent = @{
                     Identity = @{
                         BadProperty = { Get-Credential }
                     }
@@ -229,7 +229,7 @@ Describe 'Assert-IdleNoScriptBlock' {
             }
 
             { Assert-IdleNoScriptBlock -InputObject $request -Path 'Request' } |
-                Should -Throw -ExceptionType ([System.ArgumentException]) -ExpectedMessage '*ScriptBlocks are not allowed*Request.DesiredState.Identity.BadProperty*'
+                Should -Throw -ExceptionType ([System.ArgumentException]) -ExpectedMessage '*ScriptBlocks are not allowed*Request.Intent.Identity.BadProperty*'
         }
     }
 

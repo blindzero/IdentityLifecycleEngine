@@ -7,8 +7,8 @@
       Type = 'IdLE.Step.Test'
       With = @{
         User = @{
-          Name  = '{{Request.Input.DisplayName}}'
-          Email = '{{Request.Input.Mail}}'
+          Name  = '{{Request.Intent.DisplayName}}'
+          Email = '{{Request.Intent.Mail}}'
         }
       }
     }

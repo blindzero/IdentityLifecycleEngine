@@ -25,12 +25,23 @@ Describe 'New-IdleRequest' {
             $req.CorrelationId | Should -Be $cid
         }
 
-        It 'defaults IdentityKeys and DesiredState to empty hashtables when omitted' {
+        It 'defaults IdentityKeys to an empty hashtable when omitted' {
             $req = New-IdleRequest -LifecycleEvent 'Joiner'
             $req.IdentityKeys | Should -BeOfType 'hashtable'
-            $req.DesiredState | Should -BeOfType 'hashtable'
             $req.IdentityKeys.Count | Should -Be 0
-            $req.DesiredState.Count | Should -Be 0
+        }
+
+        It 'defaults Intent and Context to empty hashtables when omitted' {
+            $req = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req.Intent  | Should -BeOfType 'hashtable'
+            $req.Context | Should -BeOfType 'hashtable'
+            $req.Intent.Count  | Should -Be 0
+            $req.Context.Count | Should -Be 0
+        }
+
+        It 'does not expose a DesiredState property' {
+            $req = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req.PSObject.Properties.Name | Should -Not -Contain 'DesiredState'
         }
     }
 
@@ -65,42 +76,55 @@ Describe 'New-IdleRequest' {
             $req.Actor | Should -Be 'alice@contoso.com'
         }
     }
+
+    Context 'Intent parameter' {
+        It 'accepts -Intent and populates Intent property' {
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Department = 'Engineering' }
+            $req.Intent | Should -BeOfType 'hashtable'
+            $req.Intent.Department | Should -Be 'Engineering'
+        }
+    }
+
+    Context 'Context parameter' {
+        It 'accepts -Context and populates Context property' {
+            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Context @{ Identity = @{ ObjectId = 'abc-123' } }
+            $req.Context | Should -BeOfType 'hashtable'
+            $req.Context.Identity.ObjectId | Should -Be 'abc-123'
+        }
+    }
 }
 
 Describe 'New-IdleRequest - data-only validation' {
     Context 'ScriptBlock rejection' {
-        It 'rejects ScriptBlock in DesiredState when provided' {
-            try {
-                New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+        It 'rejects ScriptBlock in Intent when provided' {
+            {
+                New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{
                     Attributes = @{ Department = { 'IT' } }
                 }
-                throw 'Expected an exception but none was thrown.'
-            }
-            catch {
-                $_.Exception | Should -BeOfType ([System.ArgumentException])
-                $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
-                $_.Exception.Message | Should -Match 'DesiredState'
-            }
+            } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*'
         }
 
         It 'rejects ScriptBlock nested in arrays' {
-            try {
-                New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{
+            {
+                New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{
                     Entitlements = @(
                         @{ Type = 'Group'; Value = 'APP-CRM-Users' }
                         @{ Type = 'Custom'; Value = { 'NOPE' } }
                     )
                 }
-            }
-            catch {
-                $_.Exception | Should -BeOfType ([System.ArgumentException])
-                $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
-                $_.Exception.Message | Should -Match 'DesiredState'
-            }
+            } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*'
+        }
+
+        It 'rejects ScriptBlock in Context when provided' {
+            {
+                New-IdleRequest -LifecycleEvent 'Joiner' -Context @{
+                    Identity = @{ Value = { 'NOPE' } }
+                }
+            } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*'
         }
 
         It 'rejects ScriptBlock in Changes when provided' {
-            try {
+            {
                 New-IdleRequest -LifecycleEvent 'Joiner' -Changes @{
                     Attributes = @{
                         Department = @{
@@ -109,15 +133,48 @@ Describe 'New-IdleRequest - data-only validation' {
                         }
                     }
                 }
-                throw 'Expected an exception but none was thrown.'
-            }
-            catch {
-                $_.Exception | Should -BeOfType ([System.ArgumentException])
-                $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
-                $_.Exception.Message | Should -Match 'Changes'
-            }
+            } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*Changes*'
         }
     }
 }
 
+Describe 'New-IdlePlan - Request.Identity rejection' {
+    BeforeAll {
+        function global:Invoke-IdleTestNoopStep {
+            [CmdletBinding()]
+            param(
+                [Parameter(Mandatory)][ValidateNotNull()][object] $Context,
+                [Parameter(Mandatory)][ValidateNotNull()][object] $Step
+            )
+            return [pscustomobject]@{
+                PSTypeName = 'IdLE.StepResult'
+                Name       = [string]$Step.Name
+                Type       = [string]$Step.Type
+                Status     = 'Completed'
+                Error      = $null
+            }
+        }
+    }
 
+    AfterAll {
+        Remove-Item -Path 'Function:\Invoke-IdleTestNoopStep' -ErrorAction SilentlyContinue
+    }
+
+    It 'rejects a request object that contains an Identity property' {
+        $badRequest = [pscustomobject]@{
+            PSTypeName     = 'IdLE.LifecycleRequest'
+            LifecycleEvent = 'Joiner'
+            CorrelationId  = [guid]::NewGuid().ToString()
+            Identity       = @{ ObjectId = 'abc-123' }
+        }
+
+        $wfPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows/template-tests/template-simple.psd1'
+        $providers = @{
+            StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+        }
+
+        { New-IdlePlan -WorkflowPath $wfPath -Request $badRequest -Providers $providers } |
+            Should -Throw -ExpectedMessage "*must not contain property 'Identity'*"
+    }
+}
