@@ -13,10 +13,9 @@ Creates a lifecycle request object.
 ## SYNTAX
 
 ```
-New-IdleRequest [-LifecycleEvent] <String> [[-CorrelationId] <String>] [[-Actor] <String>]
- [[-IdentityKeys] <Hashtable>] [[-Intent] <Hashtable>] [[-Context] <Hashtable>]
- [[-Changes] <Hashtable>]
- [-ProgressAction <ActionPreference>] [<CommonParameters>]
+New-IdleRequest [-LifecycleEvent] &lt;String&gt; [[-CorrelationId] &lt;String&gt;] [[-Actor] &lt;String&gt;]
+ [[-IdentityKeys] &lt;Hashtable&gt;] [[-Intent] &lt;Hashtable&gt;] [[-Context] &lt;Hashtable&gt;] [[-Changes] &lt;Hashtable&gt;]
+ [-ProgressAction &lt;ActionPreference&gt;] [&lt;CommonParameters&gt;]
 ```
 
 ## DESCRIPTION
@@ -31,12 +30,14 @@ Changes is optional and stays $null when omitted.
 
 ### EXAMPLE 1
 ```
+# Minimal Joiner request - CorrelationId is auto-generated, Intent/Context default to empty
 New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' }
 ```
 
 ### EXAMPLE 2
 ```
-New-IdleRequest -LifecycleEvent Joiner -Intent @{ Department = 'Engineering'; Title = 'Engineer' }
+# Joiner request with caller-provided action inputs (Intent) and read-only associated context (Context)
+New-IdleRequest -LifecycleEvent Joiner -CorrelationId (New-Guid) -IdentityKeys @{ EmployeeId = '12345' } -Intent @{ Department = 'Engineering'; Title = 'Engineer' } -Context @{ Identity = @{ ObjectId = 'abc-123' } }
 ```
 
 ## PARAMETERS
@@ -116,7 +117,7 @@ Aliases:
 
 Required: False
 Position: 5
-Default value: None
+Default value: @{}
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
