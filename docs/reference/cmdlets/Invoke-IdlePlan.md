@@ -32,7 +32,7 @@ Provider resolution:
 ### EXAMPLE 1
 ```
 # Default: plan built with providers, execution uses Plan.Providers
-$providers = @{ Identity = $provider; AuthSessionBroker = $broker }
+$providers = @{ Identity = $provider; AuthSessionBroker = $authSessionBroker }
 $plan = New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $req -Providers $providers
 Invoke-IdlePlan -Plan $plan
 ```

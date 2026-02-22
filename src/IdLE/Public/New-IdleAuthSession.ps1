@@ -35,11 +35,11 @@ function New-IdleAuthSession {
 
     .EXAMPLE
     # Simple broker with single credential
-    $broker = New-IdleAuthSession -DefaultAuthSession $credential -AuthSessionType 'Credential'
+    $authSessionBroker = New-IdleAuthSession -DefaultAuthSession $credential -AuthSessionType 'Credential'
 
     .EXAMPLE
     # Mixed-type broker for AD + EXO
-    $broker = New-IdleAuthSession -SessionMap @{
+    $authSessionBroker = New-IdleAuthSession -SessionMap @{
         @{ AuthSessionName = 'AD' } = @{ AuthSessionType = 'Credential'; Credential = $adCred }
         @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth'; Credential = $token }
     }

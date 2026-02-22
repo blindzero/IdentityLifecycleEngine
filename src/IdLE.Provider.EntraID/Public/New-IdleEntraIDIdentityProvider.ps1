@@ -43,14 +43,14 @@ function New-IdleEntraIDIdentityProvider {
     # Basic usage with delegated auth
     # Host obtains token via secure method (not shown here - see provider documentation)
     $accessToken = Get-SecureGraphToken
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
+    $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{} = $accessToken
     } -DefaultCredential $accessToken
 
     $provider = New-IdleEntraIDIdentityProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = $provider
-        AuthSessionBroker = $broker
+        AuthSessionBroker = $authSessionBroker
     }
 
     .EXAMPLE
@@ -58,7 +58,7 @@ function New-IdleEntraIDIdentityProvider {
     $tier0Token = Get-GraphTokenForTier0  # host-managed auth
     $adminToken = Get-GraphTokenForAdmin
 
-    $broker = New-IdleAuthSessionBroker -SessionMap @{
+    $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Role = 'Tier0' } = $tier0Token
         @{ Role = 'Admin' } = $adminToken
     } -DefaultCredential $adminToken
@@ -66,7 +66,7 @@ function New-IdleEntraIDIdentityProvider {
     $provider = New-IdleEntraIDIdentityProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = $provider
-        AuthSessionBroker = $broker
+        AuthSessionBroker = $authSessionBroker
     }
 
     # Workflow steps specify: With.AuthSessionOptions = @{ Role = 'Tier0' }
