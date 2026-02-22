@@ -92,8 +92,13 @@ The request object captures *why* a plan was created, independent of *how* it wi
     "identityKeys": {
       "userId": "jdoe"
     },
-    "desiredState": {
+    "intent": {
       "department": "IT"
+    },
+    "context": {
+      "Identity": {
+        "ObjectId": "abc-123"
+      }
     }
   }
 }
@@ -108,6 +113,14 @@ The request object captures *why* a plan was created, independent of *how* it wi
 | actor | Originator of the request (system or human), if available |
 | input | Business intent payload (data-only) |
 
+### input sub-fields (IdLE-native requests)
+
+| Field | Description |
+| ------ | ------------- |
+| identityKeys | System-neutral identity lookup keys (e.g. EmployeeId, UPN) |
+| intent | Caller-provided action inputs (attributes, entitlements, operator flags) |
+| context | Read-only associated context provided by the host or resolvers (e.g. identity snapshots, device hints) |
+
 ### Rules
 
 - The `request` object represents **business intent**, not execution details.
@@ -119,10 +132,34 @@ The request object captures *why* a plan was created, independent of *how* it wi
   - no executable expressions
   - no runtime handles
 - For **IdLE-native lifecycle requests**, `input` SHOULD contain:
-  - `identityKeys` – identifiers of the target identity
-  - `desiredState` – intended target state
+  - `identityKeys` – system-neutral identity lookup keys
+  - `intent` – caller-provided action inputs
+  - `context` – read-only associated context
+  - The standard `New-IdleRequest` / `New-IdleRequestObject` factory guarantees all three fields
+    are present (normalised to empty objects when not provided by the caller).
 - Hosts MAY include additional fields in `input`.
 - The request payload is exported for **audit, approval, and traceability purposes** and MUST remain stable once the plan is created.
+
+### Safety rules
+
+The export pipeline enforces the following safety rules before writing `input` to the artifact:
+
+**Secret prevention (redaction)**  
+Fields with names that match known secret keys (e.g. `password`, `token`, `secret`, `apiKey`,
+`clientSecret`, `accessToken`, `refreshToken`, `privateKey`, `credential`) are replaced with
+`[REDACTED]` before the artifact is written.  
+This applies at all nesting depths.  
+`PSCredential` and `SecureString` values are redacted regardless of key name.
+
+**Executable / unsafe type prevention**  
+`ScriptBlock` objects are replaced with `[REDACTED]` at the export boundary.  
+Non-serializable objects are converted to their string representation.
+
+**Size limits**  
+Each of `identityKeys`, `intent`, and `context` is individually bounded to **64 KB** of
+serialized UTF-8 JSON. Fields exceeding this limit are replaced with the deterministic marker
+`[TRUNCATED - N bytes]`, where N is the pre-truncation byte count.  
+This bound prevents unbounded snapshot artifacts while keeping the marker auditable.
 
 ## Plan Object
 

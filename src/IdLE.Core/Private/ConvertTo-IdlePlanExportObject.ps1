@@ -50,6 +50,33 @@ function ConvertTo-IdlePlanExportObject {
         return $null
     }
 
+    # Maximum UTF-8 byte count for a single snapshot field (identityKeys, intent, context).
+    # Fields serializing beyond this limit are replaced with a deterministic truncation marker
+    # to prevent unbounded snapshot artifacts. 64 KB is a conservative bound per field.
+    $snapshotFieldSizeLimit = 65536
+
+    function Limit-IdleSnapshotField {
+        # Returns the value unchanged if its serialized UTF-8 size is within $snapshotFieldSizeLimit.
+        # Returns a '[TRUNCATED - N bytes]' marker string when the limit is exceeded.
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Value
+        )
+
+        if ($null -eq $Value) { return $null }
+
+        $serialized = $Value | ConvertTo-Json -Depth 20 -Compress
+        $byteCount = [System.Text.Encoding]::UTF8.GetByteCount($serialized)
+
+        if ($byteCount -gt $snapshotFieldSizeLimit) {
+            return "[TRUNCATED - $byteCount bytes]"
+        }
+
+        return $Value
+    }
+
     # ---- Engine block --------------------------------------------------------
     $engineMap = New-OrderedMap
     $engineMap.name = 'IdLE'
@@ -117,6 +144,17 @@ function ConvertTo-IdlePlanExportObject {
     }
     else {
         $null
+    }
+
+    # Enforce per-field size limits on the redacted snapshot fields.
+    # identityKeys, intent and context are each bounded to $snapshotFieldSizeLimit bytes (serialized UTF-8).
+    # Fields that exceed the limit are replaced with a deterministic truncation marker.
+    if ($null -ne $redactedRequestInput -and $redactedRequestInput -is [System.Collections.IDictionary]) {
+        foreach ($fieldName in @('identityKeys', 'intent', 'context')) {
+            if ($redactedRequestInput.Contains($fieldName)) {
+                $redactedRequestInput[$fieldName] = Limit-IdleSnapshotField -Value $redactedRequestInput[$fieldName]
+            }
+        }
     }
 
     $requestMap = New-OrderedMap
