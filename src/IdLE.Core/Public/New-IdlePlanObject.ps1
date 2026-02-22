@@ -62,6 +62,15 @@ function New-IdlePlanObject {
         )
     }
 
+    # Reject requests that contain Request.Changes — this property has been removed.
+    # Model delta-like instructions explicitly under Request.Intent instead.
+    if ($reqProps -contains 'Changes') {
+        throw [System.ArgumentException]::new(
+            "Request object must not contain property 'Changes'. 'Changes' has been removed from the request model. Model delta-like instructions explicitly under 'Intent' instead.",
+            'Request'
+        )
+    }
+
     # Create a data-only snapshot of the incoming request for deterministic exports.
     $requestSnapshot = [pscustomobject]@{
         PSTypeName     = 'IdLE.LifecycleRequestSnapshot'
@@ -71,7 +80,6 @@ function New-IdlePlanObject {
         IdentityKeys   = if ($reqProps -contains 'IdentityKeys') { Copy-IdleDataObject -Value $Request.IdentityKeys } else { $null }
         Intent         = if ($reqProps -contains 'Intent') { Copy-IdleDataObject -Value $Request.Intent } else { $null }
         Context        = if ($reqProps -contains 'Context') { Copy-IdleDataObject -Value $Request.Context } else { $null }
-        Changes        = if ($reqProps -contains 'Changes') { Copy-IdleDataObject -Value $Request.Changes } else { $null }
     }
 
     # Validate workflow and ensure it matches the request's LifecycleEvent.

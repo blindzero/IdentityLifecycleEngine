@@ -338,6 +338,19 @@ Describe 'Template Substitution' {
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
                 Should -Throw -ExpectedMessage '*is not allowed*'
         }
+
+        It 'throws when accessing Request.Changes root' {
+            $wfPath = Get-TemplateTestFixture 'template-changes-root'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage '*is not allowed*'
+        }
     }
 
     Context 'Escaping' {

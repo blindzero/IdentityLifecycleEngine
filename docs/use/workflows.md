@@ -87,7 +87,6 @@ For security, only these path roots are permitted:
 | `Request.Intent.*` | Caller-provided action inputs |
 | `Request.Context.*` | Read-only associated context (host/resolver-provided) |
 | `Request.IdentityKeys.*` | Identifiers of the target identity |
-| `Request.Changes.*` | Explicit deltas (Mover events) |
 | `Request.LifecycleEvent` | Lifecycle event type (e.g. `Joiner`) |
 | `Request.CorrelationId` | Stable correlation identifier |
 | `Request.Actor` | Originator of the request |

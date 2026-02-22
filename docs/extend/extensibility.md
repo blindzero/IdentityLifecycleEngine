@@ -141,4 +141,4 @@ The following are **not contracts** and may change in minor/patch versions:
 
 **Lifecycle request contract**:
 - Required fields: `LifecycleEvent`, `CorrelationId`
-- Optional fields: `Actor`, `IdentityKeys`, `Intent`, `Context`, `Changes`
+- Optional fields: `Actor`, `IdentityKeys`, `Intent`, `Context`
