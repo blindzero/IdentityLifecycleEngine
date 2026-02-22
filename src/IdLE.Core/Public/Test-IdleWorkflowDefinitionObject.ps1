@@ -97,11 +97,12 @@ function Test-IdleWorkflowDefinitionObject {
     # 5) Return normalized object (stable contract for planning).
     #    PSCustomObject avoids class/type load-order problems across modules.
     return [pscustomobject]@{
-        PSTypeName     = 'IdLE.WorkflowDefinition'
-        Name           = [string]$workflow.Name
-        LifecycleEvent = [string]$workflow.LifecycleEvent
-        Description    = if ($workflow.ContainsKey('Description')) { [string]$workflow.Description } else { $null }
-        Steps          = @($workflow.Steps)
-        OnFailureSteps  = if ($workflow.ContainsKey('OnFailureSteps') -and $null -ne $workflow.OnFailureSteps) { @($workflow.OnFailureSteps) } else { @() }
+        PSTypeName       = 'IdLE.WorkflowDefinition'
+        Name             = [string]$workflow.Name
+        LifecycleEvent   = [string]$workflow.LifecycleEvent
+        Description      = if ($workflow.ContainsKey('Description')) { [string]$workflow.Description } else { $null }
+        Steps            = @($workflow.Steps)
+        OnFailureSteps   = if ($workflow.ContainsKey('OnFailureSteps') -and $null -ne $workflow.OnFailureSteps) { @($workflow.OnFailureSteps) } else { @() }
+        ContextResolvers = if ($workflow.ContainsKey('ContextResolvers') -and $null -ne $workflow.ContextResolvers) { @($workflow.ContextResolvers) } else { @() }
     }
 }

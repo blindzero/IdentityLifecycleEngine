@@ -57,7 +57,7 @@ function Test-IdleWorkflowSchema {
         }
     }
 
-    $allowedRootKeys = @('Name', 'LifecycleEvent', 'Steps', 'OnFailureSteps', 'Description')
+    $allowedRootKeys = @('Name', 'LifecycleEvent', 'Steps', 'OnFailureSteps', 'Description', 'ContextResolvers')
     foreach ($key in $Workflow.Keys) {
         if ($allowedRootKeys -notcontains $key) {
             $errors.Add("Unknown root key '$key'. Allowed keys: $($allowedRootKeys -join ', ').")
@@ -170,6 +170,52 @@ function Test-IdleWorkflowSchema {
 
                 # Validate RetryProfile
                 Test-IdleWorkflowStepRetryProfile -Step $step -StepPath $stepPath -ErrorList $errors
+
+                $i++
+            }
+        }
+    }
+
+    # ContextResolvers are optional. If present, validate each resolver entry.
+    if ($Workflow.ContainsKey('ContextResolvers') -and $null -ne $Workflow.ContextResolvers) {
+        if ($Workflow.ContextResolvers -isnot [System.Collections.IEnumerable] -or
+            $Workflow.ContextResolvers -is [string] -or
+            $Workflow.ContextResolvers -is [hashtable]) {
+            $errors.Add("'ContextResolvers' must be an array/list of resolver hashtables, not a single hashtable.")
+        }
+        else {
+            # 'To' is not user-configurable; each capability has a predefined output path.
+            $allowedResolverKeys = @('Capability', 'Provider', 'With')
+
+            $i = 0
+            foreach ($resolver in $Workflow.ContextResolvers) {
+                $resolverPath = "ContextResolvers[$i]"
+
+                if ($null -eq $resolver -or $resolver -isnot [hashtable]) {
+                    $errors.Add("$resolverPath must be a hashtable.")
+                    $i++
+                    continue
+                }
+
+                foreach ($k in $resolver.Keys) {
+                    if ($allowedResolverKeys -notcontains $k) {
+                        $errors.Add("Unknown key '$k' in $resolverPath. Allowed keys: $($allowedResolverKeys -join ', ').")
+                    }
+                }
+
+                if (-not $resolver.ContainsKey('Capability') -or [string]::IsNullOrWhiteSpace([string]$resolver.Capability)) {
+                    $errors.Add("Missing or empty required key '$resolverPath.Capability'.")
+                }
+
+                # 'With' is optional but must be a hashtable if present.
+                if ($resolver.ContainsKey('With') -and $null -ne $resolver.With -and $resolver.With -isnot [hashtable]) {
+                    $errors.Add("'$resolverPath.With' must be a hashtable (resolver input parameters).")
+                }
+
+                # 'Provider' is optional but must be a non-empty string if present.
+                if ($resolver.ContainsKey('Provider') -and $null -ne $resolver.Provider -and [string]::IsNullOrWhiteSpace([string]$resolver.Provider)) {
+                    $errors.Add("'$resolverPath.Provider' must not be an empty string.")
+                }
 
                 $i++
             }
