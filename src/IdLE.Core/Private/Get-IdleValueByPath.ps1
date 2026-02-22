@@ -10,7 +10,7 @@ function Get-IdleValueByPath {
         [string] $Path
     )
 
-    # Supports dotted property paths, e.g. "DesiredState.Department"
+    # Supports dotted property paths, e.g. "Intent.Department"
     $current = $Object
     foreach ($segment in ($Path -split '\.')) {
         if ($null -eq $current) { return $null }

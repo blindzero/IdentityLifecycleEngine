@@ -7,8 +7,8 @@
       Type = 'IdLE.Step.Test'
       With = @{
         Emails = @(
-          '{{Request.Input.PrimaryEmail}}'
-          '{{Request.Input.SecondaryEmail}}'
+          '{{Request.Intent.PrimaryEmail}}'
+          '{{Request.Intent.SecondaryEmail}}'
         )
       }
     }

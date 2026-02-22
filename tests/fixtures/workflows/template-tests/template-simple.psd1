@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        UserName = '{{Request.Input.UserPrincipalName}}'
+        UserName = '{{Request.Intent.UserPrincipalName}}'
       }
     }
   )

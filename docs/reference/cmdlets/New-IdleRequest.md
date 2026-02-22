@@ -15,7 +15,7 @@ Creates a lifecycle request object.
 ```
 New-IdleRequest [-LifecycleEvent] <String> [[-CorrelationId] <String>] [[-Actor] <String>]
  [[-IdentityKeys] <Hashtable>] [[-Intent] <Hashtable>] [[-Context] <Hashtable>]
- [[-DesiredState] <Hashtable>] [[-Changes] <Hashtable>]
+ [[-Changes] <Hashtable>]
  [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
@@ -26,11 +26,6 @@ Joiner/Mover/Leaver).
 CorrelationId is generated if missing.
 Actor is optional.
 Changes is optional and stays $null when omitted.
-
-Transition window (DesiredState → Intent):
-- Providing only -DesiredState maps it to -Intent and emits a deprecation warning.
-- Providing both -DesiredState and -Intent fails fast with a validation error.
-- After the transition window, -DesiredState support will be removed.
 
 ## EXAMPLES
 
@@ -113,7 +108,6 @@ Accept wildcard characters: False
 ### -Intent
 A hashtable containing the caller-provided action inputs for the workflow (attributes,
 entitlements, operator flags, etc.).
-Canonical replacement for DesiredState.
 
 ```yaml
 Type: Hashtable
@@ -145,25 +139,6 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -DesiredState
-Deprecated.
-Use -Intent instead.
-Providing only -DesiredState maps it to -Intent and emits
-a deprecation warning.
-Providing both -DesiredState and -Intent is an error.
-
-```yaml
-Type: Hashtable
-Parameter Sets: (All)
-Aliases:
-
-Required: False
-Position: 7
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
 ### -Changes
 Optional hashtable describing changes (typically used for Mover lifecycle events).
 
@@ -173,7 +148,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: False
-Position: 8
+Position: 7
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False

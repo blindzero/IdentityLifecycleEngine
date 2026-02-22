@@ -64,7 +64,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
         Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
         With = @{
             Provider        = 'ExchangeOnline'
-            IdentityKey     = @{ ValueFrom = 'Request.Input.UserPrincipalName' }
+            IdentityKey     = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }
             Config          = @{
                 Mode            = 'Enabled'
                 InternalMessage = 'This person is no longer with the organization. For assistance, please contact their manager or the main office.'
@@ -127,7 +127,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     .EXAMPLE
     # Template usage with dynamic manager attributes (Leaver scenario):
     # Note: Templates are resolved during planning against the request object.
-    # Host must enrich request.DesiredState with manager data before calling New-IdlePlan.
+    # Host must enrich request.Intent with manager data before calling New-IdlePlan.
     
     # Host-side enrichment (example):
     # $user = Get-ADUser -Identity 'max.power' -Properties Manager
@@ -140,7 +140,7 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
     #         Mail        = 'servicedesk@contoso.com'
     #     }
     # }
-    # $req = New-IdleRequest -LifecycleEvent 'Leaver' -Actor $env:USERNAME -DesiredState @{
+    # $req = New-IdleRequest -LifecycleEvent 'Leaver' -Actor $env:USERNAME -Intent @{
     #   Manager = @{ DisplayName = $mgr.DisplayName; Mail = $mgr.Mail }
     # }
     
@@ -153,8 +153,8 @@ function Invoke-IdleStepMailboxOutOfOfficeEnsure {
             IdentityKey     = 'max.power@contoso.com'
             Config          = @{
                 Mode            = 'Enabled'
-                InternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.DisplayName}} ({{Request.DesiredState.Manager.Mail}}).'
-                ExternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.DesiredState.Manager.Mail}}.'
+                InternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.Intent.Manager.DisplayName}} ({{Request.Intent.Manager.Mail}}).'
+                ExternalMessage = 'This mailbox is no longer monitored. Please contact {{Request.Intent.Manager.Mail}}.'
                 ExternalAudience = 'All'
             }
         }

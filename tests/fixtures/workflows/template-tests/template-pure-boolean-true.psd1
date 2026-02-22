@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        IsActive = '{{Request.Input.IsActive}}'
+        IsActive = '{{Request.Intent.IsActive}}'
       }
     }
   )

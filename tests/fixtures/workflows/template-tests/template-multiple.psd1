@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        Message = 'User {{Request.Input.DisplayName}} ({{Request.Input.UserPrincipalName}}) is joining.'
+        Message = 'User {{Request.Intent.DisplayName}} ({{Request.Intent.UserPrincipalName}}) is joining.'
       }
     }
   )

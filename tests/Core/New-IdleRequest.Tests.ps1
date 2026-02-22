@@ -25,12 +25,10 @@ Describe 'New-IdleRequest' {
             $req.CorrelationId | Should -Be $cid
         }
 
-        It 'defaults IdentityKeys and DesiredState to empty hashtables when omitted' {
+        It 'defaults IdentityKeys to an empty hashtable when omitted' {
             $req = New-IdleRequest -LifecycleEvent 'Joiner'
             $req.IdentityKeys | Should -BeOfType 'hashtable'
-            $req.DesiredState | Should -BeOfType 'hashtable'
             $req.IdentityKeys.Count | Should -Be 0
-            $req.DesiredState.Count | Should -Be 0
         }
 
         It 'defaults Intent and Context to empty hashtables when omitted' {
@@ -39,6 +37,11 @@ Describe 'New-IdleRequest' {
             $req.Context | Should -BeOfType 'hashtable'
             $req.Intent.Count  | Should -Be 0
             $req.Context.Count | Should -Be 0
+        }
+
+        It 'does not expose a DesiredState property' {
+            $req = New-IdleRequest -LifecycleEvent 'Joiner'
+            $req.PSObject.Properties.Name | Should -Not -Contain 'DesiredState'
         }
     }
 
@@ -80,11 +83,6 @@ Describe 'New-IdleRequest' {
             $req.Intent | Should -BeOfType 'hashtable'
             $req.Intent.Department | Should -Be 'Engineering'
         }
-
-        It 'mirrors Intent value into DesiredState for backward compatibility' {
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Title = 'Engineer' }
-            $req.DesiredState.Title | Should -Be 'Engineer'
-        }
     }
 
     Context 'Context parameter' {
@@ -94,64 +92,25 @@ Describe 'New-IdleRequest' {
             $req.Context.Identity.ObjectId | Should -Be 'abc-123'
         }
     }
-
-    Context 'DesiredState transition window' {
-        It 'maps DesiredState to Intent when only DesiredState is provided' {
-            $req = New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Department = 'HR' } 3>$null
-            $req.Intent.Department | Should -Be 'HR'
-        }
-
-        It 'emits a deprecation warning when DesiredState is used' {
-            $warningMessage = $null
-            New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ Foo = 'Bar' } -WarningVariable warningMessage 3>$null | Out-Null
-            $warningMessage | Should -Not -BeNullOrEmpty
-            $warningMessage | Should -Match 'deprecated'
-            $warningMessage | Should -Match 'Intent'
-        }
-
-        It 'rejects providing both DesiredState and Intent' {
-            { New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{ A = '1' } -Intent @{ B = '2' } } |
-                Should -Throw -ExpectedMessage "*'DesiredState' is deprecated*"
-        }
-    }
 }
 
 Describe 'New-IdleRequest - data-only validation' {
     Context 'ScriptBlock rejection' {
-        It 'rejects ScriptBlock in DesiredState when provided' {
-            try {
-                New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{
-                    Attributes = @{ Department = { 'IT' } }
-                }
-                throw 'Expected an exception but none was thrown.'
-            }
-            catch {
-                $_.Exception | Should -BeOfType ([System.ArgumentException])
-                $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
-                $_.Exception.Message | Should -Match 'Intent'
-            }
-        }
-
-        It 'rejects ScriptBlock nested in arrays' {
-            try {
-                New-IdleRequest -LifecycleEvent 'Joiner' -DesiredState @{
-                    Entitlements = @(
-                        @{ Type = 'Group'; Value = 'APP-CRM-Users' }
-                        @{ Type = 'Custom'; Value = { 'NOPE' } }
-                    )
-                }
-            }
-            catch {
-                $_.Exception | Should -BeOfType ([System.ArgumentException])
-                $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
-                $_.Exception.Message | Should -Match 'Intent'
-            }
-        }
-
         It 'rejects ScriptBlock in Intent when provided' {
             {
                 New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{
                     Attributes = @{ Department = { 'IT' } }
+                }
+            } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*'
+        }
+
+        It 'rejects ScriptBlock nested in arrays' {
+            {
+                New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{
+                    Entitlements = @(
+                        @{ Type = 'Group'; Value = 'APP-CRM-Users' }
+                        @{ Type = 'Custom'; Value = { 'NOPE' } }
+                    )
                 }
             } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*'
         }
@@ -165,7 +124,7 @@ Describe 'New-IdleRequest - data-only validation' {
         }
 
         It 'rejects ScriptBlock in Changes when provided' {
-            try {
+            {
                 New-IdleRequest -LifecycleEvent 'Joiner' -Changes @{
                     Attributes = @{
                         Department = @{
@@ -174,13 +133,7 @@ Describe 'New-IdleRequest - data-only validation' {
                         }
                     }
                 }
-                throw 'Expected an exception but none was thrown.'
-            }
-            catch {
-                $_.Exception | Should -BeOfType ([System.ArgumentException])
-                $_.Exception.Message | Should -Match 'ScriptBlocks are not allowed'
-                $_.Exception.Message | Should -Match 'Changes'
-            }
+            } | Should -Throw -ExpectedMessage '*ScriptBlocks are not allowed*Changes*'
         }
     }
 }
@@ -225,4 +178,3 @@ Describe 'New-IdlePlan - Request.Identity rejection' {
             Should -Throw -ExpectedMessage "*must not contain property 'Identity'*"
     }
 }
-

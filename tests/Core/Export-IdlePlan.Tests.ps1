@@ -30,7 +30,7 @@ Describe 'Export-IdlePlan' {
               -LifecycleEvent 'Joiner' `
               -CorrelationId $cid `
               -IdentityKeys ([ordered]@{ userId = 'jdoe' }) `
-              -DesiredState ([ordered]@{ department = 'IT' })
+              -Intent ([ordered]@{ department = 'IT' })
 
             $providers = @{
                 Dummy        = $true

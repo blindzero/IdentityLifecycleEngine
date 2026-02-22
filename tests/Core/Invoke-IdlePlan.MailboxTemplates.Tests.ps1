@@ -68,8 +68,8 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
         IdentityKey = 'user@contoso.com'
         Config      = @{
           Mode             = 'Enabled'
-          InternalMessage  = 'Please contact {{Request.DesiredState.Manager.DisplayName}} at {{Request.DesiredState.Manager.Mail}}.'
-          ExternalMessage  = 'Please contact {{Request.DesiredState.Manager.Mail}}.'
+          InternalMessage  = 'Please contact {{Request.Intent.Manager.DisplayName}} at {{Request.Intent.Manager.Mail}}.'
+          ExternalMessage  = 'Please contact {{Request.Intent.Manager.Mail}}.'
           ExternalAudience = 'All'
         }
       }
@@ -81,7 +81,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
             $req = New-IdleTestRequest `
                 -LifecycleEvent 'Leaver' `
                 -Actor 'admin@contoso.com' `
-                -DesiredState @{
+                -Intent @{
                     Manager = @{
                         DisplayName = 'Jane Smith'
                         Mail        = 'jane.smith@contoso.com'
@@ -107,7 +107,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
             $mailbox.OOFExternalMessage | Should -Be 'Please contact jane.smith@contoso.com.'
         }
 
-        It 'resolves nested template variables from Request.DesiredState' {
+        It 'resolves nested template variables from Request.Intent' {
             $wfPath = New-IdleTestWorkflowFile -FileName 'oof-nested-templates.psd1' -Content @'
 @{
   Name           = 'OOF with Nested Templates'
@@ -121,8 +121,8 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
         IdentityKey = 'user@contoso.com'
         Config      = @{
           Mode            = 'Enabled'
-          InternalMessage = 'User has left. Contact: {{Request.DesiredState.Handover.Name}} ({{Request.DesiredState.Handover.Email}})'
-          ExternalMessage = 'For assistance: {{Request.DesiredState.Handover.Email}}'
+          InternalMessage = 'User has left. Contact: {{Request.Intent.Handover.Name}} ({{Request.Intent.Handover.Email}})'
+          ExternalMessage = 'For assistance: {{Request.Intent.Handover.Email}}'
         }
       }
     }
@@ -133,7 +133,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
             $req = New-IdleTestRequest `
                 -LifecycleEvent 'Leaver' `
                 -Actor 'admin@contoso.com' `
-                -DesiredState @{
+                -Intent @{
                     Handover = @{
                         Name  = 'Bob Johnson'
                         Email = 'bob.johnson@contoso.com'
@@ -160,8 +160,8 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
         IdentityKey = 'user@contoso.com'
         Config      = @{
           Mode            = 'Enabled'
-          InternalMessage = 'Contact {{Request.DesiredState.TeamLead.Name}}'
-          ExternalMessage = 'Email {{Request.DesiredState.TeamLead.Email}}'
+          InternalMessage = 'Contact {{Request.Intent.TeamLead.Name}}'
+          ExternalMessage = 'Email {{Request.Intent.TeamLead.Email}}'
         }
       }
     }
@@ -172,7 +172,7 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
             $req = New-IdleTestRequest `
                 -LifecycleEvent 'Leaver' `
                 -Actor 'admin@contoso.com' `
-                -DesiredState @{
+                -Intent @{
                     TeamLead = @{
                         Name  = 'Alice Brown'
                         Email = 'alice.brown@contoso.com'

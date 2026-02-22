@@ -84,15 +84,13 @@ For security, only these path roots are permitted:
 
 | Root | Description |
 | ---- | ----------- |
-| `Request.Intent.*` | Caller-provided action inputs (canonical) |
+| `Request.Intent.*` | Caller-provided action inputs |
 | `Request.Context.*` | Read-only associated context (host/resolver-provided) |
 | `Request.IdentityKeys.*` | Identifiers of the target identity |
 | `Request.Changes.*` | Explicit deltas (Mover events) |
 | `Request.LifecycleEvent` | Lifecycle event type (e.g. `Joiner`) |
 | `Request.CorrelationId` | Stable correlation identifier |
 | `Request.Actor` | Originator of the request |
-| `Request.DesiredState.*` | Deprecated alias for `Request.Intent.*` (transition window) |
-| `Request.Input.*` | Legacy alias for `Request.Intent.*` when no `Input` property exists |
 
 ### Pure vs. mixed placeholders
 

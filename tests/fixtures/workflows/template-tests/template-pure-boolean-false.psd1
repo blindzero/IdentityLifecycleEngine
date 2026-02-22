@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        Enabled = '{{Request.Input.Enabled}}'
+        Enabled = '{{Request.Intent.Enabled}}'
       }
     }
   )

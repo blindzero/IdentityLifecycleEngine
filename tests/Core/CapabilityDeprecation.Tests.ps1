@@ -32,7 +32,7 @@ Describe 'Capability Deprecation and Migration' {
             # Verify the workflow file exists
             $wfPath | Should -Exist
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -DesiredState @{
+            $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -Intent @{
                 UserPrincipalName = 'leaver@contoso.com'
                 Manager = @{
                     DisplayName = 'IT Support'
@@ -77,7 +77,7 @@ Describe 'Capability Deprecation and Migration' {
             # Use a real workflow file
             $wfPath = Join-Path $PSScriptRoot '..' '..' 'examples' 'workflows' 'templates' 'exo-leaver.psd1'
 
-            $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -DesiredState @{
+            $req = New-IdleTestRequest -LifecycleEvent 'Leaver' -Intent @{
                 UserPrincipalName = 'leaver@contoso.com'
                 Manager = @{
                     DisplayName = 'IT Support'

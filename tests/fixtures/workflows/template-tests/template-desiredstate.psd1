@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        Department = '{{Request.DesiredState.Department}}'
+        Department = '{{Request.Intent.Department}}'
       }
     }
   )

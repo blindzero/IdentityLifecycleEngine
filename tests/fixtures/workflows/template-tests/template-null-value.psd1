@@ -6,7 +6,7 @@
       Name = 'TestStep'
       Type = 'IdLE.Step.Test'
       With = @{
-        Value = '{{Request.Input.NullField}}'
+        Value = '{{Request.Intent.NullField}}'
       }
     }
   )

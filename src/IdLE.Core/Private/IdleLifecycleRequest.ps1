@@ -2,16 +2,14 @@
 # Actor is intentionally optional in V1 (see architecture).
 # Changes is optional and stays $null if not provided.
 #
-# Intent   - canonical caller-provided input block (replaces DesiredState).
+# Intent   - canonical caller-provided input block.
 # Context  - read-only associated context provided by the host or resolvers.
-# DesiredState - backward-compat alias mirroring Intent during the transition window.
 
 class IdleLifecycleRequest {
     [string] $LifecycleEvent
     [hashtable] $IdentityKeys
     [hashtable] $Intent
     [hashtable] $Context
-    [hashtable] $DesiredState
     [hashtable] $Changes
     [string] $CorrelationId
     [string] $Actor
@@ -52,10 +50,6 @@ class IdleLifecycleRequest {
         if ($null -eq $this.Context) {
             $this.Context = @{}
         }
-
-        # DesiredState mirrors Intent for backward compatibility during the transition window.
-        # Templates that reference Request.DesiredState.* continue to resolve correctly.
-        $this.DesiredState = $this.Intent
 
         # Changes stays $null if not provided. If provided, it must be a hashtable.
         if ($null -ne $this.Changes -and $this.Changes -isnot [hashtable]) {

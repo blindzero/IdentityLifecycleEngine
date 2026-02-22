@@ -10,11 +10,6 @@ function New-IdleRequestObject {
     The function validates that no ScriptBlocks are present in the input data (IdentityKeys, 
     Intent, Context, Changes) to enforce the data-only configuration principle. Input hashtables 
     are cloned to prevent external mutation after object creation.
-
-    Transition window (DesiredState → Intent):
-    - Providing only -DesiredState maps it to -Intent and emits a deprecation warning.
-    - Providing both -DesiredState and -Intent fails fast with a validation error.
-    - After the transition window, -DesiredState support will be removed.
     
     CorrelationId is preserved if provided; otherwise, the IdleLifecycleRequest class generates 
     a new GUID. Actor is optional and not required by the core engine.
@@ -38,17 +33,12 @@ function New-IdleRequestObject {
     .PARAMETER Intent
     A hashtable containing the caller-provided action inputs for the workflow (attributes, 
     entitlements, operator flags, etc.). Defaults to an empty hashtable if not provided.
-    Must not contain ScriptBlocks. Canonical replacement for DesiredState.
+    Must not contain ScriptBlocks.
 
     .PARAMETER Context
     A hashtable containing read-only associated context provided by the host or resolvers
     (e.g. identity snapshots, device hints). Defaults to an empty hashtable if not provided.
     Must not contain ScriptBlocks. Must not be treated as mutable state within IdLE.
-
-    .PARAMETER DesiredState
-    Deprecated. Use -Intent instead. A hashtable describing the desired state for the identity.
-    During the transition window, if only -DesiredState is provided it is mapped to -Intent 
-    and a deprecation warning is emitted. Providing both -DesiredState and -Intent is an error.
 
     .PARAMETER Changes
     Optional hashtable describing changes (typically used for Mover lifecycle events to indicate 
@@ -106,32 +96,10 @@ function New-IdleRequestObject {
         [hashtable] $Context,
 
         [Parameter()]
-        [hashtable] $DesiredState,
-
-        [Parameter()]
         [hashtable] $Changes
     )
 
-    # Transition window: DesiredState → Intent migration.
-    $intentProvided = $PSBoundParameters.ContainsKey('Intent')
-    $desiredStateProvided = $PSBoundParameters.ContainsKey('DesiredState')
-
-    if ($intentProvided -and $desiredStateProvided) {
-        throw [System.ArgumentException]::new(
-            "Both 'Intent' and 'DesiredState' were provided. 'DesiredState' is deprecated. Provide only 'Intent'.",
-            'DesiredState'
-        )
-    }
-
-    if ($desiredStateProvided -and -not $intentProvided) {
-        # Map DesiredState → Intent and emit a structured deprecation warning.
-        Write-Warning ("IdLE deprecation: The 'DesiredState' parameter is deprecated and will be removed in a future release. " +
-            "Please migrate to '-Intent' (e.g. 'New-IdleRequest -LifecycleEvent ... -Intent @{...}'). " +
-            "For this request, 'DesiredState' has been mapped to 'Intent' automatically.")
-        $Intent = $DesiredState
-    }
-
-    # Default to empty hashtables when neither was provided.
+    # Default to empty hashtables when not provided.
     if ($null -eq $Intent) { $Intent = @{} }
     if ($null -eq $Context) { $Context = @{} }
 
