@@ -46,8 +46,15 @@ const sidebars = {
             'use/walkthrough/05-providers-authentication',
           ],
         },
-        'use/workflows',
-        'use/preconditions',
+        {
+          type: 'category',
+          label: 'Workflows',
+          collapsed: true,
+          items: [
+            'use/workflows',
+            'use/workflows/preconditions',
+          ],
+        },
         'use/providers',
         'use/plan-export',
       ],

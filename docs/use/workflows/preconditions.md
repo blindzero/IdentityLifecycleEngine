@@ -221,5 +221,5 @@ affect any other steps.
 
 ## Reference
 
-- [Steps reference](../reference/steps.md)
-- [Concepts: Plan → Execute separation](../about/concepts.md)
+- [Steps reference](../../reference/steps.md)
+- [Concepts: Plan → Execute separation](../../about/concepts.md)
