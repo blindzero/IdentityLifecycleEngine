@@ -38,7 +38,7 @@ function New-IdleExchangeOnlineAdapter {
         $tokenAssignmentPattern = 'token[^\s]*\s*=\s*[^\s,;]+'
 
         # Transient EXO error patterns: server-side 5xx errors and throttling (429)
-        $transientErrorPattern = 'server\s+side\s+error|throttl|too\s+many\s+request|service\s+unavailable|temporarily\s+unavailable|bad\s+gateway'
+        $transientErrorPattern = 'server\s+side\s+error|throttl|too\s+many\s+requests|service\s+unavailable|temporarily\s+unavailable|bad\s+gateway'
 
         try {
             $result = & $CommandName @Parameters

@@ -820,7 +820,7 @@ Describe 'ExchangeOnline provider - Unit tests' {
         It 'emits Evaluated and Result events when EventSink is set' {
             Add-TestMailbox -PrimarySmtpAddress 'evt1@contoso.com'
 
-            $capturedEvents = [System.Collections.Generic.List[hashtable]]::new()
+            $script:capturedEvents = [System.Collections.Generic.List[hashtable]]::new()
             $fakeEventSink = [pscustomobject]@{}
             $fakeEventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
                 param($Type, $Message, $StepName, $Data)
@@ -828,7 +828,6 @@ Describe 'ExchangeOnline provider - Unit tests' {
             } -Force
 
             $provider.EventSink = $fakeEventSink
-            $script:capturedEvents = $capturedEvents
 
             $permissions = @(
                 @{ AssignedUser = 'delegate1@contoso.com'; Right = 'FullAccess'; Ensure = 'Present' }
@@ -838,9 +837,9 @@ Describe 'ExchangeOnline provider - Unit tests' {
 
             $provider.EventSink = $null
 
-            $evalEvents = @($capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Evaluated' })
-            $applyEvents = @($capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Applying' })
-            $resultEvents = @($capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Result' })
+            $evalEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Evaluated' })
+            $applyEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Applying' })
+            $resultEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Result' })
 
             $evalEvents.Count | Should -BeGreaterOrEqual 1
             $applyEvents.Count | Should -Be 1
@@ -954,15 +953,16 @@ Describe 'ExchangeOnline provider - Unit tests' {
             catch {
                 $caught = $_.Exception
             }
-
-            # Restore original RemoveMailboxPermission
-            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveMailboxPermission -Value {
-                param($MailboxIdentity, $User, $AccessToken)
-                $key = $MailboxIdentity.ToLowerInvariant()
-                if ($this.Store.FullAccess.ContainsKey($key)) {
-                    $this.Store.FullAccess[$key].Remove($User.ToLowerInvariant())
-                }
-            } -Force
+            finally {
+                # Restore original RemoveMailboxPermission so other tests are not affected
+                $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveMailboxPermission -Value {
+                    param($MailboxIdentity, $User, $AccessToken)
+                    $key = $MailboxIdentity.ToLowerInvariant()
+                    if ($this.Store.FullAccess.ContainsKey($key)) {
+                        $this.Store.FullAccess[$key].Remove($User.ToLowerInvariant())
+                    }
+                } -Force
+            }
 
             $caught | Should -Not -BeNullOrEmpty
             # Use Test-IdleTransientError (same check as the plan executor's Invoke-IdleWithRetry)
