@@ -37,6 +37,9 @@ function New-IdleExchangeOnlineAdapter {
         $bearerTokenPattern = 'Bearer\s+[^\s]+'
         $tokenAssignmentPattern = 'token[^\s]*\s*=\s*[^\s,;]+'
 
+        # Transient EXO error patterns: server-side 5xx errors and throttling (429)
+        $transientErrorPattern = 'server\s+side\s+error|throttl|too\s+many\s+request|service\s+unavailable|temporarily\s+unavailable|bad\s+gateway'
+
         try {
             $result = & $CommandName @Parameters
             return $result
@@ -44,14 +47,24 @@ function New-IdleExchangeOnlineAdapter {
         catch {
             # Build error message without exposing sensitive data
             $errorMessage = "Exchange Online command '$CommandName' failed"
+            $isTransient = $false
             if ($_.Exception.Message) {
                 # Sanitize error message to avoid leaking tokens/secrets
                 $sanitized = $_.Exception.Message -replace $bearerTokenPattern, 'Bearer <REDACTED>'
                 $sanitized = $sanitized -replace $tokenAssignmentPattern, 'token=<REDACTED>'
                 $errorMessage += " | $sanitized"
+
+                # Mark retryable server-side and throttling errors as transient so the
+                # plan executor's Invoke-IdleWithRetry can retry the enclosing step.
+                if ($_.Exception.Message -match $transientErrorPattern) {
+                    $isTransient = $true
+                }
             }
 
             $ex = [System.Exception]::new($errorMessage, $_.Exception)
+            if ($isTransient) {
+                $ex.Data['Idle.IsTransient'] = $true
+            }
             throw $ex
         }
     }

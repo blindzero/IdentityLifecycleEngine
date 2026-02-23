@@ -159,6 +159,13 @@ function Invoke-IdleStepMailboxPermissionsEnsure {
         $effectiveWith['AuthSessionName'] = $providerAlias
     }
 
+    # Inject EventSink into the provider so it can emit diagnostics events
+    $provider = $Context.Providers[$providerAlias]
+    if ($provider.PSObject.Properties.Name -contains 'EventSink' -and
+        $Context.PSObject.Properties.Name -contains 'EventSink') {
+        $provider.EventSink = $Context.EventSink
+    }
+
     $result = Invoke-IdleProviderMethod `
         -Context $Context `
         -With $effectiveWith `
