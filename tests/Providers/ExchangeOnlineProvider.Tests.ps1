@@ -445,6 +445,44 @@ Describe 'ExchangeOnline provider - Unit tests' {
         }
     }
 
+    Context 'New-IdleExchangeOnlineAdapter - InvokeSafely scoping regression' {
+        BeforeAll {
+            # Import private adapter function directly for unit testing
+            $repoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
+            $adapterPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\Private\New-IdleExchangeOnlineAdapter.ps1'
+            . $adapterPath
+        }
+
+        It 'InvokeSafely can be called from another ScriptMethod without variable-not-set error' {
+            # Regression test: $bearerTokenPattern and $tokenAssignmentPattern must be in scope
+            # when InvokeSafely is invoked via $this.InvokeSafely() from another ScriptMethod.
+            $adapter = New-IdleExchangeOnlineAdapter
+
+            # Wrap the real adapter with a ScriptMethod that calls $this.InvokeSafely() to
+            # simulate the same execution path as GetMailbox -> InvokeSafely.
+            $adapter | Add-Member -MemberType ScriptMethod -Name TestViaMethod -Value {
+                $this.InvokeSafely('Write-Output', @{ InputObject = 'ok' })
+            } -Force
+
+            { $adapter.TestViaMethod() } | Should -Not -Throw
+        }
+
+        It 'InvokeSafely sanitizes bearer tokens in error messages without variable-not-set error' {
+            $adapter = New-IdleExchangeOnlineAdapter
+
+            # Simulate a command that throws an exception containing a bearer token in the message.
+            function global:Invoke-ThrowBearerError {
+                throw 'Authentication failed: Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig'
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name TestErrorSanitization -Value {
+                $this.InvokeSafely('Invoke-ThrowBearerError', @{})
+            } -Force
+
+            { $adapter.TestErrorSanitization() } | Should -Throw -ExpectedMessage "*Bearer <REDACTED>*"
+        }
+    }
+
     Context 'Normalize-IdleExchangeOnlineAutoReplyMessage' {
         BeforeAll {
             # Import the private normalization function for direct testing
