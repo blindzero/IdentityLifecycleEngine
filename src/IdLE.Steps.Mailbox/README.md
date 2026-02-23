@@ -22,6 +22,7 @@ Provider-agnostic mailbox step pack for IdLE.
 - **IdLE.Step.Mailbox.GetInfo** - Read mailbox details
 - **IdLE.Step.Mailbox.EnsureType** - Convert mailbox type (User/Shared/Room/Equipment)
 - **IdLE.Step.Mailbox.EnsureOutOfOffice** - Configure Out of Office settings
+- **IdLE.Step.Mailbox.EnsurePermissions** - Converge delegate permissions (FullAccess, SendAs, SendOnBehalf)
 
 ## Documentation
 

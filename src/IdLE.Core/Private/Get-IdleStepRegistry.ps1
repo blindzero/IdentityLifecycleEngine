@@ -199,5 +199,12 @@ function Get-IdleStepRegistry {
         }
     }
 
+    if (-not $registry.ContainsKey('IdLE.Step.Mailbox.EnsurePermissions')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepMailboxPermissionsEnsure' -ModuleName 'IdLE.Steps.Mailbox'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.Mailbox.EnsurePermissions'] = $handler
+        }
+    }
+
     return $registry
 }
