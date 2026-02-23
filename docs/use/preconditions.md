@@ -221,6 +221,5 @@ affect any other steps.
 
 ## Reference
 
-- [Condition DSL reference](../reference/specs/conditions.md) (shared between `Condition` and `Preconditions`)
 - [Steps reference](../reference/steps.md)
 - [Concepts: Plan → Execute separation](../about/concepts.md)
