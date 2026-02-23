@@ -149,20 +149,28 @@ function ConvertTo-IdleWorkflowSteps {
                         )
                     }
                 }
-                $preconditions = $pcList
+                $preconditions = @()
+                foreach ($pc in $pcList) {
+                    $preconditions += Copy-IdleDataObject -Value $pc
+                }
             }
         }
 
         $onPreconditionFalse = $null
         if (Test-IdleWorkflowStepKey -Step $s -Key 'OnPreconditionFalse') {
-            $rawOnPreconditionFalse = [string](Get-IdlePropertyValue -Object $s -Name 'OnPreconditionFalse')
-            if ($rawOnPreconditionFalse -notin @('Blocked', 'Fail', 'Continue')) {
-                throw [System.ArgumentException]::new(
-                    ("Workflow step '{0}': OnPreconditionFalse must be 'Blocked', 'Fail', or 'Continue'. Got: '{1}'." -f $stepName, $rawOnPreconditionFalse),
-                    'Workflow'
-                )
+            $rawOnPreconditionFalseValue = Get-IdlePropertyValue -Object $s -Name 'OnPreconditionFalse'
+            if ($null -ne $rawOnPreconditionFalseValue) {
+                $rawOnPreconditionFalse = [string]$rawOnPreconditionFalseValue
+                if (-not [string]::IsNullOrWhiteSpace($rawOnPreconditionFalse)) {
+                    if ($rawOnPreconditionFalse -notin @('Blocked', 'Fail', 'Continue')) {
+                        throw [System.ArgumentException]::new(
+                            ("Workflow step '{0}': OnPreconditionFalse must be 'Blocked', 'Fail', or 'Continue'. Got: '{1}'." -f $stepName, $rawOnPreconditionFalse),
+                            'Workflow'
+                        )
+                    }
+                    $onPreconditionFalse = $rawOnPreconditionFalse
+                }
             }
-            $onPreconditionFalse = $rawOnPreconditionFalse
         }
 
         $preconditionEvent = $null
