@@ -18,10 +18,6 @@ function New-IdleExchangeOnlineAdapter {
         [switch] $UseRestApi
     )
 
-    # Regex patterns for sanitizing error messages (captured by scriptblock closure)
-    $bearerTokenPattern = 'Bearer\s+[^\s]+'
-    $tokenAssignmentPattern = 'token[^\s]*\s*=\s*[^\s,;]+'
-
     $adapter = [pscustomobject]@{
         PSTypeName = 'IdLE.ExchangeOnlineAdapter'
         UseRestApi = [bool]$UseRestApi
@@ -36,6 +32,10 @@ function New-IdleExchangeOnlineAdapter {
             [Parameter()]
             [hashtable] $Parameters = @{}
         )
+
+        # Regex patterns for sanitizing error messages (defined inside scriptblock for reliable scoping)
+        $bearerTokenPattern = 'Bearer\s+[^\s]+'
+        $tokenAssignmentPattern = 'token[^\s]*\s*=\s*[^\s,;]+'
 
         try {
             $result = & $CommandName @Parameters

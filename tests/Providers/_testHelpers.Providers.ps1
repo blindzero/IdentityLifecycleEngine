@@ -13,5 +13,18 @@ directly by test files.
 #>
 
 # Provider-specific helpers will be added here as needed.
-# This file is currently empty but provides a clear extension point for
-# provider-related test infrastructure.
+
+function Invoke-IdleTestBearerTokenError {
+    <#
+    .SYNOPSIS
+    Test helper: throws an exception whose message contains a bearer token.
+
+    .DESCRIPTION
+    Used by adapter unit tests to verify that InvokeSafely correctly sanitizes
+    bearer tokens from error messages without leaking sensitive data.
+    #>
+    [CmdletBinding()]
+    param()
+
+    throw 'Authentication failed: Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig'
+}
