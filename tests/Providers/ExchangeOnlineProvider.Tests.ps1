@@ -818,3 +818,123 @@ Describe 'ExchangeOnline provider - Unit tests' {
         }
     }
 }
+
+Describe 'Test-IdleExchangeOnlinePrerequisites - Unit tests' {
+    BeforeAll {
+        $testsRoot = Split-Path -Path $PSScriptRoot -Parent
+        $repoRoot = Split-Path -Path $testsRoot -Parent
+        $modulePath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\IdLE.Provider.ExchangeOnline.psm1'
+        if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+            throw "ExchangeOnline provider module not found at: $modulePath"
+        }
+        Import-Module $modulePath -Force
+    }
+
+    Context 'Module not installed' {
+        It 'returns IsHealthy = false and lists ExchangeOnlineManagement as missing' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { $null } -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.IsHealthy | Should -Be $false
+                $result.MissingRequired | Should -Contain 'ExchangeOnlineManagement'
+                $result.Notes.Count | Should -BeGreaterThan 0
+            }
+        }
+
+        It 'includes install guidance in Notes' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { $null } -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                ($result.Notes -join ' ') | Should -Match 'Install-Module'
+            }
+        }
+    }
+
+    Context 'Module installed but not imported (Get-EXOMailbox missing)' {
+        It 'returns IsHealthy = false and lists Get-EXOMailbox as missing' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Set-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.IsHealthy | Should -Be $false
+                $result.MissingRequired | Should -Contain 'Get-EXOMailbox'
+                ($result.Notes -join ' ') | Should -Match 'Import-Module'
+            }
+        }
+    }
+
+    Context 'Module imported but no active session (Set-Mailbox missing)' {
+        It 'returns IsHealthy = false and lists ExchangeOnlineSession as missing' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Set-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.IsHealthy | Should -Be $false
+                $result.MissingRequired | Should -Contain 'ExchangeOnlineSession'
+                ($result.Notes -join ' ') | Should -Match 'Connect-ExchangeOnline'
+            }
+        }
+
+        It 'includes token scope guidance in Notes' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Set-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                ($result.Notes -join ' ') | Should -Match 'outlook\.office365\.com'
+            }
+        }
+    }
+
+    Context 'All prerequisites met' {
+        It 'returns IsHealthy = true with empty MissingRequired' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Set-Mailbox' } } `
+                    -ParameterFilter { $Name -eq 'Set-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.IsHealthy | Should -Be $true
+                $result.MissingRequired | Should -BeNullOrEmpty
+            }
+        }
+
+        It 'returns a result with expected shape' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Set-Mailbox' } } `
+                    -ParameterFilter { $Name -eq 'Set-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.PSObject.TypeNames | Should -Contain 'IdLE.PrerequisitesResult'
+                $result.ProviderName | Should -Be 'ExchangeOnlineProvider'
+                $result.CheckedAt | Should -BeOfType [datetime]
+            }
+        }
+    }
+}

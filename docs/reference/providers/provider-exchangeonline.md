@@ -10,37 +10,44 @@ import ExoLeaverMailboxOffboarding from '@site/../examples/workflows/templates/e
 
 ## Summary
 
-- **Module:** `IdLE.Provider.ExchangeOnline`
-- **What it’s for:** Exchange Online mailbox configuration (type conversion, Out of Office, delegate permissions, mailbox info)
-- **Targets:** Exchange Online via `ExchangeOnlineManagement` v3+ cmdlets (PowerShell 7+ compatible)
-- **Identity keys:** UPN (recommended), SMTP address, mailbox identifiers (provider-specific)
+| Item | Value |
+| --- | --- |
+| **Provider name** | `ExchangeOnlineProvider` |
+| **Module** | `IdLE.Provider.ExchangeOnline` |
+| **Provider role** | Messaging |
+| **Targets** | Exchange Online via `ExchangeOnlineManagement` v3+ (PowerShell 7+) |
+| **Status** | Built-in |
+| **PowerShell** | PowerShell 7+ |
 
-## When to use
+---
 
-Use this provider when your workflows need to manage **mailbox settings** in Exchange Online, for example:
+## When to use this provider
 
-- read mailbox info (type, primary SMTP, identifiers)
-- apply a safe baseline at onboarding (verify mailbox + ensure expected type)
-- convert mailbox type (e.g. user → shared for leavers)
-- set Out of Office messages (internal/external) and audience
-- converge delegate permissions (FullAccess, SendAs, SendOnBehalf)
+### Use cases
 
-Non-goals:
+- Read mailbox details (type, primary SMTP address, identifiers)
+- Apply a safe baseline at onboarding (verify mailbox exists, ensure expected type)
+- Convert mailbox type (e.g. user → shared for leavers)
+- Set Out of Office messages (internal/external) and audience
+- Converge delegate permissions (FullAccess, SendAs, SendOnBehalf)
 
-- establishing the Exchange Online connection (host/runtime responsibility)
-- managing identity objects (use AD / Entra ID providers for accounts)
+### Out of scope
+
+- Establishing the Exchange Online session (host/runtime responsibility — see [Authentication](#authentication))
+- Creating or deleting mailboxes (use Entra ID / AD providers for account lifecycle)
+- Managing identity objects or directory attributes (use AD / Entra ID providers)
+
+---
 
 ## Getting started
 
 ### Requirements
 
-- `ExchangeOnlineManagement` v3.0+ module available on the execution host (supports PowerShell 7+)
-- A host/runtime that establishes an Exchange Online session (delegated or app-only)
-- Permissions for the mailbox operations you intend to run (conversion, OOO, permissions, etc.)
+- **Module:** `ExchangeOnlineManagement` v3.0+ installed on the execution host
+- **Session:** An Exchange Online session must be established **before** IdLE runs (call `Connect-ExchangeOnline` in your host/runtime)
+- **Permissions:** The session identity must have rights for the mailbox operations you intend to run
 
-> **PowerShell 7+ compatibility:** `ExchangeOnlineManagement` v3.0.0 and later support PowerShell 7+ on
-> Windows, macOS, and Linux via REST-based cmdlets. The “Windows only” limitation in earlier versions
-> applied to certificate-based app-only auth; the module itself runs cross-platform from v3.0 onwards.
+> **PowerShell 7+ compatibility:** `ExchangeOnlineManagement` v3.0+ supports PowerShell 7+ on Windows, macOS, and Linux via REST-based cmdlets.
 
 ### Install (PowerShell Gallery)
 
@@ -48,15 +55,114 @@ Non-goals:
 Install-Module IdLE.Provider.ExchangeOnline -Scope CurrentUser
 ```
 
-### Import
+### Import & basic check
 
 ```powershell
 Import-Module IdLE.Provider.ExchangeOnline
+
+# Create provider instance
+$provider = New-IdleExchangeOnlineProvider
 ```
 
-## Quickstart
+The provider runs a one-time prerequisites check at construction and emits `Write-Warning` if the Exchange Online session is not established. See [Troubleshooting](#troubleshooting) if this fails.
 
-Create provider and register it (example convention):
+---
+
+## Quickstart (minimal runnable)
+
+```powershell
+# 1) Establish Exchange Online session (host responsibility — outside IdLE)
+Connect-ExchangeOnline -UserPrincipalName admin@contoso.com
+
+# 2) Provider instance
+$provider = New-IdleExchangeOnlineProvider
+
+# 3) Provider map (alias used in workflow files)
+$providers = @{
+  ExchangeOnline = $provider
+}
+
+# 4) Plan + execute
+$plan   = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers $providers
+$result = Invoke-IdlePlan -Plan $plan -Providers $providers
+```
+
+---
+
+## Authentication
+
+This provider does **not** authenticate by itself. Your host/runtime must establish the Exchange Online session before IdLE runs.
+
+- **Auth session name:** `ExchangeOnline`
+- **Auth session options:** `@{ Role = 'Admin' }` (optional routing key)
+
+Workflow steps reference the session via:
+
+```powershell
+With = @{
+  AuthSessionName    = 'ExchangeOnline'
+  AuthSessionOptions = @{ Role = 'Admin' }
+}
+```
+
+### Token requirements (delegated access)
+
+When using delegated (user) authentication, mint the token for the Exchange Online resource:
+
+```powershell
+# Interactive (delegated) — requires user interaction at a browser prompt
+$token = Get-MsalToken `
+    -ClientId '<app-id>' `
+    -TenantId '<tenant-id>' `
+    -Scopes 'https://outlook.office365.com/.default' `
+    -DeviceCode
+
+Connect-ExchangeOnline -AccessToken $token.AccessToken -UserPrincipalName admin@contoso.com
+```
+
+> **Note:** `-DeviceCode` is interactive and requires a user to authenticate via a browser. For **automated/unattended** scenarios, use app-only authentication with a certificate:
+>
+> ```powershell
+> Connect-ExchangeOnline -CertificateThumbprint '<thumbprint>' -AppId '<app-id>' -Organization '<tenant>.onmicrosoft.com'
+> ```
+
+The token's `scp` claim must include at least one of:
+- `https://outlook.office365.com/Exchange.Manage` — full mailbox management (delegated)
+- `Exchange.ManageAsApp` — app-only/service principal access
+
+> **Note:** The `.default` scope requests all permissions pre-consented on the app registration. Make sure the EXO delegated permissions are granted in your Entra ID app.
+
+:::warning
+**Security**
+- Do not pass secrets or access tokens in provider options or workflow files.
+- Ensure credentials/tokens are not written to logs or events.
+- The provider redacts token values from error messages automatically.
+:::
+
+---
+
+## Supported step types
+
+| Step Type | Capability Required | Description |
+| --- | --- | --- |
+| `IdLE.Step.Mailbox.GetInfo` | `IdLE.Mailbox.Info.Read` | Read mailbox details |
+| `IdLE.Step.Mailbox.EnsureType` | `IdLE.Mailbox.Type.Ensure` | Convert mailbox type (User/Shared/Room/Equipment) |
+| `IdLE.Step.Mailbox.EnsureOutOfOffice` | `IdLE.Mailbox.OutOfOffice.Ensure` | Configure Out of Office (enabled/disabled/scheduled) |
+| `IdLE.Step.Mailbox.EnsurePermissions` | `IdLE.Mailbox.Permissions.Ensure` | Converge delegate permissions |
+
+---
+
+## Configuration
+
+### Provider creation
+
+- **Factory cmdlet:** `New-IdleExchangeOnlineProvider`
+
+**Parameters**
+
+- `-Adapter` — Internal use only (dependency injection for unit tests; do not set in production)
+
+### Provider alias usage
 
 ```powershell
 $providers = @{
@@ -64,28 +170,29 @@ $providers = @{
 }
 ```
 
-## Authentication
+- **Recommended alias:** `ExchangeOnline`
+- **Default alias expected by mailbox steps:** `ExchangeOnline`
 
-This provider does **not** authenticate by itself.
+### Options reference
 
-Your host/runtime must establish the Exchange Online session and (optionally) route it via the AuthSessionBroker.
-Mailbox steps typically reference that session via:
+This provider has no admin-facing option bag. Authentication is handled by your runtime via the AuthSessionBroker.
 
-- `AuthSessionName = 'ExchangeOnline'`
-- `AuthSessionOptions = @{ Role = 'Admin' }` (optional routing key)
+---
 
-> Keep credentials/secrets **out of workflow files**. Resolve them in the host/runtime and provide them via the broker.
+## Operational behavior
 
-## Supported Step Types
+- **Idempotency:** Yes — all `Ensure*` methods check current state before making changes; unchanged state = `Changed = $false`
+- **Consistency model:** Depends on Exchange Online replication (eventual consistency for permission changes)
+- **Throttling / rate limits:** Subject to Exchange Online service limits; no built-in retry — delegate retry to the host
+- **Retry behavior:** None built-in; host/runtime is responsible for retry on transient failures
 
-Common step types using this provider include:
+---
 
-| Step Type | Capability Required | Description |
-| --- | --- | --- |
-| `IdLE.Step.Mailbox.GetInfo` | `IdLE.Mailbox.Info.Read` | Read mailbox details |
-| `IdLE.Step.Mailbox.EnsureType` | `IdLE.Mailbox.Type.Ensure` | Convert mailbox type |
-| `IdLE.Step.Mailbox.EnsureOutOfOffice` | `IdLE.Mailbox.OutOfOffice.Ensure` | Configure Out of Office |
-| `IdLE.Step.Mailbox.EnsurePermissions` | `IdLE.Mailbox.Permissions.Ensure` | Converge delegate permissions |
+## Examples (canonical templates)
+
+<CodeBlock language="powershell" title="examples/workflows/templates/exo-joiner.psd1">{ExoJoinerMailboxBaseline}</CodeBlock>
+
+<CodeBlock language="powershell" title="examples/workflows/templates/exo-leaver.psd1">{ExoLeaverMailboxOffboarding}</CodeBlock>
 
 ### Delegate permissions example
 
@@ -97,9 +204,9 @@ Common step types using this provider include:
         Provider    = 'ExchangeOnline'
         IdentityKey = 'shared@contoso.com'
         Permissions = @(
-            @{ AssignedUser = 'user1@contoso.com'; Right = 'FullAccess';   Ensure = 'Present' }
-            @{ AssignedUser = 'user2@contoso.com'; Right = 'SendAs';       Ensure = 'Present' }
-            @{ AssignedUser = 'leaver@contoso.com'; Right = 'FullAccess';  Ensure = 'Absent'  }
+            @{ AssignedUser = 'user1@contoso.com';  Right = 'FullAccess'; Ensure = 'Present' }
+            @{ AssignedUser = 'user2@contoso.com';  Right = 'SendAs';     Ensure = 'Present' }
+            @{ AssignedUser = 'leaver@contoso.com'; Right = 'FullAccess'; Ensure = 'Absent'  }
         )
     }
 }
@@ -108,29 +215,45 @@ Common step types using this provider include:
 Supported rights: `FullAccess`, `SendAs`, `SendOnBehalf`.
 Each entry requires `AssignedUser` (UPN/SMTP), `Right`, and `Ensure` (`Present` or `Absent`).
 
-## Configuration
+### More examples
 
-No admin-facing provider options.
+- `examples/workflows/templates/entraid-exo-leaver.psd1` — cross-provider leaver (Entra ID + Exchange Online)
 
-## Examples (canonical templates)
-
-To keep provider documentation focused and consistent, this page embeds only the **canonical** Exchange Online templates:
-
-<CodeBlock language="powershell" title="examples/workflows/templates/exo-joiner.psd1">{ExoJoinerMailboxBaseline}</CodeBlock>
-
-<CodeBlock language="powershell" title="examples/workflows/templates/exo-leaver.psd1">{ExoLeaverMailboxOffboarding}</CodeBlock>
+---
 
 ## Troubleshooting
 
-- **Module not found**: install `ExchangeOnlineManagement` on the execution host.
-- **Not connected**: ensure the host establishes an Exchange Online session before IdLE runs.
-- **Access denied**: the session identity must have permission to change mailbox settings.
-- **OOO formatting issues**: use `MessageFormat = 'Html'` and validate HTML in a test mailbox first.
-- **Permission changes not applied**: ensure the session identity has the *Mail Recipients* management role (or Exchange Administrator) required for `Add/Remove-MailboxPermission` and `Add/Remove-RecipientPermission`.
+### Common problems
 
-## Scenarios (link-only)
+- **`ExchangeOnlineManagement` module not installed**
+  → Install it: `Install-Module ExchangeOnlineManagement -Scope CurrentUser`
 
-Cross-provider orchestration examples are valuable, but should not be embedded in a single provider reference page.
-Keep them as **link-only** and collect them on a central Examples/Scenarios page:
+- **Provider warns "No active Exchange Online session"**
+  → `Connect-ExchangeOnline` was not called before creating the provider.
+  Run `Connect-ExchangeOnline -UserPrincipalName admin@contoso.com` in your host/runtime first.
 
-- `examples/workflows/templates/entraid-exo-leaver.psd1`
+- **`Get-EXOMailbox` not found / module not imported**
+  → Module is installed but not imported in this session: `Import-Module ExchangeOnlineManagement`
+
+- **`Set-Mailbox` not recognized (session proxy cmdlet missing)**
+  → No active Exchange Online session. Call `Connect-ExchangeOnline` before using the provider.
+
+- **`Unauthorized` / 401 when using `-AccessToken`**
+  → Token is not scoped for Exchange Online. Ensure you requested scopes for `https://outlook.office365.com/.default`, not `https://graph.microsoft.com/.default`.
+  Verify the token's `scp` claim contains `Exchange.Manage` or `Exchange.ManageAsApp`.
+
+- **Access denied when changing mailbox settings**
+  → The session identity must have the *Mail Recipients* management role (or Exchange Administrator) for mailbox changes, and *Recipient Management* for permission changes.
+
+- **OOO formatting issues**
+  → Use `MessageFormat = 'Html'` and validate HTML in a test mailbox first. The provider normalizes HTML before comparing for idempotency.
+
+- **Permission changes not visible immediately**
+  → Exchange Online replication is eventually consistent; allow a few minutes for changes to propagate.
+
+### What to collect for support
+
+- IdLE version, `IdLE.Provider.ExchangeOnline` module version
+- `ExchangeOnlineManagement` module version
+- Redacted error message (the provider automatically redacts tokens from error output)
+- Whether using delegated or app-only auth (without sharing credentials)
