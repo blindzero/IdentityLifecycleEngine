@@ -231,6 +231,20 @@ $result.OnFailure.Steps       # Array of OnFailure step results
 
 For details on declaring OnFailureSteps, see [Workflows](../use/workflows.md).
 
+### Blocked outcome (runtime preconditions)
+
+A step may produce a `Blocked` outcome when a **runtime precondition** fails at execution time.
+
+`Blocked` is a first-class outcome distinct from `Failed`:
+
+- `Blocked` represents a **policy/safety gate**, not a technical error.
+- Execution stops immediately (subsequent steps are not run).
+- `OnFailureSteps` do **not** run for a `Blocked` outcome.
+- `result.Status` is `'Blocked'`; `result.OnFailure.Status` is `'NotRun'`.
+
+For details on configuring runtime preconditions, see
+[Runtime Preconditions](../use/preconditions.md).
+
 ---
 
 ## Common pitfalls

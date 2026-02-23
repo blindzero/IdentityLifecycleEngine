@@ -24,6 +24,16 @@ At a high level, a workflow contains:
 
 The Big Picture is described in [Concepts](../about/concepts.md).
 
+### Step execution controls
+
+Each step supports several optional execution control properties:
+
+| Property | Evaluated at | Purpose |
+|---|---|---|
+| `Condition` | Plan time | Include or skip the step based on request/intent data. |
+| `Preconditions` | Execution time (runtime) | Guard the step against stale or unsafe state immediately before it runs. See [Runtime Preconditions](preconditions.md). |
+| `OnFailureSteps` | After failure (workflow-level) | Cleanup/rollback steps run after a primary step fails. |
+
 ---
 
 ## Minimal workflow example
@@ -165,5 +175,6 @@ For full definitions and reference, see:
 
 ## Next steps
 
+- Add runtime safety guards: [Runtime Preconditions](preconditions.md)
 - Map external systems: [Providers](providers.md)
 - Review and export plans: [Plan Export](plan-export.md) (e.g. for CI systems)
