@@ -269,7 +269,14 @@ function Invoke-IdlePlanObject {
     )
 
     $failed = $false
+    $blocked = $false
     $stepResults = @()
+
+    # Precondition evaluation context: includes Plan and Request for condition DSL path resolution.
+    $preconditionContext = @{
+        Plan    = $Plan
+        Request = $request
+    }
 
     $i = 0
     foreach ($step in $Plan.Steps) {
@@ -310,6 +317,115 @@ function Invoke-IdlePlanObject {
             $i++
             continue
         }
+
+        # Runtime Preconditions: evaluated immediately before step execution (online, not planning-time).
+        # Blocked = policy/precondition gate (does not trigger OnFailureSteps). Stops execution.
+        # Fail    = treated as a technical failure (triggers OnFailureSteps). Stops execution.
+        # Continue = emits events but skips the step and continues to the next step.
+        # Non-IDictionary precondition nodes are treated as precondition failures (fail closed).
+        $stepPreconditions = Get-IdlePropertyValue -Object $step -Name 'Preconditions'
+        if ($null -ne $stepPreconditions -and @($stepPreconditions).Count -gt 0) {
+            $preconditionPassed = $true
+            foreach ($pc in @($stepPreconditions)) {
+                if ($pc -isnot [System.Collections.IDictionary]) {
+                    # Fail closed: a malformed or unexpected node type is treated as a failed precondition.
+                    $preconditionPassed = $false
+                    break
+                }
+                if (-not (Test-IdleCondition -Condition ([hashtable]$pc) -Context $preconditionContext)) {
+                    $preconditionPassed = $false
+                    break
+                }
+            }
+
+            if (-not $preconditionPassed) {
+                $onPreconditionFalse = [string](Get-IdlePropertyValue -Object $step -Name 'OnPreconditionFalse')
+                if ([string]::IsNullOrWhiteSpace($onPreconditionFalse)) { $onPreconditionFalse = 'Blocked' }
+
+                # Always emit StepPreconditionFailed for engine observability.
+                $context.EventSink.WriteEvent(
+                    'StepPreconditionFailed',
+                    "Step '$stepName' precondition check failed.",
+                    $stepName,
+                    @{
+                        StepType            = $stepType
+                        Index               = $i
+                        OnPreconditionFalse = $onPreconditionFalse
+                    }
+                )
+
+                # Emit the caller-configured PreconditionEvent if present.
+                $pcEvt = Get-IdlePropertyValue -Object $step -Name 'PreconditionEvent'
+                if ($null -ne $pcEvt) {
+                    $pcEvtType = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Type')
+                    $pcEvtMsg  = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Message')
+                    $pcEvtData = Get-IdlePropertyValue -Object $pcEvt -Name 'Data'
+                    # PreconditionEvent.Data is validated as a hashtable at planning time and
+                    # stored via Copy-IdleDataObject, so it will be a hashtable (IDictionary) here.
+                    $pcEvtDataHt = if ($pcEvtData -is [System.Collections.IDictionary]) { [hashtable]$pcEvtData } else { $null }
+                    $context.EventSink.WriteEvent($pcEvtType, $pcEvtMsg, $stepName, $pcEvtDataHt)
+                }
+
+                if ($onPreconditionFalse -eq 'Fail') {
+                    $failed = $true
+                    $stepResults += [pscustomobject]@{
+                        PSTypeName = 'IdLE.StepResult'
+                        Name       = $stepName
+                        Type       = $stepType
+                        Status     = 'Failed'
+                        Error      = 'Precondition check failed.'
+                        Attempts   = 0
+                    }
+                    $context.EventSink.WriteEvent(
+                        'StepFailed',
+                        "Step '$stepName' failed (precondition check failed).",
+                        $stepName,
+                        @{
+                            StepType = $stepType
+                            Index    = $i
+                            Error    = 'Precondition check failed.'
+                        }
+                    )
+                }
+                elseif ($onPreconditionFalse -eq 'Continue') {
+                    # Emit events and skip the step; continue to subsequent steps.
+                    $stepResults += [pscustomobject]@{
+                        PSTypeName = 'IdLE.StepResult'
+                        Name       = $stepName
+                        Type       = $stepType
+                        Status     = 'PreconditionSkipped'
+                        Attempts   = 0
+                    }
+                    $i++
+                    continue
+                }
+                else {
+                    # Default: Blocked. Does not trigger OnFailureSteps.
+                    $blocked = $true
+                    $stepResults += [pscustomobject]@{
+                        PSTypeName = 'IdLE.StepResult'
+                        Name       = $stepName
+                        Type       = $stepType
+                        Status     = 'Blocked'
+                        Attempts   = 0
+                    }
+                    $context.EventSink.WriteEvent(
+                        'StepBlocked',
+                        "Step '$stepName' blocked (precondition check failed).",
+                        $stepName,
+                        @{
+                            StepType = $stepType
+                            Index    = $i
+                        }
+                    )
+                }
+
+                break
+            }
+        }
+
+        # Stop processing if a precondition failure was handled above.
+        if ($failed -or $blocked) { break }
 
         $context.EventSink.WriteEvent(
             'StepStarted',
@@ -437,7 +553,7 @@ function Invoke-IdlePlanObject {
         $i++
     }
 
-    $runStatus = if ($failed) { 'Failed' } else { 'Completed' }
+    $runStatus = if ($blocked) { 'Blocked' } elseif ($failed) { 'Failed' } else { 'Completed' }
 
     # Public result contract: the OnFailure section is always present.
     $onFailure = [pscustomobject]@{
@@ -452,7 +568,8 @@ function Invoke-IdlePlanObject {
         $planOnFailureSteps = @($Plan.OnFailureSteps) | Where-Object { $null -ne $_ }
     }
 
-    if ($failed -and @($planOnFailureSteps).Count -gt 0) {
+    # OnFailureSteps run only for genuine failures, NOT for Blocked outcomes (policy gates).
+    if ($failed -and -not $blocked -and @($planOnFailureSteps).Count -gt 0) {
         $context.EventSink.WriteEvent(
             'OnFailureStarted',
             'Executing OnFailureSteps (best effort).',
@@ -502,6 +619,98 @@ function Invoke-IdlePlanObject {
 
                 $j++
                 continue
+            }
+
+            # Runtime Preconditions for OnFailure steps: evaluated immediately before execution.
+            # OnFailure runs best-effort, so precondition failures skip the step but do not halt
+            # remaining OnFailure steps. Non-IDictionary nodes are treated as failures (fail closed).
+            $ofPreconditions = Get-IdlePropertyValue -Object $ofStep -Name 'Preconditions'
+            if ($null -ne $ofPreconditions -and @($ofPreconditions).Count -gt 0) {
+                $ofPreconditionPassed = $true
+                foreach ($opc in @($ofPreconditions)) {
+                    if ($opc -isnot [System.Collections.IDictionary]) {
+                        $ofPreconditionPassed = $false
+                        break
+                    }
+                    if (-not (Test-IdleCondition -Condition ([hashtable]$opc) -Context $preconditionContext)) {
+                        $ofPreconditionPassed = $false
+                        break
+                    }
+                }
+
+                if (-not $ofPreconditionPassed) {
+                    $ofOnPreconditionFalse = [string](Get-IdlePropertyValue -Object $ofStep -Name 'OnPreconditionFalse')
+                    if ([string]::IsNullOrWhiteSpace($ofOnPreconditionFalse)) { $ofOnPreconditionFalse = 'Blocked' }
+
+                    # Always emit StepPreconditionFailed for engine observability.
+                    $context.EventSink.WriteEvent(
+                        'StepPreconditionFailed',
+                        "OnFailure step '$ofName' precondition check failed.",
+                        $ofName,
+                        @{
+                            StepType            = $ofType
+                            Index               = $j
+                            OnPreconditionFalse = $ofOnPreconditionFalse
+                        }
+                    )
+
+                    # Emit the caller-configured PreconditionEvent if present.
+                    $ofPcEvt = Get-IdlePropertyValue -Object $ofStep -Name 'PreconditionEvent'
+                    if ($null -ne $ofPcEvt) {
+                        $ofPcEvtType = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Type')
+                        $ofPcEvtMsg  = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Message')
+                        $ofPcEvtData = Get-IdlePropertyValue -Object $ofPcEvt -Name 'Data'
+                        $ofPcEvtDataHt = if ($ofPcEvtData -is [System.Collections.IDictionary]) { [hashtable]$ofPcEvtData } else { $null }
+                        $context.EventSink.WriteEvent($ofPcEvtType, $ofPcEvtMsg, $ofName, $ofPcEvtDataHt)
+                    }
+
+                    if ($ofOnPreconditionFalse -eq 'Fail') {
+                        $onFailureHadFailures = $true
+                        $onFailureStepResults += [pscustomobject]@{
+                            PSTypeName = 'IdLE.StepResult'
+                            Name       = $ofName
+                            Type       = $ofType
+                            Status     = 'Failed'
+                            Error      = 'Precondition check failed.'
+                            Attempts   = 0
+                        }
+                        $context.EventSink.WriteEvent(
+                            'StepFailed',
+                            "OnFailure step '$ofName' failed (precondition check failed).",
+                            $ofName,
+                            @{
+                                StepType = $ofType
+                                Index    = $j
+                                Error    = 'Precondition check failed.'
+                            }
+                        )
+                    }
+                    else {
+                        # Blocked or Continue: skip this OnFailure step and proceed to the next.
+                        $ofStatus = if ($ofOnPreconditionFalse -eq 'Continue') { 'PreconditionSkipped' } else { 'Blocked' }
+                        $onFailureStepResults += [pscustomobject]@{
+                            PSTypeName = 'IdLE.StepResult'
+                            Name       = $ofName
+                            Type       = $ofType
+                            Status     = $ofStatus
+                            Attempts   = 0
+                        }
+                        if ($ofOnPreconditionFalse -ne 'Continue') {
+                            $context.EventSink.WriteEvent(
+                                'StepBlocked',
+                                "OnFailure step '$ofName' blocked (precondition check failed).",
+                                $ofName,
+                                @{
+                                    StepType = $ofType
+                                    Index    = $j
+                                }
+                            )
+                        }
+                    }
+
+                    $j++
+                    continue
+                }
             }
 
             $context.EventSink.WriteEvent(
