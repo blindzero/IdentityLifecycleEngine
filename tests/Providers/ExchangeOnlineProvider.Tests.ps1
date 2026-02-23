@@ -450,6 +450,10 @@ Describe 'ExchangeOnline provider - Unit tests' {
             # Import private adapter function directly for unit testing
             $repoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
             $adapterPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\Private\New-IdleExchangeOnlineAdapter.ps1'
+
+            if (-not (Test-Path -LiteralPath $adapterPath)) {
+                throw "Private adapter function file not found at path: $adapterPath"
+            }
             . $adapterPath
         }
 
