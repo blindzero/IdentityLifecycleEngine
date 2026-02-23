@@ -47,6 +47,7 @@ const sidebars = {
           ],
         },
         'use/workflows',
+        'use/preconditions',
         'use/providers',
         'use/plan-export',
       ],

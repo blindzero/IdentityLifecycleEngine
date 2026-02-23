@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
+    $script:FixturesPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows/preconditions'
 
     function global:Invoke-IdlePreconditionTestNoopStep {
         [CmdletBinding()]
@@ -82,19 +83,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
     Context 'Step without preconditions' {
             It 'behaves exactly as before (no preconditions = no change)' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'no-preconditions.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'No Preconditions'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'Step1'
-      Type = 'IdLE.Step.NoPrecondition'
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'no-preconditions.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Joiner'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.NoPrecondition') }
                 $providers = @{
@@ -112,27 +101,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
         Context 'Passing preconditions' {
             It 'executes the step when all preconditions pass' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'passing-preconditions.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Passing Preconditions'
-  LifecycleEvent = 'Leaver'
-  Steps          = @(
-    @{
-      Name          = 'Step1'
-      Type          = 'IdLE.Step.PassingPrecondition'
-      Preconditions = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Leaver'
-          }
-        }
-      )
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'passing.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Leaver'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.PassingPrecondition') }
                 $providers = @{
@@ -150,32 +119,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
         Context 'Failing precondition - Blocked (default)' {
             It 'produces Blocked step result and stops execution when precondition fails' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'blocked-precondition.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Blocked Precondition'
-  LifecycleEvent = 'Leaver'
-  Steps          = @(
-    @{
-      Name               = 'Step1'
-      Type               = 'IdLE.Step.BlockedPrecondition'
-      Preconditions      = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-      OnPreconditionFalse = 'Blocked'
-    }
-    @{
-      Name = 'Step2'
-      Type = 'IdLE.Step.SecondStep'
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'blocked.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Leaver'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.BlockedPrecondition', 'IdLE.Step.SecondStep') }
                 $providers = @{
@@ -197,27 +141,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
             }
 
             It 'uses Blocked as the default when OnPreconditionFalse is omitted' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'blocked-default.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Blocked Default'
-  LifecycleEvent = 'Leaver'
-  Steps          = @(
-    @{
-      Name          = 'Step1'
-      Type          = 'IdLE.Step.BlockedDefault'
-      Preconditions = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'blocked-default.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Leaver'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.BlockedDefault') }
                 $providers = @{
@@ -234,32 +158,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
         Context 'Failing precondition - Fail' {
             It 'produces Failed step result and stops execution when OnPreconditionFalse=Fail' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'fail-precondition.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Fail Precondition'
-  LifecycleEvent = 'Leaver'
-  Steps          = @(
-    @{
-      Name                = 'Step1'
-      Type                = 'IdLE.Step.FailPrecondition'
-      Preconditions       = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-      OnPreconditionFalse = 'Fail'
-    }
-    @{
-      Name = 'Step2'
-      Type = 'IdLE.Step.SecondStep'
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'fail.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Leaver'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailPrecondition', 'IdLE.Step.SecondStep') }
                 $providers = @{
@@ -283,32 +182,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
         Context 'Failing precondition - Continue' {
             It 'emits events, marks step as PreconditionSkipped, and continues execution of subsequent steps' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'continue-precondition.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Continue Precondition'
-  LifecycleEvent = 'Leaver'
-  Steps          = @(
-    @{
-      Name                = 'Step1'
-      Type                = 'IdLE.Step.ContinuePrecondition'
-      Preconditions       = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-      OnPreconditionFalse = 'Continue'
-    }
-    @{
-      Name = 'Step2'
-      Type = 'IdLE.Step.SecondStep'
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'continue.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Leaver'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ContinuePrecondition', 'IdLE.Step.SecondStep') }
                 $providers = @{
@@ -336,33 +210,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
             }
 
             It 'emits PreconditionEvent when Continue mode is used' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'continue-precondition-event.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Continue With Event'
-  LifecycleEvent = 'Leaver'
-  Steps          = @(
-    @{
-      Name                = 'Step1'
-      Type                = 'IdLE.Step.ContinuePreconditionEvent'
-      Preconditions       = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-      OnPreconditionFalse = 'Continue'
-      PreconditionEvent   = @{
-        Type    = 'PolicyAdvisory'
-        Message = 'Step skipped due to policy advisory'
-        Data    = @{ Hint = 'BYOD check not met' }
-      }
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'continue-event.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Leaver'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ContinuePreconditionEvent') }
                 $providers = @{
@@ -380,33 +228,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
         Context 'Blocked does not trigger OnFailureSteps' {
             It 'does not run OnFailureSteps when a step is Blocked' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'blocked-no-onfailure.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Blocked No OnFailure'
-  LifecycleEvent = 'Leaver'
-  Steps          = @(
-    @{
-      Name          = 'Step1'
-      Type          = 'IdLE.Step.BlockedNoOnFailure'
-      Preconditions = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-    }
-  )
-  OnFailureSteps = @(
-    @{
-      Name = 'Cleanup'
-      Type = 'IdLE.Step.OnFailureCleanup'
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'blocked-no-onfailure.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Leaver'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.BlockedNoOnFailure', 'IdLE.Step.OnFailureCleanup') }
                 $providers = @{
@@ -426,34 +248,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
             }
 
             It 'does run OnFailureSteps when OnPreconditionFalse=Fail' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'fail-runs-onfailure.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Fail Runs OnFailure'
-  LifecycleEvent = 'Leaver'
-  Steps          = @(
-    @{
-      Name                = 'Step1'
-      Type                = 'IdLE.Step.FailRunsOnFailure'
-      Preconditions       = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-      OnPreconditionFalse = 'Fail'
-    }
-  )
-  OnFailureSteps = @(
-    @{
-      Name = 'Cleanup'
-      Type = 'IdLE.Step.OnFailureCleanup'
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'fail-runs-onfailure.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Leaver'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailRunsOnFailure', 'IdLE.Step.OnFailureCleanup') }
                 $providers = @{
@@ -474,34 +269,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
         Context 'PreconditionEvent emission' {
             It 'emits configured PreconditionEvent when precondition fails' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'precondition-event.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Precondition Event'
-  LifecycleEvent = 'Leaver'
-  Steps          = @(
-    @{
-      Name               = 'Step1'
-      Type               = 'IdLE.Step.PreconditionEvent'
-      Preconditions      = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-      PreconditionEvent  = @{
-        Type    = 'ManualActionRequired'
-        Message = 'Perform Intune wipe before proceeding'
-        Data    = @{
-          Reason = 'BYOD wipe not confirmed'
-        }
-      }
-    }
-  )
-}
-'@
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'event.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Leaver'
                 $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.PreconditionEvent') }
                 $providers = @{
@@ -527,88 +295,28 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
         Context 'Invalid precondition schema at planning time' {
             It 'throws when a precondition node has an invalid schema' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'invalid-precondition-schema.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Invalid Precondition Schema'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name          = 'Step1'
-      Type          = 'IdLE.Step.InvalidPreconditionSchema'
-      Preconditions = @(
-        @{
-          UnknownKey = 'bad'
-        }
-      )
-    }
-  )
-}
-'@
-                $req = New-IdleRequest -LifecycleEvent 'Joiner'
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'invalid-schema.psd1'
+                $req      = New-IdleRequest -LifecycleEvent 'Joiner'
                 $providers = @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.InvalidPreconditionSchema') }
 
                 { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw
             }
 
             It 'throws when OnPreconditionFalse has an invalid value' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'invalid-onpreconditionfalse.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Invalid OnPreconditionFalse'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name                = 'Step1'
-      Type                = 'IdLE.Step.InvalidOPF'
-      Preconditions       = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-      OnPreconditionFalse = 'Skip'
-    }
-  )
-}
-'@
-                $req = New-IdleRequest -LifecycleEvent 'Joiner'
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'invalid-onpreconditionfalse.psd1'
+                $req      = New-IdleRequest -LifecycleEvent 'Joiner'
                 $providers = @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.InvalidOPF') }
 
                 { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw
             }
 
             It 'throws when PreconditionEvent is missing required Type' {
-                $wfPath = Join-Path -Path $TestDrive -ChildPath 'invalid-preconditionevent-type.psd1'
-                Set-Content -Path $wfPath -Encoding UTF8 -Value @'
-@{
-  Name           = 'Invalid PreconditionEvent Type'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name              = 'Step1'
-      Type              = 'IdLE.Step.InvalidPCEvt'
-      Preconditions     = @(
-        @{
-          Equals = @{
-            Path  = 'Plan.LifecycleEvent'
-            Value = 'Joiner'
-          }
-        }
-      )
-      PreconditionEvent = @{
-        Message = 'Some message'
-      }
-    }
-  )
-}
-'@
-                $req = New-IdleRequest -LifecycleEvent 'Joiner'
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'invalid-event-type.psd1'
+                $req      = New-IdleRequest -LifecycleEvent 'Joiner'
                 $providers = @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.InvalidPCEvt') }
 
                 { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw
             }
         }
 }
+

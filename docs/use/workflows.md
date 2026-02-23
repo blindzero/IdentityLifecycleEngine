@@ -165,5 +165,6 @@ For full definitions and reference, see:
 
 ## Next steps
 
+- Add runtime safety guards: [Runtime Preconditions](preconditions.md)
 - Map external systems: [Providers](providers.md)
 - Review and export plans: [Plan Export](plan-export.md) (e.g. for CI systems)
