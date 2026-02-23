@@ -106,6 +106,7 @@ const sidebars = {
             'reference/steps/step-mailbox-get-info',
             'reference/steps/step-mailbox-ensure-type',
             'reference/steps/step-mailbox-ensure-out-of-office',
+            'reference/steps/step-mailbox-ensure-permissions',
           ]
         },
         'reference/providers',
