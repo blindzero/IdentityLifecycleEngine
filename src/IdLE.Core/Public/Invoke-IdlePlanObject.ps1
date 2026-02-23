@@ -371,6 +371,16 @@ function Invoke-IdlePlanObject {
                         Error      = 'Precondition check failed.'
                         Attempts   = 0
                     }
+                    $context.EventSink.WriteEvent(
+                        'StepFailed',
+                        "Step '$stepName' failed (precondition check failed).",
+                        $stepName,
+                        @{
+                            StepType = $stepType
+                            Index    = $i
+                            Error    = 'Precondition check failed.'
+                        }
+                    )
                 }
                 elseif ($onPreconditionFalse -eq 'Continue') {
                     # Emit events and skip the step; continue to subsequent steps.
@@ -394,6 +404,15 @@ function Invoke-IdlePlanObject {
                         Status     = 'Blocked'
                         Attempts   = 0
                     }
+                    $context.EventSink.WriteEvent(
+                        'StepBlocked',
+                        "Step '$stepName' blocked (precondition check failed).",
+                        $stepName,
+                        @{
+                            StepType = $stepType
+                            Index    = $i
+                        }
+                    )
                 }
 
                 break

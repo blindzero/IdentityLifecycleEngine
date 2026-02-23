@@ -137,6 +137,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 $result.Steps[0].Name   | Should -Be 'Step1'
                 $result.Steps[0].Status | Should -Be 'Blocked'
                 @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 1
+                @($result.Events | Where-Object Type -eq 'StepBlocked').Count | Should -Be 1
                 @($result.Events | Where-Object Type -eq 'SecondStepRan').Count | Should -Be 0
             }
 
@@ -176,6 +177,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 $result.Steps[0].Status | Should -Be 'Failed'
                 $result.Steps[0].Error  | Should -Not -BeNullOrEmpty
                 @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 1
+                @($result.Events | Where-Object Type -eq 'StepFailed').Count | Should -Be 1
                 @($result.Events | Where-Object Type -eq 'SecondStepRan').Count | Should -Be 0
             }
         }

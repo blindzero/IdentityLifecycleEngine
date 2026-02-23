@@ -140,6 +140,7 @@ When a step is `Blocked`:
 - `result.Steps[n].Status` is `'Blocked'` for the blocking step.
 - `result.OnFailure.Status` is `'NotRun'` (OnFailureSteps do not execute).
 - A `StepPreconditionFailed` engine event is always emitted.
+- A `StepBlocked` engine event is emitted for the blocked step.
 - If `PreconditionEvent` is configured, an additional event of the declared `Type` is also emitted.
 
 ### Execution result — Fail
@@ -149,6 +150,9 @@ When `OnPreconditionFalse = 'Fail'`:
 - `result.Status` is `'Failed'`.
 - `result.Steps[n].Status` is `'Failed'` with `Error = 'Precondition check failed.'`.
 - `OnFailureSteps` run (same behavior as any other step failure).
+- A `StepPreconditionFailed` engine event is always emitted.
+- A `StepFailed` engine event is emitted (matching the format of regular step failure events).
+- If `PreconditionEvent` is configured, an additional event of the declared `Type` is also emitted.
 
 ### Execution result — Continue
 
@@ -168,14 +172,24 @@ the rest of the workflow to complete.
 
 ## Events emitted on precondition failure
 
-The engine always emits a `StepPreconditionFailed` event containing:
+| Event type | `OnPreconditionFalse` modes | Description |
+|---|---|---|
+| `StepPreconditionFailed` | All (`Blocked`, `Fail`, `Continue`) | Always emitted. Contains `StepType`, `Index`, `OnPreconditionFalse`. |
+| `StepBlocked` | `Blocked` | Emitted when the step outcome is `Blocked`. Contains `StepType`, `Index`. |
+| `StepFailed` | `Fail` | Emitted when the step outcome is `Failed`. Contains `StepType`, `Index`, `Error`. |
+| Configured `PreconditionEvent.Type` | All (if `PreconditionEvent` configured) | Caller-defined event. |
+
+### StepPreconditionFailed event
 
 | Field | Value |
 |---|---|
 | `Type` | `StepPreconditionFailed` |
-| `StepName` | The name of the blocked step. |
+| `StepName` | The name of the affected step. |
 | `Data.StepType` | The step type identifier. |
-| `Data.OnPreconditionFalse` | `Blocked` or `Fail`. |
+| `Data.Index` | The step index in the plan. |
+| `Data.OnPreconditionFalse` | `Blocked`, `Fail`, or `Continue`. |
+
+### PreconditionEvent (caller-configured)
 
 If `PreconditionEvent` is configured, an additional event is emitted with:
 
@@ -183,7 +197,7 @@ If `PreconditionEvent` is configured, an additional event is emitted with:
 |---|---|
 | `Type` | The configured `PreconditionEvent.Type`. |
 | `Message` | The configured `PreconditionEvent.Message`. |
-| `StepName` | The name of the blocked step. |
+| `StepName` | The name of the affected step. |
 | `Data` | The configured `PreconditionEvent.Data` (if provided). |
 
 :::warning Log safety
