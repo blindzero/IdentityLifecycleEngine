@@ -455,6 +455,9 @@ Describe 'ExchangeOnline provider - Unit tests' {
                 throw "Private adapter function file not found at path: $adapterPath"
             }
             . $adapterPath
+
+            # Dot-source provider test helpers so Invoke-IdleTestBearerTokenError is available at run time
+            . (Join-Path -Path $PSScriptRoot -ChildPath '_testHelpers.Providers.ps1')
         }
 
         It 'InvokeSafely can be called from another ScriptMethod without variable-not-set error' {
@@ -474,13 +477,8 @@ Describe 'ExchangeOnline provider - Unit tests' {
         It 'InvokeSafely sanitizes bearer tokens in error messages without variable-not-set error' {
             $adapter = New-IdleExchangeOnlineAdapter
 
-            # Simulate a command that throws an exception containing a bearer token in the message.
-            function global:Invoke-ThrowBearerError {
-                throw 'Authentication failed: Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig'
-            }
-
             $adapter | Add-Member -MemberType ScriptMethod -Name TestErrorSanitization -Value {
-                $this.InvokeSafely('Invoke-ThrowBearerError', @{})
+                $this.InvokeSafely('Invoke-IdleTestBearerTokenError', @{})
             } -Force
 
             { $adapter.TestErrorSanitization() } | Should -Throw -ExpectedMessage "*Bearer <REDACTED>*"
