@@ -73,13 +73,15 @@ function Test-IdleWorkflowSchema {
         )
 
         if ($Step.ContainsKey('Preconditions') -and $null -ne $Step.Preconditions) {
-            if ($Step.Preconditions -is [string] -or -not ($Step.Preconditions -is [System.Collections.IEnumerable])) {
-                $ErrorList.Add("'$StepPath.Preconditions' must be an array/list of condition hashtables.")
+            if ($Step.Preconditions -is [string] -or
+                $Step.Preconditions -is [System.Collections.IDictionary] -or
+                -not ($Step.Preconditions -is [System.Collections.IEnumerable])) {
+                $ErrorList.Add("'$StepPath.Preconditions' must be an array/list of condition hashtables (not a single hashtable).")
             }
             else {
                 $pcIdx = 0
                 foreach ($pc in @($Step.Preconditions)) {
-                    if ($pc -isnot [hashtable]) {
+                    if ($pc -isnot [System.Collections.IDictionary]) {
                         $ErrorList.Add("'$StepPath.Preconditions[$pcIdx]' must be a hashtable (condition node).")
                     }
                     $pcIdx++

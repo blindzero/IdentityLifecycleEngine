@@ -319,6 +319,60 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
                 { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw
             }
+
+            It 'throws when Preconditions is a single hashtable instead of an array' {
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'invalid-single-hashtable.psd1'
+                $req      = New-IdleRequest -LifecycleEvent 'Joiner'
+                $providers = @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.InvalidPCSingleHt') }
+
+                { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw
+            }
+        }
+
+        Context 'OnFailureSteps with preconditions' {
+            It 'evaluates preconditions on OnFailureSteps: Blocked skips the step but continues remaining OnFailure steps' {
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'onfailure-blocked-precondition.psd1'
+                $req      = New-IdleRequest -LifecycleEvent 'Leaver'
+                $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailRunsOnFailure', 'IdLE.Step.OnFailureCleanup') }
+                $providers = @{
+                    StepRegistry = @{
+                        'IdLE.Step.FailRunsOnFailure' = 'Invoke-IdlePreconditionTestNoopStep'
+                        'IdLE.Step.OnFailureCleanup'  = 'Invoke-IdlePreconditionTestOnFailureStep'
+                    }
+                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailRunsOnFailure', 'IdLE.Step.OnFailureCleanup')
+                }
+
+                $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+                $result.Status | Should -Be 'Failed'
+                # OnFailure cleanup step was blocked by its precondition (Leaver != Joiner)
+                $result.OnFailure.Steps.Count | Should -Be 1
+                $result.OnFailure.Steps[0].Status | Should -Be 'Blocked'
+                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 2
+                @($result.Events | Where-Object Type -eq 'OnFailureRan').Count | Should -Be 0
+            }
+
+            It 'evaluates preconditions on OnFailureSteps: Continue skips the step but continues remaining OnFailure steps' {
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'onfailure-continue-precondition.psd1'
+                $req      = New-IdleRequest -LifecycleEvent 'Leaver'
+                $plan     = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailRunsOnFailure', 'IdLE.Step.OnFailureCleanup') }
+                $providers = @{
+                    StepRegistry = @{
+                        'IdLE.Step.FailRunsOnFailure' = 'Invoke-IdlePreconditionTestNoopStep'
+                        'IdLE.Step.OnFailureCleanup'  = 'Invoke-IdlePreconditionTestOnFailureStep'
+                    }
+                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.FailRunsOnFailure', 'IdLE.Step.OnFailureCleanup')
+                }
+
+                $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+                $result.Status | Should -Be 'Failed'
+                # OnFailure cleanup step was skipped via Continue
+                $result.OnFailure.Steps.Count | Should -Be 1
+                $result.OnFailure.Steps[0].Status | Should -Be 'PreconditionSkipped'
+                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 2
+                @($result.Events | Where-Object Type -eq 'OnFailureRan').Count | Should -Be 0
+            }
         }
 }
 
