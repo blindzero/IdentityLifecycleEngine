@@ -41,5 +41,10 @@ function Get-IdleStepMetadataCatalog {
         RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.OutOfOffice.Ensure')
     }
 
+    # IdLE.Step.Mailbox.EnsurePermissions - idempotent mailbox delegate permissions
+    $catalog['IdLE.Step.Mailbox.EnsurePermissions'] = @{
+        RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.Permissions.Ensure')
+    }
+
     return $catalog
 }
