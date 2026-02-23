@@ -28,8 +28,11 @@ Describe 'ExchangeOnline provider - Unit tests' {
         $fakeAdapter = [pscustomobject]@{
             PSTypeName = 'IdLE.ExchangeOnlineAdapter.Fake'
             Store      = @{
-                Mailboxes = @{}
-                AutoReply = @{}
+                Mailboxes     = @{}
+                AutoReply     = @{}
+                FullAccess    = @{}   # mailboxSmtp -> @{ userLower -> $true }
+                SendAs        = @{}   # mailboxSmtp -> @{ trusteeLower -> $true }
+                SendOnBehalf  = @{}   # mailboxSmtp -> [List[string]]
             }
         }
 
@@ -172,6 +175,110 @@ Describe 'ExchangeOnline provider - Unit tests' {
             return $mailbox
         }
 
+        # GetMailboxPermissions: return FullAccess entries for a mailbox
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetMailboxPermissions -Value {
+            param($MailboxIdentity, $AccessToken)
+
+            $key = $MailboxIdentity.ToLowerInvariant()
+            if (-not $this.Store.FullAccess.ContainsKey($key)) {
+                return @()
+            }
+            $result = @()
+            foreach ($user in $this.Store.FullAccess[$key].Keys) {
+                $result += @{
+                    MailboxIdentity = $MailboxIdentity
+                    User            = $user
+                    AccessRight     = 'FullAccess'
+                    IsInherited     = $false
+                }
+            }
+            return $result
+        } -Force
+
+        # AddMailboxPermission: grant FullAccess
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name AddMailboxPermission -Value {
+            param($MailboxIdentity, $User, $AccessToken)
+
+            $key = $MailboxIdentity.ToLowerInvariant()
+            if (-not $this.Store.FullAccess.ContainsKey($key)) {
+                $this.Store.FullAccess[$key] = @{}
+            }
+            $this.Store.FullAccess[$key][$User.ToLowerInvariant()] = $true
+        } -Force
+
+        # RemoveMailboxPermission: revoke FullAccess
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveMailboxPermission -Value {
+            param($MailboxIdentity, $User, $AccessToken)
+
+            $key = $MailboxIdentity.ToLowerInvariant()
+            if ($this.Store.FullAccess.ContainsKey($key)) {
+                $this.Store.FullAccess[$key].Remove($User.ToLowerInvariant())
+            }
+        } -Force
+
+        # GetRecipientPermissions: return SendAs entries for a mailbox
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetRecipientPermissions -Value {
+            param($MailboxIdentity, $AccessToken)
+
+            $key = $MailboxIdentity.ToLowerInvariant()
+            if (-not $this.Store.SendAs.ContainsKey($key)) {
+                return @()
+            }
+            $result = @()
+            foreach ($trustee in $this.Store.SendAs[$key].Keys) {
+                $result += @{
+                    MailboxIdentity   = $MailboxIdentity
+                    Trustee           = $trustee
+                    AccessControlType = 'Allow'
+                    AccessRight       = 'SendAs'
+                    IsInherited       = $false
+                }
+            }
+            return $result
+        } -Force
+
+        # AddRecipientPermission: grant SendAs
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name AddRecipientPermission -Value {
+            param($MailboxIdentity, $Trustee, $AccessToken)
+
+            $key = $MailboxIdentity.ToLowerInvariant()
+            if (-not $this.Store.SendAs.ContainsKey($key)) {
+                $this.Store.SendAs[$key] = @{}
+            }
+            $this.Store.SendAs[$key][$Trustee.ToLowerInvariant()] = $true
+        } -Force
+
+        # RemoveRecipientPermission: revoke SendAs
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveRecipientPermission -Value {
+            param($MailboxIdentity, $Trustee, $AccessToken)
+
+            $key = $MailboxIdentity.ToLowerInvariant()
+            if ($this.Store.SendAs.ContainsKey($key)) {
+                $this.Store.SendAs[$key].Remove($Trustee.ToLowerInvariant())
+            }
+        } -Force
+
+        # GetMailboxSendOnBehalf: return SendOnBehalf delegate list
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetMailboxSendOnBehalf -Value {
+            param($MailboxIdentity, $AccessToken)
+
+            $key = $MailboxIdentity.ToLowerInvariant()
+            if (-not $this.Store.SendOnBehalf.ContainsKey($key)) {
+                return @()
+            }
+            return @($this.Store.SendOnBehalf[$key])
+        } -Force
+
+        # SetMailboxSendOnBehalf: replace SendOnBehalf delegate list
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name SetMailboxSendOnBehalf -Value {
+            param($MailboxIdentity, $Delegates, $AccessToken)
+
+            $key = $MailboxIdentity.ToLowerInvariant()
+            $list = [System.Collections.Generic.List[string]]::new()
+            foreach ($d in $Delegates) { $list.Add($d) }
+            $this.Store.SendOnBehalf[$key] = $list
+        } -Force
+
         # Create provider with fake adapter
         $provider = New-IdleExchangeOnlineProvider -Adapter $fakeAdapter
     }
@@ -182,6 +289,7 @@ Describe 'ExchangeOnline provider - Unit tests' {
             $caps | Should -Contain 'IdLE.Mailbox.Info.Read'
             $caps | Should -Contain 'IdLE.Mailbox.Type.Ensure'
             $caps | Should -Contain 'IdLE.Mailbox.OutOfOffice.Ensure'
+            $caps | Should -Contain 'IdLE.Mailbox.Permissions.Ensure'
         }
     }
 
@@ -552,6 +660,161 @@ Describe 'ExchangeOnline provider - Unit tests' {
             $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
             
             $normalized | Should -Be '<p>This is <strong>important</strong> and <a href="mailto:test@example.com">contact us</a>.</p>'
+        }
+    }
+
+    Context 'EnsureMailboxPermissions' {
+        It 'grants FullAccess and reports Changed = true' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm1@contoso.com'
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate1@contoso.com'; Right = 'FullAccess'; Ensure = 'Present' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm1@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $true
+            $result.Operation | Should -Be 'EnsureMailboxPermissions'
+
+            # Verify the permission was stored
+            $fakeAdapter.Store.FullAccess['perm1@contoso.com']['delegate1@contoso.com'] | Should -Be $true
+        }
+
+        It 'is idempotent when FullAccess already present' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm2@contoso.com'
+            $fakeAdapter.Store.FullAccess['perm2@contoso.com'] = @{ 'delegate1@contoso.com' = $true }
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate1@contoso.com'; Right = 'FullAccess'; Ensure = 'Present' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm2@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $false
+        }
+
+        It 'revokes FullAccess when Ensure = Absent' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm3@contoso.com'
+            $fakeAdapter.Store.FullAccess['perm3@contoso.com'] = @{ 'delegate1@contoso.com' = $true }
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate1@contoso.com'; Right = 'FullAccess'; Ensure = 'Absent' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm3@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $true
+            $fakeAdapter.Store.FullAccess['perm3@contoso.com'].ContainsKey('delegate1@contoso.com') | Should -Be $false
+        }
+
+        It 'grants SendAs and reports Changed = true' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm4@contoso.com'
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate2@contoso.com'; Right = 'SendAs'; Ensure = 'Present' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm4@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $true
+            $fakeAdapter.Store.SendAs['perm4@contoso.com']['delegate2@contoso.com'] | Should -Be $true
+        }
+
+        It 'is idempotent when SendAs already present' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm5@contoso.com'
+            $fakeAdapter.Store.SendAs['perm5@contoso.com'] = @{ 'delegate2@contoso.com' = $true }
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate2@contoso.com'; Right = 'SendAs'; Ensure = 'Present' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm5@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $false
+        }
+
+        It 'revokes SendAs when Ensure = Absent' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm6@contoso.com'
+            $fakeAdapter.Store.SendAs['perm6@contoso.com'] = @{ 'delegate2@contoso.com' = $true }
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate2@contoso.com'; Right = 'SendAs'; Ensure = 'Absent' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm6@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $true
+            $fakeAdapter.Store.SendAs['perm6@contoso.com'].ContainsKey('delegate2@contoso.com') | Should -Be $false
+        }
+
+        It 'grants SendOnBehalf and reports Changed = true' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm7@contoso.com'
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate3@contoso.com'; Right = 'SendOnBehalf'; Ensure = 'Present' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm7@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $true
+            $fakeAdapter.Store.SendOnBehalf['perm7@contoso.com'] | Should -Contain 'delegate3@contoso.com'
+        }
+
+        It 'is idempotent when SendOnBehalf already present' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm8@contoso.com'
+            $list = [System.Collections.Generic.List[string]]::new()
+            $list.Add('delegate3@contoso.com')
+            $fakeAdapter.Store.SendOnBehalf['perm8@contoso.com'] = $list
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate3@contoso.com'; Right = 'SendOnBehalf'; Ensure = 'Present' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm8@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $false
+        }
+
+        It 'revokes SendOnBehalf when Ensure = Absent' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm9@contoso.com'
+            $list = [System.Collections.Generic.List[string]]::new()
+            $list.Add('delegate3@contoso.com')
+            $fakeAdapter.Store.SendOnBehalf['perm9@contoso.com'] = $list
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate3@contoso.com'; Right = 'SendOnBehalf'; Ensure = 'Absent' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm9@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $true
+            $fakeAdapter.Store.SendOnBehalf['perm9@contoso.com'] | Should -Not -Contain 'delegate3@contoso.com'
+        }
+
+        It 'handles mixed rights in a single call' {
+            Add-TestMailbox -PrimarySmtpAddress 'perm10@contoso.com'
+
+            $permissions = @(
+                @{ AssignedUser = 'userA@contoso.com'; Right = 'FullAccess';   Ensure = 'Present' }
+                @{ AssignedUser = 'userB@contoso.com'; Right = 'SendAs';       Ensure = 'Present' }
+                @{ AssignedUser = 'userC@contoso.com'; Right = 'SendOnBehalf'; Ensure = 'Present' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('perm10@contoso.com', $permissions, $null)
+
+            $result.Changed | Should -Be $true
+            $fakeAdapter.Store.FullAccess['perm10@contoso.com']['usera@contoso.com']  | Should -Be $true
+            $fakeAdapter.Store.SendAs['perm10@contoso.com']['userb@contoso.com']      | Should -Be $true
+            $fakeAdapter.Store.SendOnBehalf['perm10@contoso.com']                      | Should -Contain 'userC@contoso.com'
+        }
+
+        It 'throws error when mailbox not found' {
+            $permissions = @(
+                @{ AssignedUser = 'delegate1@contoso.com'; Right = 'FullAccess'; Ensure = 'Present' }
+            )
+
+            { $provider.EnsureMailboxPermissions('nonexistent@contoso.com', $permissions, $null) } |
+                Should -Throw "*Mailbox 'nonexistent@contoso.com' not found*"
         }
     }
 }

@@ -177,6 +177,7 @@ function New-IdleExchangeOnlineProvider {
             'IdLE.Mailbox.Info.Read'
             'IdLE.Mailbox.Type.Ensure'
             'IdLE.Mailbox.OutOfOffice.Ensure'
+            'IdLE.Mailbox.Permissions.Ensure'
         )
 
         return $caps
@@ -410,6 +411,120 @@ function New-IdleExchangeOnlineProvider {
             Operation   = 'EnsureOutOfOffice'
             IdentityKey = $mailbox.PrimarySmtpAddress
             Changed     = $true
+        }
+    } -Force
+
+    # EnsureMailboxPermissions: Idempotent mailbox delegate permissions convergence
+    $provider | Add-Member -MemberType ScriptMethod -Name EnsureMailboxPermissions -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object[]] $Permissions,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+
+        # Verify mailbox exists first
+        $mailbox = $this.GetMailbox($IdentityKey, $AuthSession)
+        $mailboxSmtp = $mailbox.PrimarySmtpAddress
+
+        $changed = $false
+
+        # --- FullAccess ---
+        $desiredFullAccess = @($Permissions | Where-Object { $_.Right -eq 'FullAccess' })
+        if ($desiredFullAccess.Count -gt 0) {
+            $currentPerms = $this.Adapter.GetMailboxPermissions($mailboxSmtp, $accessToken)
+
+            # Normalize current delegates (case-insensitive)
+            $currentFullAccessUsers = @($currentPerms |
+                Where-Object { $_.AccessRight -eq 'FullAccess' -and -not $_.IsInherited } |
+                ForEach-Object { $_.User.ToLowerInvariant() })
+
+            foreach ($entry in $desiredFullAccess) {
+                $userLower = ([string]$entry.AssignedUser).ToLowerInvariant()
+                $isPresent = $currentFullAccessUsers -contains $userLower
+
+                if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
+                    $this.Adapter.AddMailboxPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
+                    $changed = $true
+                }
+                elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
+                    $this.Adapter.RemoveMailboxPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
+                    $changed = $true
+                }
+            }
+        }
+
+        # --- SendAs ---
+        $desiredSendAs = @($Permissions | Where-Object { $_.Right -eq 'SendAs' })
+        if ($desiredSendAs.Count -gt 0) {
+            $currentRecipientPerms = $this.Adapter.GetRecipientPermissions($mailboxSmtp, $accessToken)
+
+            $currentSendAsTrustees = @($currentRecipientPerms |
+                Where-Object { $_.AccessRight -match 'SendAs' -and -not $_.IsInherited } |
+                ForEach-Object { $_.Trustee.ToLowerInvariant() })
+
+            foreach ($entry in $desiredSendAs) {
+                $trusteeLower = ([string]$entry.AssignedUser).ToLowerInvariant()
+                $isPresent = $currentSendAsTrustees -contains $trusteeLower
+
+                if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
+                    $this.Adapter.AddRecipientPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
+                    $changed = $true
+                }
+                elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
+                    $this.Adapter.RemoveRecipientPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
+                    $changed = $true
+                }
+            }
+        }
+
+        # --- SendOnBehalf ---
+        $desiredSendOnBehalf = @($Permissions | Where-Object { $_.Right -eq 'SendOnBehalf' })
+        if ($desiredSendOnBehalf.Count -gt 0) {
+            $currentDelegates = $this.Adapter.GetMailboxSendOnBehalf($mailboxSmtp, $accessToken)
+            $currentDelegatesLower = @($currentDelegates | ForEach-Object { $_.ToLowerInvariant() })
+
+            # Compute desired final list based on Present/Absent entries
+            $updatedDelegates = [System.Collections.Generic.List[string]]::new()
+            foreach ($d in $currentDelegates) { $updatedDelegates.Add($d) }
+
+            $sobChanged = $false
+            foreach ($entry in $desiredSendOnBehalf) {
+                $userLower = ([string]$entry.AssignedUser).ToLowerInvariant()
+                $isPresent = $currentDelegatesLower -contains $userLower
+
+                if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
+                    $updatedDelegates.Add([string]$entry.AssignedUser)
+                    $sobChanged = $true
+                }
+                elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
+                    # Remove case-insensitively
+                    $toRemove = $updatedDelegates | Where-Object { $_.ToLowerInvariant() -eq $userLower }
+                    foreach ($r in @($toRemove)) { $updatedDelegates.Remove($r) | Out-Null }
+                    $sobChanged = $true
+                }
+            }
+
+            if ($sobChanged) {
+                $this.Adapter.SetMailboxSendOnBehalf($mailboxSmtp, [string[]]$updatedDelegates, $accessToken)
+                $changed = $true
+            }
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'EnsureMailboxPermissions'
+            IdentityKey = $mailboxSmtp
+            Changed     = $changed
         }
     } -Force
 

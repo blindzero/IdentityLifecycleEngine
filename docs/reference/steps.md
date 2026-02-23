@@ -13,6 +13,7 @@
 | [IdLE.Step.EnsureAttributes](steps/step-ensure-attributes.md) | ``IdLE.Steps.Common`` | Ensures that multiple identity attributes match their desired values. |
 | [IdLE.Step.EnsureEntitlement](steps/step-ensure-entitlement.md) | ``IdLE.Steps.Common`` | Ensures that an entitlement assignment is present or absent for an identity. |
 | [IdLE.Step.Mailbox.EnsureOutOfOffice](steps/step-mailbox-ensure-out-of-office.md) | ``IdLE.Steps.Mailbox`` | Ensures that a mailbox Out of Office (OOF) configuration matches the desired state. |
+| [IdLE.Step.Mailbox.EnsurePermissions](steps/step-mailbox-ensure-permissions.md) | ``IdLE.Steps.Mailbox`` | Ensures that mailbox delegate permissions match the desired state. |
 | [IdLE.Step.Mailbox.EnsureType](steps/step-mailbox-ensure-type.md) | ``IdLE.Steps.Mailbox`` | Ensures that a mailbox is of the desired type (User, Shared, Room, Equipment). |
 | [IdLE.Step.Mailbox.GetInfo](steps/step-mailbox-get-info.md) | ``IdLE.Steps.Mailbox`` | Retrieves mailbox details and returns a structured report. |
 | [IdLE.Step.MoveIdentity](steps/step-move-identity.md) | ``IdLE.Steps.Common`` | Moves an identity to a different container/OU in the target system. |

@@ -29,5 +29,6 @@ Export-ModuleMember -Function @(
     'Get-IdleStepMetadataCatalog',
     'Invoke-IdleStepMailboxGetInfo',
     'Invoke-IdleStepMailboxTypeEnsure',
-    'Invoke-IdleStepMailboxOutOfOfficeEnsure'
+    'Invoke-IdleStepMailboxOutOfOfficeEnsure',
+    'Invoke-IdleStepMailboxPermissionsEnsure'
 )
