@@ -21,7 +21,8 @@
         'Invoke-IdleStepMoveIdentity',
         'Invoke-IdleStepDeleteIdentity',
         'Invoke-IdleStepRevokeIdentitySessions',
-        'Invoke-IdleStepPruneEntitlements'
+        'Invoke-IdleStepPruneEntitlements',
+        'Invoke-IdleStepPruneEntitlementsEnsureKeep'
     )
 
     PrivateData       = @{

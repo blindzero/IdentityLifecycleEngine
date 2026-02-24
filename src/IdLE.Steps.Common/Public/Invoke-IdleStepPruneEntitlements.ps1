@@ -9,12 +9,14 @@ function Invoke-IdleStepPruneEntitlements {
     (e.g. group memberships) must be removed, except for an explicit keep-set and/or
     entitlements matching a wildcard keep pattern.
 
+    This step is remove-only. Use IdLE.Step.PruneEntitlementsEnsureKeep when you also need
+    to guarantee that explicit Keep entitlements are present after the prune.
+
     The host must supply a provider that:
 
     - Advertises the IdLE.Entitlement.Prune capability (explicit opt-in)
     - Implements ListEntitlements(identityKey)
     - Implements RevokeEntitlement(identityKey, entitlement)
-    - Implements GrantEntitlement(identityKey, entitlement) [required only when With.EnsureKeepEntitlements is $true]
 
     Provider/system non-removable entitlements (e.g., AD primary group / Domain Users) are
     handled safely: if a revoke operation fails, the step emits a structured warning event,
@@ -40,14 +42,13 @@ function Invoke-IdleStepPruneEntitlements {
         Name = 'Prune group memberships (leaver)'
         Type = 'IdLE.Step.PruneEntitlements'
         With = @{
-            IdentityKey            = 'jsmith'
-            Provider               = 'Identity'
-            Kind                   = 'Group'
-            Keep                   = @(
+            IdentityKey = 'jsmith'
+            Provider    = 'Identity'
+            Kind        = 'Group'
+            Keep        = @(
                 @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=contoso,DC=com' }
             )
-            KeepPattern            = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
-            EnsureKeepEntitlements = $true
+            KeepPattern = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
         }
     }
 

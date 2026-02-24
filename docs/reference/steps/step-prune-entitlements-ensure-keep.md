@@ -1,34 +1,34 @@
-# IdLE.Step.PruneEntitlements
+# IdLE.Step.PruneEntitlementsEnsureKeep
 
 > Generated file. Do not edit by hand.
 > Source: tools/Generate-IdleStepReference.ps1
 
 ## Summary
 
-- **Step Type**: `IdLE.Step.PruneEntitlements`
+- **Step Type**: `IdLE.Step.PruneEntitlementsEnsureKeep`
 - **Module**: `IdLE.Steps.Common`
-- **Implementation**: `Invoke-IdleStepPruneEntitlements`
+- **Implementation**: `Invoke-IdleStepPruneEntitlementsEnsureKeep`
 - **Idempotent**: `Yes`
 
 ## Synopsis
 
-Converges an identity's entitlements by removing all non-kept entitlements of a given kind.
+Converges an identity's entitlements by removing all non-kept entitlements and ensuring kept ones are present.
 
 ## Description
 
-This provider-agnostic step implements "remove all except" semantics for entitlements.
-It is intended for leaver and mover workflows where all entitlements of a given kind
-(e.g. group memberships) must be removed, except for an explicit keep-set and/or
-entitlements matching a wildcard keep pattern.
+This provider-agnostic step combines "remove all except" semantics with "ensure kept entitlements are present".
+It is intended for leaver and mover workflows where all entitlements of a given kind must be removed except
+for an explicit keep-set, and where those kept entitlements must also be guaranteed to be present.
 
-This step is **remove-only**. Use [`IdLE.Step.PruneEntitlementsEnsureKeep`](./step-prune-entitlements-ensure-keep.md)
-when you also need to guarantee that explicit `Keep` entitlements are present after the prune.
+Use [`IdLE.Step.PruneEntitlements`](./step-prune-entitlements.md) when you only need removal without the
+ensure-grant phase. Use this step type when you need both prune and grant semantics in a single operation.
 
 The host must supply a provider that:
 
 - Advertises the `IdLE.Entitlement.Prune` capability (explicit opt-in)
 - Implements `ListEntitlements(identityKey)`
 - Implements `RevokeEntitlement(identityKey, entitlement)`
+- Implements `GrantEntitlement(identityKey, entitlement)`
 
 Provider/system non-removable entitlements (e.g., AD primary group / Domain Users) are
 handled safely: if a revoke operation fails, the step emits a structured warning event,
@@ -51,8 +51,8 @@ The following keys are supported in the step's `With` configuration:
 | --- | --- | --- |
 | `IdentityKey` | Yes | Unique identifier for the identity whose entitlements to prune |
 | `Kind` | Yes | Entitlement kind to prune (e.g. `Group`, `Role`, `License`) — provider-defined |
-| `Keep` | No* | Array of entitlement references to keep. Each entry must have an `Id` and optionally a `Kind` and `DisplayName`. At least one of `Keep` or `KeepPattern` is required. |
-| `KeepPattern` | No* | Array of wildcard strings (PowerShell `-like` semantics). Current entitlements whose `Id` or `DisplayName` matches any pattern are kept. At least one of `Keep` or `KeepPattern` is required. |
+| `Keep` | No* | Array of entitlement references to keep. Each entry must have an `Id` and optionally a `Kind` and `DisplayName`. At least one of `Keep` or `KeepPattern` is required. Missing `Keep` items are granted. |
+| `KeepPattern` | No* | Array of wildcard strings (PowerShell `-like` semantics). Current entitlements whose `Id` or `DisplayName` matches any pattern are kept. At least one of `Keep` or `KeepPattern` is required. Pattern-matched entitlements are never "ensured" — only explicit `Keep` items are granted. |
 | `Provider` | No | Alias for the provider in `Context.Providers`. Defaults to `'Identity'`. |
 | `AuthSessionName` | No | Name used to acquire an auth session via `Context.AcquireAuthSession(...)`. |
 | `AuthSessionOptions` | No | Hashtable of options passed to the auth session broker (e.g., `@{ Role = 'Tier0' }`). ScriptBlocks are rejected. |
@@ -62,7 +62,8 @@ The following keys are supported in the step's `With` configuration:
 ## Capability Requirement
 
 This step requires the provider to advertise the `IdLE.Entitlement.Prune` capability (explicit opt-in).
-This is in addition to the standard `IdLE.Entitlement.List` and `IdLE.Entitlement.Revoke` capabilities.
+This is in addition to the standard `IdLE.Entitlement.List`, `IdLE.Entitlement.Revoke`, and
+`IdLE.Entitlement.Grant` capabilities.
 
 See [Capabilities Reference](../capabilities.md) for details.
 
@@ -77,6 +78,7 @@ The step executes the following convergence logic:
    - Current entitlements whose `Id` or `DisplayName` matches any `KeepPattern` wildcard
 4. Computes **remove-set** = current − keep-set.
 5. Revokes each entitlement in the remove-set. If a revoke fails (e.g. non-removable entitlement), the error is recorded as a skip with a warning event; the workflow continues.
+6. Grants any explicit `Keep` entitlements that were not in the current set (**ensure phase**). Pattern-matched entitlements are never ensured.
 
 ## Result
 
@@ -90,12 +92,12 @@ a `Skipped` array is included. Each entry in `Skipped` contains:
 
 ## Examples
 
-### Basic: prune all groups except one explicit group
+### Keep one explicit group and ensure it is present
 
 ```powershell
 @{
-  Name = 'Prune group memberships (leaver)'
-  Type = 'IdLE.Step.PruneEntitlements'
+  Name = 'Prune groups and ensure leaver group (leaver)'
+  Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
   With = @{
     IdentityKey = '{{Request.Intent.SamAccountName}}'
     Kind        = 'Group'
@@ -106,20 +108,21 @@ a `Skipped` array is included. Each entry in `Skipped` contains:
 }
 ```
 
-### With wildcard pattern: keep all LEAVER-* groups
+### Keep + wildcard pattern and ensure the explicit leaver group is present
 
 ```powershell
 @{
-  Name = 'Prune group memberships (leaver with pattern)'
-  Type = 'IdLE.Step.PruneEntitlements'
-  With = @{
-    IdentityKey = '{{Request.Intent.SamAccountName}}'
-    Provider    = 'Identity'
-    Kind        = 'Group'
-    Keep        = @(
-      @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=contoso,DC=com' }
+  Name      = 'Prune groups and ensure leaver group (leaver with pattern)'
+  Type      = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+  Condition = @{ Equals = @{ Path = 'Request.Intent.PruneGroups'; Value = $true } }
+  With      = @{
+    IdentityKey     = '{{Request.Intent.SamAccountName}}'
+    Provider        = 'Identity'
+    Kind            = 'Group'
+    Keep            = @(
+      @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=contoso,DC=com'; DisplayName = 'Leaver Retain' }
     )
-    KeepPattern = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
+    KeepPattern     = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
     AuthSessionName = 'Directory'
   }
 }
@@ -127,7 +130,7 @@ a `Skipped` array is included. Each entry in `Skipped` contains:
 
 ## See Also
 
-- [IdLE.Step.PruneEntitlementsEnsureKeep](./step-prune-entitlements-ensure-keep.md) - Remove + ensure keep entitlements are present
+- [IdLE.Step.PruneEntitlements](./step-prune-entitlements.md) - Remove-only variant (no ensure phase)
 - [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities including `IdLE.Entitlement.Prune`
 - [Providers](../providers.md) - Available provider implementations
 - [IdLE.Step.EnsureEntitlement](./step-ensure-entitlement.md) - Atomic single-entitlement convergence

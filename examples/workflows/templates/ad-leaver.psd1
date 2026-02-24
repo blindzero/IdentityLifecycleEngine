@@ -28,9 +28,10 @@
 
         # Optional, use with caution:
         # Removing groups can break business processes unexpectedly.
-        # PruneEntitlements offers a safer "remove all except" approach for leavers.
+        # PruneEntitlementsEnsureKeep removes all groups except the keep set AND ensures
+        # explicit Keep items are present. Use PruneEntitlements if you only need removal.
         @{
-            Type      = 'IdLE.Step.PruneEntitlements'
+            Type      = 'IdLE.Step.PruneEntitlementsEnsureKeep'
             Name      = 'Prune group memberships (leaver)'
             Condition = @{ Equals = @{ Path = 'Request.Intent.PruneGroups'; Value = $true } }
             With      = @{
@@ -45,9 +46,6 @@
 
                 # Also retain any group whose DN starts with CN=LEAVER- (e.g. LEAVER-*)
                 KeepPattern     = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
-
-                # Ensure the explicit keep group is present even if the user was not a member.
-                EnsureKeepEntitlements = $true
             }
         }
 

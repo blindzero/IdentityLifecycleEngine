@@ -18,5 +18,6 @@
 | [IdLE.Step.Mailbox.GetInfo](steps/step-mailbox-get-info.md) | ``IdLE.Steps.Mailbox`` | Retrieves mailbox details and returns a structured report. |
 | [IdLE.Step.MoveIdentity](steps/step-move-identity.md) | ``IdLE.Steps.Common`` | Moves an identity to a different container/OU in the target system. |
 | [IdLE.Step.PruneEntitlements](steps/step-prune-entitlements.md) | ``IdLE.Steps.Common`` | Converges an identity's entitlements by removing all non-kept entitlements of a given kind. |
+| [IdLE.Step.PruneEntitlementsEnsureKeep](steps/step-prune-entitlements-ensure-keep.md) | ``IdLE.Steps.Common`` | Converges an identity's entitlements by removing all non-kept entitlements and ensuring kept ones are present. |
 | [IdLE.Step.RevokeIdentitySessions](steps/step-revoke-identity-sessions.md) | ``IdLE.Steps.Common`` | Revokes all active sign-in sessions for an identity in the target system. |
 | [IdLE.Step.TriggerDirectorySync](steps/step-trigger-directory-sync.md) | ``IdLE.Steps.DirectorySync`` | Triggers a directory sync cycle and optionally waits for completion. |

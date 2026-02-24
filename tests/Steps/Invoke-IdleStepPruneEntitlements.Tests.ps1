@@ -435,3 +435,162 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
         }
     }
 }
+
+Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
+    BeforeEach {
+        $script:Provider = New-IdleMockIdentityProvider
+        $script:Context = [pscustomobject]@{
+            PSTypeName = 'IdLE.ExecutionContext'
+            Plan       = $null
+            Providers  = @{ Identity = $script:Provider }
+            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+        }
+
+        # Seed the identity with some entitlements
+        $null = $script:Provider.EnsureAttribute('user1', 'Seed', 'Value')
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-All,DC=contoso,DC=com' })
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-HR,DC=contoso,DC=com'; DisplayName = 'HR Group' })
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com'; DisplayName = 'Leaver Retain' })
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-EXTRA,DC=contoso,DC=com'; DisplayName = 'Leaver Extra' })
+
+        $script:Handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlementsEnsureKeep'
+        $script:StepTemplate = [pscustomobject]@{
+            Name = 'Prune and ensure keep (leaver)'
+            Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+            With = @{
+                IdentityKey = 'user1'
+                Provider    = 'Identity'
+                Kind        = 'Group'
+                Keep        = @(
+                    @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' }
+                )
+            }
+        }
+    }
+
+    Context 'Step registration' {
+        It 'is registered in the step registry' {
+            $catalog = IdLE.Steps.Common\Get-IdleStepMetadataCatalog
+            $catalog.ContainsKey('IdLE.Step.PruneEntitlementsEnsureKeep') | Should -BeTrue
+        }
+
+        It 'requires IdLE.Entitlement.Grant capability' {
+            $catalog = IdLE.Steps.Common\Get-IdleStepMetadataCatalog
+            $catalog['IdLE.Step.PruneEntitlementsEnsureKeep'].RequiredCapabilities | Should -Contain 'IdLE.Entitlement.Grant'
+        }
+
+        It 'PruneEntitlements does NOT require IdLE.Entitlement.Grant capability' {
+            $catalog = IdLE.Steps.Common\Get-IdleStepMetadataCatalog
+            $catalog['IdLE.Step.PruneEntitlements'].RequiredCapabilities | Should -Not -Contain 'IdLE.Entitlement.Grant'
+        }
+    }
+
+    Context 'Behavior: Keep only (prune + ensure)' {
+        It 'removes non-kept entitlements and reports Changed' {
+            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+
+            $result.Status | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+
+            $remaining = $script:Provider.ListEntitlements('user1')
+            @($remaining).Count | Should -Be 1
+            $remaining[0].Id | Should -Be 'CN=LEAVER-RETAIN,DC=contoso,DC=com'
+        }
+
+        It 'grants an explicit Keep item that is not yet present' {
+            $step = $script:StepTemplate
+            $step.With.Keep = @(
+                @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' }
+                @{ Kind = 'Group'; Id = 'CN=LEAVER-NEW,DC=contoso,DC=com'; DisplayName = 'Leaver New' }
+            )
+
+            $result = & $script:Handler -Context $script:Context -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+
+            $remaining = $script:Provider.ListEntitlements('user1')
+            ($remaining | Select-Object -ExpandProperty Id) | Should -Contain 'CN=LEAVER-NEW,DC=contoso,DC=com'
+        }
+
+        It 'is idempotent when keep set is already the only entitlements' {
+            $null = $script:Provider.RevokeEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-All,DC=contoso,DC=com' })
+            $null = $script:Provider.RevokeEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-HR,DC=contoso,DC=com' })
+            $null = $script:Provider.RevokeEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-EXTRA,DC=contoso,DC=com' })
+
+            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeFalse
+        }
+    }
+
+    Context 'Behavior: Keep + KeepPattern union (prune + ensure)' {
+        It 'keeps entitlements matching wildcard KeepPattern and ensures explicit Keep items' {
+            $step = $script:StepTemplate
+            $step.With.KeepPattern = @('CN=LEAVER-*,DC=contoso,DC=com')
+            $step.With.Keep = @(
+                @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' }
+                @{ Kind = 'Group'; Id = 'CN=LEAVER-NEWGROUP,DC=contoso,DC=com' }
+            )
+
+            $result = & $script:Handler -Context $script:Context -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+
+            $remaining = $script:Provider.ListEntitlements('user1')
+            $remainingIds = $remaining | Select-Object -ExpandProperty Id
+            # LEAVER-RETAIN + LEAVER-EXTRA (pattern) + LEAVER-NEWGROUP (ensured)
+            $remainingIds | Should -Contain 'CN=LEAVER-RETAIN,DC=contoso,DC=com'
+            $remainingIds | Should -Contain 'CN=LEAVER-EXTRA,DC=contoso,DC=com'
+            $remainingIds | Should -Contain 'CN=LEAVER-NEWGROUP,DC=contoso,DC=com'
+            $remainingIds | Should -Not -Contain 'CN=G-All,DC=contoso,DC=com'
+            $remainingIds | Should -Not -Contain 'CN=G-HR,DC=contoso,DC=com'
+        }
+
+        It 'does not grant pattern-matched entitlements (only explicit Keep items)' {
+            $step = $script:StepTemplate
+            $step.With.KeepPattern = @('CN=LEAVER-*,DC=contoso,DC=com')
+
+            # No new explicit Keep items beyond what's already present
+            $result = & $script:Handler -Context $script:Context -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+
+            # LEAVER-EXTRA was kept by pattern but not granted (it was already present)
+            $remaining = $script:Provider.ListEntitlements('user1')
+            $remainingIds = $remaining | Select-Object -ExpandProperty Id
+            $remainingIds | Should -Contain 'CN=LEAVER-RETAIN,DC=contoso,DC=com'
+            $remainingIds | Should -Contain 'CN=LEAVER-EXTRA,DC=contoso,DC=com'
+        }
+    }
+
+    Context 'Validation: Guardrail - missing Keep and KeepPattern fails fast' {
+        It 'throws when neither Keep nor KeepPattern is provided' {
+            $step = [pscustomobject]@{
+                Name = 'bad'
+                Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+                With = @{ IdentityKey = 'user1'; Kind = 'Group'; Provider = 'Identity' }
+            }
+
+            { & $script:Handler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*at least one*'
+        }
+    }
+
+    Context 'Behavior: Non-removable entitlement handling' {
+        It 'skips non-removable entitlements with a structured warning and continues' {
+            $script:Provider.ProtectedEntitlementIds = @('CN=G-All,DC=contoso,DC=com')
+
+            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Skipped | Should -Not -BeNullOrEmpty
+            $result.Skipped[0].EntitlementId | Should -Be 'CN=G-All,DC=contoso,DC=com'
+
+            # Non-protected items should still have been removed
+            $remaining = $script:Provider.ListEntitlements('user1')
+            ($remaining | Select-Object -ExpandProperty Id) | Should -Not -Contain 'CN=G-HR,DC=contoso,DC=com'
+        }
+    }
+}

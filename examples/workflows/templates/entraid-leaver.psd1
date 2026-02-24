@@ -68,11 +68,11 @@
         }
 
         # Optional & potentially disruptive:
-        # PruneEntitlements offers a safe "remove all except" approach for leavers.
-        # Use this instead of removing each group individually.
+        # PruneEntitlementsEnsureKeep removes all groups except the keep set AND ensures
+        # explicit Keep items are present. Use PruneEntitlements if you only need removal.
         @{
             Name      = 'PruneGroupMemberships_Optional'
-            Type      = 'IdLE.Step.PruneEntitlements'
+            Type      = 'IdLE.Step.PruneEntitlementsEnsureKeep'
             Condition = @{
                 All = @(
                     @{
@@ -96,9 +96,6 @@
 
                 # Also retain any group whose displayName starts with LEAVER-.
                 KeepPattern        = @('LEAVER-*')
-
-                # Ensure the explicit keep group is present even if the user was not a member.
-                EnsureKeepEntitlements = $true
             }
         }
 
