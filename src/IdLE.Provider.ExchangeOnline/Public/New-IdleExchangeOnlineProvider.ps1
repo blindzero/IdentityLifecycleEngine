@@ -75,8 +75,9 @@ function New-IdleExchangeOnlineProvider {
         [object] $Adapter
     )
 
-    # Check prerequisites once at construction and cache the result on the provider instance.
-    # This avoids repeated module/cmdlet probing on every operation (one-time per instance).
+    # Run prerequisites check at construction for early diagnostic output only.
+    # The actual gate check is deferred to the first real operation so the provider
+    # can recover if Connect-ExchangeOnline is called after the provider is created.
     Write-Verbose "Provider.ExchangeOnline.Init.Start: Checking prerequisites (ProviderName=ExchangeOnlineProvider)"
     $prereqs = Test-IdleExchangeOnlinePrerequisites
     Write-Verbose "Provider.ExchangeOnline.Prerequisites.ModuleImport: ExchangeOnlineManagement module available=$(-not ($prereqs.MissingRequired -contains 'ExchangeOnlineManagement'))"
@@ -108,8 +109,9 @@ function New-IdleExchangeOnlineProvider {
         $isRealAdapter = ($this.Adapter.PSObject.TypeNames -contains 'IdLE.ExchangeOnlineAdapter')
         
         if ($isRealAdapter) {
-            # Use the prerequisites result cached at construction time (one-time per provider instance)
-            $prereqCheck = $this._prereqResult
+            # Re-check prerequisites on each operation so the provider can recover
+            # if Connect-ExchangeOnline is called after the provider was created.
+            $prereqCheck = Test-IdleExchangeOnlinePrerequisites
             if (-not $prereqCheck.IsHealthy) {
                 $missingList = $prereqCheck.MissingRequired -join ', '
                 $errorMsg = "ExchangeOnline provider operation cannot proceed. Required prerequisite(s) missing: $missingList"
@@ -170,10 +172,9 @@ function New-IdleExchangeOnlineProvider {
     }
 
     $provider = [pscustomobject]@{
-        PSTypeName    = 'IdLE.Provider.ExchangeOnlineProvider'
-        Name          = 'ExchangeOnlineProvider'
-        Adapter       = $Adapter
-        _prereqResult = $prereqs
+        PSTypeName = 'IdLE.Provider.ExchangeOnlineProvider'
+        Name       = 'ExchangeOnlineProvider'
+        Adapter    = $Adapter
     }
 
     $provider | Add-Member -MemberType ScriptMethod -Name ExtractAccessToken -Value $extractAccessToken -Force
