@@ -120,11 +120,13 @@ $token = Get-MsalToken `
 Connect-ExchangeOnline -AccessToken $token.AccessToken -UserPrincipalName admin@contoso.com
 ```
 
-> **Note:** `-DeviceCode` is interactive and requires a user to authenticate via a browser. For **automated/unattended** scenarios, use app-only authentication with a certificate:
->
-> ```powershell
-> Connect-ExchangeOnline -CertificateThumbprint '<thumbprint>' -AppId '<app-id>' -Organization '<tenant>.onmicrosoft.com'
-> ```
+> **Note:** `-DeviceCode` is interactive and requires a user to authenticate via a browser. For **automated/unattended** scenarios, use app-only authentication with a certificate.
+
+App-only authentication example:
+
+```powershell
+Connect-ExchangeOnline -CertificateThumbprint '<thumbprint>' -AppId '<app-id>' -Organization '<tenant>.onmicrosoft.com'
+```
 
 For **delegated** flows, the token's `scp` claim must include:
 - `https://outlook.office365.com/Exchange.Manage` — full mailbox management (delegated)
