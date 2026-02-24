@@ -243,12 +243,25 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        $group = $adapter.GetGroupById($GroupId)
-        if ($null -eq $group) {
-            throw "Group '$GroupId' not found."
+        # Try as GUID first (most deterministic)
+        $guid = [System.Guid]::Empty
+        if ([System.Guid]::TryParse($GroupId, [ref]$guid)) {
+            $group = $adapter.GetGroupById($guid.ToString())
+            if ($null -ne $group) { return $group.DistinguishedName }
+            throw "Group with GUID '$GroupId' not found."
         }
 
-        return $group.DistinguishedName
+        # Looks like a DN (contains = and ,) — use direct lookup
+        if ($GroupId -match '=' -and $GroupId -match ',') {
+            $group = $adapter.GetGroupById($GroupId)
+            if ($null -ne $group) { return $group.DistinguishedName }
+            throw "Group with DN '$GroupId' not found."
+        }
+
+        # Fallback: treat as sAMAccountName (Get-ADGroup -Identity accepts sAMAccountName)
+        $group = $adapter.GetGroupById($GroupId)
+        if ($null -ne $group) { return $group.DistinguishedName }
+        throw "Group with sAMAccountName '$GroupId' not found."
     }
 
     $provider = [pscustomobject]@{
@@ -852,84 +865,35 @@ function New-IdleADIdentityProvider {
         }
     } -Force
 
-    $provider | Add-Member -MemberType ScriptMethod -Name PruneEntitlements -Value {
+    $provider | Add-Member -MemberType ScriptMethod -Name NormalizeEntitlementId -Value {
         param(
-            [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $IdentityKey,
-
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
             [string] $Kind,
 
-            [Parameter()]
-            [AllowNull()]
-            [object[]] $KeepItems,
-
-            [Parameter()]
-            [AllowNull()]
-            [string[]] $KeepPatterns,
-
-            [Parameter()]
-            [bool] $EnsureKeepEntitlements,
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Entitlement,
 
             [Parameter()]
             [AllowNull()]
             [object] $AuthSession
         )
 
-        # AD provider only supports Group entitlements for prune
-        if (-not [string]::Equals($Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "PruneEntitlements: AD provider only supports Kind 'Group'. Got: '$Kind'."
-        }
+        $converted = $this.ConvertToEntitlement($Entitlement)
 
-        $adapter = $this.GetEffectiveAdapter($AuthSession)
-        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
-
-        # Normalize keep item IDs to canonical DNs (provider-specific ID-type-detection via NormalizeGroupId)
-        $keepGroupDNs = @()
-        if ($null -ne $KeepItems) {
-            foreach ($item in @($KeepItems)) {
-                $normalized = $this.ConvertToEntitlement($item)
-                $canonicalDN = $this.NormalizeGroupId($normalized.Id, $AuthSession)
-                $keepGroupDNs += $canonicalDN
+        # AD only supports Group entitlements; normalize to canonical DN
+        if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
+            $canonicalId = $this.NormalizeGroupId($converted.Id, $AuthSession)
+            return [pscustomobject]@{
+                PSTypeName  = 'IdLE.Entitlement'
+                Kind        = $converted.Kind
+                Id          = $canonicalId
+                DisplayName = $converted.PSObject.Properties.Name -contains 'DisplayName' ? $converted.DisplayName : $null
             }
         }
 
-        # Delegate bulk removal to adapter (adapter handles list + delta + remove loop)
-        $pruneResult = $adapter.PruneGroupMemberships($user.DistinguishedName, $keepGroupDNs, $KeepPatterns)
-        $changed = $pruneResult.Removed.Count -gt 0
-
-        # Map adapter skipped entries to standard IdLE format
-        $skippedItems = @()
-        foreach ($s in @($pruneResult.Skipped)) {
-            $skippedItems += [pscustomobject]@{
-                EntitlementId = [string]$s.GroupDN
-                Reason        = [string]$s.Reason
-            }
-        }
-
-        # EnsureKeepEntitlements: grant any explicit Keep items not yet present
-        if ($EnsureKeepEntitlements -and $null -ne $KeepItems -and @($KeepItems).Count -gt 0) {
-            $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
-            foreach ($item in @($KeepItems)) {
-                $normalized = $this.ConvertToEntitlement($item)
-                $existing = @($currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) })
-                if (@($existing).Count -eq 0) {
-                    $canonicalDN = $this.NormalizeGroupId($normalized.Id, $AuthSession)
-                    $adapter.AddGroupMember($canonicalDN, $user.DistinguishedName)
-                    $changed = $true
-                }
-            }
-        }
-
-        return [pscustomobject]@{
-            PSTypeName  = 'IdLE.ProviderResult'
-            Operation   = 'PruneEntitlements'
-            IdentityKey = $IdentityKey
-            Changed     = $changed
-            Skipped     = $skippedItems
-        }
+        return $converted
     } -Force
 
     return $provider

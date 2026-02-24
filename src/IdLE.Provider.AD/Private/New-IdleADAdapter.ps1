@@ -738,67 +738,6 @@ function New-IdleADAdapter {
         }
     } -Force
 
-    $adapter | Add-Member -MemberType ScriptMethod -Name PruneGroupMemberships -Value {
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $UserDN,
-
-            [Parameter()]
-            [AllowNull()]
-            [string[]] $KeepGroupDNs,
-
-            [Parameter()]
-            [AllowNull()]
-            [string[]] $KeepPatterns
-        )
-
-        $groups = $this.GetUserGroups($UserDN)
-        $removed = @()
-        $skipped = @()
-
-        foreach ($group in @($groups)) {
-            $dn   = [string]$group.DistinguishedName
-            $name = [string]$group.Name
-
-            $shouldKeep = $false
-
-            foreach ($keepDN in @($KeepGroupDNs)) {
-                if ([string]::Equals($dn, $keepDN, [System.StringComparison]::OrdinalIgnoreCase)) {
-                    $shouldKeep = $true
-                    break
-                }
-            }
-
-            if (-not $shouldKeep) {
-                foreach ($pattern in @($KeepPatterns)) {
-                    if ($dn -like $pattern -or $name -like $pattern) {
-                        $shouldKeep = $true
-                        break
-                    }
-                }
-            }
-
-            if (-not $shouldKeep) {
-                try {
-                    $this.RemoveGroupMember($dn, $UserDN)
-                    $removed += $dn
-                }
-                catch {
-                    $skipped += [pscustomobject]@{
-                        GroupDN = $dn
-                        Reason  = $_.Exception.Message
-                    }
-                }
-            }
-        }
-
-        return [pscustomobject]@{
-            Removed = $removed
-            Skipped = $skipped
-        }
-    } -Force
-
     $adapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {
         param(
             [Parameter()]

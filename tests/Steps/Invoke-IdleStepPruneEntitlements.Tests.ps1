@@ -368,39 +368,58 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
         }
     }
 
-    Context 'Behavior: step delegates to provider.PruneEntitlements when available' {
-        It 'calls provider PruneEntitlements and uses its result' {
-            $pruneCallArgs = @{}
+    Context 'Behavior: step normalizes Keep IDs via provider.NormalizeEntitlementId when available' {
+        It 'normalizes Keep item IDs before comparison so non-canonical IDs are matched correctly' {
+            # Build a provider that: returns canonical IDs from ListEntitlements,
+            # normalizes 'short-name' Keep IDs → canonical 'CN=...' form via NormalizeEntitlementId,
+            # and tracks which IDs were passed to RevokeEntitlement.
+            $revokedIds = @()
             $mockProvider = [pscustomobject]@{
-                PSTypeName = 'MockPruneProvider'
+                PSTypeName   = 'MockNormProvider'
+                RevokedIds   = $revokedIds
             }
-            $mockProvider | Add-Member -MemberType ScriptMethod -Name PruneEntitlements -Value {
-                param($IdentityKey, $Kind, $KeepItems, $KeepPatterns, $EnsureKeep, $AuthSession)
-                $script:PruneCallArgs = @{
-                    IdentityKey  = $IdentityKey
-                    Kind         = $Kind
-                    KeepItems    = $KeepItems
-                    KeepPatterns = $KeepPatterns
-                    EnsureKeep   = $EnsureKeep
+
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param($IdentityKey)
+                return @(
+                    [pscustomobject]@{ Kind = 'Group'; Id = 'CN=G-All,OU=Groups,DC=contoso,DC=com' },
+                    [pscustomobject]@{ Kind = 'Group'; Id = 'CN=G-Keep,OU=Groups,DC=contoso,DC=com' },
+                    [pscustomobject]@{ Kind = 'Group'; Id = 'CN=G-Remove,OU=Groups,DC=contoso,DC=com' }
+                )
+            } -Force
+
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name NormalizeEntitlementId -Value {
+                param($Kind, $Entitlement, $AuthSession)
+                # Map short sAMAccountName-style IDs to canonical DNs
+                $idMap = @{
+                    'G-Keep' = 'CN=G-Keep,OU=Groups,DC=contoso,DC=com'
+                    'G-All'  = 'CN=G-All,OU=Groups,DC=contoso,DC=com'
                 }
-                return [pscustomobject]@{
-                    PSTypeName = 'IdLE.ProviderResult'
-                    Changed    = $true
-                    Skipped    = @([pscustomobject]@{ EntitlementId = 'CN=X'; Reason = 'protected' })
-                }
+                $rawId = if ($Entitlement -is [hashtable]) { $Entitlement['Id'] } else { $Entitlement.Id }
+                $canonicalId = if ($idMap.ContainsKey($rawId)) { $idMap[$rawId] } else { $rawId }
+                $kind = if ($Entitlement -is [hashtable]) { $Entitlement['Kind'] } else { $Entitlement.Kind }
+                return [pscustomobject]@{ Kind = $kind; Id = $canonicalId }
+            } -Force
+
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name RevokeEntitlement -Value {
+                param($IdentityKey, $Entitlement)
+                $id = if ($Entitlement -is [hashtable]) { $Entitlement['Id'] } else { $Entitlement.Id }
+                $this.RevokedIds += $id
             } -Force
 
             $script:Context.Providers['Identity'] = $mockProvider
 
             $step = [pscustomobject]@{
-                Name = 'Prune via provider'
+                Name = 'Prune via NormalizeEntitlementId'
                 Type = 'IdLE.Step.PruneEntitlements'
                 With = @{
-                    IdentityKey  = 'user1'
-                    Kind         = 'Group'
-                    Provider     = 'Identity'
-                    Keep         = @(@{ Kind = 'Group'; Id = 'CN=RETAIN,DC=x' })
-                    KeepPattern  = @('CN=LEAVER-*')
+                    IdentityKey = 'user1'
+                    Kind        = 'Group'
+                    Provider    = 'Identity'
+                    Keep        = @(
+                        @{ Kind = 'Group'; Id = 'G-Keep' },   # short/non-canonical ID
+                        @{ Kind = 'Group'; Id = 'G-All' }     # short/non-canonical ID
+                    )
                 }
             }
 
@@ -409,12 +428,10 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
-            $result.Skipped | Should -Not -BeNullOrEmpty
-            $result.Skipped[0].EntitlementId | Should -Be 'CN=X'
-
-            $script:PruneCallArgs.IdentityKey  | Should -Be 'user1'
-            $script:PruneCallArgs.Kind         | Should -Be 'Group'
-            $script:PruneCallArgs.KeepPatterns | Should -Contain 'CN=LEAVER-*'
+            # G-Remove should have been revoked (not in keep set), G-Keep and G-All preserved
+            $mockProvider.RevokedIds | Should -Contain 'CN=G-Remove,OU=Groups,DC=contoso,DC=com'
+            $mockProvider.RevokedIds | Should -Not -Contain 'CN=G-Keep,OU=Groups,DC=contoso,DC=com'
+            $mockProvider.RevokedIds | Should -Not -Contain 'CN=G-All,OU=Groups,DC=contoso,DC=com'
         }
     }
 }

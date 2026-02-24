@@ -234,41 +234,30 @@ function Invoke-IdleStepPruneEntitlements {
 
     $provider = $Context.Providers[$providerAlias]
 
-    # Use provider's native PruneEntitlements method when available (handles ID normalization internally)
-    $providerHasPruneMethod = $provider.PSObject.Methods.Name -contains 'PruneEntitlements'
-
-    if (-not $providerHasPruneMethod) {
-        # Validate fallback individual methods
-        $requiredMethods = @('ListEntitlements', 'RevokeEntitlement')
-        if ($ensureKeep) {
-            $requiredMethods += 'GrantEntitlement'
-        }
-        foreach ($m in $requiredMethods) {
-            if (-not ($provider.PSObject.Methods.Name -contains $m)) {
-                throw "Provider '$providerAlias' must implement method '$m' for PruneEntitlements."
-            }
+    # Validate required provider methods (step is the single source of delta computation)
+    $requiredMethods = @('ListEntitlements', 'RevokeEntitlement')
+    if ($ensureKeep) {
+        $requiredMethods += 'GrantEntitlement'
+    }
+    foreach ($m in $requiredMethods) {
+        if (-not ($provider.PSObject.Methods.Name -contains $m)) {
+            throw "Provider '$providerAlias' must implement method '$m' for PruneEntitlements."
         }
     }
 
-    if ($providerHasPruneMethod) {
-        # Provider handles ID normalization, user resolution, and bulk removal natively
-        $pruneSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['PruneEntitlements'] -ParameterName 'AuthSession'
-
-        $pruneResult = if ($pruneSupportsAuthSession) {
-            $provider.PruneEntitlements($identityKey, $kind, $keepItems, $keepPatterns, $ensureKeep, $authSession)
-        } else {
-            $provider.PruneEntitlements($identityKey, $kind, $keepItems, $keepPatterns, $ensureKeep)
-        }
-
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Changed    = [bool]$pruneResult.Changed
-            Error      = $null
-            Skipped    = if ($null -ne $pruneResult.Skipped) { @($pruneResult.Skipped) } else { @() }
-        }
+    # Normalize Keep IDs to canonical form via provider.NormalizeEntitlementId (when available).
+    # This ensures correct comparison with the canonical IDs returned by ListEntitlements.
+    # Each provider handles its own ID-type detection (e.g., GUID/DN/sAMAccountName for AD;
+    # objectId/displayName for Entra ID).
+    if ($keepItems.Count -gt 0 -and $provider.PSObject.Methods.Name -contains 'NormalizeEntitlementId') {
+        $normalizeSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['NormalizeEntitlementId'] -ParameterName 'AuthSession'
+        $keepItems = @($keepItems | ForEach-Object {
+            if ($normalizeSupportsAuthSession -and $null -ne $authSession) {
+                $provider.NormalizeEntitlementId($kind, $_, $authSession)
+            } else {
+                $provider.NormalizeEntitlementId($kind, $_)
+            }
+        })
     }
 
     $listSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'AuthSession'

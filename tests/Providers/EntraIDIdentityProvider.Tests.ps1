@@ -726,43 +726,6 @@ Describe 'EntraID identity provider - Entitlement operations' {
                 }
             }
 
-            $adapter | Add-Member -MemberType ScriptMethod -Name PruneGroupMemberships -Value {
-                param($UserObjectId, $KeepGroupObjectIds, $KeepPatterns, $AccessToken)
-
-                $groups = $this.ListUserGroups($UserObjectId, $AccessToken)
-                $removed = @()
-                $skipped = @()
-
-                foreach ($group in @($groups)) {
-                    $groupId     = [string]$group.id
-                    $displayName = if ($group.PSObject.Properties.Name -contains 'displayName') { [string]$group.displayName } else { $null }
-
-                    $shouldKeep = $false
-                    foreach ($keepId in @($KeepGroupObjectIds)) {
-                        if ([string]::Equals($groupId, $keepId, [System.StringComparison]::OrdinalIgnoreCase)) {
-                            $shouldKeep = $true; break
-                        }
-                    }
-                    if (-not $shouldKeep) {
-                        foreach ($pattern in @($KeepPatterns)) {
-                            if ($groupId -like $pattern) { $shouldKeep = $true; break }
-                            if ($null -ne $displayName -and $displayName -like $pattern) { $shouldKeep = $true; break }
-                        }
-                    }
-
-                    if (-not $shouldKeep) {
-                        try {
-                            $this.RemoveGroupMember($groupId, $UserObjectId, $AccessToken)
-                            $removed += $groupId
-                        }
-                        catch {
-                            $skipped += [pscustomobject]@{ GroupObjectId = $groupId; Reason = $_.Exception.Message }
-                        }
-                    }
-                }
-                return [pscustomobject]@{ Removed = $removed; Skipped = $skipped }
-            }
-
             return $adapter
         }
 
@@ -1160,148 +1123,54 @@ Describe 'EntraID identity provider - Password generation' {
     }
 }
 
-Describe 'EntraID identity provider - PruneEntitlements' {
+Describe 'EntraID identity provider - NormalizeEntitlementId' {
     BeforeAll {
         . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
         Import-IdleTestModule
+    }
 
-        # Local re-definition of the fake adapter (same structure as in Entitlement operations)
-        function New-FakeEntraIDAdapterForEntitlements {
-            $store = @{}
-            $adapter = [pscustomobject]@{ PSTypeName = 'IdLE.EntraIDAdapter.Fake'; Store = $store }
+    Context 'Exposes NormalizeEntitlementId' {
+        It 'Provider exposes NormalizeEntitlementId as a ScriptMethod' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter ([pscustomobject]@{})
+            $provider.PSObject.Methods.Name | Should -Contain 'NormalizeEntitlementId'
+        }
+    }
 
-            $adapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
-                param($ObjectId, $AccessToken)
-                $key = "id:$ObjectId"
-                if (-not $this.Store.ContainsKey($key)) {
-                    $this.Store[$key] = @{ id = $ObjectId; userPrincipalName = "$ObjectId@test.local"; displayName = "User $ObjectId"; accountEnabled = $true }
-                }
-                return $this.Store[$key]
-            }
-            $adapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
+    Context 'NormalizeEntitlementId behavior' {
+        BeforeAll {
+            # Fake adapter that returns canonical objectId for groups (mimics real Graph lookup)
+            $fakeAdapter = [pscustomobject]@{ PSTypeName = 'IdLE.EntraIDAdapter.Fake'; Store = @{} }
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
                 param($GroupId, $AccessToken)
                 return @{ id = $GroupId; displayName = "Group $GroupId" }
             }
-            $adapter | Add-Member -MemberType ScriptMethod -Name ListUserGroups -Value {
-                param($ObjectId, $AccessToken)
-                $key = "groups:$ObjectId"
-                if (-not $this.Store.ContainsKey($key)) { $this.Store[$key] = @() }
-                return $this.Store[$key]
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
+                param($DisplayName, $AccessToken)
+                return @{ id = "resolved-$DisplayName"; displayName = $DisplayName }
             }
-            $adapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {
-                param($GroupObjectId, $UserObjectId, $AccessToken)
-                $key = "groups:$UserObjectId"
-                if (-not $this.Store.ContainsKey($key)) { $this.Store[$key] = @() }
-                $alreadyMember = $false
-                foreach ($g in $this.Store[$key]) { if ($g.id -eq $GroupObjectId) { $alreadyMember = $true; break } }
-                if (-not $alreadyMember) { $this.Store[$key] += @{ id = $GroupObjectId; displayName = "Group $GroupObjectId" } }
-            }
-            $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
-                param($GroupObjectId, $UserObjectId, $AccessToken)
-                $key = "groups:$UserObjectId"
-                if ($this.Store.ContainsKey($key)) { $this.Store[$key] = @($this.Store[$key] | Where-Object { $_.id -ne $GroupObjectId }) }
-            }
-            $adapter | Add-Member -MemberType ScriptMethod -Name PruneGroupMemberships -Value {
-                param($UserObjectId, $KeepGroupObjectIds, $KeepPatterns, $AccessToken)
-                $groups = $this.ListUserGroups($UserObjectId, $AccessToken)
-                $removed = @(); $skipped = @()
-                foreach ($group in @($groups)) {
-                    $gId = [string]$group.id; $dn = if ($group.PSObject.Properties.Name -contains 'displayName') { [string]$group.displayName } else { $null }
-                    $keep = $false
-                    foreach ($k in @($KeepGroupObjectIds)) { if ([string]::Equals($gId, $k, [System.StringComparison]::OrdinalIgnoreCase)) { $keep = $true; break } }
-                    if (-not $keep) { foreach ($p in @($KeepPatterns)) { if ($gId -like $p) { $keep = $true; break } if ($null -ne $dn -and $dn -like $p) { $keep = $true; break } } }
-                    if (-not $keep) {
-                        try { $this.RemoveGroupMember($gId, $UserObjectId, $AccessToken); $removed += $gId }
-                        catch { $skipped += [pscustomobject]@{ GroupObjectId = $gId; Reason = $_.Exception.Message } }
-                    }
-                }
-                return [pscustomobject]@{ Removed = $removed; Skipped = $skipped }
-            }
-            return $adapter
-        }
-    }
-
-    Context 'Provider exposes PruneEntitlements method' {
-        It 'Exposes PruneEntitlements as a ScriptMethod' {
-            $provider = New-IdleEntraIDIdentityProvider -Adapter ([pscustomobject]@{})
-            $provider.PSObject.Methods.Name | Should -Contain 'PruneEntitlements'
-        }
-    }
-
-    Context 'PruneEntitlements behavior' {
-        BeforeEach {
-            $adapter = New-FakeEntraIDAdapterForEntitlements
-            $provider = New-IdleEntraIDIdentityProvider -Adapter $adapter
-
-            $userId = [guid]::NewGuid().ToString()
-            # Seed identity
-            [void]$provider.GetIdentity($userId)
-
-            $groupAll  = [guid]::NewGuid().ToString()
-            $groupHR   = [guid]::NewGuid().ToString()
-            $groupKeep = [guid]::NewGuid().ToString()
-
-            $provider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $groupAll  }) | Out-Null
-            $provider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $groupHR   }) | Out-Null
-            $provider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $groupKeep }) | Out-Null
-
-            $script:Provider  = $provider
-            $script:Adapter   = $adapter
-            $script:UserId    = $userId
-            $script:GroupAll  = $groupAll
-            $script:GroupHR   = $groupHR
-            $script:GroupKeep = $groupKeep
+            $script:NormProvider = New-IdleEntraIDIdentityProvider -Adapter $fakeAdapter
         }
 
-        It 'Removes entitlements not in the keep set' {
-            $result = $script:Provider.PruneEntitlements(
-                $script:UserId, 'Group',
-                @(@{ Kind = 'Group'; Id = $script:GroupKeep }),
-                $null, $false, 'fake-token'
-            )
-
-            $result.Changed | Should -BeTrue
-            $remaining = @($script:Provider.ListEntitlements($script:UserId) | Where-Object Kind -eq 'Group')
-            @($remaining).Count | Should -Be 1
-            $remaining[0].Id | Should -Be $script:GroupKeep
+        It 'Normalizes a Group entitlement with a GUID Id to canonical objectId' {
+            $groupGuid = [guid]::NewGuid().ToString()
+            $ent = @{ Kind = 'Group'; Id = $groupGuid }
+            $result = $script:NormProvider.NormalizeEntitlementId('Group', $ent, 'fake-token')
+            $result.Kind | Should -Be 'Group'
+            $result.Id   | Should -Be $groupGuid
         }
 
-        It 'Grants missing Keep items when EnsureKeepEntitlements is true' {
-            $newGroupId = [guid]::NewGuid().ToString()
-            $result = $script:Provider.PruneEntitlements(
-                $script:UserId, 'Group',
-                @(
-                    @{ Kind = 'Group'; Id = $script:GroupKeep },
-                    @{ Kind = 'Group'; Id = $newGroupId }
-                ),
-                $null, $true, 'fake-token'
-            )
-
-            $result.Changed | Should -BeTrue
-            $remaining = @($script:Provider.ListEntitlements($script:UserId) | Where-Object Kind -eq 'Group')
-            ($remaining | Select-Object -ExpandProperty Id) | Should -Contain $newGroupId
+        It 'Normalizes a Group entitlement with a displayName to canonical objectId' {
+            $ent = @{ Kind = 'Group'; Id = 'HR Team' }
+            $result = $script:NormProvider.NormalizeEntitlementId('Group', $ent, 'fake-token')
+            $result.Kind | Should -Be 'Group'
+            $result.Id   | Should -Be 'resolved-HR Team'
         }
 
-        It 'Throws when Kind is not Group' {
-            {
-                $script:Provider.PruneEntitlements($script:UserId, 'Role', $null, @('LEAVER-*'), $false, 'fake-token')
-            } | Should -Throw -ExpectedMessage "*Kind 'Group'*"
-        }
-
-        It 'Is idempotent when all non-keep groups are already removed' {
-            $script:Provider.PruneEntitlements(
-                $script:UserId, 'Group',
-                @(@{ Kind = 'Group'; Id = $script:GroupKeep }),
-                $null, $false, 'fake-token'
-            ) | Out-Null
-
-            $result = $script:Provider.PruneEntitlements(
-                $script:UserId, 'Group',
-                @(@{ Kind = 'Group'; Id = $script:GroupKeep }),
-                $null, $false, 'fake-token'
-            )
-
-            $result.Changed | Should -BeFalse
+        It 'Returns entitlement unchanged when Kind is not Group' {
+            $ent = [pscustomobject]@{ Kind = 'License'; Id = 'Some-License-Id' }
+            $result = $script:NormProvider.NormalizeEntitlementId('License', $ent, 'fake-token')
+            $result.Kind | Should -Be 'License'
+            $result.Id   | Should -Be 'Some-License-Id'
         }
     }
 }
