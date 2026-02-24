@@ -10,22 +10,24 @@ import AdLeaver from '@site/../examples/workflows/templates/ad-leaver.psd1';
 
 ## Summary
 
-- **Module:** `IdLE.Provider.AD`
-- **Provider kind:** `Identity` + `Entitlement (Groups)`
-- **Targets:** On-premises Windows Active Directory domains
-- **Status:** Built-in
-- **Runs on:** Windows only (requires RSAT / `ActiveDirectory` PowerShell module)
-- **Default safety:** destructive operations are **opt-in** (e.g. delete)
+| Item | Value |
+| --- | --- |
+| **Provider name** | `ADIdentityProvider` |
+| **Module** | `IdLE.Provider.AD` |
+| **Provider role** | Identity + Entitlement (Groups) |
+| **Targets** | On-premises Windows Active Directory domains |
+| **Status** | Built-in |
+| **PowerShell** | PowerShell 7+ (Windows only) |
 
 ## When to use this provider
 
-Use this provider when your workflow needs to manage **on-premises AD user accounts**, such as:
+### Use cases
 
 - Joiner: create/update AD users and set baseline attributes
 - Mover: update org attributes and adjust managed group memberships
 - Leaver: disable accounts and apply offboarding changes
 
-Non-goals:
+### Out of scope
 
 - Configuring connectivity/authentication itself (handled via your runtime context and the AuthSessionBroker)
 - Managing non-user object types (computers, GPOs, etc.)
@@ -34,8 +36,9 @@ Non-goals:
 
 ### Requirements
 
-- Windows host with RSAT / `ActiveDirectory` module available
-- Permissions sufficient for the operations you plan to run (create/modify users, move OUs, manage group membership)
+- **Dependencies:** Windows host with RSAT / `ActiveDirectory` module available
+- **Permissions:** Account used must have rights for the operations you plan to run (create/modify users, move OUs, manage group membership)
+- **Network:** Direct LDAP connectivity to the domain controller (standard AD ports)
 
 ### Install (PowerShell Gallery)
 
@@ -43,52 +46,132 @@ Non-goals:
 Install-Module IdLE.Provider.AD -Scope CurrentUser
 ```
 
-### Import
+### Import & basic check
 
 ```powershell
 Import-Module IdLE.Provider.AD
-```
 
-## Quickstart
-
-Minimal provider creation (safe defaults):
-
-```powershell
+# Create provider instance (minimal, safe defaults)
 $provider = New-IdleADIdentityProvider
 ```
 
-Typical workflow usage:
+## Quickstart (minimal runnable)
 
-- Set the provider alias in your workflow (`With.Provider = 'Directory'` is a common convention)
+```powershell
+# 1) Provider instance (safe defaults)
+$provider = New-IdleADIdentityProvider
+
+# 2) Provider map (alias used in workflow files)
+$providers = @{
+  Identity = $provider
+}
+
+# 3) Plan + execute
+$plan   = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers $providers
+$result = Invoke-IdlePlan -Plan $plan -Providers $providers
+```
+
+- Set the provider alias in your workflow (`With.Provider = 'Identity'` is the default)
 - Reference your auth session via `With.AuthSessionName` in steps (recommended for multi-role scenarios)
+
+---
 
 ## Authentication
 
-- By default, the AD provider uses the **run-as** identity (integrated authentication).
-- For explicit runtime credential selection, use the **AuthSessionBroker** and pass an `AuthSession` via step configuration:
-  - `With.AuthSessionName`
-  - `With.AuthSessionOptions` (optional)
+- **Auth session type:** Active Directory / Windows (integrated or broker-provided credential)
+- **Auth session name:** `Directory` (recommended convention) or any alias you configure
+- **Session options:** optional routing key (e.g., `@{ Role = 'Tier1' }`)
 
-> Keep credentials/secrets **out of** workflow files. Use the broker/host to resolve them at runtime.
+By default, the AD provider uses the **run-as** identity (integrated authentication). For explicit runtime credential selection, use the **AuthSessionBroker** and pass an `AuthSession` via step configuration:
 
-## Supported Step Types
+- `With.AuthSessionName` — routing key for the broker
+- `With.AuthSessionOptions` — optional hashtable forwarded to the broker for session selection
+
+:::warning
+**Security**
+- Do not pass credentials or secrets in provider options or workflow files.
+- Ensure credentials/tokens are not written to logs or events.
+:::
+
+---
+
+## Supported step types
 
 The AD provider supports the common identity lifecycle and entitlement operations used by these step types:
 
-| Step type | Typical use | Notes |
+| Step type | Capability Required | Typical use |
 | --- | --- | --- |
-| `IdLE.Step.CreateIdentity` | Create user (if missing) | Identity can be addressed by GUID, UPN, or sAMAccountName |
-| `IdLE.Step.EnsureAttributes` | Set/update AD user attributes | Use placeholders from your request input |
-| `IdLE.Step.DisableIdentity` | Disable user account | Typical leaver action |
-| `IdLE.Step.EnableIdentity` | Enable user account | Rare (rehire) |
-| `IdLE.Step.MoveIdentity` | Move user to another OU | Useful for leaver or org changes |
-| `IdLE.Step.EnsureEntitlement` | Ensure group memberships | AD entitlements are **groups** |
-| `IdLE.Step.RemoveEntitlement` | Remove managed groups | Prefer explicit allow-lists / managed lists |
-| `IdLE.Step.DeleteIdentity` | Delete user | **Opt-in** via `-AllowDelete` (see Configuration) |
+| `IdLE.Step.CreateIdentity` | `IdLE.Identity.Create` | Create AD user account (if missing) |
+| `IdLE.Step.EnsureAttributes` | `IdLE.Identity.Attribute.Ensure` | Set/update AD user attributes |
+| `IdLE.Step.DisableIdentity` | `IdLE.Identity.Disable` | Disable user account (typical leaver action) |
+| `IdLE.Step.EnableIdentity` | `IdLE.Identity.Enable` | Enable user account (e.g., rehire) |
+| `IdLE.Step.MoveIdentity` | `IdLE.Identity.Move` | Move user to another OU |
+| `IdLE.Step.EnsureEntitlement` | `IdLE.Entitlement.List`, `IdLE.Entitlement.Grant`, `IdLE.Entitlement.Revoke` | Ensure AD group memberships |
+| `IdLE.Step.DeleteIdentity` | `IdLE.Identity.Delete` | Delete AD user — **opt-in** via `-AllowDelete` |
+
+### Step inputs (With.*)
+
+**`IdLE.Step.CreateIdentity`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | sAMAccountName, UPN, or other identity key. Supports `{{Request.*}}` template expressions. |
+| `Attributes` | `hashtable` | Yes | — | Attribute name → value pairs. Named `New-ADUser` parameters are mapped directly; unknown attributes go into `OtherAttributes` using LDAP attribute names. |
+| `Provider` | `string` | No | `Identity` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker (e.g., `@{ Role = 'Tier1' }`). |
+
+**`IdLE.Step.EnsureAttributes`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | sAMAccountName, UPN, or other identity key. Supports `{{Request.*}}` template expressions. |
+| `Attributes` | `hashtable` | Yes | — | Attribute name → desired value pairs. Setting to `$null` clears the attribute. Unknown keys go into `OtherAttributes` using LDAP attribute names. |
+| `Provider` | `string` | No | `Identity` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker. |
+
+**`IdLE.Step.DisableIdentity`** / **`IdLE.Step.EnableIdentity`** / **`IdLE.Step.DeleteIdentity`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | sAMAccountName, UPN, or other identity key. Supports `{{Request.*}}` template expressions. |
+| `Provider` | `string` | No | `Identity` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker. |
+
+> `DeleteIdentity` requires the provider to be created with `-AllowDelete`.
+
+**`IdLE.Step.MoveIdentity`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | sAMAccountName, UPN, or other identity key. Supports `{{Request.*}}` template expressions. |
+| `TargetContainer` | `string` | Yes | — | DN of the target OU (e.g., `OU=Disabled,DC=domain,DC=com`). Supports `{{Request.*}}` template expressions. |
+| `Provider` | `string` | No | `Identity` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker. |
+
+**`IdLE.Step.EnsureEntitlement`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | sAMAccountName, UPN, or other identity key. Supports `{{Request.*}}` template expressions. |
+| `Entitlement` | `hashtable` | Yes | — | Entitlement descriptor: `Kind` (must be `Group`), `Id` (group DN or name), optional `DisplayName`. |
+| `State` | `string` | Yes | — | Desired membership state: `Present` \| `Absent`. |
+| `Provider` | `string` | No | `Identity` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker. |
+
+> See the [step reference pages](../steps.md) for the full `With.*` schema and examples for each step type.
+
+---
 
 ## Configuration
 
-### Provider factory
+### Provider creation
+
+- **Factory cmdlet:** `New-IdleADIdentityProvider`
 
 ```powershell
 # Safe defaults
@@ -98,22 +181,41 @@ $provider = New-IdleADIdentityProvider
 $provider = New-IdleADIdentityProvider -AllowDelete
 ```
 
+### Provider alias usage
+
+```powershell
+$providers = @{
+  Identity = New-IdleADIdentityProvider
+}
+```
+
+- **Recommended alias:** `Identity`
+- **Default alias expected by built-in identity/entitlement steps:** `Identity`
+
 ### Options reference
 
-| Option | Type | Default | Meaning |
-| --- | --- | --- | --- |
-| `AllowDelete` | `bool` | `false` | Enables identity deletion capability (opt-in for safety) |
-| `PasswordGenerationFallbackMinLength` | `int` | `24` | Fallback minimum length if domain policy cannot be read |
-| `PasswordGenerationRequireUpper` | `bool` | `true` | Require uppercase in generated passwords (fallback) |
-| `PasswordGenerationRequireLower` | `bool` | `true` | Require lowercase in generated passwords (fallback) |
-| `PasswordGenerationRequireDigit` | `bool` | `true` | Require digit in generated passwords (fallback) |
-| `PasswordGenerationRequireSpecial` | `bool` | `true` | Require special char in generated passwords (fallback) |
+| Option | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `AllowDelete` | `bool` | No | `$false` | Opt-in to enable identity deletion capability (`IdLE.Identity.Delete`). Disabled by default for safety. |
+| `PasswordGenerationFallbackMinLength` | `int` | No | `24` | Fallback minimum password length if domain policy cannot be read. |
+| `PasswordGenerationRequireUpper` | `bool` | No | `$true` | Require uppercase letter in generated passwords (fallback). |
+| `PasswordGenerationRequireLower` | `bool` | No | `$true` | Require lowercase letter in generated passwords (fallback). |
+| `PasswordGenerationRequireDigit` | `bool` | No | `$true` | Require digit in generated passwords (fallback). |
+| `PasswordGenerationRequireSpecial` | `bool` | No | `$true` | Require special character in generated passwords (fallback). |
+
+---
 
 ## Operational behavior
 
-- **Identity addressing:** GUID (ObjectGuid), UPN, or sAMAccountName (fallback)
-- **Safety defaults:** deletion is disabled unless you pass `-AllowDelete`
-- **Entitlements:** groups only (`Kind='Group'`)
+- **Idempotency:** Yes — `CreateIdentity` skips creation if the identity already exists; `EnsureAttributes` applies only changed values; entitlement steps check current membership before acting
+- **Consistency model:** Strong — AD LDAP is synchronous on the targeted domain controller
+- **Throttling / rate limits:** Subject to AD LDAP limits; no built-in retry — delegate retry to the host
+- **Retry behavior:** None built-in; host/runtime is responsible for retry on transient failures
+- **Identity addressing:** GUID (ObjectGuid), UPN, or sAMAccountName (fallback order)
+- **Safety defaults:** Deletion is disabled unless you pass `-AllowDelete`
+- **Entitlements:** Groups only (`Kind = 'Group'`)
+
+---
 
 ## Attribute handling
 
@@ -127,7 +229,7 @@ $provider = New-IdleADIdentityProvider -AllowDelete
     Type = 'IdLE.Step.CreateIdentity'
     With = @{
         IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
-        Provider    = 'AD'
+        Provider    = 'Identity'
         Attributes  = @{
             GivenName   = '{{Request.GivenName}}'
             Surname     = '{{Request.Surname}}'
@@ -153,7 +255,7 @@ $provider = New-IdleADIdentityProvider -AllowDelete
     Type = 'IdLE.Step.EnsureAttributes'
     With = @{
         IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
-        Provider    = 'AD'
+        Provider    = 'Identity'
         Attributes  = @{
             MobilePhone     = $null      # Clears the mobile attribute
             OfficePhone     = $null      # Clears the telephoneNumber attribute
@@ -168,7 +270,9 @@ $provider = New-IdleADIdentityProvider -AllowDelete
 
 > **Note:** Keys in `OtherAttributes` must be valid **LDAP attribute names** (e.g. `mobile`, `telephoneNumber`, `extensionAttribute1`), not PowerShell parameter names. Setting a key to `$null` clears that LDAP attribute.
 
-## Examples
+---
+
+## Examples (canonical templates)
 
 These are the canonical, **doc-embed friendly** templates for AD.
 Mover scenarios are intentionally folded into Joiner/Leaver (as optional patterns) to keep the template set small.
@@ -178,6 +282,8 @@ Mover scenarios are intentionally folded into Joiner/Leaver (as optional pattern
 <CodeBlock language="powershell" title="examples/workflows/templates/ad-leaver.psd1">{AdLeaver}</CodeBlock>
 
 ## Troubleshooting
+
+### Common problems
 
 - **Import fails / ActiveDirectory module missing**  
   Install RSAT / the `ActiveDirectory` module on the machine where you run IdLE.
@@ -190,3 +296,9 @@ Mover scenarios are intentionally folded into Joiner/Leaver (as optional pattern
 
 - **Group membership changes are risky**  
   Prefer removing only explicit “managed groups” (allow-list) to avoid breaking access unexpectedly.
+
+### What to collect for support
+
+- IdLE version and `IdLE.Provider.AD` module version
+- Redacted error message / step result details
+- Windows / RSAT version, domain functional level

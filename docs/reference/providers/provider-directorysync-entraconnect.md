@@ -9,23 +9,25 @@ import EntraConnectTriggerSync from '@site/../examples/workflows/templates/direc
 
 ## Summary
 
-- **Module:** `IdLE.Provider.DirectorySync.EntraConnect`
-- **What it’s for:** Triggering and monitoring **Entra Connect (ADSync)** sync cycles on an on-prem server
-- **Execution model:** Remote execution via a host-provided AuthSession (elevated context)
+| Item | Value |
+| --- | --- |
+| **Provider name** | `EntraConnectDirectorySyncProvider` |
+| **Module** | `IdLE.Provider.DirectorySync.EntraConnect` |
+| **Provider role** | DirectorySync |
+| **Targets** | Entra Connect (Azure AD Connect) server with ADSync |
+| **Status** | Built-in |
+| **PowerShell** | PowerShell 7+ |
 
-## When to use
+## When to use this provider
 
-Use this provider when your workflow needs to:
+### Use cases
 
-- Trigger an Entra Connect sync cycle (`Delta` or `Initial`)
+- Trigger an Entra Connect sync cycle (`Delta` or `Initial`) as part of a workflow
 - Optionally wait/poll until the cycle is no longer in progress
+- **Joiner:** after creating an AD identity, trigger delta sync so the object appears in Entra ID sooner
+- **Operational:** run an initial sync after configuration changes (explicit, controlled)
 
-Typical use cases:
-
-- Joiner: after creating an AD identity, trigger delta sync so the object appears in Entra ID sooner
-- Operational: run an initial sync after configuration changes (explicit, controlled)
-
-Non-goals:
+### Out of scope
 
 - Handling remote connectivity, authentication, or elevation itself (host/runtime responsibility)
 - Replacing your monitoring/operations tooling (this is workflow orchestration)
@@ -44,67 +46,138 @@ Non-goals:
 Install-Module IdLE.Provider.DirectorySync.EntraConnect -Scope CurrentUser
 ```
 
-### Import
+### Import & basic check
 
 ```powershell
 Import-Module IdLE.Provider.DirectorySync.EntraConnect
-```
 
-## Quickstart
-
-Create provider:
-
-```powershell
+# Create provider instance
 $provider = New-IdleEntraConnectDirectorySyncProvider
 ```
 
-Register it (example convention):
+## Quickstart (minimal runnable)
 
 ```powershell
+# 1) Provider instance
+$provider = New-IdleEntraConnectDirectorySyncProvider
+
+# 2) Provider map (alias used in workflow files)
 $providers = @{
   DirectorySync = $provider
 }
 ```
 
-## Authentication (important)
+---
+
+## Authentication
 
 This provider requires an AuthSession that supports remote execution and **must be elevated**.
 
-The AuthSession object must provide a method:
+- **Auth session type:** An object that implements `InvokeCommand(CommandName, Parameters)` — your host provides this via the AuthSessionBroker
+- **Auth session name:** `EntraConnect` (recommended convention) or any alias you configure
+- **Session options:** optional routing key, e.g., `@{ Role = 'EntraConnectAdmin' }`
 
-- `InvokeCommand(CommandName, Parameters)`
-
-Your host/runtime should provide this session via the AuthSessionBroker and you reference it in the step via:
-
-- `AuthSessionName = 'EntraConnect'`
-- `AuthSessionOptions = @{ Role = 'EntraConnectAdmin' }` (optional routing key)
+```powershell
+# Example auth session wiring in a workflow step:
+With = @{
+  AuthSessionName    = 'EntraConnect'
+  AuthSessionOptions = @{ Role = 'EntraConnectAdmin' }
+  PolicyType         = 'Delta'
+}
+```
 
 > No interactive prompts are made. If the remote context is not elevated, triggering a sync cycle will fail with a privilege/elevation error.
 
-## Supported operations
+:::warning
+**Security**
+- Do not embed credentials in workflow files or provider options.
+- The AuthSession object must be provided by your host/runtime at execution time.
+:::
+
+---
+
+## Supported step types
 
 This provider advertises these capabilities:
 
 - `IdLE.DirectorySync.Trigger`
 - `IdLE.DirectorySync.Status`
 
-Those are typically used by step types like:
+| Step type | Capability Required | Typical use |
+| --- | --- | --- |
+| `IdLE.Step.TriggerDirectorySync` | `IdLE.DirectorySync.Trigger`, `IdLE.DirectorySync.Status` | Trigger and optionally wait for Entra Connect sync cycle |
 
-- `IdLE.Step.TriggerDirectorySync` (trigger + optional wait/poll)
+### Step inputs (With.*)
+
+**`IdLE.Step.TriggerDirectorySync`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `AuthSessionName` | `string` | Yes | — | Auth session name passed to `Context.AcquireAuthSession()`. Must resolve to an object implementing `InvokeCommand(CommandName, Parameters)`. |
+| `PolicyType` | `string` | Yes | — | Sync policy type: `Delta` \| `Initial`. |
+| `Provider` | `string` | No | `DirectorySync` | Provider alias key in the providers map. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker (e.g., `@{ Role = 'EntraConnectAdmin' }`). |
+| `Wait` | `bool` | No | `$false` | Whether to wait/poll for the sync cycle to complete before continuing. |
+| `TimeoutSeconds` | `int` | No | `600` | Maximum wait time in seconds (only relevant when `Wait = $true`). |
+| `PollIntervalSeconds` | `int` | No | `10` | Polling interval in seconds (only relevant when `Wait = $true`). |
+
+> See the [step reference page](../steps/step-trigger-directory-sync.md) for the full `With.*` schema and examples.
+
+---
 
 ## Configuration
+
+### Provider creation
+
+- **Factory cmdlet:** `New-IdleEntraConnectDirectorySyncProvider`
 
 This provider has no admin-facing option bag. Configuration is done through:
 - step inputs (`PolicyType`, `Wait`, `TimeoutSeconds`, `PollIntervalSeconds`)
 - host configuration (remote connection and elevation)
 
+### Provider alias usage
+
+```powershell
+$providers = @{
+  DirectorySync = New-IdleEntraConnectDirectorySyncProvider
+}
+```
+
+- **Recommended alias:** `DirectorySync`
+- **Default alias expected by `TriggerDirectorySync` step:** `DirectorySync`
+
+### Options reference
+
+This provider has no admin-facing option bag.
+
+---
+
+## Operational behavior
+
+- **Idempotency:** Partial — triggering a sync cycle is not idempotent; if already running, a duplicate trigger may be rejected by ADSync
+- **Consistency model:** Depends on Entra Connect server state and ADSync scheduler behavior
+- **Throttling / rate limits:** Subject to ADSync limits; no built-in retry
+- **Retry behavior:** None built-in; host/runtime is responsible for retry on transient failures
+
+---
+
 ## Examples (canonical template)
 
 <CodeBlock language="powershell" title="examples/workflows/templates/directorysync-entraconnect-trigger-sync.psd1">{EntraConnectTriggerSync}</CodeBlock>
 
+---
+
 ## Troubleshooting
 
-- **“Missing privileges or elevation”**: your AuthSession must run commands in an elevated context on the Entra Connect server.
-- **“AuthSession must implement InvokeCommand”**: your host must provide an AuthSession object with an `InvokeCommand()` method.
+### Common problems
+
+- **"Missing privileges or elevation"**: your AuthSession must run commands in an elevated context on the Entra Connect server.
+- **"AuthSession must implement InvokeCommand"**: your host must provide an AuthSession object with an `InvokeCommand()` method.
 - **Get-ADSyncScheduler not found**: ensure ADSync cmdlets are available in the remote session (module installed/accessible).
 - **Timeout waiting for completion**: increase `TimeoutSeconds` or check the scheduler state on the server.
+
+### What to collect for support
+
+- IdLE version and `IdLE.Provider.DirectorySync.EntraConnect` module version
+- Redacted error message / step result details
+- Entra Connect server version (ADSync module version)

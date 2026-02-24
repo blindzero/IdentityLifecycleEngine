@@ -154,6 +154,49 @@ For **app-only** flows, the token's `roles` claim must include:
 | `IdLE.Step.Mailbox.EnsureOutOfOffice` | `IdLE.Mailbox.OutOfOffice.Ensure` | Configure Out of Office (enabled/disabled/scheduled) |
 | `IdLE.Step.Mailbox.EnsurePermissions` | `IdLE.Mailbox.Permissions.Ensure` | Converge delegate permissions |
 
+### Step inputs (With.*)
+
+**`IdLE.Step.Mailbox.GetInfo`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | UPN or SMTP address of the mailbox. Supports `{{Request.*}}` template expressions. |
+| `Provider` | `string` | No | `ExchangeOnline` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker (e.g., `@{ Role = 'Admin' }`). |
+
+**`IdLE.Step.Mailbox.EnsureType`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | UPN or SMTP address of the mailbox. Supports `{{Request.*}}` template expressions. |
+| `MailboxType` | `string` | Yes | — | Desired mailbox type: `User` \| `Shared` \| `Room` \| `Equipment`. |
+| `Provider` | `string` | No | `ExchangeOnline` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker (e.g., `@{ Role = 'Admin' }`). |
+
+**`IdLE.Step.Mailbox.EnsureOutOfOffice`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | UPN or SMTP address of the mailbox. Supports `{{Request.*}}` template expressions. |
+| `Config` | `hashtable` | Yes | — | OOF configuration: `Mode` (`Disabled`\|`Enabled`\|`Scheduled`), optional `Start`/`End` (DateTime, required when Scheduled), `InternalMessage`, `ExternalMessage`, `ExternalAudience` (`None`\|`Known`\|`All`), `MessageFormat` (`Text`\|`Html`). |
+| `Provider` | `string` | No | `ExchangeOnline` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker (e.g., `@{ Role = 'Admin' }`). |
+
+**`IdLE.Step.Mailbox.EnsurePermissions`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | UPN or SMTP address of the mailbox. Supports `{{Request.*}}` template expressions. |
+| `Permissions` | `hashtable[]` | Yes | — | Array of permission entries. Each entry: `AssignedUser` (string — UPN/SMTP), `Right` (`FullAccess`\|`SendAs`\|`SendOnBehalf`), `Ensure` (`Present`\|`Absent`). |
+| `Provider` | `string` | No | `ExchangeOnline` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker (e.g., `@{ Role = 'Admin' }`). |
+
+> See the [step reference pages](../steps.md) for the full `With.*` schema and examples for each step type.
+
 ---
 
 ## Configuration
