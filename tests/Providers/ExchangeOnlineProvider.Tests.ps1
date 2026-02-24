@@ -591,6 +591,46 @@ Describe 'ExchangeOnline provider - Unit tests' {
 
             { $adapter.TestErrorSanitization() } | Should -Throw -ExpectedMessage "*Bearer <REDACTED>*"
         }
+
+        It 'AddMailboxPermission does not leak return value to callers when InvokeSafely returns a non-null result' {
+            # Regression test: Add-MailboxPermission returns the created permission object in EXO.
+            # The adapter method must suppress this output with $null = $this.InvokeSafely(...)
+            # so it does not pollute EnsureMailboxPermissions's output pipeline and cause Changed=False.
+            $adapter = New-IdleExchangeOnlineAdapter
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name InvokeSafely -Value {
+                param($CommandName, $Parameters)
+                # Simulate Add-MailboxPermission returning a permission object (real EXO behavior)
+                return [pscustomobject]@{ Identity = 'mailbox@contoso.com'; User = 'user@contoso.com'; AccessRights = 'FullAccess' }
+            } -Force
+
+            $output = $adapter.AddMailboxPermission('mailbox@contoso.com', 'user@contoso.com', $null)
+            $output | Should -BeNullOrEmpty
+        }
+
+        It 'AddRecipientPermission does not leak return value to callers when InvokeSafely returns a non-null result' {
+            $adapter = New-IdleExchangeOnlineAdapter
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name InvokeSafely -Value {
+                param($CommandName, $Parameters)
+                return [pscustomobject]@{ Identity = 'mailbox@contoso.com'; Trustee = 'user@contoso.com'; AccessRights = 'SendAs' }
+            } -Force
+
+            $output = $adapter.AddRecipientPermission('mailbox@contoso.com', 'user@contoso.com', $null)
+            $output | Should -BeNullOrEmpty
+        }
+
+        It 'SetMailboxSendOnBehalf does not leak return value to callers when InvokeSafely returns a non-null result' {
+            $adapter = New-IdleExchangeOnlineAdapter
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name InvokeSafely -Value {
+                param($CommandName, $Parameters)
+                return [pscustomobject]@{ Identity = 'mailbox@contoso.com'; GrantSendOnBehalfTo = @('user@contoso.com') }
+            } -Force
+
+            $output = $adapter.SetMailboxSendOnBehalf('mailbox@contoso.com', @('user@contoso.com'), $null)
+            $output | Should -BeNullOrEmpty
+        }
     }
 
     Context 'Normalize-IdleExchangeOnlineAutoReplyMessage' {
