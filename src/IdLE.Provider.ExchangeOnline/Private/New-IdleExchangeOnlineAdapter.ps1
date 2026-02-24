@@ -80,7 +80,7 @@ function New-IdleExchangeOnlineAdapter {
                 ErrorAction = 'Stop'
             }
 
-            $mailbox = $this.InvokeSafely('Get-EXOMailbox', $params)
+            $mailbox = $this.InvokeSafely('Get-Mailbox', $params)
 
             if ($null -eq $mailbox) {
                 return $null
@@ -515,7 +515,7 @@ function New-IdleExchangeOnlineAdapter {
                 ErrorAction = 'Stop'
             }
 
-            $mailbox = $this.InvokeSafely('Get-EXOMailbox', $params)
+            $mailbox = $this.InvokeSafely('Get-Mailbox', $params)
 
             if ($null -eq $mailbox) {
                 return @()
