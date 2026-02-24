@@ -30,10 +30,10 @@
         # Removing groups can break business processes unexpectedly.
         # PruneEntitlements offers a safer "remove all except" approach for leavers.
         @{
-            Type = 'IdLE.Step.PruneEntitlements'
-            Name     = 'Prune all group memberships except leaver retain group'
-            With     = @{
-                Condition       = @{ Equals = @{ Path = 'Request.Intent.PruneGroups'; Value = $true } }
+            Type      = 'IdLE.Step.PruneEntitlements'
+            Name      = 'Prune group memberships (leaver)'
+            Condition = @{ Equals = @{ Path = 'Request.Intent.PruneGroups'; Value = $true } }
+            With      = @{
                 AuthSessionName = 'Directory'
                 IdentityKey     = '{{Request.Intent.SamAccountName}}'
                 Kind            = 'Group'
