@@ -126,11 +126,13 @@ Connect-ExchangeOnline -AccessToken $token.AccessToken -UserPrincipalName admin@
 > Connect-ExchangeOnline -CertificateThumbprint '<thumbprint>' -AppId '<app-id>' -Organization '<tenant>.onmicrosoft.com'
 > ```
 
-The token's `scp` claim must include at least one of:
+For **delegated** flows, the token's `scp` claim must include:
 - `https://outlook.office365.com/Exchange.Manage` — full mailbox management (delegated)
+
+For **app-only** flows, the token's `roles` claim must include:
 - `Exchange.ManageAsApp` — app-only/service principal access
 
-> **Note:** The `.default` scope requests all permissions pre-consented on the app registration. Make sure the EXO delegated permissions are granted in your Entra ID app.
+> **Note:** The `.default` scope requests all delegated permissions pre-consented on the app registration. For app-only flows, ensure the `Exchange.ManageAsApp` app role is granted to your Entra ID application.
 
 :::warning
 **Security**
