@@ -75,8 +75,13 @@ function New-IdleExchangeOnlineProvider {
         [object] $Adapter
     )
 
-    # Check prerequisites and emit warnings if required components are missing
+    # Run prerequisites check at construction for early diagnostic output only.
+    # The actual gate check is deferred to the first real operation so the provider
+    # can recover if Connect-ExchangeOnline is called after the provider is created.
+    Write-Verbose "Provider.ExchangeOnline.Init.Start: Checking prerequisites (ProviderName=ExchangeOnlineProvider)"
     $prereqs = Test-IdleExchangeOnlinePrerequisites
+    Write-Verbose "Provider.ExchangeOnline.Prerequisites.ModuleImport: ExchangeOnlineManagement module available=$(-not ($prereqs.MissingRequired -contains 'ExchangeOnlineManagement'))"
+    Write-Verbose "Provider.ExchangeOnline.CommandAvailability: Get-EXOMailbox=$(-not ($prereqs.MissingRequired -contains 'Get-EXOMailbox')) ExchangeOnlineSession=$(-not ($prereqs.MissingRequired -contains 'ExchangeOnlineSession'))"
     if (-not $prereqs.IsHealthy) {
         foreach ($missing in $prereqs.MissingRequired) {
             Write-Warning "ExchangeOnline provider prerequisite check: Required component '$missing' is not available."
@@ -85,6 +90,7 @@ function New-IdleExchangeOnlineProvider {
             Write-Warning "ExchangeOnline provider prerequisite check: $note"
         }
     }
+    Write-Verbose "Provider.ExchangeOnline.Init.End: IsHealthy=$($prereqs.IsHealthy)"
 
     if ($null -eq $Adapter) {
         $Adapter = New-IdleExchangeOnlineAdapter
@@ -103,6 +109,8 @@ function New-IdleExchangeOnlineProvider {
         $isRealAdapter = ($this.Adapter.PSObject.TypeNames -contains 'IdLE.ExchangeOnlineAdapter')
         
         if ($isRealAdapter) {
+            # Re-check prerequisites on each operation so the provider can recover
+            # if Connect-ExchangeOnline is called after the provider was created.
             $prereqCheck = Test-IdleExchangeOnlinePrerequisites
             if (-not $prereqCheck.IsHealthy) {
                 $missingList = $prereqCheck.MissingRequired -join ', '
