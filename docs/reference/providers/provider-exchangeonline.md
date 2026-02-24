@@ -235,7 +235,7 @@ Each entry requires `AssignedUser` (UPN/SMTP), `Right`, and `Ensure` (`Present` 
 - **`Get-EXOMailbox` not found / module not imported**
   → Module is installed but not imported in this session: `Import-Module ExchangeOnlineManagement`
 
-- **`Set-Mailbox` not recognized (session proxy cmdlet missing)**
+- **`Get-Mailbox` not recognized (session proxy cmdlet missing)**
   → No active Exchange Online session. Call `Connect-ExchangeOnline` before using the provider.
 
 - **`Unauthorized` / 401 when using `-AccessToken`**

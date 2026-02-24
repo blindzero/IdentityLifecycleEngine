@@ -12,7 +12,7 @@ function Test-IdleExchangeOnlinePrerequisites {
     Three checks are performed in order:
     1. Module availability  — ExchangeOnlineManagement must be installed.
     2. Module import        — Get-EXOMailbox must be discoverable (module imported in session).
-    3. Session established  — Set-Mailbox must be available (Connect-ExchangeOnline was called).
+    3. Session established  — Get-Mailbox must be available (Connect-ExchangeOnline was called).
 
     This function does not throw and returns a structured result object
     that can be used by the provider to emit warnings or by provider methods
@@ -59,12 +59,12 @@ function Test-IdleExchangeOnlinePrerequisites {
             $notes += 'Ensure the module is imported: Import-Module ExchangeOnlineManagement'
         }
 
-        # Set-Mailbox is a session proxy cmdlet — only available after Connect-ExchangeOnline.
+        # Get-Mailbox is a session proxy cmdlet — only available after Connect-ExchangeOnline.
         # Its absence means no active Exchange Online session exists in this runspace.
-        $setMailboxCmd = Get-Command -Name 'Set-Mailbox' -ErrorAction SilentlyContinue
-        if ($null -eq $setMailboxCmd) {
+        $getMailboxCmd = Get-Command -Name 'Get-Mailbox' -ErrorAction SilentlyContinue
+        if ($null -eq $getMailboxCmd) {
             $missingRequired += 'ExchangeOnlineSession'
-            $notes += "No active Exchange Online session detected ('Set-Mailbox' is not available)."
+            $notes += "No active Exchange Online session detected ('Get-Mailbox' is not available)."
             $notes += 'Establish a session before using the provider: Connect-ExchangeOnline -UserPrincipalName admin@contoso.com'
             $notes += "For delegated access, acquire a token scoped to 'https://outlook.office365.com/.default' and pass it via -AccessToken."
         }

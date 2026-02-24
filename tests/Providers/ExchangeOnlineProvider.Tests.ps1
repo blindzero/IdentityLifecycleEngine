@@ -860,7 +860,7 @@ Describe 'Test-IdleExchangeOnlinePrerequisites - Unit tests' {
                 Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
                     -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
                 Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
-                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Set-Mailbox' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Get-Mailbox' }
 
                 $result = Test-IdleExchangeOnlinePrerequisites
 
@@ -871,14 +871,14 @@ Describe 'Test-IdleExchangeOnlinePrerequisites - Unit tests' {
         }
     }
 
-    Context 'Module imported but no active session (Set-Mailbox missing)' {
+    Context 'Module imported but no active session (Get-Mailbox missing)' {
         It 'returns IsHealthy = false and lists ExchangeOnlineSession as missing' {
             InModuleScope 'IdLE.Provider.ExchangeOnline' {
                 Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
                     -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
                 Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
                     -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
-                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Set-Mailbox' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Get-Mailbox' }
 
                 $result = Test-IdleExchangeOnlinePrerequisites
 
@@ -894,7 +894,7 @@ Describe 'Test-IdleExchangeOnlinePrerequisites - Unit tests' {
                     -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
                 Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
                     -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
-                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Set-Mailbox' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Get-Mailbox' }
 
                 $result = Test-IdleExchangeOnlinePrerequisites
 
@@ -910,8 +910,8 @@ Describe 'Test-IdleExchangeOnlinePrerequisites - Unit tests' {
                     -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
                 Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
                     -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
-                Mock Get-Command { [pscustomobject]@{ Name = 'Set-Mailbox' } } `
-                    -ParameterFilter { $Name -eq 'Set-Mailbox' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-Mailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-Mailbox' }
 
                 $result = Test-IdleExchangeOnlinePrerequisites
 
@@ -926,8 +926,8 @@ Describe 'Test-IdleExchangeOnlinePrerequisites - Unit tests' {
                     -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
                 Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
                     -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
-                Mock Get-Command { [pscustomobject]@{ Name = 'Set-Mailbox' } } `
-                    -ParameterFilter { $Name -eq 'Set-Mailbox' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-Mailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-Mailbox' }
 
                 $result = Test-IdleExchangeOnlinePrerequisites
 
