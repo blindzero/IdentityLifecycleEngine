@@ -34,21 +34,28 @@ Authentication:
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+The following keys are supported in the step's ``With`` configuration:
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `IdentityKey` | Yes | Unique identifier for the identity |
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | UPN, SMTP address, or other identity key recognized by the provider. Supports ``\{\{Request.*\}\}`` template expressions. |
+| `Provider` | `string` | No | Step-specific | Provider alias key in the providers map supplied at runtime. |
+| `AuthSessionName` | `string` | No | ``Provider`` value | Auth session name passed to ``Context.AcquireAuthSession()``. Defaults to the ``Provider`` value. |
+| `AuthSessionOptions` | `hashtable` | No | ``$null`` | Data-only options passed to the auth session broker (e.g., ``@\{ Role = 'Admin' \}``). ScriptBlocks are rejected. |
 
-## Example
+## Examples
+
+### Example 1 — In workflow definition
 
 ```powershell
+# In workflow definition:
 @{
-  Name = 'IdLE.Step.Mailbox.GetInfo Example'
-  Type = 'IdLE.Step.Mailbox.GetInfo'
-  With = @{
-    IdentityKey          = 'user.name'
-  }
+    Name = 'Get mailbox info'
+    Type = 'IdLE.Step.Mailbox.GetInfo'
+    With = @{
+        Provider      = 'ExchangeOnline'
+        IdentityKey   = 'user@contoso.com'
+    }
 }
 ```
 

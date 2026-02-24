@@ -110,10 +110,27 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 > Admins think in **Step Types**. List what works with this provider.
 
-| Step Type | Typical use | Notes |
+| Step Type | Capability Required | Typical use |
 | --- | --- | --- |
-| `<IdLE.Step.X>` | `<What an admin achieves>` | `<Provider alias expected / prerequisites>` |
+| `<IdLE.Step.X>` | `<IdLE.Capability.Name>` | `<What an admin achieves>` |
 | `<IdLE.Step.Y>` | `<...>` | `<...>` |
+
+### Step inputs (With.*)
+
+> For each step type, document the `With` keys an admin needs to configure.
+> Columns: Key | Type | Required | Default | Description.
+
+**`<IdLE.Step.X>`**
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | UPN, SMTP address, or identity key. Supports `{{Request.*}}` template expressions. |
+| `<StepKey>` | `<type>` | `<Yes/No>` | `<...>` | `<...>` |
+| `Provider` | `string` | No | `<DefaultAlias>` | Provider alias key in the providers map. |
+| `AuthSessionName` | `string` | No | `Provider` value | Auth session name passed to `Context.AcquireAuthSession()`. |
+| `AuthSessionOptions` | `hashtable` | No | `$null` | Data-only options for the auth session broker (e.g., `@{ Role = 'Admin' }`). |
+
+> See the [step reference pages](../steps.md) for the full `With.*` schema for each step type.
 
 ---
 
@@ -165,6 +182,7 @@ $providers = @{
 ## Examples
 
 > Keep only 1–2 short examples inline. Link to the repository's `examples/` for more.
+> Show complete `With` blocks including all required and commonly used optional keys.
 
 ### Example workflow (template)
 
@@ -175,8 +193,13 @@ $providers = @{
       Name = '<Step name>'
       Type = '<IdLE.Step.Whatever>'
       With = @{
-        Provider = '<AliasName>'
-        # ...
+        Provider           = '<AliasName>'
+        IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+        # Step-specific required keys:
+        <Key>              = '<value>'
+        # Optional auth override (omit to use Provider value as session name):
+        # AuthSessionName    = '<SessionName>'
+        # AuthSessionOptions = @{ Role = 'Admin' }
       }
     }
   )

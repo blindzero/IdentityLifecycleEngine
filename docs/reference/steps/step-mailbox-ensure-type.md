@@ -45,23 +45,30 @@ Authentication:
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+The following keys are supported in the step's ``With`` configuration:
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `IdentityKey` | Yes | Unique identifier for the identity |
-| `MailboxType` | Yes | See step description for details |
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | UPN, SMTP address, or other identity key recognized by the provider. Supports ``\{\{Request.*\}\}`` template expressions. |
+| `MailboxType` | `string` | Yes | — | Desired mailbox type: ``User`` \| ``Shared`` \| ``Room`` \| ``Equipment``. |
+| `Provider` | `string` | No | Step-specific | Provider alias key in the providers map supplied at runtime. |
+| `AuthSessionName` | `string` | No | ``Provider`` value | Auth session name passed to ``Context.AcquireAuthSession()``. Defaults to the ``Provider`` value. |
+| `AuthSessionOptions` | `hashtable` | No | ``$null`` | Data-only options passed to the auth session broker (e.g., ``@\{ Role = 'Admin' \}``). ScriptBlocks are rejected. |
 
-## Example
+## Examples
+
+### Example 1 — In workflow definition (convert to shared mailbox)
 
 ```powershell
+# In workflow definition (convert to shared mailbox):
 @{
-  Name = 'IdLE.Step.Mailbox.EnsureType Example'
-  Type = 'IdLE.Step.Mailbox.EnsureType'
-  With = @{
-    IdentityKey          = 'user.name'
-    MailboxType          = '<value>'
-  }
+    Name = 'Convert to shared mailbox'
+    Type = 'IdLE.Step.Mailbox.EnsureType'
+    With = @{
+        Provider    = 'ExchangeOnline'
+        IdentityKey = 'user@contoso.com'
+        MailboxType = 'Shared'
+    }
 }
 ```
 

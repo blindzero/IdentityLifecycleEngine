@@ -40,12 +40,15 @@ Authentication:
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+The following keys are supported in the step's ``With`` configuration:
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `Attributes` | Yes | Hashtable of attributes to set |
-| `IdentityKey` | Yes | Unique identifier for the identity |
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `Attributes` | `hashtable` | Yes | — | Hashtable of attribute name → desired value pairs to converge on the identity. |
+| `IdentityKey` | `string` | Yes | — | UPN, SMTP address, or other identity key recognized by the provider. Supports ``\{\{Request.*\}\}`` template expressions. |
+| `Provider` | `string` | No | Step-specific | Provider alias key in the providers map supplied at runtime. |
+| `AuthSessionName` | `string` | No | ``Provider`` value | Auth session name passed to ``Context.AcquireAuthSession()``. Defaults to the ``Provider`` value. |
+| `AuthSessionOptions` | `hashtable` | No | ``$null`` | Data-only options passed to the auth session broker (e.g., ``@\{ Role = 'Admin' \}``). ScriptBlocks are rejected. |
 
 ## Example
 
@@ -55,7 +58,7 @@ The following keys are required in the step's ``With`` configuration:
   Type = 'IdLE.Step.EnsureAttributes'
   With = @{
     Attributes           = @{ GivenName = 'First'; Surname = 'Last' }
-    IdentityKey          = 'user.name'
+    IdentityKey          = 'user@contoso.com'
   }
 }
 ```

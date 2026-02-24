@@ -452,6 +452,254 @@ function Get-IdleStepRequiredCapabilities {
     return @()
 }
 
+function Get-IdleWithKeyMetadata {
+    <#
+    .SYNOPSIS
+    Returns type, required, default, and description metadata for a well-known With.* key.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Key
+    )
+
+    switch ($Key) {
+        'IdentityKey' {
+            return [pscustomobject]@{
+                Type        = 'string'
+                Required    = 'Yes'
+                Default     = '—'
+                Description = 'UPN, SMTP address, or other identity key recognized by the provider. Supports ``\{\{Request.*\}\}`` template expressions.'
+            }
+        }
+        'Provider' {
+            return [pscustomobject]@{
+                Type        = 'string'
+                Required    = 'No'
+                Default     = 'Step-specific'
+                Description = 'Provider alias key in the providers map supplied at runtime.'
+            }
+        }
+        'AuthSessionName' {
+            return [pscustomobject]@{
+                Type        = 'string'
+                Required    = 'No'
+                Default     = '``Provider`` value'
+                Description = 'Auth session name passed to ``Context.AcquireAuthSession()``. Defaults to the ``Provider`` value.'
+            }
+        }
+        'AuthSessionOptions' {
+            return [pscustomobject]@{
+                Type        = 'hashtable'
+                Required    = 'No'
+                Default     = '``$null``'
+                Description = 'Data-only options passed to the auth session broker (e.g., ``@\{ Role = ''Admin'' \}``). ScriptBlocks are rejected.'
+            }
+        }
+        'Permissions' {
+            return [pscustomobject]@{
+                Type        = 'hashtable[]'
+                Required    = 'Yes'
+                Default     = '—'
+                Description = 'Array of permission entries. Each entry requires: ``AssignedUser`` (string — UPN/SMTP), ``Right`` (``FullAccess``\|``SendAs``\|``SendOnBehalf``), ``Ensure`` (``Present``\|``Absent``).'
+            }
+        }
+        'Config' {
+            return [pscustomobject]@{
+                Type        = 'hashtable'
+                Required    = 'Yes'
+                Default     = '—'
+                Description = 'Configuration hashtable for the operation. See the Description section for the full property schema.'
+            }
+        }
+        'MailboxType' {
+            return [pscustomobject]@{
+                Type        = 'string'
+                Required    = 'Yes'
+                Default     = '—'
+                Description = 'Desired mailbox type: ``User`` \| ``Shared`` \| ``Room`` \| ``Equipment``.'
+            }
+        }
+        'Attributes' {
+            return [pscustomobject]@{
+                Type        = 'hashtable'
+                Required    = 'Yes'
+                Default     = '—'
+                Description = 'Hashtable of attribute name → desired value pairs to converge on the identity.'
+            }
+        }
+        'Entitlement' {
+            return [pscustomobject]@{
+                Type        = 'hashtable'
+                Required    = 'Yes'
+                Default     = '—'
+                Description = 'Entitlement descriptor: ``Kind`` (string), ``Id`` (string), optional ``DisplayName`` (string).'
+            }
+        }
+        'State' {
+            return [pscustomobject]@{
+                Type        = 'string'
+                Required    = 'Yes'
+                Default     = '—'
+                Description = 'Desired assignment state: ``Present`` \| ``Absent``.'
+            }
+        }
+        'Message' {
+            return [pscustomobject]@{
+                Type        = 'string'
+                Required    = 'No'
+                Default     = '—'
+                Description = 'Custom message text to emit in the event.'
+            }
+        }
+        'DestinationPath' {
+            return [pscustomobject]@{
+                Type        = 'string'
+                Required    = 'Yes'
+                Default     = '—'
+                Description = 'Target location or path (e.g., OU distinguished name for AD moves).'
+            }
+        }
+        'PolicyType' {
+            return [pscustomobject]@{
+                Type        = 'string'
+                Required    = 'No'
+                Default     = '``Delta``'
+                Description = 'Sync policy type: ``Delta`` \| ``Initial``.'
+            }
+        }
+        'Wait' {
+            return [pscustomobject]@{
+                Type        = 'bool'
+                Required    = 'No'
+                Default     = '``$false``'
+                Description = 'Whether to wait for the sync operation to complete before continuing.'
+            }
+        }
+        default {
+            return [pscustomobject]@{
+                Type        = 'string'
+                Required    = 'Yes'
+                Default     = '—'
+                Description = 'See step description for details.'
+            }
+        }
+    }
+}
+
+function Get-IdleExamplesFromHelp {
+    <#
+    .SYNOPSIS
+    Extracts the .EXAMPLE blocks from a Get-Help result and returns structured objects.
+
+    .OUTPUTS
+    Array of PSCustomObjects with Code and Title properties.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Help
+    )
+
+    if ($null -eq $Help) {
+        return @()
+    }
+
+    # Get-Help returns Examples differently depending on version/context.
+    # Try both $help.examples.example and $help.Examples.Example.
+    $exampleObjects = $null
+    try {
+        if ($Help.PSObject.Properties.Name -contains 'examples' -and
+            $null -ne $Help.examples -and
+            $null -ne $Help.examples.example) {
+            $exampleObjects = $Help.examples.example
+        }
+        elseif ($Help.PSObject.Properties.Name -contains 'Examples' -and
+            $null -ne $Help.Examples -and
+            $null -ne $Help.Examples.Example) {
+            $exampleObjects = $Help.Examples.Example
+        }
+    }
+    catch {
+        return @()
+    }
+
+    if ($null -eq $exampleObjects) {
+        return @()
+    }
+
+    $results = New-Object System.Collections.Generic.List[pscustomobject]
+
+    foreach ($ex in $exampleObjects) {
+        $rawCode = ''
+        try {
+            if ($ex.PSObject.Properties.Name -contains 'Code' -and $null -ne $ex.Code) {
+                $rawCode = ($ex.Code | Out-String).Trim()
+            }
+        }
+        catch {
+            continue
+        }
+
+        if ([string]::IsNullOrWhiteSpace($rawCode)) {
+            continue
+        }
+
+        # If Code only has comment lines (no executable code), try to append Remarks.
+        # The PS help parser splits .EXAMPLE at the first blank line; the @{...} block
+        # often ends up in Remarks for multi-section examples.
+        $hasExecutableLine = @($rawCode -split "`n" | Where-Object { $_.Trim() -and -not $_.Trim().StartsWith('#') }).Count -gt 0
+        if (-not $hasExecutableLine) {
+            $remarksText = ''
+            try {
+                $remarksRaw = $null
+                if ($ex.PSObject.Properties.Name -contains 'remarks') { $remarksRaw = $ex.remarks }
+                elseif ($ex.PSObject.Properties.Name -contains 'Remarks') { $remarksRaw = $ex.Remarks }
+
+                if ($null -ne $remarksRaw) {
+                    $texts = New-Object System.Collections.Generic.List[string]
+                    foreach ($r in @($remarksRaw)) {
+                        if ($null -eq $r) { continue }
+                        if ($r -is [string]) {
+                            if (-not [string]::IsNullOrWhiteSpace($r)) { $texts.Add($r) }
+                        }
+                        elseif ($r.PSObject.Properties.Name -contains 'Text' -and
+                                -not [string]::IsNullOrWhiteSpace([string]$r.Text)) {
+                            $texts.Add([string]$r.Text)
+                        }
+                    }
+                    $remarksText = ($texts -join "`n").Trim()
+                }
+            }
+            catch {}
+
+            if (-not [string]::IsNullOrWhiteSpace($remarksText)) {
+                $rawCode = "$rawCode`n`n$remarksText"
+            }
+            else {
+                # Skip examples that are only comments with no associated code
+                continue
+            }
+        }
+
+        # Try to extract a title from the first comment line in the code block.
+        $title = ''
+        $firstLine = ($rawCode -split "`n")[0].Trim()
+        if ($firstLine -match '^#\s*(.+)') {
+            $title = $matches[1].TrimEnd(':').Trim()
+        }
+
+        $results.Add([pscustomobject]@{
+            Code  = $rawCode
+            Title = $title
+        })
+    }
+
+    return $results.ToArray()
+}
+
 function New-IdleStepDocModel {
     [CmdletBinding()]
     param(
@@ -505,6 +753,9 @@ function New-IdleStepDocModel {
     # Get required capabilities from metadata catalog (use primary step type)
     $requiredCapabilities = @(Get-IdleStepRequiredCapabilities -StepType $stepType -ModuleName $moduleName)
 
+    # Extract examples from help (.EXAMPLE blocks)
+    $examples = @(Get-IdleExamplesFromHelp -Help $help)
+
     $slug = ConvertTo-IdleStepSlug -StepType $stepType
 
     return [pscustomobject]@{
@@ -517,6 +768,7 @@ function New-IdleStepDocModel {
         RequiredWithKeys      = $requiredWithKeys
         Idempotent            = $idempotent
         RequiredCapabilities  = $requiredCapabilities
+        Examples              = $examples
     }
 }
 
@@ -565,82 +817,104 @@ function New-IdleStepDetailPageContent {
     [void]$sb.AppendLine('## Inputs (With.*)')
     [void]$sb.AppendLine()
 
+    # Detect whether this is a provider-backed step (uses AuthSession / Provider pattern)
+    $isProviderStep = ($Model.Description -match 'AuthSession|AuthSessionName|Provider|Context\.Providers')
+
     if ($Model.RequiredWithKeys.Count -eq 0) {
         [void]$sb.AppendLine('The required input keys could not be detected automatically.')
         [void]$sb.AppendLine('Please refer to the step description and examples for usage details.')
         [void]$sb.AppendLine()
     }
     else {
-        [void]$sb.AppendLine('The following keys are required in the step''s ``With`` configuration:')
+        [void]$sb.AppendLine('The following keys are supported in the step''s ``With`` configuration:')
         [void]$sb.AppendLine()
-        [void]$sb.AppendLine('| Key | Required | Description |')
-        [void]$sb.AppendLine('| --- | --- | --- |')
+        [void]$sb.AppendLine('| Key | Type | Required | Default | Description |')
+        [void]$sb.AppendLine('| --- | --- | --- | --- | --- |')
+
         foreach ($k in $Model.RequiredWithKeys) {
-            # Add basic description based on common key patterns
-            $keyDescription = switch ($k) {
-                'IdentityKey' { 'Unique identifier for the identity' }
-                'Name' { 'Name of the attribute or property' }
-                'Value' { 'Desired value to set' }
-                'Attributes' { 'Hashtable of attributes to set' }
-                'DestinationPath' { 'Target location or path' }
-                'Message' { 'Message text to emit (optional for EmitEvent step)' }
-                'EntitlementType' { 'Type of entitlement (e.g., Group, License)' }
-                'EntitlementValue' { 'Specific entitlement identifier' }
-                'Entitlement' { 'Entitlement identifier or object' }
-                'State' { 'Desired state for the entitlement' }
-                'Ensure' { 'Desired state (Present or Absent)' }
-                'Provider' { 'Provider alias (optional, defaults vary by step)' }
-                'AuthSessionName' { 'Name of auth session to use (optional)' }
-                'PolicyType' { 'Type of policy (e.g., Delta, Initial)' }
-                'Wait' { 'Whether to wait for completion' }
-                default { 'See step description for details' }
-            }
-            [void]$sb.AppendLine("| ``$k`` | Yes | $keyDescription |")
+            $meta = Get-IdleWithKeyMetadata -Key $k
+            # Keys detected in RequiredWithKeys are always required, regardless of default metadata.
+            [void]$sb.AppendLine("| ``$k`` | ``$($meta.Type)`` | Yes | $($meta.Default) | $($meta.Description) |")
         }
+
+        # Append standard optional provider/auth keys for provider-backed steps,
+        # unless they were already listed as required keys.
+        if ($isProviderStep) {
+            $alreadyListed = @($Model.RequiredWithKeys)
+            $optionalStdKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions') |
+                Where-Object { $_ -notin $alreadyListed }
+            foreach ($k in $optionalStdKeys) {
+                $meta = Get-IdleWithKeyMetadata -Key $k
+                [void]$sb.AppendLine("| ``$k`` | ``$($meta.Type)`` | $($meta.Required) | $($meta.Default) | $($meta.Description) |")
+            }
+        }
+
         [void]$sb.AppendLine()
     }
 
-    # Add examples section
-    [void]$sb.AppendLine('## Example')
-    [void]$sb.AppendLine()
-    [void]$sb.AppendLine('```powershell')
-    [void]$sb.AppendLine('@{')
-    [void]$sb.AppendLine(("  Name = '{0} Example'" -f $Model.StepType))
-    # StepType already includes the full name (e.g., 'IdLE.Step.Mailbox.EnsureType')
-    [void]$sb.AppendLine(("  Type = '{0}'" -f $Model.StepType))
-    [void]$sb.AppendLine('  With = @{')
-    
-    if ($Model.RequiredWithKeys.Count -gt 0) {
-        foreach ($k in $Model.RequiredWithKeys) {
-            $exampleValue = switch ($k) {
-                'IdentityKey' { '''user.name''' }
-                'Name' { '''AttributeName''' }
-                'Value' { '''AttributeValue''' }
-                'Attributes' { "@{ GivenName = 'First'; Surname = 'Last' }" }
-                'DestinationPath' { '''OU=Users,DC=domain,DC=com''' }
-                'Message' { '''Custom event message''' }
-                'EntitlementType' { '''Group''' }
-                'EntitlementValue' { '''CN=GroupName,OU=Groups,DC=domain,DC=com''' }
-                'Entitlement' { "@{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }" }
-                'State' { '''Present''' }
-                'Ensure' { '''Present''' }
-                'Provider' { '''Identity''' }
-                'AuthSessionName' { '''AdminSession''' }
-                'PolicyType' { '''Delta''' }
-                'Wait' { '$true' }
-                default { '''<value>''' }
+    # Examples section — prefer real .EXAMPLE blocks from help over the auto-generated stub.
+    if ($Model.Examples -and $Model.Examples.Count -gt 0) {
+        [void]$sb.AppendLine('## Examples')
+        [void]$sb.AppendLine()
+
+        for ($i = 0; $i -lt $Model.Examples.Count; $i++) {
+            $ex = $Model.Examples[$i]
+
+            if (-not [string]::IsNullOrWhiteSpace($ex.Title)) {
+                [void]$sb.AppendLine("### Example $($i + 1) — $($ex.Title)")
             }
-            [void]$sb.AppendLine(("    {0,-20} = {1}" -f $k, $exampleValue))
+            else {
+                [void]$sb.AppendLine("### Example $($i + 1)")
+            }
+            [void]$sb.AppendLine()
+            [void]$sb.AppendLine('```powershell')
+            [void]$sb.AppendLine($ex.Code)
+            [void]$sb.AppendLine('```')
+            [void]$sb.AppendLine()
         }
     }
     else {
-        [void]$sb.AppendLine('    # See step description for available options')
+        # Fallback: auto-generate a minimal example from required keys.
+        [void]$sb.AppendLine('## Example')
+        [void]$sb.AppendLine()
+        [void]$sb.AppendLine('```powershell')
+        [void]$sb.AppendLine('@{')
+        [void]$sb.AppendLine(("  Name = '{0} Example'" -f $Model.StepType))
+        [void]$sb.AppendLine(("  Type = '{0}'" -f $Model.StepType))
+        [void]$sb.AppendLine('  With = @{')
+
+        if ($Model.RequiredWithKeys.Count -gt 0) {
+            foreach ($k in $Model.RequiredWithKeys) {
+                $exampleValue = switch ($k) {
+                    'IdentityKey'      { '''user@contoso.com''' }
+                    'Name'             { '''AttributeName''' }
+                    'Value'            { '''AttributeValue''' }
+                    'Attributes'       { "@{ GivenName = 'First'; Surname = 'Last' }" }
+                    'DestinationPath'  { '''OU=Users,DC=domain,DC=com''' }
+                    'Message'          { '''Custom event message''' }
+                    'EntitlementType'  { '''Group''' }
+                    'EntitlementValue' { '''CN=GroupName,OU=Groups,DC=domain,DC=com''' }
+                    'Entitlement'      { "@{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }" }
+                    'State'            { '''Present''' }
+                    'Ensure'           { '''Present''' }
+                    'Provider'         { '''Identity''' }
+                    'AuthSessionName'  { '''AdminSession''' }
+                    'PolicyType'       { '''Delta''' }
+                    'Wait'             { '$true' }
+                    default            { '''<value>''' }
+                }
+                [void]$sb.AppendLine(("    {0,-20} = {1}" -f $k, $exampleValue))
+            }
+        }
+        else {
+            [void]$sb.AppendLine('    # See step description for available options')
+        }
+
+        [void]$sb.AppendLine('  }')
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('```')
+        [void]$sb.AppendLine()
     }
-    
-    [void]$sb.AppendLine('  }')
-    [void]$sb.AppendLine('}')
-    [void]$sb.AppendLine('```')
-    [void]$sb.AppendLine()
 
     # Add "See Also" section for consistency across all step pages
     [void]$sb.AppendLine('## See Also')

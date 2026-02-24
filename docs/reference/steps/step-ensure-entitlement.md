@@ -42,25 +42,31 @@ Authentication:
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+The following keys are supported in the step's ``With`` configuration:
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `Entitlement` | Yes | Entitlement identifier or object |
-| `IdentityKey` | Yes | Unique identifier for the identity |
-| `State` | Yes | Desired state for the entitlement |
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `Entitlement` | `hashtable` | Yes | — | Entitlement descriptor: ``Kind`` (string), ``Id`` (string), optional ``DisplayName`` (string). |
+| `IdentityKey` | `string` | Yes | — | UPN, SMTP address, or other identity key recognized by the provider. Supports ``\{\{Request.*\}\}`` template expressions. |
+| `State` | `string` | Yes | — | Desired assignment state: ``Present`` \| ``Absent``. |
+| `Provider` | `string` | No | Step-specific | Provider alias key in the providers map supplied at runtime. |
+| `AuthSessionName` | `string` | No | ``Provider`` value | Auth session name passed to ``Context.AcquireAuthSession()``. Defaults to the ``Provider`` value. |
+| `AuthSessionOptions` | `hashtable` | No | ``$null`` | Data-only options passed to the auth session broker (e.g., ``@\{ Role = 'Admin' \}``). ScriptBlocks are rejected. |
 
-## Example
+## Examples
+
+### Example 1
 
 ```powershell
-@{
-  Name = 'IdLE.Step.EnsureEntitlement Example'
-  Type = 'IdLE.Step.EnsureEntitlement'
-  With = @{
-    Entitlement          = @{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }
-    IdentityKey          = 'user.name'
-    State                = 'Present'
-  }
+Invoke-IdleStepEnsureEntitlement -Context $context -Step [pscustomobject]@{
+    Name = 'Ensure group access'
+    Type = 'IdLE.Step.EnsureEntitlement'
+    With = @{
+        IdentityKey = 'user1'
+        Entitlement = @{ Kind = 'Group'; Id = 'example-group'; DisplayName = 'Example Group' }
+        State       = 'Present'
+        Provider    = 'Identity'
+    }
 }
 ```
 

@@ -54,23 +54,68 @@ Authentication:
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+The following keys are supported in the step's ``With`` configuration:
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `IdentityKey` | Yes | Unique identifier for the identity |
-| `Permissions` | Yes | See step description for details |
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | `string` | Yes | — | UPN, SMTP address, or other identity key recognized by the provider. Supports ``\{\{Request.*\}\}`` template expressions. |
+| `Permissions` | `hashtable[]` | Yes | — | Array of permission entries. Each entry requires: ``AssignedUser`` (string — UPN/SMTP), ``Right`` (``FullAccess``\|``SendAs``\|``SendOnBehalf``), ``Ensure`` (``Present``\|``Absent``). |
+| `Provider` | `string` | No | Step-specific | Provider alias key in the providers map supplied at runtime. |
+| `AuthSessionName` | `string` | No | ``Provider`` value | Auth session name passed to ``Context.AcquireAuthSession()``. Defaults to the ``Provider`` value. |
+| `AuthSessionOptions` | `hashtable` | No | ``$null`` | Data-only options passed to the auth session broker (e.g., ``@\{ Role = 'Admin' \}``). ScriptBlocks are rejected. |
 
-## Example
+## Examples
+
+### Example 1 — In workflow definition (grant FullAccess and SendAs)
 
 ```powershell
+# In workflow definition (grant FullAccess and SendAs):
 @{
-  Name = 'IdLE.Step.Mailbox.EnsurePermissions Example'
-  Type = 'IdLE.Step.Mailbox.EnsurePermissions'
-  With = @{
-    IdentityKey          = 'user.name'
-    Permissions          = '<value>'
-  }
+    Name = 'Set Shared Mailbox Permissions'
+    Type = 'IdLE.Step.Mailbox.EnsurePermissions'
+    With = @{
+        Provider    = 'ExchangeOnline'
+        IdentityKey = 'shared@contoso.com'
+        Permissions = @(
+            @{ AssignedUser = 'user1@contoso.com'; Right = 'FullAccess'; Ensure = 'Present' }
+            @{ AssignedUser = 'user2@contoso.com'; Right = 'SendAs';     Ensure = 'Present' }
+        )
+    }
+}
+```
+
+### Example 2 — In workflow definition (revoke access)
+
+```powershell
+# In workflow definition (revoke access):
+@{
+    Name = 'Revoke Mailbox Access'
+    Type = 'IdLE.Step.Mailbox.EnsurePermissions'
+    With = @{
+        Provider    = 'ExchangeOnline'
+        IdentityKey = 'shared@contoso.com'
+        Permissions = @(
+            @{ AssignedUser = 'leaver@contoso.com'; Right = 'FullAccess';   Ensure = 'Absent' }
+            @{ AssignedUser = 'leaver@contoso.com'; Right = 'SendOnBehalf'; Ensure = 'Absent' }
+        )
+    }
+}
+```
+
+### Example 3 — With dynamic identity from request
+
+```powershell
+# With dynamic identity from request:
+@{
+    Name = 'Grant Team Mailbox Access'
+    Type = 'IdLE.Step.Mailbox.EnsurePermissions'
+    With = @{
+        Provider    = 'ExchangeOnline'
+        IdentityKey = 'team@contoso.com'
+        Permissions = @(
+            @{ AssignedUser = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }; Right = 'FullAccess'; Ensure = 'Present' }
+        )
+    }
 }
 ```
 

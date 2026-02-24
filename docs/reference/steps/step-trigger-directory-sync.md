@@ -36,23 +36,28 @@ Authentication:
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+The following keys are supported in the step's ``With`` configuration:
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `AuthSessionName` | Yes | Name of auth session to use (optional) |
-| `PolicyType` | Yes | Type of policy (e.g., Delta, Initial) |
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `AuthSessionName` | `string` | Yes | ``Provider`` value | Auth session name passed to ``Context.AcquireAuthSession()``. Defaults to the ``Provider`` value. |
+| `PolicyType` | `string` | Yes | ``Delta`` | Sync policy type: ``Delta`` \| ``Initial``. |
+| `Provider` | `string` | No | Step-specific | Provider alias key in the providers map supplied at runtime. |
+| `AuthSessionOptions` | `hashtable` | No | ``$null`` | Data-only options passed to the auth session broker (e.g., ``@\{ Role = 'Admin' \}``). ScriptBlocks are rejected. |
 
-## Example
+## Examples
+
+### Example 1
 
 ```powershell
-@{
-  Name = 'IdLE.Step.TriggerDirectorySync Example'
-  Type = 'IdLE.Step.TriggerDirectorySync'
-  With = @{
-    AuthSessionName      = 'AdminSession'
-    PolicyType           = 'Delta'
-  }
+$step = @{
+    Name = 'Trigger directory sync'
+    Type = 'IdLE.Step.TriggerDirectorySync'
+    With = @{
+        AuthSessionName = 'DirectorySync'
+        PolicyType = 'Delta'
+        Wait = $true
+    }
 }
 ```
 
