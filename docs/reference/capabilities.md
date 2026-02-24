@@ -79,6 +79,9 @@ Grant/assign an entitlement to an identity (e.g., add group membership, assign l
 #### `IdLE.Entitlement.Revoke`
 Revoke/remove an entitlement from an identity. Must be idempotent.
 
+#### `IdLE.Entitlement.Prune`
+Explicit opt-in for bulk entitlement convergence ("remove all except"). Providers that advertise this capability support the `IdLE.Step.PruneEntitlements` step, which removes all entitlements of a given kind except an explicit keep-set and/or pattern-matched entitlements. This is a separate capability from `Revoke` because the operation is bulk and destructive by design. Providers must also implement `ListEntitlements` and `RevokeEntitlement` (and optionally `GrantEntitlement`) to support this step.
+
 ### Mailbox
 
 #### `IdLE.Mailbox.Info.Read`

@@ -67,6 +67,41 @@
             }
         }
 
+        # Optional & potentially disruptive:
+        # PruneEntitlements offers a safe "remove all except" approach for leavers.
+        # Use this instead of removing each group individually.
+        @{
+            Name      = 'PruneGroupMemberships_Optional'
+            Type      = 'IdLE.Step.PruneEntitlements'
+            Condition = @{
+                All = @(
+                    @{
+                        Equals = @{
+                            Path  = 'Request.Intent.PruneGroupMemberships'
+                            Value = $true
+                        }
+                    }
+                )
+            }
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                Kind               = 'Group'
+
+                # Retain this specific leaver group and ensure it is present.
+                Keep               = @(
+                    @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupId}}'; DisplayName = 'Leaver Retain' }
+                )
+
+                # Also retain any group whose displayName starts with LEAVER-.
+                KeepPattern        = @('LEAVER-*')
+
+                # Ensure the explicit keep group is present even if the user was not a member.
+                EnsureKeepEntitlements = $true
+            }
+        }
+
         # Optional delete (requires provider to be created with -AllowDelete)
         @{
             Name      = 'DeleteAccount_Optional'

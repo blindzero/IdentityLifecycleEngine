@@ -1,0 +1,365 @@
+function Invoke-IdleStepPruneEntitlements {
+    <#
+    .SYNOPSIS
+    Converges an identity's entitlements by removing all non-kept entitlements of a given kind.
+
+    .DESCRIPTION
+    This provider-agnostic step implements "remove all except" semantics for entitlements.
+    It is intended for leaver and mover workflows where all entitlements of a given kind
+    (e.g. group memberships) must be removed, except for an explicit keep-set and/or
+    entitlements matching a wildcard keep pattern.
+
+    The host must supply a provider that:
+
+    - Advertises the IdLE.Entitlement.Prune capability (explicit opt-in)
+    - Implements ListEntitlements(identityKey)
+    - Implements RevokeEntitlement(identityKey, entitlement)
+    - Implements GrantEntitlement(identityKey, entitlement) [required only when With.EnsureKeepEntitlements is $true]
+
+    Provider/system non-removable entitlements (e.g., AD primary group / Domain Users) are
+    handled safely: if a revoke operation fails, the step emits a structured warning event,
+    skips the entitlement, and continues. The workflow is not failed for these items.
+
+    Authentication:
+
+    - If With.AuthSessionName is present, the step acquires an auth session via
+      Context.AcquireAuthSession(Name, Options) and passes it to provider methods
+      if the provider supports an AuthSession parameter.
+    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
+      session selection (e.g., @{ Role = 'Tier0' }).
+    - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+
+    .PARAMETER Context
+    Execution context created by IdLE.Core.
+
+    .PARAMETER Step
+    Normalized step object from the plan. Must contain a 'With' hashtable.
+
+    .EXAMPLE
+    Invoke-IdleStepPruneEntitlements -Context $context -Step [pscustomobject]@{
+        Name = 'Prune group memberships (leaver)'
+        Type = 'IdLE.Step.PruneEntitlements'
+        With = @{
+            IdentityKey            = 'jsmith'
+            Provider               = 'Identity'
+            Kind                   = 'Group'
+            Keep                   = @(
+                @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=contoso,DC=com' }
+            )
+            KeepPattern            = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
+            EnsureKeepEntitlements = $true
+        }
+    }
+
+    .OUTPUTS
+    PSCustomObject (PSTypeName: IdLE.StepResult)
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [object] $Context,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [object] $Step
+    )
+
+    function ConvertTo-IdleStepPruneEntitlement {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Value,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $DefaultKind
+        )
+
+        $kind = $null
+        $id = $null
+        $displayName = $null
+
+        if ($Value -is [System.Collections.IDictionary]) {
+            if ($Value.Contains('Kind')) { $kind = $Value['Kind'] }
+            if ($Value.Contains('Id')) { $id = $Value['Id'] }
+            if ($Value.Contains('DisplayName')) { $displayName = $Value['DisplayName'] }
+        }
+        else {
+            $props = $Value.PSObject.Properties
+            if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
+            if ($props.Name -contains 'Id') { $id = $Value.Id }
+            if ($props.Name -contains 'DisplayName') { $displayName = $Value.DisplayName }
+        }
+
+        if ([string]::IsNullOrWhiteSpace([string]$kind)) {
+            $kind = $DefaultKind
+        }
+
+        if ([string]::IsNullOrWhiteSpace([string]$id)) {
+            throw "PruneEntitlements: each Keep entry requires an Id."
+        }
+
+        $normalized = [ordered]@{
+            Kind = [string]$kind
+            Id   = [string]$id
+        }
+
+        if ($null -ne $displayName -and -not [string]::IsNullOrWhiteSpace([string]$displayName)) {
+            $normalized['DisplayName'] = [string]$displayName
+        }
+
+        return [pscustomobject]$normalized
+    }
+
+    function Test-IdleStepPruneEntitlementMatch {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Current,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $KeepItem
+        )
+
+        return [string]::Equals([string]$Current.Id, [string]$KeepItem.Id, [System.StringComparison]::OrdinalIgnoreCase)
+    }
+
+    $with = $Step.With
+    if ($null -eq $with -or -not ($with -is [hashtable])) {
+        throw "PruneEntitlements requires 'With' to be a hashtable."
+    }
+
+    foreach ($key in @('IdentityKey', 'Kind')) {
+        if (-not $with.ContainsKey($key)) {
+            throw "PruneEntitlements requires With.$key."
+        }
+    }
+
+    $identityKey = [string]$with.IdentityKey
+    $kind = [string]$with.Kind
+
+    if ([string]::IsNullOrWhiteSpace($identityKey)) {
+        throw "PruneEntitlements requires With.IdentityKey to be non-empty."
+    }
+    if ([string]::IsNullOrWhiteSpace($kind)) {
+        throw "PruneEntitlements requires With.Kind to be non-empty."
+    }
+
+    $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'Identity' }
+
+    # Parse explicit Keep items
+    $keepItems = @()
+    if ($with.ContainsKey('Keep') -and $null -ne $with.Keep) {
+        foreach ($item in @($with.Keep)) {
+            if ($item -is [scriptblock]) {
+                throw "PruneEntitlements: Keep entries must not contain ScriptBlocks."
+            }
+            $keepItems += ConvertTo-IdleStepPruneEntitlement -Value $item -DefaultKind $kind
+        }
+    }
+
+    # Parse KeepPattern items (wildcard strings only)
+    $keepPatterns = @()
+    if ($with.ContainsKey('KeepPattern') -and $null -ne $with.KeepPattern) {
+        foreach ($p in @($with.KeepPattern)) {
+            if ($p -is [scriptblock]) {
+                throw "PruneEntitlements: KeepPattern entries must be strings, not ScriptBlocks."
+            }
+            $pStr = [string]$p
+            if ([string]::IsNullOrWhiteSpace($pStr)) {
+                throw "PruneEntitlements: KeepPattern entries must not be empty."
+            }
+            $keepPatterns += $pStr
+        }
+    }
+
+    # At least one keep rule required (safety guardrail)
+    if ($keepItems.Count -eq 0 -and $keepPatterns.Count -eq 0) {
+        throw "PruneEntitlements requires at least one of: With.Keep or With.KeepPattern. At least one keep rule must be specified to prevent accidental removal of all entitlements."
+    }
+
+    $ensureKeep = $false
+    if ($with.ContainsKey('EnsureKeepEntitlements') -and $null -ne $with.EnsureKeepEntitlements) {
+        $ensureKeep = [bool]$with.EnsureKeepEntitlements
+    }
+
+    # Validate Context and Providers
+    if (-not ($Context.PSObject.Properties.Name -contains 'Providers')) {
+        throw "Context does not contain a Providers hashtable."
+    }
+    if ($null -eq $Context.Providers -or -not ($Context.Providers -is [hashtable])) {
+        throw "Context.Providers must be a hashtable."
+    }
+    if (-not $Context.Providers.ContainsKey($providerAlias)) {
+        throw "Provider '$providerAlias' was not supplied by the host."
+    }
+
+    # Auth session acquisition (optional, data-only)
+    $authSession = $null
+    if ($with.ContainsKey('AuthSessionName')) {
+        $sessionName = [string]$with.AuthSessionName
+        $sessionOptions = if ($with.ContainsKey('AuthSessionOptions')) { $with.AuthSessionOptions } else { $null }
+
+        if ($null -ne $sessionOptions -and -not ($sessionOptions -is [hashtable])) {
+            throw "With.AuthSessionOptions must be a hashtable or null."
+        }
+
+        $authSession = $Context.AcquireAuthSession($sessionName, $sessionOptions)
+    }
+
+    $provider = $Context.Providers[$providerAlias]
+
+    $requiredMethods = @('ListEntitlements', 'RevokeEntitlement')
+    if ($ensureKeep) {
+        $requiredMethods += 'GrantEntitlement'
+    }
+    foreach ($m in $requiredMethods) {
+        if (-not ($provider.PSObject.Methods.Name -contains $m)) {
+            throw "Provider '$providerAlias' must implement method '$m' for PruneEntitlements."
+        }
+    }
+
+    $listSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'AuthSession'
+    $revokeSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['RevokeEntitlement'] -ParameterName 'AuthSession'
+    $grantSupportsAuthSession = if ($ensureKeep) {
+        Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['GrantEntitlement'] -ParameterName 'AuthSession'
+    } else { $false }
+
+    # 1. List current entitlements, filter by Kind
+    $allCurrent = if ($listSupportsAuthSession -and $null -ne $authSession) {
+        @($provider.ListEntitlements($identityKey, $authSession))
+    } else {
+        @($provider.ListEntitlements($identityKey))
+    }
+
+    $current = @($allCurrent | Where-Object {
+        $null -ne $_ -and
+        ($_.PSObject.Properties.Name -contains 'Kind') -and
+        [string]::Equals([string]$_.Kind, $kind, [System.StringComparison]::OrdinalIgnoreCase)
+    })
+
+    # 2. Compute keep-set and remove-set
+    $toKeep = @()
+    $toRemove = @()
+
+    foreach ($ent in $current) {
+        $shouldKeep = $false
+
+        # Check explicit Keep items (case-insensitive Id match)
+        foreach ($k in $keepItems) {
+            if (Test-IdleStepPruneEntitlementMatch -Current $ent -KeepItem $k) {
+                $shouldKeep = $true
+                break
+            }
+        }
+
+        # Check KeepPattern (wildcard -like against Id and DisplayName)
+        if (-not $shouldKeep) {
+            foreach ($pattern in $keepPatterns) {
+                if ([string]$ent.Id -like $pattern) {
+                    $shouldKeep = $true
+                    break
+                }
+                if ($ent.PSObject.Properties.Name -contains 'DisplayName' -and
+                    $null -ne $ent.DisplayName -and
+                    [string]$ent.DisplayName -like $pattern) {
+                    $shouldKeep = $true
+                    break
+                }
+            }
+        }
+
+        if ($shouldKeep) {
+            $toKeep += $ent
+        } else {
+            $toRemove += $ent
+        }
+    }
+
+    # Emit plan intent event
+    if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+        $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+        $Context.EventSink.WriteEvent('Information', "PruneEntitlements: plan - keep=$(@($toKeep).Count), remove=$(@($toRemove).Count)", $Step.Name, @{
+            Kind       = $kind
+            KeepCount  = @($toKeep).Count
+            PruneCount = @($toRemove).Count
+        })
+    }
+
+    $changed = $false
+    $skippedItems = @()
+
+    # 3. Revoke each entitlement in remove-set
+    foreach ($ent in $toRemove) {
+        try {
+            if ($revokeSupportsAuthSession -and $null -ne $authSession) {
+                $null = $provider.RevokeEntitlement($identityKey, $ent, $authSession)
+            } else {
+                $null = $provider.RevokeEntitlement($identityKey, $ent)
+            }
+            $changed = $true
+
+            if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                $Context.EventSink.WriteEvent('Information', "PruneEntitlements: revoked entitlement '$($ent.Id)'", $Step.Name, @{
+                    Kind          = $kind
+                    EntitlementId = [string]$ent.Id
+                })
+            }
+        }
+        catch {
+            # Non-removable or permission-denied entitlement: skip with warning
+            $reason = $_.Exception.Message
+            $skippedItems += [pscustomobject]@{
+                EntitlementId = [string]$ent.Id
+                Reason        = $reason
+            }
+
+            if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: skipped non-removable entitlement '$($ent.Id)': $reason", $Step.Name, @{
+                    Kind          = $kind
+                    EntitlementId = [string]$ent.Id
+                    Reason        = $reason
+                })
+            }
+        }
+    }
+
+    # 4. If EnsureKeepEntitlements: grant any explicit Keep items that are missing
+    if ($ensureKeep -and $keepItems.Count -gt 0) {
+        foreach ($k in $keepItems) {
+            $alreadyPresent = @($current | Where-Object { Test-IdleStepPruneEntitlementMatch -Current $_ -KeepItem $k })
+            if (@($alreadyPresent).Count -eq 0) {
+                if ($grantSupportsAuthSession -and $null -ne $authSession) {
+                    $null = $provider.GrantEntitlement($identityKey, $k, $authSession)
+                } else {
+                    $null = $provider.GrantEntitlement($identityKey, $k)
+                }
+                $changed = $true
+
+                if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                    $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                    $Context.EventSink.WriteEvent('Information', "PruneEntitlements: granted keep entitlement '$($k.Id)'", $Step.Name, @{
+                        Kind          = $kind
+                        EntitlementId = [string]$k.Id
+                    })
+                }
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        PSTypeName   = 'IdLE.StepResult'
+        Name         = [string]$Step.Name
+        Type         = [string]$Step.Type
+        Status       = 'Completed'
+        Changed      = $changed
+        Error        = $null
+        Skipped      = $skippedItems
+    }
+}

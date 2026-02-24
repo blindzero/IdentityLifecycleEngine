@@ -68,5 +68,10 @@ function Get-IdleStepMetadataCatalog {
         RequiredCapabilities = @('IdLE.Identity.RevokeSessions')
     }
 
+    # IdLE.Step.PruneEntitlements - requires explicit prune opt-in capability plus list/revoke/grant
+    $catalog['IdLE.Step.PruneEntitlements'] = @{
+        RequiredCapabilities = @('IdLE.Entitlement.Prune', 'IdLE.Entitlement.List', 'IdLE.Entitlement.Revoke', 'IdLE.Entitlement.Grant')
+    }
+
     return $catalog
 }

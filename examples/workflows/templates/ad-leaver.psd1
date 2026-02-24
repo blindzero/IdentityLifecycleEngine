@@ -28,7 +28,31 @@
 
         # Optional, use with caution:
         # Removing groups can break business processes unexpectedly.
-        # Prefer an explicit allow-list or a "remove only managed groups" approach.
+        # PruneEntitlements offers a safer "remove all except" approach for leavers.
+        @{
+            Type = 'IdLE.Step.PruneEntitlements'
+            Name     = 'Prune all group memberships except leaver retain group'
+            With     = @{
+                Condition       = @{ Equals = @{ Path = 'Request.Intent.PruneGroups'; Value = $true } }
+                AuthSessionName = 'Directory'
+                IdentityKey     = '{{Request.Intent.SamAccountName}}'
+                Kind            = 'Group'
+
+                # Explicitly retain this group and ensure it is present after pruning.
+                Keep            = @(
+                    @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupDn}}'; DisplayName = 'Leaver Retain' }
+                )
+
+                # Also retain any group whose DN starts with CN=LEAVER- (e.g. LEAVER-*)
+                KeepPattern     = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
+
+                # Ensure the explicit keep group is present even if the user was not a member.
+                EnsureKeepEntitlements = $true
+            }
+        }
+
+        # Alternatively, remove individual managed group memberships one by one:
+        # Prefer PruneEntitlements above for bulk removal scenarios.
         @{
             Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Remove managed group memberships (optional, item 1)'

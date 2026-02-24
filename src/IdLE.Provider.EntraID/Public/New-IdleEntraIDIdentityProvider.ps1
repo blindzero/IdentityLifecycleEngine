@@ -309,6 +309,7 @@ function New-IdleEntraIDIdentityProvider {
             'IdLE.Entitlement.List'
             'IdLE.Entitlement.Grant'
             'IdLE.Entitlement.Revoke'
+            'IdLE.Entitlement.Prune'
         )
 
         if ($this.AllowDelete) {
