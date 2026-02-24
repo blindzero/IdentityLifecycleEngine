@@ -968,5 +968,83 @@ Describe 'ExchangeOnline provider - Unit tests' {
             # Use Test-IdleTransientError (same check as the plan executor's Invoke-IdleWithRetry)
             Test-IdleTransientError -Exception $caught | Should -Be $true
         }
+
+        It 'propagates transient exception from RemoveRecipientPermission (SendAs) so plan executor can retry the step' {
+            Add-TestMailbox -PrimarySmtpAddress 'transient2@contoso.com'
+            $fakeAdapter.Store.SendAs['transient2@contoso.com'] = @{ 'delegate1@contoso.com' = $true }
+
+            # Simulate what the real InvokeSafely does when EXO returns a server-side error for Remove-RecipientPermission
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveRecipientPermission -Value {
+                param($MailboxIdentity, $Trustee, $AccessToken)
+                $inner = [System.Exception]::new('A server side error has occurred.')
+                $wrapped = [System.Exception]::new("Exchange Online command 'Remove-RecipientPermission' failed | A server side error has occurred.", $inner)
+                $wrapped.Data['Idle.IsTransient'] = $true
+                throw $wrapped
+            } -Force
+
+            $caught = $null
+            try {
+                $provider.EnsureMailboxPermissions('transient2@contoso.com', @(
+                    @{ AssignedUser = 'delegate1@contoso.com'; Right = 'SendAs'; Ensure = 'Absent' }
+                ), $null)
+            }
+            catch {
+                $caught = $_.Exception
+            }
+            finally {
+                # Restore original RemoveRecipientPermission so other tests are not affected
+                $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveRecipientPermission -Value {
+                    param($MailboxIdentity, $Trustee, $AccessToken)
+                    $key = $MailboxIdentity.ToLowerInvariant()
+                    if ($this.Store.SendAs.ContainsKey($key)) {
+                        $this.Store.SendAs[$key].Remove($Trustee.ToLowerInvariant())
+                    }
+                } -Force
+            }
+
+            $caught | Should -Not -BeNullOrEmpty
+            Test-IdleTransientError -Exception $caught | Should -Be $true
+        }
+
+        It 'propagates transient exception from SetMailboxSendOnBehalf (SendOnBehalf Absent) so plan executor can retry the step' {
+            Add-TestMailbox -PrimarySmtpAddress 'transient3@contoso.com'
+            # Seed existing SendOnBehalf delegates so EnsureMailboxPermissions will attempt to remove one
+            $fakeAdapter.Store.SendOnBehalf['transient3@contoso.com'] = @('delegate1@contoso.com', 'someoneelse@contoso.com')
+
+            # Simulate what the real InvokeSafely does when EXO returns a server-side error for Set-Mailbox (SendOnBehalf)
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name SetMailboxSendOnBehalf -Value {
+                param($MailboxIdentity, $GrantSendOnBehalfTo, $AccessToken)
+                $inner = [System.Exception]::new('A server side error has occurred.')
+                $wrapped = [System.Exception]::new("Exchange Online command 'Set-Mailbox -GrantSendOnBehalfTo' failed | A server side error has occurred.", $inner)
+                $wrapped.Data['Idle.IsTransient'] = $true
+                throw $wrapped
+            } -Force
+
+            $caught = $null
+            try {
+                $provider.EnsureMailboxPermissions('transient3@contoso.com', @(
+                    @{ AssignedUser = 'delegate1@contoso.com'; Right = 'SendOnBehalf'; Ensure = 'Absent' }
+                ), $null)
+            }
+            catch {
+                $caught = $_.Exception
+            }
+            finally {
+                # Restore original SetMailboxSendOnBehalf so other tests are not affected
+                $fakeAdapter | Add-Member -MemberType ScriptMethod -Name SetMailboxSendOnBehalf -Value {
+                    param($MailboxIdentity, $GrantSendOnBehalfTo, $AccessToken)
+                    $key = $MailboxIdentity.ToLowerInvariant()
+                    if ($null -eq $GrantSendOnBehalfTo -or $GrantSendOnBehalfTo.Count -eq 0) {
+                        $this.Store.SendOnBehalf.Remove($key) | Out-Null
+                    }
+                    else {
+                        $this.Store.SendOnBehalf[$key] = $GrantSendOnBehalfTo
+                    }
+                } -Force
+            }
+
+            $caught | Should -Not -BeNullOrEmpty
+            Test-IdleTransientError -Exception $caught | Should -Be $true
+        }
     }
 }
