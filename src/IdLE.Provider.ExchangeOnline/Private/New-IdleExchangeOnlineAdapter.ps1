@@ -56,7 +56,7 @@ function New-IdleExchangeOnlineAdapter {
 
                 # Mark retryable server-side and throttling errors as transient so the
                 # plan executor's Invoke-IdleWithRetry can retry the enclosing step.
-                if ($_.Exception.Message -match $transientErrorPattern) {
+                if ($_.Exception.Message -imatch $transientErrorPattern) {
                     $isTransient = $true
                 }
             }
