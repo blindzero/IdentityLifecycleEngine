@@ -429,6 +429,73 @@ function New-IdleEntraIDAdapter {
         }
     } -Force
 
+    $adapter | Add-Member -MemberType ScriptMethod -Name PruneGroupMemberships -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $UserObjectId,
+
+            [Parameter()]
+            [AllowNull()]
+            [string[]] $KeepGroupObjectIds,
+
+            [Parameter()]
+            [AllowNull()]
+            [string[]] $KeepPatterns,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $groups = $this.ListUserGroups($UserObjectId, $AccessToken)
+        $removed = @()
+        $skipped = @()
+
+        foreach ($group in @($groups)) {
+            $groupId = if ($group -is [System.Collections.IDictionary]) { [string]$group['id'] } else { [string]$group.id }
+            $displayName = if ($group -is [System.Collections.IDictionary]) {
+                if ($group.ContainsKey('displayName')) { [string]$group['displayName'] } else { $null }
+            } else {
+                if ($group.PSObject.Properties.Name -contains 'displayName') { [string]$group.displayName } else { $null }
+            }
+
+            $shouldKeep = $false
+
+            foreach ($keepId in @($KeepGroupObjectIds)) {
+                if ([string]::Equals($groupId, $keepId, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $shouldKeep = $true
+                    break
+                }
+            }
+
+            if (-not $shouldKeep) {
+                foreach ($pattern in @($KeepPatterns)) {
+                    if ($groupId -like $pattern) { $shouldKeep = $true; break }
+                    if ($null -ne $displayName -and $displayName -like $pattern) { $shouldKeep = $true; break }
+                }
+            }
+
+            if (-not $shouldKeep) {
+                try {
+                    $this.RemoveGroupMember($groupId, $UserObjectId, $AccessToken)
+                    $removed += $groupId
+                }
+                catch {
+                    $skipped += [pscustomobject]@{
+                        GroupObjectId = $groupId
+                        Reason        = $_.Exception.Message
+                    }
+                }
+            }
+        }
+
+        return [pscustomobject]@{
+            Removed = $removed
+            Skipped = $skipped
+        }
+    } -Force
+
     $adapter | Add-Member -MemberType ScriptMethod -Name RevokeSignInSessions -Value {
         param(
             [Parameter(Mandatory)]

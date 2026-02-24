@@ -113,19 +113,40 @@ function Invoke-IdleStepPruneEntitlements {
         return [pscustomobject]$normalized
     }
 
-    function Test-IdleStepPruneEntitlementMatch {
+    function Test-IdleStepPruneEntitlementShouldKeep {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
             [ValidateNotNull()]
-            [object] $Current,
+            [object] $Ent,
 
             [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $KeepItem
+            [AllowNull()]
+            [AllowEmptyCollection()]
+            [object[]] $KeepItems,
+
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [AllowEmptyCollection()]
+            [string[]] $KeepPatterns
         )
 
-        return [string]::Equals([string]$Current.Id, [string]$KeepItem.Id, [System.StringComparison]::OrdinalIgnoreCase)
+        # Check explicit Keep items (case-insensitive Id match)
+        foreach ($k in $KeepItems) {
+            if ([string]::Equals([string]$Ent.Id, [string]$k.Id, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $true
+            }
+        }
+
+        # Check KeepPattern (wildcard -like against Id and DisplayName)
+        foreach ($pattern in $KeepPatterns) {
+            if ([string]$Ent.Id -like $pattern) { return $true }
+            if ($Ent.PSObject.Properties.Name -contains 'DisplayName' -and
+                $null -ne $Ent.DisplayName -and
+                [string]$Ent.DisplayName -like $pattern) { return $true }
+        }
+
+        return $false
     }
 
     $with = $Step.With
@@ -213,13 +234,40 @@ function Invoke-IdleStepPruneEntitlements {
 
     $provider = $Context.Providers[$providerAlias]
 
-    $requiredMethods = @('ListEntitlements', 'RevokeEntitlement')
-    if ($ensureKeep) {
-        $requiredMethods += 'GrantEntitlement'
+    # Use provider's native PruneEntitlements method when available (handles ID normalization internally)
+    $providerHasPruneMethod = $provider.PSObject.Methods.Name -contains 'PruneEntitlements'
+
+    if (-not $providerHasPruneMethod) {
+        # Validate fallback individual methods
+        $requiredMethods = @('ListEntitlements', 'RevokeEntitlement')
+        if ($ensureKeep) {
+            $requiredMethods += 'GrantEntitlement'
+        }
+        foreach ($m in $requiredMethods) {
+            if (-not ($provider.PSObject.Methods.Name -contains $m)) {
+                throw "Provider '$providerAlias' must implement method '$m' for PruneEntitlements."
+            }
+        }
     }
-    foreach ($m in $requiredMethods) {
-        if (-not ($provider.PSObject.Methods.Name -contains $m)) {
-            throw "Provider '$providerAlias' must implement method '$m' for PruneEntitlements."
+
+    if ($providerHasPruneMethod) {
+        # Provider handles ID normalization, user resolution, and bulk removal natively
+        $pruneSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['PruneEntitlements'] -ParameterName 'AuthSession'
+
+        $pruneResult = if ($pruneSupportsAuthSession) {
+            $provider.PruneEntitlements($identityKey, $kind, $keepItems, $keepPatterns, $ensureKeep, $authSession)
+        } else {
+            $provider.PruneEntitlements($identityKey, $kind, $keepItems, $keepPatterns, $ensureKeep)
+        }
+
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.StepResult'
+            Name       = [string]$Step.Name
+            Type       = [string]$Step.Type
+            Status     = 'Completed'
+            Changed    = [bool]$pruneResult.Changed
+            Error      = $null
+            Skipped    = if ($null -ne $pruneResult.Skipped) { @($pruneResult.Skipped) } else { @() }
         }
     }
 
@@ -247,33 +295,7 @@ function Invoke-IdleStepPruneEntitlements {
     $toRemove = @()
 
     foreach ($ent in $current) {
-        $shouldKeep = $false
-
-        # Check explicit Keep items (case-insensitive Id match)
-        foreach ($k in $keepItems) {
-            if (Test-IdleStepPruneEntitlementMatch -Current $ent -KeepItem $k) {
-                $shouldKeep = $true
-                break
-            }
-        }
-
-        # Check KeepPattern (wildcard -like against Id and DisplayName)
-        if (-not $shouldKeep) {
-            foreach ($pattern in $keepPatterns) {
-                if ([string]$ent.Id -like $pattern) {
-                    $shouldKeep = $true
-                    break
-                }
-                if ($ent.PSObject.Properties.Name -contains 'DisplayName' -and
-                    $null -ne $ent.DisplayName -and
-                    [string]$ent.DisplayName -like $pattern) {
-                    $shouldKeep = $true
-                    break
-                }
-            }
-        }
-
-        if ($shouldKeep) {
+        if (Test-IdleStepPruneEntitlementShouldKeep -Ent $ent -KeepItems $keepItems -KeepPatterns $keepPatterns) {
             $toKeep += $ent
         } else {
             $toRemove += $ent
@@ -333,7 +355,9 @@ function Invoke-IdleStepPruneEntitlements {
     # 4. If EnsureKeepEntitlements: grant any explicit Keep items that are missing
     if ($ensureKeep -and $keepItems.Count -gt 0) {
         foreach ($k in $keepItems) {
-            $alreadyPresent = @($current | Where-Object { Test-IdleStepPruneEntitlementMatch -Current $_ -KeepItem $k })
+            $alreadyPresent = @($current | Where-Object {
+                [string]::Equals([string]$_.Id, [string]$k.Id, [System.StringComparison]::OrdinalIgnoreCase)
+            })
             if (@($alreadyPresent).Count -eq 0) {
                 if ($grantSupportsAuthSession -and $null -ne $authSession) {
                     $null = $provider.GrantEntitlement($identityKey, $k, $authSession)

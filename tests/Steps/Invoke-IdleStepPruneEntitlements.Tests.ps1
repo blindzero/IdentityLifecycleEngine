@@ -367,4 +367,54 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             { & $handler -Context $script:Context -Step $step } | Should -Throw
         }
     }
+
+    Context 'Behavior: step delegates to provider.PruneEntitlements when available' {
+        It 'calls provider PruneEntitlements and uses its result' {
+            $pruneCallArgs = @{}
+            $mockProvider = [pscustomobject]@{
+                PSTypeName = 'MockPruneProvider'
+            }
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name PruneEntitlements -Value {
+                param($IdentityKey, $Kind, $KeepItems, $KeepPatterns, $EnsureKeep, $AuthSession)
+                $script:PruneCallArgs = @{
+                    IdentityKey  = $IdentityKey
+                    Kind         = $Kind
+                    KeepItems    = $KeepItems
+                    KeepPatterns = $KeepPatterns
+                    EnsureKeep   = $EnsureKeep
+                }
+                return [pscustomobject]@{
+                    PSTypeName = 'IdLE.ProviderResult'
+                    Changed    = $true
+                    Skipped    = @([pscustomobject]@{ EntitlementId = 'CN=X'; Reason = 'protected' })
+                }
+            } -Force
+
+            $script:Context.Providers['Identity'] = $mockProvider
+
+            $step = [pscustomobject]@{
+                Name = 'Prune via provider'
+                Type = 'IdLE.Step.PruneEntitlements'
+                With = @{
+                    IdentityKey  = 'user1'
+                    Kind         = 'Group'
+                    Provider     = 'Identity'
+                    Keep         = @(@{ Kind = 'Group'; Id = 'CN=RETAIN,DC=x' })
+                    KeepPattern  = @('CN=LEAVER-*')
+                }
+            }
+
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+            $result.Skipped | Should -Not -BeNullOrEmpty
+            $result.Skipped[0].EntitlementId | Should -Be 'CN=X'
+
+            $script:PruneCallArgs.IdentityKey  | Should -Be 'user1'
+            $script:PruneCallArgs.Kind         | Should -Be 'Group'
+            $script:PruneCallArgs.KeepPatterns | Should -Contain 'CN=LEAVER-*'
+        }
+    }
 }

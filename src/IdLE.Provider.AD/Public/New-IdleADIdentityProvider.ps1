@@ -852,5 +852,85 @@ function New-IdleADIdentityProvider {
         }
     } -Force
 
+    $provider | Add-Member -MemberType ScriptMethod -Name PruneEntitlements -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $Kind,
+
+            [Parameter()]
+            [AllowNull()]
+            [object[]] $KeepItems,
+
+            [Parameter()]
+            [AllowNull()]
+            [string[]] $KeepPatterns,
+
+            [Parameter()]
+            [bool] $EnsureKeepEntitlements,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        # AD provider only supports Group entitlements for prune
+        if (-not [string]::Equals($Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "PruneEntitlements: AD provider only supports Kind 'Group'. Got: '$Kind'."
+        }
+
+        $adapter = $this.GetEffectiveAdapter($AuthSession)
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        # Normalize keep item IDs to canonical DNs (provider-specific ID-type-detection via NormalizeGroupId)
+        $keepGroupDNs = @()
+        if ($null -ne $KeepItems) {
+            foreach ($item in @($KeepItems)) {
+                $normalized = $this.ConvertToEntitlement($item)
+                $canonicalDN = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+                $keepGroupDNs += $canonicalDN
+            }
+        }
+
+        # Delegate bulk removal to adapter (adapter handles list + delta + remove loop)
+        $pruneResult = $adapter.PruneGroupMemberships($user.DistinguishedName, $keepGroupDNs, $KeepPatterns)
+        $changed = $pruneResult.Removed.Count -gt 0
+
+        # Map adapter skipped entries to standard IdLE format
+        $skippedItems = @()
+        foreach ($s in @($pruneResult.Skipped)) {
+            $skippedItems += [pscustomobject]@{
+                EntitlementId = [string]$s.GroupDN
+                Reason        = [string]$s.Reason
+            }
+        }
+
+        # EnsureKeepEntitlements: grant any explicit Keep items not yet present
+        if ($EnsureKeepEntitlements -and $null -ne $KeepItems -and @($KeepItems).Count -gt 0) {
+            $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
+            foreach ($item in @($KeepItems)) {
+                $normalized = $this.ConvertToEntitlement($item)
+                $existing = @($currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) })
+                if (@($existing).Count -eq 0) {
+                    $canonicalDN = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+                    $adapter.AddGroupMember($canonicalDN, $user.DistinguishedName)
+                    $changed = $true
+                }
+            }
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'PruneEntitlements'
+            IdentityKey = $IdentityKey
+            Changed     = $changed
+            Skipped     = $skippedItems
+        }
+    } -Force
+
     return $provider
 }

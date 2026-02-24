@@ -551,6 +551,44 @@ Describe 'AD identity provider' {
                 return $groups
             } -Force
 
+            $adapter | Add-Member -MemberType ScriptMethod -Name PruneGroupMemberships -Value {
+                param([string]$UserDN, [string[]]$KeepGroupDNs, [string[]]$KeepPatterns)
+
+                $groups = $this.GetUserGroups($UserDN)
+                $removed = @()
+                $skipped = @()
+
+                foreach ($group in @($groups)) {
+                    $dn   = [string]$group.DistinguishedName
+                    $name = [string]$group.Name
+
+                    $shouldKeep = $false
+                    foreach ($keepDN in @($KeepGroupDNs)) {
+                        if ([string]::Equals($dn, $keepDN, [System.StringComparison]::OrdinalIgnoreCase)) {
+                            $shouldKeep = $true; break
+                        }
+                    }
+                    if (-not $shouldKeep) {
+                        foreach ($pattern in @($KeepPatterns)) {
+                            if ($dn -like $pattern -or $name -like $pattern) {
+                                $shouldKeep = $true; break
+                            }
+                        }
+                    }
+
+                    if (-not $shouldKeep) {
+                        try {
+                            $this.RemoveGroupMember($dn, $UserDN)
+                            $removed += $dn
+                        }
+                        catch {
+                            $skipped += [pscustomobject]@{ GroupDN = $dn; Reason = $_.Exception.Message }
+                        }
+                    }
+                }
+                return [pscustomobject]@{ Removed = $removed; Skipped = $skipped }
+            } -Force
+
             $adapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {
                 param([hashtable]$Filter)
                 
@@ -2025,6 +2063,124 @@ Describe 'AD identity provider' {
             # Verify conversion works
             $secure = ConvertTo-SecureString -String $protectedString
             $secure | Should -BeOfType [securestring]
+        }
+    }
+
+    Context 'PruneEntitlements' {
+        BeforeEach {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+
+            # Create a test user with group memberships
+            $testUser = $adapter.NewUser('PruneUser', @{ SamAccountName = 'pruneuser' }, $true)
+            $script:UserId = $testUser.ObjectGuid.ToString()
+
+            # Seed with groups using GrantEntitlement
+            $provider.GrantEntitlement($script:UserId, @{ Kind = 'Group'; Id = 'CN=G-All,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            $provider.GrantEntitlement($script:UserId, @{ Kind = 'Group'; Id = 'CN=G-HR,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            $provider.GrantEntitlement($script:UserId, @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            $provider.GrantEntitlement($script:UserId, @{ Kind = 'Group'; Id = 'CN=LEAVER-EXTRA,OU=Groups,DC=domain,DC=local' }) | Out-Null
+
+            $script:Provider = $provider
+            $script:PruneAdapter = $adapter
+        }
+
+        It 'Exposes PruneEntitlements as a ScriptMethod' {
+            $p = New-IdleADIdentityProvider -Adapter (New-FakeADAdapter)
+            $p.PSObject.Methods.Name | Should -Contain 'PruneEntitlements'
+        }
+
+        It 'Removes entitlements not in the keep set' {
+            $result = $script:Provider.PruneEntitlements(
+                $script:UserId, 'Group',
+                @(@{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=domain,DC=local' }),
+                $null, $false, $null
+            )
+
+            $result.Changed | Should -BeTrue
+            $remaining = @($script:Provider.ListEntitlements($script:UserId) | Where-Object Kind -eq 'Group')
+            @($remaining).Count | Should -Be 1
+        }
+
+        It 'Keeps entitlements matching KeepPattern (wildcard against DN and Name)' {
+            $result = $script:Provider.PruneEntitlements(
+                $script:UserId, 'Group',
+                $null,
+                @('CN=LEAVER-*,OU=Groups,DC=domain,DC=local'),
+                $false, $null
+            )
+
+            $result.Changed | Should -BeTrue
+            $remaining = @($script:Provider.ListEntitlements($script:UserId) | Where-Object Kind -eq 'Group')
+            @($remaining).Count | Should -Be 2
+            ($remaining | Select-Object -ExpandProperty Id) | Should -Contain 'CN=LEAVER-RETAIN,OU=Groups,DC=domain,DC=local'
+            ($remaining | Select-Object -ExpandProperty Id) | Should -Contain 'CN=LEAVER-EXTRA,OU=Groups,DC=domain,DC=local'
+        }
+
+        It 'Grants missing explicit Keep items when EnsureKeepEntitlements is true' {
+            $newGroupDN = 'CN=LEAVER-NEW,OU=Groups,DC=domain,DC=local'
+            $result = $script:Provider.PruneEntitlements(
+                $script:UserId, 'Group',
+                @(
+                    @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=domain,DC=local' },
+                    @{ Kind = 'Group'; Id = $newGroupDN }
+                ),
+                $null, $true, $null
+            )
+
+            $result.Changed | Should -BeTrue
+            $remaining = @($script:Provider.ListEntitlements($script:UserId) | Where-Object Kind -eq 'Group')
+            ($remaining | Select-Object -ExpandProperty Id) | Should -Contain $newGroupDN
+        }
+
+        It 'Returns structured Skipped entries for non-removable groups' {
+            # Override RemoveGroupMember to throw for one group
+            $script:PruneAdapter | Add-Member -MemberType NoteProperty -Name ProtectedGroupDN -Value 'CN=G-HR,OU=Groups,DC=domain,DC=local' -Force
+            $script:PruneAdapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
+                param([string]$GroupIdentity, [string]$MemberIdentity)
+                if ($GroupIdentity -eq $this.ProtectedGroupDN) {
+                    throw "Cannot remove protected group '$GroupIdentity'."
+                }
+                $user = $null
+                foreach ($key in $this.Store.Keys) {
+                    if ($this.Store[$key].DistinguishedName -eq $MemberIdentity) { $user = $this.Store[$key]; break }
+                }
+                if ($null -ne $user -and $null -ne $user.Groups) {
+                    $user.Groups = @($user.Groups | Where-Object { $_.Id -ne $GroupIdentity })
+                }
+            } -Force
+
+            $result = $script:Provider.PruneEntitlements(
+                $script:UserId, 'Group',
+                @(@{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=domain,DC=local' }),
+                $null, $false, $null
+            )
+
+            $result.Changed | Should -BeTrue
+            $result.Skipped | Should -Not -BeNullOrEmpty
+            $result.Skipped[0].EntitlementId | Should -Be 'CN=G-HR,OU=Groups,DC=domain,DC=local'
+        }
+
+        It 'Throws when Kind is not Group' {
+            {
+                $script:Provider.PruneEntitlements($script:UserId, 'Role', $null, @('LEAVER-*'), $false, $null)
+            } | Should -Throw -ExpectedMessage "*Kind 'Group'*"
+        }
+
+        It 'Is idempotent when all non-keep groups are already removed' {
+            $script:Provider.PruneEntitlements(
+                $script:UserId, 'Group',
+                @(@{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=domain,DC=local' }),
+                $null, $false, $null
+            ) | Out-Null
+
+            $result = $script:Provider.PruneEntitlements(
+                $script:UserId, 'Group',
+                @(@{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=domain,DC=local' }),
+                $null, $false, $null
+            )
+
+            $result.Changed | Should -BeFalse
         }
     }
 }
