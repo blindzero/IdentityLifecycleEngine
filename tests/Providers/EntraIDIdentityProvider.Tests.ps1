@@ -880,7 +880,7 @@ Describe 'EntraID identity provider - Entitlement operations' {
 
             @($results).Count | Should -Be 2
             ($results | Where-Object { $_.Changed -eq $true }).Count | Should -Be 2
-            ($results | Where-Object { $null -ne $_.Error }).Count | Should -Be 0
+            @($results | Where-Object { $null -ne $_.Error }).Count | Should -Be 0
 
             @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g1 }).Count | Should -Be 0
             @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g2 }).Count | Should -Be 0
@@ -915,7 +915,7 @@ Describe 'EntraID identity provider - Entitlement operations' {
 
             @($results).Count | Should -Be 2
             ($results | Where-Object { $_.Changed -eq $true }).Count | Should -Be 2
-            ($results | Where-Object { $null -ne $_.Error }).Count | Should -Be 0
+            @($results | Where-Object { $null -ne $_.Error }).Count | Should -Be 0
 
             @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g1 }).Count | Should -Be 1
             @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g2 }).Count | Should -Be 1
