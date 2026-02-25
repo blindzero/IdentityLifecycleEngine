@@ -368,10 +368,10 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
         }
     }
 
-    Context 'Behavior: step normalizes Keep IDs via provider.NormalizeEntitlementId when available' {
+    Context 'Behavior: step normalizes Keep IDs via provider.ResolveEntitlement when available' {
         It 'normalizes Keep item IDs before comparison so non-canonical IDs are matched correctly' {
             # Build a provider that: returns canonical IDs from ListEntitlements,
-            # normalizes 'short-name' Keep IDs → canonical 'CN=...' form via NormalizeEntitlementId,
+            # normalizes 'short-name' Keep IDs → canonical 'CN=...' form via ResolveEntitlement,
             # and tracks which IDs were passed to RevokeEntitlement.
             $revokedIds = @()
             $mockProvider = [pscustomobject]@{
@@ -388,7 +388,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
                 )
             } -Force
 
-            $mockProvider | Add-Member -MemberType ScriptMethod -Name NormalizeEntitlementId -Value {
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name ResolveEntitlement -Value {
                 param($Kind, $Entitlement, $AuthSession)
                 # Map short sAMAccountName-style IDs to canonical DNs
                 $idMap = @{
@@ -405,12 +405,13 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
                 param($IdentityKey, $Entitlement)
                 $id = if ($Entitlement -is [hashtable]) { $Entitlement['Id'] } else { $Entitlement.Id }
                 $this.RevokedIds += $id
+                return [pscustomobject]@{ Changed = $true }
             } -Force
 
             $script:Context.Providers['Identity'] = $mockProvider
 
             $step = [pscustomobject]@{
-                Name = 'Prune via NormalizeEntitlementId'
+                Name = 'Prune via ResolveEntitlement'
                 Type = 'IdLE.Step.PruneEntitlements'
                 With = @{
                     IdentityKey = 'user1'

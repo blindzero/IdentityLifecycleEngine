@@ -655,7 +655,7 @@ Describe 'EntraID identity provider - Group resolution' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
             $groupGuid = [guid]::NewGuid().ToString()
-            $resolvedId = $provider.NormalizeGroupId($groupGuid, 'fake-token')
+            $resolvedId = $provider.ResolveGroup($groupGuid, 'fake-token')
 
             $resolvedId | Should -Be $groupGuid
         }
@@ -663,14 +663,14 @@ Describe 'EntraID identity provider - Group resolution' {
         It 'Resolves group by displayName' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-            $resolvedId = $provider.NormalizeGroupId('UniqueGroup', 'fake-token')
+            $resolvedId = $provider.ResolveGroup('UniqueGroup', 'fake-token')
             $resolvedId | Should -Be 'resolved-UniqueGroup'
         }
 
         It 'Throws when multiple groups match displayName' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-            { $provider.NormalizeGroupId('AmbiguousGroup', 'fake-token') } | Should -Throw '*Multiple groups found*'
+            { $provider.ResolveGroup('AmbiguousGroup', 'fake-token') } | Should -Throw '*Multiple groups found*'
         }
     }
 }
@@ -1247,20 +1247,20 @@ Describe 'EntraID identity provider - Password generation' {
     }
 }
 
-Describe 'EntraID identity provider - NormalizeEntitlementId' {
+Describe 'EntraID identity provider - ResolveEntitlement' {
     BeforeAll {
         . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
         Import-IdleTestModule
     }
 
-    Context 'Exposes NormalizeEntitlementId' {
-        It 'Provider exposes NormalizeEntitlementId as a ScriptMethod' {
+    Context 'Exposes ResolveEntitlement' {
+        It 'Provider exposes ResolveEntitlement as a ScriptMethod' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter ([pscustomobject]@{})
-            $provider.PSObject.Methods.Name | Should -Contain 'NormalizeEntitlementId'
+            $provider.PSObject.Methods.Name | Should -Contain 'ResolveEntitlement'
         }
     }
 
-    Context 'NormalizeEntitlementId behavior' {
+    Context 'ResolveEntitlement behavior' {
         BeforeAll {
             # Fake adapter that returns canonical objectId for groups (mimics real Graph lookup)
             $fakeAdapter = [pscustomobject]@{ PSTypeName = 'IdLE.EntraIDAdapter.Fake'; Store = @{} }
@@ -1278,21 +1278,21 @@ Describe 'EntraID identity provider - NormalizeEntitlementId' {
         It 'Normalizes a Group entitlement with a GUID Id to canonical objectId' {
             $groupGuid = [guid]::NewGuid().ToString()
             $ent = @{ Kind = 'Group'; Id = $groupGuid }
-            $result = $script:NormProvider.NormalizeEntitlementId('Group', $ent, 'fake-token')
+            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'fake-token')
             $result.Kind | Should -Be 'Group'
             $result.Id   | Should -Be $groupGuid
         }
 
         It 'Normalizes a Group entitlement with a displayName to canonical objectId' {
             $ent = @{ Kind = 'Group'; Id = 'HR Team' }
-            $result = $script:NormProvider.NormalizeEntitlementId('Group', $ent, 'fake-token')
+            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'fake-token')
             $result.Kind | Should -Be 'Group'
             $result.Id   | Should -Be 'resolved-HR Team'
         }
 
         It 'Returns entitlement unchanged when Kind is not Group' {
             $ent = [pscustomobject]@{ Kind = 'License'; Id = 'Some-License-Id' }
-            $result = $script:NormProvider.NormalizeEntitlementId('License', $ent, 'fake-token')
+            $result = $script:NormProvider.ResolveEntitlement('License', $ent, 'fake-token')
             $result.Kind | Should -Be 'License'
             $result.Id   | Should -Be 'Some-License-Id'
         }

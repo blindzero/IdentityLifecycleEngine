@@ -252,7 +252,7 @@ function New-IdleEntraIDIdentityProvider {
         throw "Identity key '$IdentityKey' is not in a recognized format (objectId GUID, UPN, or mail)."
     }
 
-    $normalizeGroupId = {
+    $resolveGroup = {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
@@ -295,7 +295,7 @@ function New-IdleEntraIDIdentityProvider {
     $provider | Add-Member -MemberType ScriptMethod -Name ConvertToEntitlement -Value $convertToEntitlement -Force
     $provider | Add-Member -MemberType ScriptMethod -Name TestEntitlementEquals -Value $testEntitlementEquals -Force
     $provider | Add-Member -MemberType ScriptMethod -Name ResolveIdentity -Value $resolveIdentity -Force
-    $provider | Add-Member -MemberType ScriptMethod -Name NormalizeGroupId -Value $normalizeGroupId -Force
+    $provider | Add-Member -MemberType ScriptMethod -Name ResolveGroup -Value $resolveGroup -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
         $caps = @(
@@ -870,7 +870,7 @@ function New-IdleEntraIDIdentityProvider {
         }
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
-        $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+        $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
 
         # Update normalized entitlement with canonical group ID
         $normalized.Id = $groupObjectId
@@ -917,7 +917,7 @@ function New-IdleEntraIDIdentityProvider {
             $normalized.Kind = 'Group'
         }
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
-        $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+        $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
 
         # Update normalized entitlement with canonical group ID
         $normalized.Id = $groupObjectId
@@ -960,7 +960,8 @@ function New-IdleEntraIDIdentityProvider {
                     "BulkRevokeEntitlements only supports entitlements with Kind 'Group'. Received Kind '$($normalized.Kind)'."
                 )
             }
-            $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+            $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
+            $normalized.Id = $groupObjectId
             $operations += @{
                 RequestId     = [guid]::NewGuid().ToString('N').Substring(0, 8)
                 GroupObjectId = $groupObjectId
@@ -1017,7 +1018,7 @@ function New-IdleEntraIDIdentityProvider {
                     "BulkGrantEntitlements only supports entitlements with Kind 'Group'. Received Kind '$($normalized.Kind)'."
                 )
             }
-            $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+            $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
             $normalized.Id = $groupObjectId
             $operations += @{
                 RequestId     = [guid]::NewGuid().ToString('N').Substring(0, 8)
@@ -1049,10 +1050,11 @@ function New-IdleEntraIDIdentityProvider {
         return $results
     } -Force
 
-    $provider | Add-Member -MemberType ScriptMethod -Name NormalizeEntitlementId -Value {
+    $provider | Add-Member -MemberType ScriptMethod -Name ResolveEntitlement -Value {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Kind', Justification = 'Contract parameter; Kind is validated against the entitlement object and reserved for future multi-Kind support.')]
             [string] $Kind,
 
             [Parameter(Mandatory)]
@@ -1068,7 +1070,7 @@ function New-IdleEntraIDIdentityProvider {
 
         # Entra ID only supports Group entitlements; normalize to canonical objectId
         if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
-            $canonicalId = $this.NormalizeGroupId($converted.Id, $AuthSession)
+            $canonicalId = $this.ResolveGroup($converted.Id, $AuthSession)
             return [pscustomobject]@{
                 PSTypeName  = 'IdLE.Entitlement'
                 Kind        = $converted.Kind

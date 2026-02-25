@@ -230,7 +230,7 @@ function New-IdleADIdentityProvider {
         throw "Identity with sAMAccountName '$IdentityKey' not found."
     }
 
-    $normalizeGroupId = {
+    $resolveGroup = {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
@@ -340,7 +340,7 @@ function New-IdleADIdentityProvider {
     $provider | Add-Member -MemberType ScriptMethod -Name ConvertToEntitlement -Value $convertToEntitlement -Force
     $provider | Add-Member -MemberType ScriptMethod -Name TestEntitlementEquals -Value $testEntitlementEquals -Force
     $provider | Add-Member -MemberType ScriptMethod -Name ResolveIdentity -Value $resolveIdentity -Force
-    $provider | Add-Member -MemberType ScriptMethod -Name NormalizeGroupId -Value $normalizeGroupId -Force
+    $provider | Add-Member -MemberType ScriptMethod -Name ResolveGroup -Value $resolveGroup -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
         $caps = @(
@@ -805,7 +805,7 @@ function New-IdleADIdentityProvider {
         $normalized = $this.ConvertToEntitlement($Entitlement)
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
-        $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+        $groupDn = $this.ResolveGroup($normalized.Id, $AuthSession)
 
         $changed = [bool]$adapter.AddGroupMember($groupDn, $user.DistinguishedName)
 
@@ -838,7 +838,7 @@ function New-IdleADIdentityProvider {
         $normalized = $this.ConvertToEntitlement($Entitlement)
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
-        $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+        $groupDn = $this.ResolveGroup($normalized.Id, $AuthSession)
 
         $changed = [bool]$adapter.RemoveGroupMember($groupDn, $user.DistinguishedName)
 
@@ -851,10 +851,11 @@ function New-IdleADIdentityProvider {
         }
     } -Force
 
-    $provider | Add-Member -MemberType ScriptMethod -Name NormalizeEntitlementId -Value {
+    $provider | Add-Member -MemberType ScriptMethod -Name ResolveEntitlement -Value {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Kind', Justification = 'Contract parameter; Kind is validated against the entitlement object and reserved for future multi-Kind support.')]
             [string] $Kind,
 
             [Parameter(Mandatory)]
@@ -870,7 +871,7 @@ function New-IdleADIdentityProvider {
 
         # AD only supports Group entitlements; normalize to canonical DN
         if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
-            $canonicalId = $this.NormalizeGroupId($converted.Id, $AuthSession)
+            $canonicalId = $this.ResolveGroup($converted.Id, $AuthSession)
             return [pscustomobject]@{
                 PSTypeName  = 'IdLE.Entitlement'
                 Kind        = $converted.Kind

@@ -66,90 +66,6 @@ function Invoke-IdleStepPruneEntitlements {
         [object] $Step
     )
 
-    function ConvertTo-IdleStepPruneEntitlement {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Value,
-
-            [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $DefaultKind
-        )
-
-        $kind = $null
-        $id = $null
-        $displayName = $null
-
-        if ($Value -is [System.Collections.IDictionary]) {
-            if ($Value.Contains('Kind')) { $kind = $Value['Kind'] }
-            if ($Value.Contains('Id')) { $id = $Value['Id'] }
-            if ($Value.Contains('DisplayName')) { $displayName = $Value['DisplayName'] }
-        }
-        else {
-            $props = $Value.PSObject.Properties
-            if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
-            if ($props.Name -contains 'Id') { $id = $Value.Id }
-            if ($props.Name -contains 'DisplayName') { $displayName = $Value.DisplayName }
-        }
-
-        if ([string]::IsNullOrWhiteSpace([string]$kind)) {
-            $kind = $DefaultKind
-        }
-
-        if ([string]::IsNullOrWhiteSpace([string]$id)) {
-            throw "PruneEntitlements: each Keep entry requires an Id."
-        }
-
-        $normalized = [ordered]@{
-            Kind = [string]$kind
-            Id   = [string]$id
-        }
-
-        if ($null -ne $displayName -and -not [string]::IsNullOrWhiteSpace([string]$displayName)) {
-            $normalized['DisplayName'] = [string]$displayName
-        }
-
-        return [pscustomobject]$normalized
-    }
-
-    function Test-IdleStepPruneEntitlementShouldKeep {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Ent,
-
-            [Parameter(Mandatory)]
-            [AllowNull()]
-            [AllowEmptyCollection()]
-            [object[]] $KeepItems,
-
-            [Parameter(Mandatory)]
-            [AllowNull()]
-            [AllowEmptyCollection()]
-            [string[]] $KeepPatterns
-        )
-
-        # Check explicit Keep items (case-insensitive Id match)
-        foreach ($k in $KeepItems) {
-            if ([string]::Equals([string]$Ent.Id, [string]$k.Id, [System.StringComparison]::OrdinalIgnoreCase)) {
-                return $true
-            }
-        }
-
-        # Check KeepPattern (wildcard -like against Id and DisplayName)
-        foreach ($pattern in $KeepPatterns) {
-            if ([string]$Ent.Id -like $pattern) { return $true }
-            if ($Ent.PSObject.Properties.Name -contains 'DisplayName' -and
-                $null -ne $Ent.DisplayName -and
-                [string]$Ent.DisplayName -like $pattern) { return $true }
-        }
-
-        return $false
-    }
-
     $with = $Step.With
     if ($null -eq $with -or -not ($with -is [hashtable])) {
         throw "PruneEntitlements requires 'With' to be a hashtable."
@@ -180,7 +96,7 @@ function Invoke-IdleStepPruneEntitlements {
             if ($item -is [scriptblock]) {
                 throw "PruneEntitlements: Keep entries must not contain ScriptBlocks."
             }
-            $keepItems += ConvertTo-IdleStepPruneEntitlement -Value $item -DefaultKind $kind
+            $keepItems += ConvertTo-IdlePruneEntitlement -Value $item -DefaultKind $kind
         }
     }
 
@@ -250,13 +166,13 @@ function Invoke-IdleStepPruneEntitlements {
     # This ensures correct comparison with the canonical IDs returned by ListEntitlements.
     # Each provider handles its own ID-type detection (e.g., GUID/DN/sAMAccountName for AD;
     # objectId/displayName for Entra ID).
-    if ($keepItems.Count -gt 0 -and $provider.PSObject.Methods.Name -contains 'NormalizeEntitlementId') {
-        $normalizeSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['NormalizeEntitlementId'] -ParameterName 'AuthSession'
+    if ($keepItems.Count -gt 0 -and $provider.PSObject.Methods.Name -contains 'ResolveEntitlement') {
+        $resolveSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ResolveEntitlement'] -ParameterName 'AuthSession'
         $keepItems = @($keepItems | ForEach-Object {
-            if ($normalizeSupportsAuthSession -and $null -ne $authSession) {
-                $provider.NormalizeEntitlementId($kind, $_, $authSession)
+            if ($resolveSupportsAuthSession -and $null -ne $authSession) {
+                $provider.ResolveEntitlement($kind, $_, $authSession)
             } else {
-                $provider.NormalizeEntitlementId($kind, $_)
+                $provider.ResolveEntitlement($kind, $_)
             }
         })
     }
@@ -295,7 +211,7 @@ function Invoke-IdleStepPruneEntitlements {
     $toRemove = @()
 
     foreach ($ent in $current) {
-        if (Test-IdleStepPruneEntitlementShouldKeep -Ent $ent -KeepItems $keepItems -KeepPatterns $keepPatterns) {
+        if (Test-IdlePruneEntitlementShouldKeep -Ent $ent -KeepItems $keepItems -KeepPatterns $keepPatterns) {
             $toKeep += $ent
         } else {
             $toRemove += $ent
@@ -407,13 +323,28 @@ function Invoke-IdleStepPruneEntitlements {
             }
 
             foreach ($br in $bulkResults) {
-                if ($br.Changed) { $changed = $true }
-                if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
-                    $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                    $Context.EventSink.WriteEvent('Information', "PruneEntitlements: granted keep entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
-                        Kind          = $kind
+                if ($br.Error) {
+                    $skippedItems += [pscustomobject]@{
                         EntitlementId = [string]$br.Entitlement.Id
-                    })
+                        Reason        = [string]$br.Error
+                    }
+                    if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                        $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                        $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: failed to grant keep entitlement '$($br.Entitlement.Id)': $($br.Error)", $Step.Name, @{
+                            Kind          = $kind
+                            EntitlementId = [string]$br.Entitlement.Id
+                            Reason        = [string]$br.Error
+                        })
+                    }
+                } else {
+                    if ($br.Changed) { $changed = $true }
+                    if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                        $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                        $Context.EventSink.WriteEvent('Information', "PruneEntitlements: granted keep entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
+                            Kind          = $kind
+                            EntitlementId = [string]$br.Entitlement.Id
+                        })
+                    }
                 }
             }
         } else {

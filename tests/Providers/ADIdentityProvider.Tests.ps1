@@ -2032,26 +2032,26 @@ Describe 'AD identity provider' {
         }
     }
 
-    Context 'NormalizeEntitlementId' {
+    Context 'ResolveEntitlement' {
         BeforeAll {
             $adapter = New-FakeADAdapter
             $script:NormProvider = New-IdleADIdentityProvider -Adapter $adapter
         }
 
-        It 'Exposes NormalizeEntitlementId as a ScriptMethod' {
-            $script:NormProvider.PSObject.Methods.Name | Should -Contain 'NormalizeEntitlementId'
+        It 'Exposes ResolveEntitlement as a ScriptMethod' {
+            $script:NormProvider.PSObject.Methods.Name | Should -Contain 'ResolveEntitlement'
         }
 
         It 'Normalizes a Group entitlement with a DN Id to canonical DN' {
             $ent = @{ Kind = 'Group'; Id = 'CN=TestGroup,OU=Groups,DC=domain,DC=local' }
-            $result = $script:NormProvider.NormalizeEntitlementId('Group', $ent, $null)
+            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, $null)
             $result.Kind | Should -Be 'Group'
             $result.Id   | Should -Be 'CN=TestGroup,OU=Groups,DC=domain,DC=local'
         }
 
         It 'Returns entitlement unchanged when Kind is not Group' {
             $ent = [pscustomobject]@{ Kind = 'License'; Id = 'Some-License-Id' }
-            $result = $script:NormProvider.NormalizeEntitlementId('License', $ent, $null)
+            $result = $script:NormProvider.ResolveEntitlement('License', $ent, $null)
             $result.Kind | Should -Be 'License'
             $result.Id   | Should -Be 'Some-License-Id'
         }
