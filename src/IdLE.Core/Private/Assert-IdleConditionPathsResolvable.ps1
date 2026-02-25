@@ -23,6 +23,7 @@ function Assert-IdleConditionPathsResolvable {
     function Add-IdlePathIfPresent {
         param(
             [Parameter(Mandatory)]
+            [AllowEmptyCollection()]
             [System.Collections.Generic.List[string]] $PathList,
 
             [Parameter(Mandatory)]
@@ -52,6 +53,7 @@ function Assert-IdleConditionPathsResolvable {
             [System.Collections.IDictionary] $Node,
 
             [Parameter(Mandatory)]
+            [AllowEmptyCollection()]
             [System.Collections.Generic.List[string]] $PathList
         )
 
@@ -112,12 +114,23 @@ function Assert-IdleConditionPathsResolvable {
     $paths = [System.Collections.Generic.List[string]]::new()
     Get-IdleConditionPaths -Node $Condition -PathList $paths
 
-    foreach ($path in @($paths | Select-Object -Unique)) {
+    $uniquePaths = @($paths | Select-Object -Unique)
+    if ($uniquePaths.Count -eq 0) {
+        return
+    }
+
+    $missingPaths = @()
+    foreach ($path in $uniquePaths) {
         if (-not (Test-IdlePathExists -Object $Context -Path $path)) {
-            throw [System.ArgumentException]::new(
-                ("Workflow step '{0}' references path '{1}' in {2}, but the path does not exist in the current planning context. Check Request/Plan structure or ContextResolvers outputs." -f $StepName, $path, $Source),
-                'Workflow'
-            )
+            $missingPaths += $path
         }
+    }
+
+    if ($missingPaths.Count -gt 0) {
+        $missingPathList = [string]::Join(', ', $missingPaths)
+        throw [System.ArgumentException]::new(
+            ("Workflow step '{0}' has unresolved condition path(s) in {1}: [{2}]. Check Request/Plan structure or ContextResolvers outputs." -f $StepName, $Source, $missingPathList),
+            'Workflow'
+        )
     }
 }

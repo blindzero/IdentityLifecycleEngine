@@ -42,5 +42,23 @@ Describe 'Assert-IdleConditionPathsResolvable' {
                 Assert-IdleConditionPathsResolvable -Condition $condition -Context $context -StepName 'CheckPaths' -Source 'Condition'
             } | Should -Throw
         }
+
+        It 'reports unresolved paths in one clear error message with step/source context' {
+            $condition = @{
+                All = @(
+                    @{ Exists = 'Request.Context.OffboardingDate' }
+                    @{ Exists = 'Request.Context.Manager' }
+                )
+            }
+
+            $context = @{
+                Plan    = @{ LifecycleEvent = 'Joiner' }
+                Request = @{ Intent = @{ OffboardingDate = '2026-02-30' }; Context = @{}; IdentityKeys = @{} }
+            }
+
+            {
+                Assert-IdleConditionPathsResolvable -Condition $condition -Context $context -StepName 'RegionCheck' -Source 'Preconditions[0]'
+            } | Should -Throw "*Workflow step 'RegionCheck' has unresolved condition path(s) in Preconditions[0]:*Request.Context.OffboardingDate*Request.Context.Manager*"
+        }
     }
 }
