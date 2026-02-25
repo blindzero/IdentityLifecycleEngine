@@ -129,7 +129,7 @@ function Test-IdleWorkflowSchema {
                 $ErrorList.Add("'$StepPath.Condition' must be a hashtable (declarative condition object).")
             }
             else {
-                foreach ($schemaError in (Test-IdleConditionSchema -Condition ([hashtable]$Step.Condition) -StepName $StepPath)) {
+                foreach ($schemaError in (Test-IdleConditionSchema -Condition ([hashtable]$Step.Condition) -StepName $null)) {
                     $ErrorList.Add("'$StepPath.Condition' has invalid condition schema: $schemaError")
                 }
             }
@@ -154,7 +154,9 @@ function Test-IdleWorkflowSchema {
             [System.Collections.Generic.List[string]] $ErrorList
         )
 
-        if ($StepCollection -isnot [System.Collections.IEnumerable] -or $StepCollection -is [string]) {
+        if ($StepCollection -isnot [System.Collections.IEnumerable] -or
+            $StepCollection -is [string] -or
+            $StepCollection -is [System.Collections.IDictionary]) {
             $ErrorList.Add("'$CollectionName' must be an array/list of step hashtables.")
             return
         }
