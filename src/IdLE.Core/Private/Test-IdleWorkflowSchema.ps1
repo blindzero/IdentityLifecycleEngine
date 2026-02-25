@@ -23,7 +23,7 @@ function Test-IdleWorkflowSchema {
             [System.Collections.Generic.List[string]] $ErrorList
         )
 
-        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RetryProfile', 'Preconditions', 'OnPreconditionFalse', 'PreconditionEvent')
+        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RetryProfile', 'Preconditions', 'Precondition', 'OnPreconditionFalse', 'PreconditionEvent')
         foreach ($k in $Step.Keys) {
             if ($allowedStepKeys -notcontains $k) {
                 $ErrorList.Add("Unknown key '$k' in $StepPath. Allowed keys: $($allowedStepKeys -join ', ').")
@@ -72,7 +72,14 @@ function Test-IdleWorkflowSchema {
             [System.Collections.Generic.List[string]] $ErrorList
         )
 
-        if ($Step.ContainsKey('Preconditions') -and $null -ne $Step.Preconditions) {
+        $hasPreconditions = $Step.ContainsKey('Preconditions') -and $null -ne $Step.Preconditions
+        $hasPrecondition = $Step.ContainsKey('Precondition') -and $null -ne $Step.Precondition
+
+        if ($hasPreconditions -and $hasPrecondition) {
+            $ErrorList.Add("'$StepPath' must not define both 'Preconditions' and deprecated alias 'Precondition'. Use only 'Preconditions'.")
+        }
+
+        if ($hasPreconditions) {
             if ($Step.Preconditions -is [string] -or
                 $Step.Preconditions -is [System.Collections.IDictionary] -or
                 -not ($Step.Preconditions -is [System.Collections.IEnumerable])) {
@@ -92,6 +99,17 @@ function Test-IdleWorkflowSchema {
                     }
 
                     $pcIdx++
+                }
+            }
+        }
+
+        if ($hasPrecondition) {
+            if ($Step.Precondition -isnot [System.Collections.IDictionary]) {
+                $ErrorList.Add("'$StepPath.Precondition' must be a hashtable (condition node). Use 'Preconditions' for the canonical array form.")
+            }
+            else {
+                foreach ($schemaError in (Test-IdleConditionSchema -Condition ([hashtable]$Step.Precondition) -StepName $StepPath)) {
+                    $ErrorList.Add("'$StepPath.Precondition' has invalid condition schema: $schemaError")
                 }
             }
         }

@@ -63,6 +63,43 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
             @($errors | Where-Object { $_ -like "*Steps[0].Preconditions[0]*invalid condition schema*" }).Count | Should -BeGreaterThan 0
         }
 
+
+        It 'accepts deprecated singular Precondition alias with the same condition DSL' {
+            $workflow = @{
+                Name           = 'Singular Precondition Alias'
+                LifecycleEvent = 'Joiner'
+                Steps          = @(
+                    @{
+                        Name         = 'SingularAlias'
+                        Type         = 'IdLE.Step.Noop'
+                        Precondition = @{ Exists = 'Request.IdentityKeys.EmployeeId' }
+                    }
+                )
+            }
+
+            $errors = Test-IdleWorkflowSchema -Workflow $workflow
+            $errors.Count | Should -Be 0
+        }
+
+        It 'rejects defining both Preconditions and Precondition on the same step' {
+            $workflow = @{
+                Name           = 'Conflicting Precondition Keys'
+                LifecycleEvent = 'Joiner'
+                Steps          = @(
+                    @{
+                        Name          = 'ConflictingKeys'
+                        Type          = 'IdLE.Step.Noop'
+                        Precondition  = @{ Exists = 'Request.IdentityKeys.EmployeeId' }
+                        Preconditions = @(
+                            @{ Exists = 'Request.IdentityKeys.EmployeeId' }
+                        )
+                    }
+                )
+            }
+
+            $errors = Test-IdleWorkflowSchema -Workflow $workflow
+            @($errors | Where-Object { $_ -like "*must not define both 'Preconditions' and deprecated alias 'Precondition'*" }).Count | Should -BeGreaterThan 0
+        }
         It 'accepts valid preconditions using the same condition DSL' {
             $workflow = @{
                 Name           = 'Precondition Validation'

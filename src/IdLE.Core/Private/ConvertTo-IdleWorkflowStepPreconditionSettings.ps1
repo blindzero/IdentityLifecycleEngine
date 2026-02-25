@@ -20,33 +20,77 @@ function ConvertTo-IdleWorkflowStepPreconditionSettings {
 
     # Runtime Preconditions: evaluated at execution time (not planning time).
     # Each precondition uses the same declarative condition DSL as Condition.
-    if (Test-IdleWorkflowStepKey -Step $Step -Key 'Preconditions') {
-        $rawPreconditions = Get-IdlePropertyValue -Object $Step -Name 'Preconditions'
-        if ($null -ne $rawPreconditions) {
-            $pcList = @($rawPreconditions)
-            for ($pcIdx = 0; $pcIdx -lt $pcList.Count; $pcIdx++) {
-                $pc = $pcList[$pcIdx]
-                if ($pc -isnot [System.Collections.IDictionary]) {
-                    throw [System.ArgumentException]::new(
-                        ("Workflow step '{0}': Preconditions[{1}] must be a hashtable (condition node)." -f $StepName, $pcIdx),
-                        'Workflow'
-                    )
-                }
+    $hasPreconditions = Test-IdleWorkflowStepKey -Step $Step -Key 'Preconditions'
+    $hasPrecondition = Test-IdleWorkflowStepKey -Step $Step -Key 'Precondition'
 
-                $pcErrors = Test-IdleConditionSchema -Condition ([hashtable]$pc) -StepName $StepName
-                if (@($pcErrors).Count -gt 0) {
-                    throw [System.ArgumentException]::new(
-                        ("Invalid Preconditions[{0}] on step '{1}': {2}" -f $pcIdx, $StepName, ([string]::Join(' ', @($pcErrors)))),
-                        'Workflow'
-                    )
-                }
+    $rawPreconditions = if ($hasPreconditions) {
+        Get-IdlePropertyValue -Object $Step -Name 'Preconditions'
+    }
+    else {
+        $null
+    }
+
+    $rawPrecondition = if ($hasPrecondition) {
+        Get-IdlePropertyValue -Object $Step -Name 'Precondition'
+    }
+    else {
+        $null
+    }
+
+    $hasPreconditionsValue = $null -ne $rawPreconditions
+    $hasPreconditionValue = $null -ne $rawPrecondition
+
+    if ($hasPreconditionsValue -and $hasPreconditionValue) {
+        throw [System.ArgumentException]::new(
+            ("Workflow step '{0}' must not define both 'Preconditions' and deprecated alias 'Precondition'. Use only 'Preconditions'." -f $StepName),
+            'Workflow'
+        )
+    }
+
+    if ($hasPreconditionsValue) {
+        $pcList = @($rawPreconditions)
+        for ($pcIdx = 0; $pcIdx -lt $pcList.Count; $pcIdx++) {
+            $pc = $pcList[$pcIdx]
+            if ($pc -isnot [System.Collections.IDictionary]) {
+                throw [System.ArgumentException]::new(
+                    ("Workflow step '{0}': Preconditions[{1}] must be a hashtable (condition node)." -f $StepName, $pcIdx),
+                    'Workflow'
+                )
             }
 
-            $normalized.Preconditions = @()
-            foreach ($pc in $pcList) {
-                $normalized.Preconditions += Copy-IdleDataObject -Value $pc
+            $pcErrors = Test-IdleConditionSchema -Condition ([hashtable]$pc) -StepName $StepName
+            if (@($pcErrors).Count -gt 0) {
+                throw [System.ArgumentException]::new(
+                    ("Invalid Preconditions[{0}] on step '{1}': {2}" -f $pcIdx, $StepName, ([string]::Join(' ', @($pcErrors)))),
+                    'Workflow'
+                )
             }
         }
+
+        $normalized.Preconditions = @()
+        foreach ($pc in $pcList) {
+            $normalized.Preconditions += Copy-IdleDataObject -Value $pc
+        }
+    }
+    elseif ($hasPreconditionValue) {
+        if ($rawPrecondition -isnot [System.Collections.IDictionary]) {
+            throw [System.ArgumentException]::new(
+                ("Workflow step '{0}': Precondition must be a hashtable (condition node). Use 'Preconditions' for the canonical array form." -f $StepName),
+                'Workflow'
+            )
+        }
+
+        $pcErrors = Test-IdleConditionSchema -Condition ([hashtable]$rawPrecondition) -StepName $StepName
+        if (@($pcErrors).Count -gt 0) {
+            throw [System.ArgumentException]::new(
+                ("Invalid Precondition on step '{0}': {1}" -f $StepName, ([string]::Join(' ', @($pcErrors)))),
+                'Workflow'
+            )
+        }
+
+        $normalized.Preconditions = @(
+            Copy-IdleDataObject -Value $rawPrecondition
+        )
     }
 
     if (Test-IdleWorkflowStepKey -Step $Step -Key 'OnPreconditionFalse') {

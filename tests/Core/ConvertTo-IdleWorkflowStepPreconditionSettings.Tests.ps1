@@ -44,6 +44,32 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
             $result.PreconditionEvent.Data.Ticket | Should -Be 'INC-1234'
         }
 
+
+        It 'normalizes deprecated singular Precondition alias to Preconditions array' {
+            $step = @{
+                Name         = 'SingularAlias'
+                Type         = 'IdLE.Step.Noop'
+                Precondition = @{ Exists = 'Request.IdentityKeys.EmployeeId' }
+            }
+
+            $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'SingularAlias'
+
+            $result.Preconditions.Count | Should -Be 1
+            $result.Preconditions[0].Exists | Should -Be 'Request.IdentityKeys.EmployeeId'
+        }
+
+        It 'throws when both Preconditions and Precondition are defined' {
+            $step = @{
+                Name          = 'ConflictingKeys'
+                Type          = 'IdLE.Step.Noop'
+                Precondition  = @{ Exists = 'Request.IdentityKeys.EmployeeId' }
+                Preconditions = @(
+                    @{ Exists = 'Request.IdentityKeys.EmployeeId' }
+                )
+            }
+
+            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'ConflictingKeys' } | Should -Throw
+        }
         It 'throws when OnPreconditionFalse has an invalid value' {
             $step = @{
                 Name                = 'InvalidPolicy'

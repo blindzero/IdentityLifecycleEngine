@@ -43,6 +43,8 @@ Add these optional properties to a workflow step definition:
 | `OnPreconditionFalse` | `String` | No | Behavior when a precondition fails. `Blocked` (default), `Fail`, or `Continue`. |
 | `PreconditionEvent` | `Hashtable` | No | Structured event emitted when a precondition fails. |
 
+`Precondition` (singular) is accepted as a deprecated alias for one condition node. Do not define both `Precondition` and `Preconditions` on the same step; use `Preconditions` for new workflows.
+
 ### PreconditionEvent schema
 
 | Key | Type | Required | Description |
