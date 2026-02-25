@@ -17,7 +17,10 @@ function Assert-IdleConditionPathsResolvable {
 
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string] $Source
+        [string] $Source,
+
+        [Parameter()]
+        [switch] $AllowMissingRequestContextPaths
     )
 
     function Add-IdlePathIfPresent {
@@ -122,6 +125,9 @@ function Assert-IdleConditionPathsResolvable {
     $missingPaths = @()
     foreach ($path in $uniquePaths) {
         if (-not (Test-IdlePathExists -Object $Context -Path $path)) {
+            if ($AllowMissingRequestContextPaths -and $path.StartsWith('Request.Context.')) {
+                continue
+            }
             $missingPaths += $path
         }
     }

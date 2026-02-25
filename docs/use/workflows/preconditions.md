@@ -124,7 +124,7 @@ Paths are resolved against the **execution-time context**, which includes:
 A leading `context.` prefix is ignored for readability (e.g. `context.Request.Intent.Department`
 resolves identically to `Request.Intent.Department`).
 
-At planning time, IdLE validates that every `Path` referenced by `Condition`/`Precondition` is resolvable in the current planning context. This enables fail-fast detection for typos or wrong roots (for example `Request.Context.OffboardingDate` vs `Request.Intent.OffboardingDate`).
+At planning time, IdLE validates `Path` references to fail fast on typos and wrong roots. For `Precondition`, unresolved paths under `Request.Context.*` are treated as soft (non-fatal) to support context enrichment that may arrive later at runtime (for example via host/runtime context resolver behavior). Other unresolved roots still fail fast.
 
 ---
 

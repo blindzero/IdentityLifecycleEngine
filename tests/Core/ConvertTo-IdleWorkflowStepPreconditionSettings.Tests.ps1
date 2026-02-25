@@ -44,7 +44,7 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
             $result.PreconditionEvent.Data.Ticket | Should -Be 'INC-1234'
         }
 
-        It 'throws when precondition path does not exist in planning context' {
+        It 'does not throw when precondition uses unresolved Request.Context path in planning context' {
             $step = @{
                 Name         = 'MissingPath'
                 Type         = 'IdLE.Step.Noop'
@@ -52,7 +52,18 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
             }
 
             $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
-            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'MissingPath' -PlanningContext $planningContext } | Should -Throw
+            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'MissingPath' -PlanningContext $planningContext } | Should -Not -Throw
+        }
+
+        It 'throws when precondition uses unresolved non-context path in planning context' {
+            $step = @{
+                Name         = 'MissingIntentPath'
+                Type         = 'IdLE.Step.Noop'
+                Precondition = @{ Exists = 'Request.Intent.OffboardingDate' }
+            }
+
+            $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
+            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'MissingIntentPath' -PlanningContext $planningContext } | Should -Throw
         }
 
         It 'throws when OnPreconditionFalse has an invalid value' {
