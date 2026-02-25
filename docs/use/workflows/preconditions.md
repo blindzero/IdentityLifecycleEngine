@@ -125,6 +125,8 @@ A leading `context.` prefix is ignored for readability (e.g. `context.Request.In
 resolves identically to `Request.Intent.Department`).
 
 At planning time, IdLE validates `Path` references to fail fast on typos and wrong roots. For `Precondition`, unresolved paths under `Request.Context.*` are treated as soft (non-fatal) to support context enrichment that may arrive later at runtime (for example via host/runtime context resolver behavior). Other unresolved roots still fail fast.
+When this soft-check path is used, IdLE records a planning warning (`PreconditionContextPathUnresolvedAtPlan`) in `Plan.Warnings`, and the warning is included in `Export-IdlePlan` output for CI policy checks.
+
 
 ---
 

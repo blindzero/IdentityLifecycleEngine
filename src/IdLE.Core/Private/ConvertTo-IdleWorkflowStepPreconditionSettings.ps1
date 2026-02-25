@@ -42,7 +42,7 @@ function ConvertTo-IdleWorkflowStepPreconditionSettings {
                 )
             }
 
-            Assert-IdleConditionPathsResolvable -Condition ([hashtable]$rawPrecondition) -Context $PlanningContext -StepName $StepName -Source 'Precondition' -AllowMissingRequestContextPaths
+            Assert-IdleConditionPathsResolvable -Condition ([hashtable]$rawPrecondition) -Context $PlanningContext -StepName $StepName -Source 'Precondition' -AllowMissingRequestContextPaths -WarningSink (Get-IdlePropertyValue -Object $PlanningContext.Plan -Name 'Warnings')
             $normalized.Precondition = Copy-IdleDataObject -Value $rawPrecondition
         }
     }

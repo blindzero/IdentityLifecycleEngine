@@ -20,7 +20,11 @@ function Assert-IdleConditionPathsResolvable {
         [string] $Source,
 
         [Parameter()]
-        [switch] $AllowMissingRequestContextPaths
+        [switch] $AllowMissingRequestContextPaths,
+
+        [Parameter()]
+        [AllowNull()]
+        [object] $WarningSink
     )
 
     function Add-IdlePathIfPresent {
@@ -123,12 +127,33 @@ function Assert-IdleConditionPathsResolvable {
     }
 
     $missingPaths = @()
+    $softMissingContextPaths = @()
     foreach ($path in $uniquePaths) {
         if (-not (Test-IdlePathExists -Object $Context -Path $path)) {
             if ($AllowMissingRequestContextPaths -and $path.StartsWith('Request.Context.')) {
+                $softMissingContextPaths += $path
                 continue
             }
             $missingPaths += $path
+        }
+    }
+
+    if ($softMissingContextPaths.Count -gt 0 -and $null -ne $WarningSink) {
+        $warningItem = [ordered]@{
+            Code    = 'PreconditionContextPathUnresolvedAtPlan'
+            Type    = 'Warning'
+            Step    = $StepName
+            Source  = $Source
+            Paths   = @($softMissingContextPaths | Select-Object -Unique)
+            Message = ("Workflow step '{0}' references Request.Context path(s) in {1} that are not yet available at planning time: [{2}]. Evaluation will continue and paths may be resolved at runtime." -f $StepName, $Source, ([string]::Join(', ', @($softMissingContextPaths | Select-Object -Unique))))
+        }
+
+        if ($WarningSink -is [System.Collections.IList]) {
+            $null = $WarningSink.Add($warningItem)
+        }
+        elseif ($WarningSink -is [object[]]) {
+            # Fallback for fixed arrays: cannot mutate by reference safely.
+            # Caller should pass an IList (plan.Warnings is an ArrayList) for collection.
         }
     }
 
