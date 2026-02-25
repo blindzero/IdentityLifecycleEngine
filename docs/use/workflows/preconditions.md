@@ -124,6 +124,8 @@ Paths are resolved against the **execution-time context**, which includes:
 A leading `context.` prefix is ignored for readability (e.g. `context.Request.Intent.Department`
 resolves identically to `Request.Intent.Department`).
 
+At planning time, IdLE validates that every `Path` referenced by `Condition`/`Preconditions` is resolvable in the current planning context. This enables fail-fast detection for typos or wrong roots (for example `Request.Context.OffboardingDate` vs `Request.Intent.OffboardingDate`).
+
 ---
 
 ## Blocked vs. Failed vs. Continue outcomes

@@ -10,7 +10,8 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
         It 'returns null values when the step does not define precondition settings' {
             $step = @{ Name = 'Noop'; Type = 'IdLE.Step.Noop' }
 
-            $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'Noop'
+            $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
+            $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'Noop' -PlanningContext $planningContext
 
             $result.Preconditions | Should -BeNullOrEmpty
             $result.OnPreconditionFalse | Should -BeNullOrEmpty
@@ -32,7 +33,8 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
                 }
             }
 
-            $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'GuardedStep'
+            $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
+            $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'GuardedStep' -PlanningContext $planningContext
 
             $result.Preconditions.Count | Should -Be 1
             $result.OnPreconditionFalse | Should -Be 'Continue'
@@ -52,7 +54,8 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
                 Precondition = @{ Exists = 'Request.IdentityKeys.EmployeeId' }
             }
 
-            $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'SingularAlias'
+            $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{ EmployeeId = 'E123' }; Intent = @{}; Context = @{} } }
+            $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'SingularAlias' -PlanningContext $planningContext
 
             $result.Preconditions.Count | Should -Be 1
             $result.Preconditions[0].Exists | Should -Be 'Request.IdentityKeys.EmployeeId'
@@ -68,8 +71,21 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
                 )
             }
 
-            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'ConflictingKeys' } | Should -Throw
+            $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
+            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'ConflictingKeys' -PlanningContext $planningContext } | Should -Throw
         }
+
+        It 'throws when precondition path does not exist in planning context' {
+            $step = @{
+                Name         = 'MissingPath'
+                Type         = 'IdLE.Step.Noop'
+                Precondition = @{ Exists = 'Request.Context.OffboardingDate' }
+            }
+
+            $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
+            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'MissingPath' -PlanningContext $planningContext } | Should -Throw
+        }
+
         It 'throws when OnPreconditionFalse has an invalid value' {
             $step = @{
                 Name                = 'InvalidPolicy'
@@ -77,7 +93,8 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
                 OnPreconditionFalse = 'StopAll'
             }
 
-            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'InvalidPolicy' } | Should -Throw
+            $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
+            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'InvalidPolicy' -PlanningContext $planningContext } | Should -Throw
         }
     }
 }

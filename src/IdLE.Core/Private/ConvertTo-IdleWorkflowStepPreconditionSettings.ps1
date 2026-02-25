@@ -9,7 +9,11 @@ function ConvertTo-IdleWorkflowStepPreconditionSettings {
 
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string] $StepName
+        [string] $StepName,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [object] $PlanningContext
     )
 
     $normalized = @{
@@ -65,6 +69,8 @@ function ConvertTo-IdleWorkflowStepPreconditionSettings {
                     'Workflow'
                 )
             }
+
+            Assert-IdleConditionPathsResolvable -Condition ([hashtable]$pc) -Context $PlanningContext -StepName $StepName -Source ("Preconditions[{0}]" -f $pcIdx)
         }
 
         $normalized.Preconditions = @()
@@ -87,6 +93,8 @@ function ConvertTo-IdleWorkflowStepPreconditionSettings {
                 'Workflow'
             )
         }
+
+        Assert-IdleConditionPathsResolvable -Condition ([hashtable]$rawPrecondition) -Context $PlanningContext -StepName $StepName -Source 'Precondition'
 
         $normalized.Preconditions = @(
             Copy-IdleDataObject -Value $rawPrecondition

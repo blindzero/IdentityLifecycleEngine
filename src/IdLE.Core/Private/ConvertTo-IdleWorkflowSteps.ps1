@@ -80,6 +80,8 @@ function ConvertTo-IdleWorkflowSteps {
                 )
             }
 
+            Assert-IdleConditionPathsResolvable -Condition $condition -Context $PlanningContext -StepName $stepName -Source 'Condition'
+
             $isApplicable = Test-IdleCondition -Condition $condition -Context $PlanningContext
             if (-not $isApplicable) {
                 $status = 'NotApplicable'
@@ -126,7 +128,7 @@ function ConvertTo-IdleWorkflowSteps {
             $null
         }
 
-        $preconditionSettings = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $s -StepName $stepName
+        $preconditionSettings = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $s -StepName $stepName -PlanningContext $PlanningContext
         $preconditions = $preconditionSettings.Preconditions
         $onPreconditionFalse = $preconditionSettings.OnPreconditionFalse
         $preconditionEvent = $preconditionSettings.PreconditionEvent
