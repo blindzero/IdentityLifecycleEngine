@@ -52,7 +52,9 @@ const sidebars = {
           collapsed: true,
           items: [
             'use/workflows',
+            'use/workflows/conditions',
             'use/workflows/preconditions',
+            'use/workflows/templates',
           ],
         },
         'use/providers',

@@ -3,13 +3,45 @@ title: Workflows & Steps
 sidebar_label: Workflows / Steps
 ---
 
-Workflows define **what** IdLE should do for a lifecycle event (Joiner/Mover/Leaver).
+Workflows are **data-only** PowerShell hashtables (`.psd1`) that describe **which steps** should be planned and executed for a specific lifecycle event. Workflows define **what** IdLE should do for a lifecycle event (Joiner/Mover/Leaver).
 
 A workflow is a **data-only** PowerShell hashtable stored in a `.psd1` file. It describes the ordered steps to execute, plus optional conditions and error handling.
 
+Workflows are designed for **admins and workflow authors**:
+
+- You define *what should happen* (steps and their configuration).
+- IdLE builds a **plan** and then **executes** it.
+- Providers implement the system-specific operations.
+
+## How workflows are used in the lifecycle
+
+1. You write the workflow definition (`.psd1`).
+2. You create a request (intent + inputs).
+3. You build a plan (IdLE validates and resolves templates).
+4. You invoke the plan.
+
 :::info
-For specification-level details (schema, templates, conditions, and validation rules), use the [Reference](../reference/intro-reference.md) section.
+For specification-level details on step types, use the [Step Reference](../reference/steps.md) section. \
+Otherwise, start with [Quick Start](quickstart.md).
 :::
+
+---
+
+## Plan vs Execute
+
+When you run IdLE, it happens in two distinct phases:
+
+1. **Planning (Plan Build)**  
+   IdLE reads the workflow definition and builds a plan of steps.
+
+   - `Condition` is evaluated here.
+   - If a condition is false, the step is marked as `NotApplicable`.
+
+2. **Execution (Plan Run)**  
+   IdLE executes the planned steps and records results.
+
+   - `Preconditions` are evaluated here.
+   - If a precondition is false, `OnPreconditionFalse` decides what happens (for example `Skip` or `Fail`).
 
 ---
 
@@ -20,9 +52,20 @@ At a high level, a workflow contains:
 - metadata (name, lifecycle event)
 - a list of steps (ordered)
 - per-step configuration (`With`)
-- optional execution logic (conditions, `OnFailureSteps`, etc.)
+- per-step optional execution logic (`Condition`, `Preconditions`, `OnFailureSteps`, etc.)
 
 The Big Picture is described in [Concepts](../about/concepts.md).
+
+A step is a self-contained unit of work. Most steps follow this pattern:
+
+- `Name` (string) – a human-readable identifier
+- `Type` (string) – the step type (for example `IdLE.Step.EnsureAttribute`)
+- `With` (hashtable) – step-specific configuration
+- `Condition` (hashtable, optional) – optional planning-time applicability
+- `Preconditions` (hashtable, optional) – optional execution-time guard
+- `OnPreconditionFalse` (string, optional) – behavior when the precondition is false
+
+> Step types define which keys are supported inside `With`. See the step reference for details.
 
 ### Step execution controls
 
@@ -30,41 +73,77 @@ Each step supports several optional execution control properties:
 
 | Property | Evaluated at | Purpose |
 |---|---|---|
-| `Condition` | Plan time | Include or skip the step based on request/intent data. |
-| `Preconditions` | Execution time (runtime) | Guard the step against stale or unsafe state immediately before it runs. See [Runtime Preconditions](workflows/preconditions.md). |
+| `Condition` | Plan time | Include or skip the step based on request/intent data during planning. See [Conditions](workflows/conditions.md) |
+| `Preconditions` | Execution time (runtime) | Guard the step against stale or unsafe state immediately before execution. See Runtime [Preconditions](workflows/preconditions.md). |
 | `OnFailureSteps` | After failure (workflow-level) | Cleanup/rollback steps run after a primary step fails. |
+
+:::warning Do not confuse Conditions and Preconditions
+**Conditions** decide step applicability during **planning** (a step becomes `NotApplicable`).  
+**Preconditions** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
+
+---
+
+## Template Substitution
+
+Many step configurations use **template substitution** to insert values from `Plan`, `Request`, and `Workflow` into strings (for example to build a UPN or display name). \
+These `{{path}}` placeholders that are resolved against the
+request during plan build (`New-IdlePlan`). Multiple placeholders may appear in a single value.
+
+```powershell
+IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
+DisplayName = '{{Request.Intent.GivenName}} {{Request.Intent.SurnameName}}'
+Message     = 'User {{Request.Intent.DisplayName}} is joining.'
+```
+
+See: [Template Substitution](./workflows/templates)
 
 ---
 
 ## Minimal workflow example
 
+This example shows a small workflow with:
+
+- a value containing a [template substition](./workflows/templates.md)
+- a step that is only applicable for `Joiner` ([Condition](./workflows/conditions.md))
+- a step that is guarded at runtime ([Preconditions](./workflows/preconditions.md))
+
+
 ```powershell
 @{
-  Name           = 'Joiner - Minimal'
+  Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
 
   Steps          = @(
     @{
       Name = 'Emit start'
       Type = 'IdLE.Step.EmitEvent'
-      With = @{
-        Message = 'Starting Joiner workflow'
+      With = @{ Message = 'Starting Joiner for {{Request.Intent.FullName}}' }
+    }
+
+    @{
+      Name = 'Provision only for Joiner'
+      Type = 'IdLE.Step.EmitEvent'
+
+      Condition = @{
+        Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' }
       }
+
+      With = @{ Message = 'Provisioning for Joiner' }
+    }
+
+    @{
+      Name = 'Disable identity only if it exists'
+      Type = 'IdLE.Step.DisableIdentity'
+
+      Preconditions = @{
+        Equals = @{ Path = 'Request.Context.IdentityExists'; Value = 'True' }
+      }
+
+      OnPreconditionFalse = 'Skip'
     }
   )
 }
 ```
-
----
-
-## How workflows are used in the lifecycle
-
-1. You write the workflow definition (`.psd1`).
-2. You create a request (intent + inputs).
-3. You build a plan (IdLE validates and resolves templates).
-4. You invoke the plan.
-
-Start with [Quick Start](quickstart.md).
 
 ---
 
@@ -77,92 +156,6 @@ Start with [Quick Start](quickstart.md).
 
 ---
 
-## Template substitution
-
-Step configuration values (`With.*`) support `{{path}}` placeholders that are resolved against the
-request during plan build (`New-IdlePlan`). Multiple placeholders may appear in a single value.
-
-```powershell
-IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
-DisplayName = '{{Request.Intent.GivenName}}'
-Message     = 'User {{Request.Intent.DisplayName}} is joining.'
-```
-
-### Allowed roots
-
-For security, only these path roots are permitted:
-
-| Root | Description |
-| ---- | ----------- |
-| `Request.Intent.*` | Caller-provided action inputs |
-| `Request.Context.*` | Read-only associated context (host/resolver-provided) |
-| `Request.IdentityKeys.*` | Identifiers of the target identity |
-| `Request.LifecycleEvent` | Lifecycle event type (e.g. `Joiner`) |
-| `Request.CorrelationId` | Stable correlation identifier |
-| `Request.Actor` | Originator of the request |
-
-### Pure vs. mixed placeholders
-
-A value containing **only** a single placeholder preserves the resolved type (bool, int, datetime, guid, string):
-
-```powershell
-# Resolves to the actual [bool] value, not the string "True"
-Enabled = '{{Request.Intent.IsEnabled}}'
-```
-
-A value with surrounding text always produces a **string**:
-
-```powershell
-Message = 'Account for {{Request.Intent.DisplayName}} created.'
-```
-
-### Backslash and special characters
-
-Backslash (`\`) is a **literal character** in template strings and requires no escaping.
-Windows-style paths and domain-qualified names work as-is:
-
-```powershell
-# \ is kept as-is; only the placeholder is substituted
-IdentityKey = 'DOMAIN\{{Request.IdentityKeys.sAMAccountName}}'
-# → e.g. 'DOMAIN\jdoe'
-```
-
-### Escaping a literal `{{`
-
-To include a literal `{{` in the output, prefix it with `\`. The escape is applied whenever
-`\{{` is **not** immediately followed by a valid allowed-root template path and `}}`:
-
-```powershell
-# \{{ not followed by a valid path+}} → literal {{ in output
-Value = 'Literal \{{ braces here'
-# → 'Literal {{ braces here'
-
-# \{{ followed by an invalid/disallowed path → also escaped (literal {{ in output)
-Value = '\{{Request.InvalidRoot}}'
-# → '{{Request.InvalidRoot}}'
-```
-
-Summary of backslash behaviour:
-
-| Input | Result |
-| ----- | ------ |
-| `DOMAIN\{{Request.IdentityKeys.sAMAccountName}}` | `DOMAIN\jdoe` — `\` literal, valid template resolved |
-| `Literal \{{ braces here` | `Literal {{ braces here` — escape applied |
-| `\{{Request.InvalidRoot}}` | `{{Request.InvalidRoot}}` — invalid root, escape applied |
-| `Literal \{{ and {{Request.Intent.Name}}` | `Literal {{ and TestName` — escape + template |
-
-### Validation
-
-During plan build, IdLE validates every template value:
-
-- **Unbalanced braces** — mismatched `{{`/`}}` pairs throw a syntax error.
-- **Invalid path** — paths must use dot-separated identifiers (letters, numbers, underscores).
-- **Disallowed root** — paths outside the allowlist throw a security error.
-- **Null or missing value** — if the resolved path does not exist, an error is thrown.
-- **Non-scalar value** — resolving to a hashtable or array is not allowed.
-
----
-
 ## Reference
 
 For full definitions and reference, see:
@@ -170,11 +163,3 @@ For full definitions and reference, see:
 - [Reference](../reference/intro-reference.md)
 - [Reference: Step Types](../reference/steps.md)
 - [Reference: Providers](../reference/providers.md)
-
----
-
-## Next steps
-
-- Add runtime safety guards: [Runtime Preconditions](workflows/preconditions.md)
-- Map external systems: [Providers](providers.md)
-- Review and export plans: [Plan Export](plan-export.md) (e.g. for CI systems)
