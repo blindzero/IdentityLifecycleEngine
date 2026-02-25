@@ -354,11 +354,13 @@ function Invoke-IdleStepPruneEntitlements {
         foreach ($ent in $toRemove) {
             try {
                 if ($revokeSupportsAuthSession -and $null -ne $authSession) {
-                    $null = $provider.RevokeEntitlement($identityKey, $ent, $authSession)
+                    $revokeResult = $provider.RevokeEntitlement($identityKey, $ent, $authSession)
                 } else {
-                    $null = $provider.RevokeEntitlement($identityKey, $ent)
+                    $revokeResult = $provider.RevokeEntitlement($identityKey, $ent)
                 }
-                $changed = $true
+                if ($revokeResult -and $revokeResult.Changed) {
+                    $changed = $true
+                }
 
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
