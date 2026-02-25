@@ -419,12 +419,19 @@ function Invoke-IdleStepPruneEntitlements {
         } else {
             foreach ($k in $toEnsure) {
                 if ($grantSupportsAuthSession -and $null -ne $authSession) {
-                    $null = $provider.GrantEntitlement($identityKey, $k, $authSession)
+                    $result = $provider.GrantEntitlement($identityKey, $k, $authSession)
                 } else {
-                    $null = $provider.GrantEntitlement($identityKey, $k)
+                    $result = $provider.GrantEntitlement($identityKey, $k)
                 }
-                $changed = $true
 
+                if ($null -ne $result -and $result.PSObject.Properties.Name -contains 'Changed') {
+                    if ($result.Changed) {
+                        $changed = $true
+                    }
+                } else {
+                    # Fall back to assuming a change occurred if the provider does not return a standard result object
+                    $changed = $true
+                }
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                     $Context.EventSink.WriteEvent('Information', "PruneEntitlements: granted keep entitlement '$($k.Id)'", $Step.Name, @{
