@@ -57,8 +57,8 @@ Describe 'Assert-IdleConditionPathsResolvable' {
             }
 
             {
-                Assert-IdleConditionPathsResolvable -Condition $condition -Context $context -StepName 'RegionCheck' -Source 'Preconditions[0]'
-            } | Should -Throw "*Workflow step 'RegionCheck' has unresolved condition path(s) in Preconditions[0]:*Request.Context.OffboardingDate*Request.Context.Manager*"
+                Assert-IdleConditionPathsResolvable -Condition $condition -Context $context -StepName 'RegionCheck' -Source 'Precondition'
+            } | Should -Throw "*Workflow step 'RegionCheck' has unresolved condition path(s) in Precondition:*Request.Context.OffboardingDate*Request.Context.Manager*"
         }
     }
 }

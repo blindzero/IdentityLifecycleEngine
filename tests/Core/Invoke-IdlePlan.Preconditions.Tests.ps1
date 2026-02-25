@@ -320,12 +320,12 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw
             }
 
-            It 'throws when Preconditions is a single hashtable instead of an array' {
+            It 'accepts Precondition as a single condition object' {
                 $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'invalid-single-hashtable.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Joiner'
                 $providers = @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.InvalidPCSingleHt') }
 
-                { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw
+                { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Not -Throw
             }
         }
 

@@ -17,88 +17,34 @@ function ConvertTo-IdleWorkflowStepPreconditionSettings {
     )
 
     $normalized = @{
-        Preconditions       = $null
+        Precondition        = $null
         OnPreconditionFalse = $null
         PreconditionEvent   = $null
     }
 
-    # Runtime Preconditions: evaluated at execution time (not planning time).
-    # Each precondition uses the same declarative condition DSL as Condition.
-    $hasPreconditions = Test-IdleWorkflowStepKey -Step $Step -Key 'Preconditions'
-    $hasPrecondition = Test-IdleWorkflowStepKey -Step $Step -Key 'Precondition'
-
-    $rawPreconditions = if ($hasPreconditions) {
-        Get-IdlePropertyValue -Object $Step -Name 'Preconditions'
-    }
-    else {
-        $null
-    }
-
-    $rawPrecondition = if ($hasPrecondition) {
-        Get-IdlePropertyValue -Object $Step -Name 'Precondition'
-    }
-    else {
-        $null
-    }
-
-    $hasPreconditionsValue = $null -ne $rawPreconditions
-    $hasPreconditionValue = $null -ne $rawPrecondition
-
-    if ($hasPreconditionsValue -and $hasPreconditionValue) {
-        throw [System.ArgumentException]::new(
-            ("Workflow step '{0}' must not define both 'Preconditions' and deprecated alias 'Precondition'. Use only 'Preconditions'." -f $StepName),
-            'Workflow'
-        )
-    }
-
-    if ($hasPreconditionsValue) {
-        $pcList = @($rawPreconditions)
-        for ($pcIdx = 0; $pcIdx -lt $pcList.Count; $pcIdx++) {
-            $pc = $pcList[$pcIdx]
-            if ($pc -isnot [System.Collections.IDictionary]) {
+    # Runtime Precondition: evaluated at execution time (not planning time).
+    # Uses the same declarative condition DSL as Condition.
+    if (Test-IdleWorkflowStepKey -Step $Step -Key 'Precondition') {
+        $rawPrecondition = Get-IdlePropertyValue -Object $Step -Name 'Precondition'
+        if ($null -ne $rawPrecondition) {
+            if ($rawPrecondition -isnot [System.Collections.IDictionary]) {
                 throw [System.ArgumentException]::new(
-                    ("Workflow step '{0}': Preconditions[{1}] must be a hashtable (condition node)." -f $StepName, $pcIdx),
+                    ("Workflow step '{0}': Precondition must be a hashtable (condition node)." -f $StepName),
                     'Workflow'
                 )
             }
 
-            $pcErrors = Test-IdleConditionSchema -Condition ([hashtable]$pc) -StepName $StepName
+            $pcErrors = Test-IdleConditionSchema -Condition ([hashtable]$rawPrecondition) -StepName $StepName
             if (@($pcErrors).Count -gt 0) {
                 throw [System.ArgumentException]::new(
-                    ("Invalid Preconditions[{0}] on step '{1}': {2}" -f $pcIdx, $StepName, ([string]::Join(' ', @($pcErrors)))),
+                    ("Invalid Precondition on step '{0}': {1}" -f $StepName, ([string]::Join(' ', @($pcErrors)))),
                     'Workflow'
                 )
             }
 
-            Assert-IdleConditionPathsResolvable -Condition ([hashtable]$pc) -Context $PlanningContext -StepName $StepName -Source ("Preconditions[{0}]" -f $pcIdx)
+            Assert-IdleConditionPathsResolvable -Condition ([hashtable]$rawPrecondition) -Context $PlanningContext -StepName $StepName -Source 'Precondition'
+            $normalized.Precondition = Copy-IdleDataObject -Value $rawPrecondition
         }
-
-        $normalized.Preconditions = @()
-        foreach ($pc in $pcList) {
-            $normalized.Preconditions += Copy-IdleDataObject -Value $pc
-        }
-    }
-    elseif ($hasPreconditionValue) {
-        if ($rawPrecondition -isnot [System.Collections.IDictionary]) {
-            throw [System.ArgumentException]::new(
-                ("Workflow step '{0}': Precondition must be a hashtable (condition node). Use 'Preconditions' for the canonical array form." -f $StepName),
-                'Workflow'
-            )
-        }
-
-        $pcErrors = Test-IdleConditionSchema -Condition ([hashtable]$rawPrecondition) -StepName $StepName
-        if (@($pcErrors).Count -gt 0) {
-            throw [System.ArgumentException]::new(
-                ("Invalid Precondition on step '{0}': {1}" -f $StepName, ([string]::Join(' ', @($pcErrors)))),
-                'Workflow'
-            )
-        }
-
-        Assert-IdleConditionPathsResolvable -Condition ([hashtable]$rawPrecondition) -Context $PlanningContext -StepName $StepName -Source 'Precondition'
-
-        $normalized.Preconditions = @(
-            Copy-IdleDataObject -Value $rawPrecondition
-        )
     }
 
     if (Test-IdleWorkflowStepKey -Step $Step -Key 'OnPreconditionFalse') {

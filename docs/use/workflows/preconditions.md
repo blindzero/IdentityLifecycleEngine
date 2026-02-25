@@ -39,11 +39,9 @@ Add these optional properties to a workflow step definition:
 
 | Property | Type | Required | Description |
 |---|---|---|---|
-| `Preconditions` | `Array[Condition]` | No | One or more condition nodes (same DSL as `Condition`). All must pass for the step to execute. |
+| `Precondition` | `Condition` | No | One condition node (same DSL as `Condition`). It must evaluate to true for the step to execute. |
 | `OnPreconditionFalse` | `String` | No | Behavior when a precondition fails. `Blocked` (default), `Fail`, or `Continue`. |
 | `PreconditionEvent` | `Hashtable` | No | Structured event emitted when a precondition fails. |
-
-`Precondition` (singular) is accepted as a deprecated alias for one condition node. Do not define both `Precondition` and `Preconditions` on the same step; use `Preconditions` for new workflows.
 
 ### PreconditionEvent schema
 
@@ -74,14 +72,16 @@ Add these optional properties to a workflow step definition:
       # Runtime guard: only execute if BYOD wipe is confirmed.
       # Note: the condition DSL compares values as strings.
       # Request.Context.Byod.WipeConfirmed must be the string 'true' (e.g. set by a ContextResolver).
-      Preconditions      = @(
+      Precondition       = @{
+        All = @(
         @{
           Equals = @{
             Path  = 'Request.Context.Byod.WipeConfirmed'
             Value = 'true'
           }
         }
-      )
+        )
+      }
       OnPreconditionFalse = 'Blocked'
       PreconditionEvent   = @{
         Type    = 'ManualActionRequired'
@@ -99,7 +99,7 @@ Add these optional properties to a workflow step definition:
 
 ## Condition DSL
 
-Each entry in `Preconditions` uses the same **declarative condition DSL** as the `Condition`
+`Precondition` uses the same **declarative condition DSL** as the `Condition`
 property. Supported operators:
 
 | Operator | Shape | Description |
@@ -124,7 +124,7 @@ Paths are resolved against the **execution-time context**, which includes:
 A leading `context.` prefix is ignored for readability (e.g. `context.Request.Intent.Department`
 resolves identically to `Request.Intent.Department`).
 
-At planning time, IdLE validates that every `Path` referenced by `Condition`/`Preconditions` is resolvable in the current planning context. This enables fail-fast detection for typos or wrong roots (for example `Request.Context.OffboardingDate` vs `Request.Intent.OffboardingDate`).
+At planning time, IdLE validates that every `Path` referenced by `Condition`/`Precondition` is resolvable in the current planning context. This enables fail-fast detection for typos or wrong roots (for example `Request.Context.OffboardingDate` vs `Request.Intent.OffboardingDate`).
 
 ---
 
@@ -218,7 +218,7 @@ Ensure context values are stored as strings when using `Equals` or `In` operator
 
 ## Backward compatibility
 
-Steps without `Preconditions` behave exactly as before. Adding preconditions to a step does not
+Steps without `Precondition` behave exactly as before. Adding a precondition to a step does not
 affect any other steps.
 
 ---

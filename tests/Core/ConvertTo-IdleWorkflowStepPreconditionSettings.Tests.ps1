@@ -13,7 +13,7 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
             $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
             $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'Noop' -PlanningContext $planningContext
 
-            $result.Preconditions | Should -BeNullOrEmpty
+            $result.Precondition | Should -BeNullOrEmpty
             $result.OnPreconditionFalse | Should -BeNullOrEmpty
             $result.PreconditionEvent | Should -BeNullOrEmpty
         }
@@ -22,9 +22,7 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
             $step = @{
                 Name                = 'GuardedStep'
                 Type                = 'IdLE.Step.Noop'
-                Preconditions       = @(
-                    @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
-                )
+                Precondition        = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
                 OnPreconditionFalse = 'Continue'
                 PreconditionEvent   = @{
                     Type    = 'ManualActionRequired'
@@ -36,7 +34,7 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
             $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
             $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'GuardedStep' -PlanningContext $planningContext
 
-            $result.Preconditions.Count | Should -Be 1
+            $result.Precondition.Equals.Path | Should -Be 'Plan.LifecycleEvent'
             $result.OnPreconditionFalse | Should -Be 'Continue'
             $result.PreconditionEvent.Type | Should -Be 'ManualActionRequired'
             $result.PreconditionEvent.Data.Ticket | Should -Be 'INC-1234'
@@ -44,35 +42,6 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
             # Verify deep-copy behavior.
             $step.PreconditionEvent.Data.Ticket = 'CHANGED'
             $result.PreconditionEvent.Data.Ticket | Should -Be 'INC-1234'
-        }
-
-
-        It 'normalizes deprecated singular Precondition alias to Preconditions array' {
-            $step = @{
-                Name         = 'SingularAlias'
-                Type         = 'IdLE.Step.Noop'
-                Precondition = @{ Exists = 'Request.IdentityKeys.EmployeeId' }
-            }
-
-            $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{ EmployeeId = 'E123' }; Intent = @{}; Context = @{} } }
-            $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'SingularAlias' -PlanningContext $planningContext
-
-            $result.Preconditions.Count | Should -Be 1
-            $result.Preconditions[0].Exists | Should -Be 'Request.IdentityKeys.EmployeeId'
-        }
-
-        It 'throws when both Preconditions and Precondition are defined' {
-            $step = @{
-                Name          = 'ConflictingKeys'
-                Type          = 'IdLE.Step.Noop'
-                Precondition  = @{ Exists = 'Request.IdentityKeys.EmployeeId' }
-                Preconditions = @(
-                    @{ Exists = 'Request.IdentityKeys.EmployeeId' }
-                )
-            }
-
-            $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
-            { ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'ConflictingKeys' -PlanningContext $planningContext } | Should -Throw
         }
 
         It 'throws when precondition path does not exist in planning context' {

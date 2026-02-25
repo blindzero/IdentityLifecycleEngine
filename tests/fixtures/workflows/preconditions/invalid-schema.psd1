@@ -5,11 +5,13 @@
     @{
       Name          = 'Step1'
       Type          = 'IdLE.Step.InvalidPreconditionSchema'
-      Preconditions = @(
+      Precondition = @{
+        All = @(
         @{
           UnknownKey = 'bad'
         }
-      )
+        )
+      }
     }
   )
 }

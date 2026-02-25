@@ -129,7 +129,7 @@ function ConvertTo-IdleWorkflowSteps {
         }
 
         $preconditionSettings = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $s -StepName $stepName -PlanningContext $PlanningContext
-        $preconditions = $preconditionSettings.Preconditions
+        $precondition = $preconditionSettings.Precondition
         $onPreconditionFalse = $preconditionSettings.OnPreconditionFalse
         $preconditionEvent = $preconditionSettings.PreconditionEvent
 
@@ -139,7 +139,7 @@ function ConvertTo-IdleWorkflowSteps {
             Type                 = $stepType
             Description          = $description
             Condition            = Copy-IdleDataObject -Value $condition
-            Preconditions        = $preconditions
+            Precondition         = $precondition
             OnPreconditionFalse  = $onPreconditionFalse
             PreconditionEvent    = $preconditionEvent
             With                 = $with

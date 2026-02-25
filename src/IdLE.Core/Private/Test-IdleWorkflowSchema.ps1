@@ -23,7 +23,7 @@ function Test-IdleWorkflowSchema {
             [System.Collections.Generic.List[string]] $ErrorList
         )
 
-        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RetryProfile', 'Preconditions', 'Precondition', 'OnPreconditionFalse', 'PreconditionEvent')
+        $allowedStepKeys = @('Name', 'Type', 'Condition', 'With', 'Description', 'RetryProfile', 'Precondition', 'OnPreconditionFalse', 'PreconditionEvent')
         foreach ($k in $Step.Keys) {
             if ($allowedStepKeys -notcontains $k) {
                 $ErrorList.Add("Unknown key '$k' in $StepPath. Allowed keys: $($allowedStepKeys -join ', ').")
@@ -57,8 +57,8 @@ function Test-IdleWorkflowSchema {
         }
     }
 
-    # Helper: Validate Preconditions, OnPreconditionFalse, and PreconditionEvent fields on a step.
-    function Test-IdleWorkflowStepPreconditions {
+    # Helper: Validate Precondition, OnPreconditionFalse, and PreconditionEvent fields on a step.
+    function Test-IdleWorkflowStepPreconditionSettings {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)]
@@ -72,40 +72,9 @@ function Test-IdleWorkflowSchema {
             [System.Collections.Generic.List[string]] $ErrorList
         )
 
-        $hasPreconditions = $Step.ContainsKey('Preconditions') -and $null -ne $Step.Preconditions
-        $hasPrecondition = $Step.ContainsKey('Precondition') -and $null -ne $Step.Precondition
-
-        if ($hasPreconditions -and $hasPrecondition) {
-            $ErrorList.Add("'$StepPath' must not define both 'Preconditions' and deprecated alias 'Precondition'. Use only 'Preconditions'.")
-        }
-
-        if ($hasPreconditions) {
-            if ($Step.Preconditions -is [string] -or
-                $Step.Preconditions -is [System.Collections.IDictionary] -or
-                -not ($Step.Preconditions -is [System.Collections.IEnumerable])) {
-                $ErrorList.Add("'$StepPath.Preconditions' must be an array/list of condition hashtables (not a single hashtable).")
-            }
-            else {
-                $pcIdx = 0
-                foreach ($pc in @($Step.Preconditions)) {
-                    if ($pc -isnot [System.Collections.IDictionary]) {
-                        $ErrorList.Add("'$StepPath.Preconditions[$pcIdx]' must be a hashtable (condition node).")
-                        $pcIdx++
-                        continue
-                    }
-
-                    foreach ($schemaError in (Test-IdleConditionSchema -Condition ([hashtable]$pc) -StepName $StepPath)) {
-                        $ErrorList.Add("'$StepPath.Preconditions[$pcIdx]' has invalid condition schema: $schemaError")
-                    }
-
-                    $pcIdx++
-                }
-            }
-        }
-
-        if ($hasPrecondition) {
+        if ($Step.ContainsKey('Precondition') -and $null -ne $Step.Precondition) {
             if ($Step.Precondition -isnot [System.Collections.IDictionary]) {
-                $ErrorList.Add("'$StepPath.Precondition' must be a hashtable (condition node). Use 'Preconditions' for the canonical array form.")
+                $ErrorList.Add("'$StepPath.Precondition' must be a hashtable (condition node).")
             }
             else {
                 foreach ($schemaError in (Test-IdleConditionSchema -Condition ([hashtable]$Step.Precondition) -StepName $StepPath)) {
@@ -225,7 +194,7 @@ function Test-IdleWorkflowSchema {
             }
 
             Test-IdleWorkflowStepRetryProfile -Step $step -StepPath $stepPath -ErrorList $ErrorList
-            Test-IdleWorkflowStepPreconditions -Step $step -StepPath $stepPath -ErrorList $ErrorList
+            Test-IdleWorkflowStepPreconditionSettings -Step $step -StepPath $stepPath -ErrorList $ErrorList
 
             $i++
         }
