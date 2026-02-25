@@ -83,7 +83,14 @@ function Test-IdleWorkflowSchema {
                 foreach ($pc in @($Step.Preconditions)) {
                     if ($pc -isnot [System.Collections.IDictionary]) {
                         $ErrorList.Add("'$StepPath.Preconditions[$pcIdx]' must be a hashtable (condition node).")
+                        $pcIdx++
+                        continue
                     }
+
+                    foreach ($schemaError in (Test-IdleConditionSchema -Condition ([hashtable]$pc) -StepName $StepPath)) {
+                        $ErrorList.Add("'$StepPath.Preconditions[$pcIdx]' has invalid condition schema: $schemaError")
+                    }
+
                     $pcIdx++
                 }
             }
@@ -115,6 +122,97 @@ function Test-IdleWorkflowSchema {
         }
     }
 
+    function Test-IdleWorkflowStepCondition {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [hashtable] $Step,
+
+            [Parameter(Mandatory)]
+            [string] $StepPath,
+
+            [Parameter(Mandatory)]
+            [AllowEmptyCollection()]
+            [System.Collections.Generic.List[string]] $ErrorList
+        )
+
+        # Conditions use the same declarative condition DSL as runtime preconditions.
+        if ($Step.ContainsKey('Condition') -and $null -ne $Step.Condition) {
+            if ($Step.Condition -isnot [System.Collections.IDictionary]) {
+                $ErrorList.Add("'$StepPath.Condition' must be a hashtable (declarative condition object).")
+            }
+            else {
+                foreach ($schemaError in (Test-IdleConditionSchema -Condition ([hashtable]$Step.Condition) -StepName $StepPath)) {
+                    $ErrorList.Add("'$StepPath.Condition' has invalid condition schema: $schemaError")
+                }
+            }
+        }
+    }
+
+    function Test-IdleWorkflowStepCollection {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [object] $StepCollection,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $CollectionName,
+
+            [Parameter(Mandatory)]
+            [string] $DuplicateNameErrorTemplate,
+
+            [Parameter(Mandatory)]
+            [AllowEmptyCollection()]
+            [System.Collections.Generic.List[string]] $ErrorList
+        )
+
+        if ($StepCollection -isnot [System.Collections.IEnumerable] -or $StepCollection -is [string]) {
+            $ErrorList.Add("'$CollectionName' must be an array/list of step hashtables.")
+            return
+        }
+
+        $stepNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+        $i = 0
+        foreach ($step in $StepCollection) {
+            $stepPath = "{0}[{1}]" -f $CollectionName, $i
+
+            if ($null -eq $step -or $step -isnot [hashtable]) {
+                $ErrorList.Add("$stepPath must be a hashtable.")
+                $i++
+                continue
+            }
+
+            Test-IdleWorkflowStepKeys -Step $step -StepPath $stepPath -ErrorList $ErrorList
+
+            if (-not $step.ContainsKey('Name') -or [string]::IsNullOrWhiteSpace([string]$step.Name)) {
+                $ErrorList.Add("Missing or empty required key '$stepPath.Name'.")
+            }
+            else {
+                if (-not $stepNames.Add([string]$step.Name)) {
+                    $ErrorList.Add(($DuplicateNameErrorTemplate -f [string]$step.Name))
+                }
+            }
+
+            if (-not $step.ContainsKey('Type') -or [string]::IsNullOrWhiteSpace([string]$step.Type)) {
+                $ErrorList.Add("Missing or empty required key '$stepPath.Type'.")
+            }
+
+            Test-IdleWorkflowStepCondition -Step $step -StepPath $stepPath -ErrorList $ErrorList
+
+            # 'With' is step parameter bag (data-only). Detailed validation comes with step metadata later.
+            if ($step.ContainsKey('With') -and $null -ne $step.With -and $step.With -isnot [hashtable]) {
+                $ErrorList.Add("'$stepPath.With' must be a hashtable (step parameters).")
+            }
+
+            Test-IdleWorkflowStepRetryProfile -Step $step -StepPath $stepPath -ErrorList $ErrorList
+            Test-IdleWorkflowStepPreconditions -Step $step -StepPath $stepPath -ErrorList $ErrorList
+
+            $i++
+        }
+    }
+
     $allowedRootKeys = @('Name', 'LifecycleEvent', 'Steps', 'OnFailureSteps', 'Description', 'ContextResolvers')
     foreach ($key in $Workflow.Keys) {
         if ($allowedRootKeys -notcontains $key) {
@@ -133,111 +231,13 @@ function Test-IdleWorkflowSchema {
     if (-not $Workflow.ContainsKey('Steps') -or $null -eq $Workflow.Steps) {
         $errors.Add("Missing required root key 'Steps'.")
     }
-    elseif ($Workflow.Steps -isnot [System.Collections.IEnumerable] -or $Workflow.Steps -is [string]) {
-        $errors.Add("'Steps' must be an array/list of step hashtables.")
-    }
     else {
-        $stepNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-
-        $i = 0
-        foreach ($step in $Workflow.Steps) {
-            $stepPath = "Steps[$i]"
-
-            if ($null -eq $step -or $step -isnot [hashtable]) {
-                $errors.Add("$stepPath must be a hashtable.")
-                $i++
-                continue
-            }
-
-            Test-IdleWorkflowStepKeys -Step $step -StepPath $stepPath -ErrorList $errors
-
-            if (-not $step.ContainsKey('Name') -or [string]::IsNullOrWhiteSpace([string]$step.Name)) {
-                $errors.Add("Missing or empty required key '$stepPath.Name'.")
-            }
-            else {
-                if (-not $stepNames.Add([string]$step.Name)) {
-                    $errors.Add("Duplicate step name '$($step.Name)' detected. Step names must be unique.")
-                }
-            }
-
-            if (-not $step.ContainsKey('Type') -or [string]::IsNullOrWhiteSpace([string]$step.Type)) {
-                $errors.Add("Missing or empty required key '$stepPath.Type'.")
-            }
-
-            # Conditions must be declarative data, never a ScriptBlock/expression.
-            # We only enforce the shape here; semantic validation comes later.
-            if ($step.ContainsKey('Condition') -and $null -ne $step.Condition -and $step.Condition -isnot [hashtable]) {
-                $errors.Add("'$stepPath.Condition' must be a hashtable (declarative condition object).")
-            }
-
-            # 'With' is step parameter bag (data-only). Detailed validation comes with step metadata later.
-            if ($step.ContainsKey('With') -and $null -ne $step.With -and $step.With -isnot [hashtable]) {
-                $errors.Add("'$stepPath.With' must be a hashtable (step parameters).")
-            }
-
-            # Validate RetryProfile
-            Test-IdleWorkflowStepRetryProfile -Step $step -StepPath $stepPath -ErrorList $errors
-
-            # Validate Preconditions, OnPreconditionFalse, PreconditionEvent
-            Test-IdleWorkflowStepPreconditions -Step $step -StepPath $stepPath -ErrorList $errors
-
-            $i++
-        }
+        Test-IdleWorkflowStepCollection -StepCollection $Workflow.Steps -CollectionName 'Steps' -DuplicateNameErrorTemplate "Duplicate step name '{0}' detected. Step names must be unique." -ErrorList $errors
     }
 
     # OnFailureSteps are optional. If present, validate them like regular Steps.
     if ($Workflow.ContainsKey('OnFailureSteps') -and $null -ne $Workflow.OnFailureSteps) {
-        if ($Workflow.OnFailureSteps -isnot [System.Collections.IEnumerable] -or $Workflow.OnFailureSteps -is [string]) {
-            $errors.Add("'OnFailureSteps' must be an array/list of step hashtables.")
-        }
-        else {
-            $failureStepNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-
-            $i = 0
-            foreach ($step in $Workflow.OnFailureSteps) {
-                $stepPath = "OnFailureSteps[$i]"
-
-                if ($null -eq $step -or $step -isnot [hashtable]) {
-                    $errors.Add("$stepPath must be a hashtable.")
-                    $i++
-                    continue
-                }
-
-                Test-IdleWorkflowStepKeys -Step $step -StepPath $stepPath -ErrorList $errors
-
-                if (-not $step.ContainsKey('Name') -or [string]::IsNullOrWhiteSpace([string]$step.Name)) {
-                    $errors.Add("Missing or empty required key '$stepPath.Name'.")
-                }
-                else {
-                    if (-not $failureStepNames.Add([string]$step.Name)) {
-                        $errors.Add("Duplicate step name '$($step.Name)' detected in 'OnFailureSteps'. Step names must be unique within this collection.")
-                    }
-                }
-
-                if (-not $step.ContainsKey('Type') -or [string]::IsNullOrWhiteSpace([string]$step.Type)) {
-                    $errors.Add("Missing or empty required key '$stepPath.Type'.")
-                }
-
-                # Conditions must be declarative data, never a ScriptBlock/expression.
-                # We only enforce the shape here; semantic validation comes later.
-                if ($step.ContainsKey('Condition') -and $null -ne $step.Condition -and $step.Condition -isnot [hashtable]) {
-                    $errors.Add("'$stepPath.Condition' must be a hashtable (declarative condition object).")
-                }
-
-                # 'With' is step parameter bag (data-only). Detailed validation comes with step metadata later.
-                if ($step.ContainsKey('With') -and $null -ne $step.With -and $step.With -isnot [hashtable]) {
-                    $errors.Add("'$stepPath.With' must be a hashtable (step parameters).")
-                }
-
-                # Validate RetryProfile
-                Test-IdleWorkflowStepRetryProfile -Step $step -StepPath $stepPath -ErrorList $errors
-
-                # Validate Preconditions, OnPreconditionFalse, PreconditionEvent
-                Test-IdleWorkflowStepPreconditions -Step $step -StepPath $stepPath -ErrorList $errors
-
-                $i++
-            }
-        }
+        Test-IdleWorkflowStepCollection -StepCollection $Workflow.OnFailureSteps -CollectionName 'OnFailureSteps' -DuplicateNameErrorTemplate "Duplicate step name '{0}' detected in 'OnFailureSteps'. Step names must be unique within this collection." -ErrorList $errors
     }
 
     # ContextResolvers are optional. If present, validate each resolver entry.
