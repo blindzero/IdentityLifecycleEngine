@@ -175,7 +175,6 @@ Describe 'EntraID identity provider - Contract tests' {
                 $this.Store[$key] = @()
             }
             
-            # Check if already a member (idempotency)
             $alreadyMember = $false
             foreach ($existingGroup in $this.Store[$key]) {
                 if ($existingGroup.id -eq $GroupObjectId) {
@@ -191,15 +190,40 @@ Describe 'EntraID identity provider - Contract tests' {
                     mail        = "group-$GroupObjectId@test.local"
                 }
                 $this.Store[$key] += $group
+                return $true
             }
+            return $false
         }
 
         $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
             param($GroupObjectId, $UserObjectId, $AccessToken)
             $key = "groups:$UserObjectId"
             if ($this.Store.ContainsKey($key)) {
-                $this.Store[$key] = $this.Store[$key] | Where-Object { $_.id -ne $GroupObjectId }
+                $wasMember = $null -ne ($this.Store[$key] | Where-Object { $_.id -eq $GroupObjectId })
+                $this.Store[$key] = @($this.Store[$key] | Where-Object { $_.id -ne $GroupObjectId })
+                return $wasMember
             }
+            return $false
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name BatchMembershipChanges -Value {
+            param($Operations, $AccessToken)
+            $results = @()
+            foreach ($op in $Operations) {
+                if ($op.Action -eq 'remove') {
+                    $changed = [bool]$this.RemoveGroupMember($op.GroupObjectId, $op.UserObjectId, $AccessToken)
+                } else {
+                    $changed = [bool]$this.AddGroupMember($op.GroupObjectId, $op.UserObjectId, $AccessToken)
+                }
+                $results += [pscustomobject]@{
+                    RequestId     = $op.RequestId
+                    GroupObjectId = $op.GroupObjectId
+                    Action        = $op.Action
+                    Changed       = $changed
+                    Error         = $null
+                }
+            }
+            return $results
         }
 
         $script:FakeAdapter = $fakeAdapter
@@ -715,15 +739,40 @@ Describe 'EntraID identity provider - Entitlement operations' {
                         mail        = "group-$GroupObjectId@test.local"
                     }
                     $this.Store[$key] += $group
+                    return $true
                 }
+                return $false
             }
 
             $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
                 param($GroupObjectId, $UserObjectId, $AccessToken)
                 $key = "groups:$UserObjectId"
                 if ($this.Store.ContainsKey($key)) {
+                    $wasMember = $null -ne ($this.Store[$key] | Where-Object { $_.id -eq $GroupObjectId })
                     $this.Store[$key] = @($this.Store[$key] | Where-Object { $_.id -ne $GroupObjectId })
+                    return $wasMember
                 }
+                return $false
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name BatchMembershipChanges -Value {
+                param($Operations, $AccessToken)
+                $results = @()
+                foreach ($op in $Operations) {
+                    if ($op.Action -eq 'remove') {
+                        $changed = [bool]$this.RemoveGroupMember($op.GroupObjectId, $op.UserObjectId, $AccessToken)
+                    } else {
+                        $changed = [bool]$this.AddGroupMember($op.GroupObjectId, $op.UserObjectId, $AccessToken)
+                    }
+                    $results += [pscustomobject]@{
+                        RequestId     = $op.RequestId
+                        GroupObjectId = $op.GroupObjectId
+                        Action        = $op.Action
+                        Changed       = $changed
+                        Error         = $null
+                    }
+                }
+                return $results
             }
 
             return $adapter
@@ -738,6 +787,8 @@ Describe 'EntraID identity provider - Entitlement operations' {
             $script:EntProvider.PSObject.Methods.Name | Should -Contain 'ListEntitlements'
             $script:EntProvider.PSObject.Methods.Name | Should -Contain 'GrantEntitlement'
             $script:EntProvider.PSObject.Methods.Name | Should -Contain 'RevokeEntitlement'
+            $script:EntProvider.PSObject.Methods.Name | Should -Contain 'BulkRevokeEntitlements'
+            $script:EntProvider.PSObject.Methods.Name | Should -Contain 'BulkGrantEntitlements'
         }
 
         It 'GrantEntitlement returns stable result shape with Kind=Group' {
@@ -811,6 +862,79 @@ Describe 'EntraID identity provider - Entitlement operations' {
 
             @($afterGrant | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
             @($afterRevoke | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
+        }
+
+        It 'BulkRevokeEntitlements removes multiple groups and returns per-item Changed' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            $g1 = [guid]::NewGuid().ToString()
+            $g2 = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $g1 })
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $g2 })
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'Group'; Id = $g1 },
+                @{ Kind = 'Group'; Id = $g2 }
+            ))
+
+            @($results).Count | Should -Be 2
+            ($results | Where-Object { $_.Changed -eq $true }).Count | Should -Be 2
+            ($results | Where-Object { $null -ne $_.Error }).Count | Should -Be 0
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g1 }).Count | Should -Be 0
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g2 }).Count | Should -Be 0
+        }
+
+        It 'BulkRevokeEntitlements is idempotent (not a member → Changed=$false)' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            $g1 = [guid]::NewGuid().ToString()
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'Group'; Id = $g1 }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $false
+            $results[0].Error | Should -BeNullOrEmpty
+        }
+
+        It 'BulkGrantEntitlements adds multiple groups and returns per-item Changed' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            $g1 = [guid]::NewGuid().ToString()
+            $g2 = [guid]::NewGuid().ToString()
+
+            $results = $script:EntProvider.BulkGrantEntitlements($userId, @(
+                @{ Kind = 'Group'; Id = $g1 },
+                @{ Kind = 'Group'; Id = $g2 }
+            ))
+
+            @($results).Count | Should -Be 2
+            ($results | Where-Object { $_.Changed -eq $true }).Count | Should -Be 2
+            ($results | Where-Object { $null -ne $_.Error }).Count | Should -Be 0
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g1 }).Count | Should -Be 1
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g2 }).Count | Should -Be 1
+        }
+
+        It 'BulkGrantEntitlements is idempotent (already a member → Changed=$false)' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            $g1 = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $g1 })
+
+            $results = $script:EntProvider.BulkGrantEntitlements($userId, @(
+                @{ Kind = 'Group'; Id = $g1 }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $false
+            $results[0].Error | Should -BeNullOrEmpty
         }
     }
 }

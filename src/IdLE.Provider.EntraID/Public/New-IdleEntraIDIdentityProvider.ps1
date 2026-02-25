@@ -875,15 +875,8 @@ function New-IdleEntraIDIdentityProvider {
         # Update normalized entitlement with canonical group ID
         $normalized.Id = $groupObjectId
 
-        # Check if already a member (idempotency)
-        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
-        $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
-
-        $changed = $false
-        if (@($existing).Count -eq 0) {
-            $this.Adapter.AddGroupMember($groupObjectId, $user.id, $accessToken)
-            $changed = $true
-        }
+        # Adapter handles idempotency (already a member → no-op); returns $true if changed
+        $changed = [bool]$this.Adapter.AddGroupMember($groupObjectId, $user.id, $accessToken)
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
@@ -929,15 +922,8 @@ function New-IdleEntraIDIdentityProvider {
         # Update normalized entitlement with canonical group ID
         $normalized.Id = $groupObjectId
 
-        # Check if currently a member (idempotency)
-        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
-        $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
-
-        $changed = $false
-        if (@($existing).Count -gt 0) {
-            $this.Adapter.RemoveGroupMember($groupObjectId, $user.id, $accessToken)
-            $changed = $true
-        }
+        # Adapter handles idempotency (not a member → no-op); returns $true if changed
+        $changed = [bool]$this.Adapter.RemoveGroupMember($groupObjectId, $user.id, $accessToken)
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
@@ -946,6 +932,121 @@ function New-IdleEntraIDIdentityProvider {
             Changed     = $changed
             Entitlement = $normalized
         }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name BulkRevokeEntitlements -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object[]] $Entitlements,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        $operations = @()
+        foreach ($ent in $Entitlements) {
+            $normalized = $this.ConvertToEntitlement($ent)
+            if ($null -ne $normalized.Kind -and $normalized.Kind -ne 'Group') {
+                throw [System.ArgumentException]::new(
+                    "BulkRevokeEntitlements only supports entitlements with Kind 'Group'. Received Kind '$($normalized.Kind)'."
+                )
+            }
+            $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+            $operations += @{
+                RequestId     = [guid]::NewGuid().ToString('N').Substring(0, 8)
+                GroupObjectId = $groupObjectId
+                UserObjectId  = $user.id
+                Action        = 'remove'
+                Entitlement   = $normalized
+            }
+        }
+
+        if ($operations.Count -eq 0) {
+            return @()
+        }
+
+        $batchResults = $this.Adapter.BatchMembershipChanges($operations, $accessToken)
+
+        $results = @()
+        foreach ($br in $batchResults) {
+            $op = $operations | Where-Object { $_.RequestId -eq $br.RequestId }
+            $results += [pscustomobject]@{
+                PSTypeName  = 'IdLE.BulkProviderResult'
+                Operation   = 'RevokeEntitlement'
+                IdentityKey = $IdentityKey
+                Changed     = $br.Changed
+                Error       = $br.Error
+                Entitlement = $op.Entitlement
+            }
+        }
+        return $results
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name BulkGrantEntitlements -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $IdentityKey,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object[]] $Entitlements,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $accessToken = $this.ExtractAccessToken($AuthSession)
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+
+        $operations = @()
+        foreach ($ent in $Entitlements) {
+            $normalized = $this.ConvertToEntitlement($ent)
+            if ($null -ne $normalized.Kind -and $normalized.Kind -ne 'Group') {
+                throw [System.ArgumentException]::new(
+                    "BulkGrantEntitlements only supports entitlements with Kind 'Group'. Received Kind '$($normalized.Kind)'."
+                )
+            }
+            $groupObjectId = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+            $normalized.Id = $groupObjectId
+            $operations += @{
+                RequestId     = [guid]::NewGuid().ToString('N').Substring(0, 8)
+                GroupObjectId = $groupObjectId
+                UserObjectId  = $user.id
+                Action        = 'add'
+                Entitlement   = $normalized
+            }
+        }
+
+        if ($operations.Count -eq 0) {
+            return @()
+        }
+
+        $batchResults = $this.Adapter.BatchMembershipChanges($operations, $accessToken)
+
+        $results = @()
+        foreach ($br in $batchResults) {
+            $op = $operations | Where-Object { $_.RequestId -eq $br.RequestId }
+            $results += [pscustomobject]@{
+                PSTypeName  = 'IdLE.BulkProviderResult'
+                Operation   = 'GrantEntitlement'
+                IdentityKey = $IdentityKey
+                Changed     = $br.Changed
+                Error       = $br.Error
+                Entitlement = $op.Entitlement
+            }
+        }
+        return $results
     } -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name NormalizeEntitlementId -Value {

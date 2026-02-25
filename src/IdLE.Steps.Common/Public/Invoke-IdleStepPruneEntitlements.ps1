@@ -267,6 +267,16 @@ function Invoke-IdleStepPruneEntitlements {
         Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['GrantEntitlement'] -ParameterName 'AuthSession'
     } else { $false }
 
+    # Detect bulk-capable provider methods (e.g. Entra ID uses Graph $batch for efficiency)
+    $hasBulkRevoke = $null -ne $provider.PSObject.Methods['BulkRevokeEntitlements']
+    $bulkRevokeSupportsAuthSession = if ($hasBulkRevoke) {
+        Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['BulkRevokeEntitlements'] -ParameterName 'AuthSession'
+    } else { $false }
+    $hasBulkGrant = $ensureKeep -and ($null -ne $provider.PSObject.Methods['BulkGrantEntitlements'])
+    $bulkGrantSupportsAuthSession = if ($hasBulkGrant) {
+        Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['BulkGrantEntitlements'] -ParameterName 'AuthSession'
+    } else { $false }
+
     # 1. List current entitlements, filter by Kind
     $allCurrent = if ($listSupportsAuthSession -and $null -ne $authSession) {
         @($provider.ListEntitlements($identityKey, $authSession))
@@ -306,49 +316,106 @@ function Invoke-IdleStepPruneEntitlements {
     $skippedItems = @()
 
     # 3. Revoke each entitlement in remove-set
-    foreach ($ent in $toRemove) {
-        try {
-            if ($revokeSupportsAuthSession -and $null -ne $authSession) {
-                $null = $provider.RevokeEntitlement($identityKey, $ent, $authSession)
-            } else {
-                $null = $provider.RevokeEntitlement($identityKey, $ent)
-            }
-            $changed = $true
+    if ($hasBulkRevoke -and $toRemove.Count -gt 0) {
+        # Bulk path: provider batches operations and returns per-item results with distinct status
+        $bulkResults = if ($bulkRevokeSupportsAuthSession -and $null -ne $authSession) {
+            @($provider.BulkRevokeEntitlements($identityKey, $toRemove, $authSession))
+        } else {
+            @($provider.BulkRevokeEntitlements($identityKey, $toRemove))
+        }
 
-            if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
-                $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                $Context.EventSink.WriteEvent('Information', "PruneEntitlements: revoked entitlement '$($ent.Id)'", $Step.Name, @{
-                    Kind          = $kind
-                    EntitlementId = [string]$ent.Id
-                })
+        foreach ($br in $bulkResults) {
+            if ($br.Error) {
+                $skippedItems += [pscustomobject]@{
+                    EntitlementId = [string]$br.Entitlement.Id
+                    Reason        = [string]$br.Error
+                }
+                if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                    $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                    $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: skipped non-removable entitlement '$($br.Entitlement.Id)': $($br.Error)", $Step.Name, @{
+                        Kind          = $kind
+                        EntitlementId = [string]$br.Entitlement.Id
+                        Reason        = [string]$br.Error
+                    })
+                }
+            } else {
+                if ($br.Changed) { $changed = $true }
+                if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                    $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                    $Context.EventSink.WriteEvent('Information', "PruneEntitlements: revoked entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
+                        Kind          = $kind
+                        EntitlementId = [string]$br.Entitlement.Id
+                    })
+                }
             }
         }
-        catch {
-            # Non-removable or permission-denied entitlement: skip with warning
-            $reason = $_.Exception.Message
-            $skippedItems += [pscustomobject]@{
-                EntitlementId = [string]$ent.Id
-                Reason        = $reason
-            }
+    } else {
+        # Per-item path: each revoke is attempted independently
+        foreach ($ent in $toRemove) {
+            try {
+                if ($revokeSupportsAuthSession -and $null -ne $authSession) {
+                    $null = $provider.RevokeEntitlement($identityKey, $ent, $authSession)
+                } else {
+                    $null = $provider.RevokeEntitlement($identityKey, $ent)
+                }
+                $changed = $true
 
-            if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
-                $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: skipped non-removable entitlement '$($ent.Id)': $reason", $Step.Name, @{
-                    Kind          = $kind
+                if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                    $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                    $Context.EventSink.WriteEvent('Information', "PruneEntitlements: revoked entitlement '$($ent.Id)'", $Step.Name, @{
+                        Kind          = $kind
+                        EntitlementId = [string]$ent.Id
+                    })
+                }
+            }
+            catch {
+                # Non-removable or permission-denied entitlement: skip with warning
+                $reason = $_.Exception.Message
+                $skippedItems += [pscustomobject]@{
                     EntitlementId = [string]$ent.Id
                     Reason        = $reason
-                })
+                }
+
+                if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                    $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                    $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: skipped non-removable entitlement '$($ent.Id)': $reason", $Step.Name, @{
+                        Kind          = $kind
+                        EntitlementId = [string]$ent.Id
+                        Reason        = $reason
+                    })
+                }
             }
         }
     }
 
     # 4. If EnsureKeepEntitlements: grant any explicit Keep items that are missing
     if ($ensureKeep -and $keepItems.Count -gt 0) {
-        foreach ($k in $keepItems) {
-            $alreadyPresent = @($current | Where-Object {
+        $toEnsure = @($keepItems | Where-Object { $k = $_
+            @($current | Where-Object {
                 [string]::Equals([string]$_.Id, [string]$k.Id, [System.StringComparison]::OrdinalIgnoreCase)
-            })
-            if (@($alreadyPresent).Count -eq 0) {
+            }).Count -eq 0
+        })
+
+        if ($hasBulkGrant -and $toEnsure.Count -gt 0) {
+            # Bulk grant path
+            $bulkResults = if ($bulkGrantSupportsAuthSession -and $null -ne $authSession) {
+                @($provider.BulkGrantEntitlements($identityKey, $toEnsure, $authSession))
+            } else {
+                @($provider.BulkGrantEntitlements($identityKey, $toEnsure))
+            }
+
+            foreach ($br in $bulkResults) {
+                if ($br.Changed) { $changed = $true }
+                if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
+                    $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
+                    $Context.EventSink.WriteEvent('Information', "PruneEntitlements: granted keep entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
+                        Kind          = $kind
+                        EntitlementId = [string]$br.Entitlement.Id
+                    })
+                }
+            }
+        } else {
+            foreach ($k in $toEnsure) {
                 if ($grantSupportsAuthSession -and $null -ne $authSession) {
                     $null = $provider.GrantEntitlement($identityKey, $k, $authSession)
                 } else {

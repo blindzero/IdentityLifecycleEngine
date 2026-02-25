@@ -500,7 +500,9 @@ Describe 'AD identity provider' {
                 $existingGroup = $user.Groups | Where-Object { $_.Id -eq $GroupIdentity }
                 if ($null -eq $existingGroup) {
                     $user.Groups = @($user.Groups) + @([pscustomobject]@{ Id = $GroupIdentity; Kind = 'Group' })
+                    return $true
                 }
+                return $false
             } -Force
 
             $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
@@ -518,9 +520,11 @@ Describe 'AD identity provider' {
                     throw "User not found: $MemberIdentity"
                 }
 
+                $wasMember = $null -ne ($user.Groups | Where-Object { $_.Id -eq $GroupIdentity })
                 if ($null -ne $user.Groups) {
                     $user.Groups = @($user.Groups | Where-Object { $_.Id -ne $GroupIdentity })
                 }
+                return $wasMember
             } -Force
 
             $adapter | Add-Member -MemberType ScriptMethod -Name GetUserGroups -Value {

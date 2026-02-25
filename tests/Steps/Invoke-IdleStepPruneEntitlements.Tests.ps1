@@ -434,6 +434,70 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $mockProvider.RevokedIds | Should -Not -Contain 'CN=G-All,OU=Groups,DC=contoso,DC=com'
         }
     }
+
+    Context 'Behavior: step uses BulkRevokeEntitlements when provider exposes it' {
+        It 'delegates remove-set to BulkRevokeEntitlements and surfaces per-item errors as Skipped' {
+            $mockProvider = [pscustomobject]@{
+                PSTypeName   = 'MockBulkProvider'
+                BulkCalled   = $false
+                BulkInputIds = [System.Collections.Generic.List[string]]::new()
+            }
+
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param($IdentityKey)
+                return @(
+                    [pscustomobject]@{ Kind = 'Group'; Id = 'CN=G-Keep,DC=contoso,DC=com' },
+                    [pscustomobject]@{ Kind = 'Group'; Id = 'CN=G-Remove1,DC=contoso,DC=com' },
+                    [pscustomobject]@{ Kind = 'Group'; Id = 'CN=G-Protected,DC=contoso,DC=com' }
+                )
+            } -Force
+
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name RevokeEntitlement -Value {
+                param($IdentityKey, $Entitlement) # fallback; not called when BulkRevokeEntitlements is present
+            } -Force
+
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name BulkRevokeEntitlements -Value {
+                param($IdentityKey, $Entitlements)
+                $this.BulkCalled = $true
+                $results = @()
+                foreach ($ent in $Entitlements) {
+                    $id = if ($ent -is [hashtable]) { $ent['Id'] } else { $ent.Id }
+                    $this.BulkInputIds.Add($id)
+                    if ($id -match 'Protected') {
+                        $results += [pscustomobject]@{ Changed = $false; Error = 'Cannot remove primary group'; Entitlement = $ent }
+                    } else {
+                        $results += [pscustomobject]@{ Changed = $true; Error = $null; Entitlement = $ent }
+                    }
+                }
+                return $results
+            } -Force
+
+            $script:Context.Providers['Identity'] = $mockProvider
+
+            $step = [pscustomobject]@{
+                Name = 'Bulk prune test'
+                Type = 'IdLE.Step.PruneEntitlements'
+                With = @{
+                    IdentityKey = 'user1'
+                    Kind        = 'Group'
+                    Provider    = 'Identity'
+                    Keep        = @( @{ Kind = 'Group'; Id = 'CN=G-Keep,DC=contoso,DC=com' } )
+                }
+            }
+
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status              | Should -Be 'Completed'
+            $result.Changed             | Should -BeTrue
+            $mockProvider.BulkCalled    | Should -BeTrue
+            # G-Remove1 bulk-revoked, G-Protected returned as error → Skipped
+            $mockProvider.BulkInputIds  | Should -Contain 'CN=G-Remove1,DC=contoso,DC=com'
+            $mockProvider.BulkInputIds  | Should -Contain 'CN=G-Protected,DC=contoso,DC=com'
+            $result.Skipped             | Should -Not -BeNullOrEmpty
+            $result.Skipped[0].EntitlementId | Should -Match 'Protected'
+        }
+    }
 }
 
 Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {

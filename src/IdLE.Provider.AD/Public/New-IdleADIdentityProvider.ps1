@@ -807,14 +807,7 @@ function New-IdleADIdentityProvider {
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
         $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
 
-        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
-        $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
-
-        $changed = $false
-        if (@($existing).Count -eq 0) {
-            $adapter.AddGroupMember($groupDn, $user.DistinguishedName)
-            $changed = $true
-        }
+        $changed = [bool]$adapter.AddGroupMember($groupDn, $user.DistinguishedName)
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
@@ -847,14 +840,7 @@ function New-IdleADIdentityProvider {
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
         $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
 
-        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
-        $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
-
-        $changed = $false
-        if (@($existing).Count -gt 0) {
-            $adapter.RemoveGroupMember($groupDn, $user.DistinguishedName)
-            $changed = $true
-        }
+        $changed = [bool]$adapter.RemoveGroupMember($groupDn, $user.DistinguishedName)
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'

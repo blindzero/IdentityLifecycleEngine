@@ -687,7 +687,17 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        Add-ADGroupMember @params
+        try {
+            Add-ADGroupMember @params
+            return $true
+        }
+        catch {
+            # Idempotency: already a member is a no-op
+            if ($_.Exception.Message -match 'already a member') {
+                return $false
+            }
+            throw
+        }
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
@@ -711,7 +721,17 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        Remove-ADGroupMember @params
+        try {
+            Remove-ADGroupMember @params
+            return $true
+        }
+        catch {
+            # Idempotency: not a member is a no-op
+            if ($_.Exception.Message -match 'not a member|Member does not exist') {
+                return $false
+            }
+            throw
+        }
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name GetUserGroups -Value {
