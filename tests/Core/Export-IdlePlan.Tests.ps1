@@ -120,6 +120,7 @@ Describe 'Export-IdlePlan' {
             $json.plan.warnings[0].code | Should -Be 'PreconditionContextPathUnresolvedAtPlan'
             $json.plan.warnings[0].step | Should -Be 'Check Context'
         }
+    }
     Context 'Contract invariants' {
         It 'always includes schemaVersion 1.0' {
             $cid = '11111111-1111-1111-1111-111111111111'

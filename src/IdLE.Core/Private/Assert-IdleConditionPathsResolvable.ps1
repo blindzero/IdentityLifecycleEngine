@@ -47,7 +47,7 @@ function Assert-IdleConditionPathsResolvable {
             return
         }
 
-        if ($pathText.StartsWith('context.')) {
+        if ($pathText.StartsWith('context.', [System.StringComparison]::OrdinalIgnoreCase)) {
             $pathText = $pathText.Substring(8)
         }
 
