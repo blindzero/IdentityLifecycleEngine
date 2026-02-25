@@ -104,6 +104,18 @@ Preconditions = @{ In = @{ Path = 'Plan.LifecycleEvent'; Values = @('Joiner','Mo
 OnPreconditionFalse = 'Skip'
 ```
 
+### Combine multiple checks (All / AND)
+
+```powershell
+Preconditions = @{
+  All = @(
+    @{ In = @{ Path = 'Request.Intent.Region'; Value = 'EU' }}
+    @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
+    @{ Exists = 'Request.IdentityKeys.EmployeeId' }
+  )
+}
+```
+
 ---
 
 ## Troubleshooting
