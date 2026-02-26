@@ -21,7 +21,7 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
             }
 
             $errors = Test-IdleWorkflowSchema -Workflow $workflow
-            @($errors | Where-Object { $_ -like "*Steps[0].Condition*invalid condition schema*" }).Count | Should -BeGreaterThan 0
+            @($errors | Where-Object { $_ -like "*Steps``[0``].Condition*invalid condition schema*" }).Count | Should -BeGreaterThan 0
         }
 
         It 'rejects invalid Condition DSL nodes in OnFailureSteps at definition validation time' {
@@ -41,7 +41,7 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
             }
 
             $errors = Test-IdleWorkflowSchema -Workflow $workflow
-            @($errors | Where-Object { $_ -like "*OnFailureSteps[0].Condition*invalid condition schema*" }).Count | Should -BeGreaterThan 0
+            @($errors | Where-Object { $_ -like "*OnFailureSteps``[0``].Condition*invalid condition schema*" }).Count | Should -BeGreaterThan 0
         }
 
         It 'rejects invalid Precondition DSL node at definition validation time' {
@@ -58,7 +58,7 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
             }
 
             $errors = Test-IdleWorkflowSchema -Workflow $workflow
-            @($errors | Where-Object { $_ -like "*Steps[0].Precondition*invalid condition schema*" }).Count | Should -BeGreaterThan 0
+            @($errors | Where-Object { $_ -like "*Steps``[0``].Precondition*invalid condition schema*" }).Count | Should -BeGreaterThan 0
         }
 
         It 'accepts valid precondition using the same condition DSL' {
@@ -81,7 +81,7 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
             }
 
             $errors = Test-IdleWorkflowSchema -Workflow $workflow
-            $errors.Count | Should -Be 0
+            @($errors).Count | Should -Be 0
         }
     }
 }
