@@ -318,24 +318,20 @@ function Invoke-IdlePlanObject {
             continue
         }
 
-        # Runtime Preconditions: evaluated immediately before step execution (online, not planning-time).
+        # Runtime Precondition: evaluated immediately before step execution (online, not planning-time).
         # Blocked = policy/precondition gate (does not trigger OnFailureSteps). Stops execution.
         # Fail    = treated as a technical failure (triggers OnFailureSteps). Stops execution.
         # Continue = emits events but skips the step and continues to the next step.
         # Non-IDictionary precondition nodes are treated as precondition failures (fail closed).
-        $stepPreconditions = Get-IdlePropertyValue -Object $step -Name 'Preconditions'
-        if ($null -ne $stepPreconditions -and @($stepPreconditions).Count -gt 0) {
+        $stepPrecondition = Get-IdlePropertyValue -Object $step -Name 'Precondition'
+        if ($null -ne $stepPrecondition) {
             $preconditionPassed = $true
-            foreach ($pc in @($stepPreconditions)) {
-                if ($pc -isnot [System.Collections.IDictionary]) {
-                    # Fail closed: a malformed or unexpected node type is treated as a failed precondition.
-                    $preconditionPassed = $false
-                    break
-                }
-                if (-not (Test-IdleCondition -Condition ([hashtable]$pc) -Context $preconditionContext)) {
-                    $preconditionPassed = $false
-                    break
-                }
+            if ($stepPrecondition -isnot [System.Collections.IDictionary]) {
+                # Fail closed: a malformed or unexpected node type is treated as a failed precondition.
+                $preconditionPassed = $false
+            }
+            elseif (-not (Test-IdleCondition -Condition ([hashtable]$stepPrecondition) -Context $preconditionContext)) {
+                $preconditionPassed = $false
             }
 
             if (-not $preconditionPassed) {
@@ -621,21 +617,17 @@ function Invoke-IdlePlanObject {
                 continue
             }
 
-            # Runtime Preconditions for OnFailure steps: evaluated immediately before execution.
+            # Runtime Precondition for OnFailure steps: evaluated immediately before execution.
             # OnFailure runs best-effort, so precondition failures skip the step but do not halt
             # remaining OnFailure steps. Non-IDictionary nodes are treated as failures (fail closed).
-            $ofPreconditions = Get-IdlePropertyValue -Object $ofStep -Name 'Preconditions'
-            if ($null -ne $ofPreconditions -and @($ofPreconditions).Count -gt 0) {
+            $ofPrecondition = Get-IdlePropertyValue -Object $ofStep -Name 'Precondition'
+            if ($null -ne $ofPrecondition) {
                 $ofPreconditionPassed = $true
-                foreach ($opc in @($ofPreconditions)) {
-                    if ($opc -isnot [System.Collections.IDictionary]) {
-                        $ofPreconditionPassed = $false
-                        break
-                    }
-                    if (-not (Test-IdleCondition -Condition ([hashtable]$opc) -Context $preconditionContext)) {
-                        $ofPreconditionPassed = $false
-                        break
-                    }
+                if ($ofPrecondition -isnot [System.Collections.IDictionary]) {
+                    $ofPreconditionPassed = $false
+                }
+                elseif (-not (Test-IdleCondition -Condition ([hashtable]$ofPrecondition) -Context $preconditionContext)) {
+                    $ofPreconditionPassed = $false
                 }
 
                 if (-not $ofPreconditionPassed) {

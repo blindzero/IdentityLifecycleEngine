@@ -5,14 +5,16 @@
     @{
       Name              = 'Step1'
       Type              = 'IdLE.Step.InvalidPCEvt'
-      Preconditions     = @(
+      Precondition      = @{
+        All = @(
         @{
           Equals = @{
             Path  = 'Plan.LifecycleEvent'
             Value = 'Joiner'
           }
         }
-      )
+        )
+      }
       PreconditionEvent = @{
         Message = 'Some message'
       }

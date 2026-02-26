@@ -13,6 +13,52 @@ Workflows are designed for **admins and workflow authors**:
 - IdLE builds a **plan** and then **executes** it.
 - Providers implement the system-specific operations.
 
+---
+
+## What a workflow contains
+
+At a high level, a workflow contains:
+
+- metadata (name, lifecycle event)
+- a list of steps (ordered)
+- per-step configuration (`With`)
+- optional execution logic (conditions, `OnFailureSteps`, etc.)
+
+The Big Picture is described in [Concepts](../about/concepts.md).
+
+### Step execution controls
+
+Each step supports several optional execution control properties:
+
+| Property | Evaluated at | Purpose |
+|---|---|---|
+| `Condition` | Plan time | Include or skip the step based on request/intent data. |
+| `Precondition` | Execution time (runtime) | Guard the step against stale or unsafe state immediately before it runs. See [Runtime Preconditions](workflows/preconditions.md). |
+| `OnFailureSteps` | After failure (workflow-level) | Cleanup/rollback steps run after a primary step fails. |
+
+---
+
+## Minimal workflow example
+
+```powershell
+@{
+  Name           = 'Joiner - Minimal'
+  LifecycleEvent = 'Joiner'
+
+  Steps          = @(
+    @{
+      Name = 'Emit start'
+      Type = 'IdLE.Step.EmitEvent'
+      With = @{
+        Message = 'Starting Joiner workflow'
+      }
+    }
+  )
+}
+```
+
+---
+
 ## How workflows are used in the lifecycle
 
 1. You write the workflow definition (`.psd1`).
