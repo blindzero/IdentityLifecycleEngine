@@ -132,6 +132,16 @@ function ConvertTo-IdleWorkflowSteps {
         $precondition = $preconditionSettings.Precondition
         $onPreconditionFalse = $preconditionSettings.OnPreconditionFalse
         $preconditionEvent = $preconditionSettings.PreconditionEvent
+        $preconditionWarnings = @()
+
+        $planWarnings = Get-IdlePropertyValue -Object $PlanningContext.Plan -Name 'Warnings'
+        if ($null -ne $planWarnings) {
+            $preconditionWarnings = @($planWarnings | Where-Object {
+                    $warningStep = Get-IdlePropertyValue -Object $_ -Name 'Step'
+                    $warningSource = Get-IdlePropertyValue -Object $_ -Name 'Source'
+                    $warningStep -eq $stepName -and $warningSource -eq 'Precondition'
+                })
+        }
 
         $normalizedSteps += [pscustomobject]@{
             PSTypeName           = 'IdLE.PlanStep'
@@ -142,6 +152,7 @@ function ConvertTo-IdleWorkflowSteps {
             Precondition         = $precondition
             OnPreconditionFalse  = $onPreconditionFalse
             PreconditionEvent    = $preconditionEvent
+            Warnings             = $preconditionWarnings
             With                 = $with
             RequiresCapabilities = $requiresCaps
             Status               = $status

@@ -114,6 +114,8 @@ Describe 'Export-IdlePlan' {
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
             @($plan.Warnings).Count | Should -BeGreaterThan 0
+            @($plan.Steps[0].Warnings).Count | Should -BeGreaterThan 0
+            $plan.Steps[0].Warnings[0].Code | Should -Be 'PreconditionContextPathUnresolvedAtPlan'
 
             $json = $plan | Export-IdlePlan | ConvertFrom-Json
             @($json.plan.warnings).Count | Should -BeGreaterThan 0
