@@ -27,6 +27,17 @@ It simply reads values from the context and inserts them into configuration fiel
 
 ---
 
+## ⚠️ Context Resolvers vs Templates vs Conditions vs Preconditions
+
+:::warning Do not confuse these concepts
+**[Context Resolvers](./context-resolver.md)** populate `Request.Context.*` during **planning**.  
+**Template Substitution** consumes `Plan` / `Request` / `Workflow` values to build strings.  
+**[Conditions](./conditions.md)** decide step applicability during **planning** (`NotApplicable`).  
+**[Preconditions](./preconditions.md)** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
+:::
+
+---
+
 ## Resolution Context
 
 Templates can reference:
@@ -151,11 +162,3 @@ During plan build, IdLE validates every template value:
 
 - The referenced path may be `$null`.
 - Validate the request preparation logic before execution.
-
----
-
-## Related Topics
-
-- [Workflows](../workflows)
-- [Conditions](./conditions)
-- [Preconditions](./preconditions)

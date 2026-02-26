@@ -55,6 +55,7 @@ const sidebars = {
             'use/workflows/conditions',
             'use/workflows/preconditions',
             'use/workflows/templates',
+            'use/workflows/context-resolver',
           ],
         },
         'use/providers',

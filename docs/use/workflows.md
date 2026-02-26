@@ -50,40 +50,26 @@ When you run IdLE, it happens in two distinct phases:
 At a high level, a workflow contains:
 
 - metadata (name, lifecycle event)
-- a list of steps (ordered)
+- a list of context resolver instructions (`ContextResolvers`)
+- a list of steps (ordered) (`Steps`)
 - per-step configuration (`With`)
 - per-step optional execution logic (`Condition`, `Preconditions`, `OnFailureSteps`, etc.)
 
 The Big Picture is described in [Concepts](../about/concepts.md).
 
-A step is a self-contained unit of work. Most steps follow this pattern:
+### Context Resolvers
 
-- `Name` (string) – a human-readable identifier
-- `Type` (string) – the step type (for example `IdLE.Step.EnsureAttribute`)
-- `With` (hashtable) – step-specific configuration
-- `Condition` (hashtable, optional) – optional planning-time applicability
-- `Preconditions` (hashtable, optional) – optional execution-time guard
-- `OnPreconditionFalse` (string, optional) – behavior when the precondition is false
+Workflows may define a `ContextResolvers` section at workflow root level.
 
-> Step types define which keys are supported inside `With`. See the step reference for details.
+Resolvers run during **plan build** and populate `Request.Context.*`
+using read-only provider capabilities.
 
-### Step execution controls
+This allows Conditions, Preconditions and Templates to rely on
+stable pre-resolved associated data.
 
-Each step supports several optional execution control properties:
+See: [Context Resolvers](./context-resolvers)
 
-| Property | Evaluated at | Purpose |
-|---|---|---|
-| `Condition` | Plan time | Include or skip the step based on request/intent data during planning. See [Conditions](workflows/conditions.md) |
-| `Preconditions` | Execution time (runtime) | Guard the step against stale or unsafe state immediately before execution. See Runtime [Preconditions](workflows/preconditions.md). |
-| `OnFailureSteps` | After failure (workflow-level) | Cleanup/rollback steps run after a primary step fails. |
-
-:::warning Do not confuse Conditions and Preconditions
-**Conditions** decide step applicability during **planning** (a step becomes `NotApplicable`).  
-**Preconditions** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
-
----
-
-## Template Substitution
+### Template Substitution
 
 Many step configurations use **template substitution** to insert values from `Plan`, `Request`, and `Workflow` into strings (for example to build a UPN or display name). \
 These `{{path}}` placeholders that are resolved against the
@@ -96,6 +82,33 @@ Message     = 'User {{Request.Intent.DisplayName}} is joining.'
 ```
 
 See: [Template Substitution](./workflows/templates)
+
+### What a step contains
+
+A step is a self-contained unit of work. Most steps follow this pattern:
+
+- `Name` (string) – a human-readable identifier
+- `Type` (string) – the step type (for example `IdLE.Step.EnsureAttribute`)
+- `With` (hashtable) – step-specific configuration
+- `Condition` (hashtable, optional) – optional planning-time applicability
+- `Preconditions` (hashtable, optional) – optional execution-time guard
+- `OnPreconditionFalse` (string, optional) – behavior when the precondition is false
+
+> Step types define which keys are supported inside `With`. See the step reference for details.
+
+#### Step execution controls
+
+Each step supports several optional execution control properties:
+
+| Property | Evaluated at | Purpose |
+|---|---|---|
+| `Condition` | Plan time | Include or skip the step based on request/intent data during planning. See [Conditions](workflows/conditions.md) |
+| `Preconditions` | Execution time (runtime) | Guard the step against stale or unsafe state immediately before execution. See Runtime [Preconditions](workflows/preconditions.md). |
+| `OnFailureSteps` | After failure (workflow-level) | Cleanup/rollback steps run after a primary step fails. |
+
+:::warning Do not confuse Conditions and Preconditions
+**Conditions** decide step applicability during **planning** (a step becomes `NotApplicable`).  
+**Preconditions** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
 
 ---
 

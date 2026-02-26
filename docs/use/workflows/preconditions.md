@@ -18,13 +18,13 @@ They protect execution but do not affect planning.
 
 ---
 
-## ⚠️ Preconditions vs Conditions
+## ⚠️ Context Resolvers vs Templates vs Conditions vs Preconditions
 
-:::warning Do not confuse Preconditions and Conditions
-Preconditions are evaluated during **execution**.  
-Conditions are evaluated during **planning**.  
-
-See: [Conditions](./conditions)
+:::warning Do not confuse these concepts
+**[Context Resolvers](./context-resolver.md)** populate `Request.Context.*` during **planning**.  
+**[Template Substitution](./templates.md)** consumes `Plan` / `Request` / `Workflow` values to build strings.  
+**[Conditions](./conditions.md)** decide step applicability during **planning** (`NotApplicable`).  
+**Preconditions** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
 :::
 
 | Preconditions | Conditions |
