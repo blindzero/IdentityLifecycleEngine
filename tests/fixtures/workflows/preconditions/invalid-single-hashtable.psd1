@@ -5,7 +5,7 @@
     @{
       Name          = 'Step1'
       Type          = 'IdLE.Step.InvalidPCSingleHt'
-      Preconditions = @{
+      Precondition = @{
         Equals = @{
           Path  = 'Plan.LifecycleEvent'
           Value = 'Joiner'
