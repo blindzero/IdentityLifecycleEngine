@@ -153,7 +153,8 @@ function ConvertTo-IdleWorkflowSteps {
                 for ($warningIndex = $warningCountBefore; $warningIndex -lt $warningCountAfter; $warningIndex++) {
                     $warning = $planWarnings[$warningIndex]
                     $warningSource = Get-IdlePropertyValue -Object $warning -Name 'Source'
-                    if ($warningSource -eq 'Precondition') {
+                    $warningStep = Get-IdlePropertyValue -Object $warning -Name 'Step'
+                    if ($warningSource -eq 'Precondition' -and $warningStep -eq $stepName) {
                         $preconditionWarnings += $warning
                     }
                 }
