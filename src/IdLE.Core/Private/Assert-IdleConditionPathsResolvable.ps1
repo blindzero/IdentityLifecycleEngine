@@ -24,7 +24,13 @@ function Assert-IdleConditionPathsResolvable {
 
         [Parameter()]
         [AllowNull()]
-        [object] $WarningSink
+        [object] $WarningSink,
+
+        # When set, skips validation of paths used by the Exists operator.
+        # Exists semantics intentionally allow missing paths (returns $false if absent),
+        # so strict execution-time path validation should exclude those paths.
+        [Parameter()]
+        [switch] $ExcludeExistsOperatorPaths
     )
 
     function Add-IdlePathIfPresent {
@@ -61,13 +67,16 @@ function Assert-IdleConditionPathsResolvable {
 
             [Parameter(Mandatory)]
             [AllowEmptyCollection()]
-            [System.Collections.Generic.List[string]] $PathList
+            [System.Collections.Generic.List[string]] $PathList,
+
+            [Parameter()]
+            [switch] $ExcludeExistsPaths
         )
 
         if ($Node.Contains('All')) {
             foreach ($child in @($Node.All)) {
                 if ($child -is [System.Collections.IDictionary]) {
-                    Get-IdleConditionPaths -Node $child -PathList $PathList
+                    Get-IdleConditionPaths -Node $child -PathList $PathList -ExcludeExistsPaths:$ExcludeExistsPaths
                 }
             }
             return
@@ -76,7 +85,7 @@ function Assert-IdleConditionPathsResolvable {
         if ($Node.Contains('Any')) {
             foreach ($child in @($Node.Any)) {
                 if ($child -is [System.Collections.IDictionary]) {
-                    Get-IdleConditionPaths -Node $child -PathList $PathList
+                    Get-IdleConditionPaths -Node $child -PathList $PathList -ExcludeExistsPaths:$ExcludeExistsPaths
                 }
             }
             return
@@ -85,7 +94,7 @@ function Assert-IdleConditionPathsResolvable {
         if ($Node.Contains('None')) {
             foreach ($child in @($Node.None)) {
                 if ($child -is [System.Collections.IDictionary]) {
-                    Get-IdleConditionPaths -Node $child -PathList $PathList
+                    Get-IdleConditionPaths -Node $child -PathList $PathList -ExcludeExistsPaths:$ExcludeExistsPaths
                 }
             }
             return
@@ -102,12 +111,17 @@ function Assert-IdleConditionPathsResolvable {
         }
 
         if ($Node.Contains('Exists')) {
-            $existsVal = $Node.Exists
-            if ($existsVal -is [string]) {
-                Add-IdlePathIfPresent -PathList $PathList -PathCandidate $existsVal
-            }
-            elseif ($existsVal -is [System.Collections.IDictionary]) {
-                Add-IdlePathIfPresent -PathList $PathList -PathCandidate $existsVal.Path
+            # Exists operator semantics: checking for the presence of a path is intentional.
+            # When -ExcludeExistsPaths is set (e.g. strict execution-time validation), skip these
+            # so that Exists can still return $false without causing a path-not-found error.
+            if (-not $ExcludeExistsPaths) {
+                $existsVal = $Node.Exists
+                if ($existsVal -is [string]) {
+                    Add-IdlePathIfPresent -PathList $PathList -PathCandidate $existsVal
+                }
+                elseif ($existsVal -is [System.Collections.IDictionary]) {
+                    Add-IdlePathIfPresent -PathList $PathList -PathCandidate $existsVal.Path
+                }
             }
             return
         }
@@ -119,7 +133,7 @@ function Assert-IdleConditionPathsResolvable {
     }
 
     $paths = [System.Collections.Generic.List[string]]::new()
-    Get-IdleConditionPaths -Node $Condition -PathList $paths
+    Get-IdleConditionPaths -Node $Condition -PathList $paths -ExcludeExistsPaths:$ExcludeExistsOperatorPaths
 
     $uniquePaths = @($paths | Select-Object -Unique)
     if ($uniquePaths.Count -eq 0) {
