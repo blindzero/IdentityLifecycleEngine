@@ -41,6 +41,12 @@ function ConvertTo-IdlePlanExportObject {
         )
 
         foreach ($name in $Names) {
+            if ($Object -is [System.Collections.IDictionary]) {
+                if ($Object.Contains($name)) {
+                    return $Object[$name]
+                }
+                continue
+            }
             $prop = $Object.PSObject.Properties[$name]
             if ($null -ne $prop) {
                 return $prop.Value
