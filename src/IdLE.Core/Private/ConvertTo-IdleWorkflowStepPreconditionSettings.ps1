@@ -42,7 +42,17 @@ function ConvertTo-IdleWorkflowStepPreconditionSettings {
                 )
             }
 
-            Assert-IdleConditionPathsResolvable -Condition ([hashtable]$rawPrecondition) -Context $PlanningContext -StepName $StepName -Source 'Precondition' -AllowMissingRequestContextPaths -WarningSink (Get-IdlePropertyValue -Object $PlanningContext.Plan -Name 'Warnings')
+            $warningSink = $null
+            $planObj = $PlanningContext.Plan
+            if ($null -ne $planObj) {
+                if ($planObj -is [System.Collections.IDictionary]) {
+                    if ($planObj.Contains('Warnings')) { $warningSink = $planObj['Warnings'] }
+                } else {
+                    $wProp = $planObj.PSObject.Properties['Warnings']
+                    if ($null -ne $wProp) { $warningSink = $wProp.Value }
+                }
+            }
+            Assert-IdleConditionPathsResolvable -Condition ([hashtable]$rawPrecondition) -Context $PlanningContext -StepName $StepName -Source 'Precondition' -AllowMissingRequestContextPaths -WarningSink $warningSink
             $normalized.Precondition = Copy-IdleDataObject -Value $rawPrecondition
         }
     }

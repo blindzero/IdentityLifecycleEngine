@@ -80,7 +80,7 @@ Describe 'Export-IdlePlan' {
         }
     }
 
-
+    Context 'Planning warnings export' {
         It 'includes planning warnings in exported plan for CI checks' {
             $cid = '22222222-2222-2222-2222-222222222222'
 
