@@ -128,8 +128,17 @@ function ConvertTo-IdleWorkflowSteps {
             $null
         }
 
-        $planWarnings = Get-IdlePropertyValue -Object $PlanningContext.Plan -Name 'Warnings'
-        $planWarningsCanTrackCount = $null -ne $planWarnings -and $null -ne $planWarnings.PSObject.Properties['Count']
+        $planWarnings = $null
+        $planObj = $PlanningContext.Plan
+        if ($null -ne $planObj) {
+            if ($planObj -is [System.Collections.IDictionary]) {
+                if ($planObj.Contains('Warnings')) { $planWarnings = $planObj['Warnings'] }
+            } else {
+                $wProp = $planObj.PSObject.Properties['Warnings']
+                if ($null -ne $wProp) { $planWarnings = $wProp.Value }
+            }
+        }
+        $planWarningsCanTrackCount = $planWarnings -is [System.Collections.IList]
         $warningCountBefore = if ($planWarningsCanTrackCount) { [int]$planWarnings.Count } else { 0 }
 
         $preconditionSettings = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $s -StepName $stepName -PlanningContext $PlanningContext
