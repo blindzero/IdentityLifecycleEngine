@@ -591,6 +591,46 @@ Describe 'ExchangeOnline provider - Unit tests' {
 
             { $adapter.TestErrorSanitization() } | Should -Throw -ExpectedMessage "*Bearer <REDACTED>*"
         }
+
+        It 'AddMailboxPermission does not leak return value to callers when InvokeSafely returns a non-null result' {
+            # Regression test: Add-MailboxPermission returns the created permission object in EXO.
+            # The adapter method must suppress this output with $null = $this.InvokeSafely(...)
+            # so it does not pollute EnsureMailboxPermissions's output pipeline and cause Changed=False.
+            $adapter = New-IdleExchangeOnlineAdapter
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name InvokeSafely -Value {
+                param($CommandName, $Parameters)
+                # Simulate Add-MailboxPermission returning a permission object (real EXO behavior)
+                return [pscustomobject]@{ Identity = 'mailbox@contoso.com'; User = 'user@contoso.com'; AccessRights = 'FullAccess' }
+            } -Force
+
+            $output = $adapter.AddMailboxPermission('mailbox@contoso.com', 'user@contoso.com', $null)
+            $output | Should -BeNullOrEmpty
+        }
+
+        It 'AddRecipientPermission does not leak return value to callers when InvokeSafely returns a non-null result' {
+            $adapter = New-IdleExchangeOnlineAdapter
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name InvokeSafely -Value {
+                param($CommandName, $Parameters)
+                return [pscustomobject]@{ Identity = 'mailbox@contoso.com'; Trustee = 'user@contoso.com'; AccessRights = 'SendAs' }
+            } -Force
+
+            $output = $adapter.AddRecipientPermission('mailbox@contoso.com', 'user@contoso.com', $null)
+            $output | Should -BeNullOrEmpty
+        }
+
+        It 'SetMailboxSendOnBehalf does not leak return value to callers when InvokeSafely returns a non-null result' {
+            $adapter = New-IdleExchangeOnlineAdapter
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name InvokeSafely -Value {
+                param($CommandName, $Parameters)
+                return [pscustomobject]@{ Identity = 'mailbox@contoso.com'; GrantSendOnBehalfTo = @('user@contoso.com') }
+            } -Force
+
+            $output = $adapter.SetMailboxSendOnBehalf('mailbox@contoso.com', @('user@contoso.com'), $null)
+            $output | Should -BeNullOrEmpty
+        }
     }
 
     Context 'Normalize-IdleExchangeOnlineAutoReplyMessage' {
@@ -815,6 +855,356 @@ Describe 'ExchangeOnline provider - Unit tests' {
 
             { $provider.EnsureMailboxPermissions('nonexistent@contoso.com', $permissions, $null) } |
                 Should -Throw "*Mailbox 'nonexistent@contoso.com' not found*"
+        }
+
+        It 'emits Evaluated and Result events when EventSink is set' {
+            Add-TestMailbox -PrimarySmtpAddress 'evt1@contoso.com'
+
+            $script:capturedEvents = [System.Collections.Generic.List[hashtable]]::new()
+            $fakeEventSink = [pscustomobject]@{}
+            $fakeEventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+                param($Type, $Message, $StepName, $Data)
+                $script:capturedEvents.Add(@{ Type = $Type; Message = $Message; Data = $Data })
+            } -Force
+
+            $provider.EventSink = $fakeEventSink
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate1@contoso.com'; Right = 'FullAccess'; Ensure = 'Present' }
+            )
+
+            $result = $provider.EnsureMailboxPermissions('evt1@contoso.com', $permissions, $null)
+
+            $provider.EventSink = $null
+
+            $evalEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Evaluated' })
+            $applyEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Applying' })
+            $resultEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Result' })
+
+            $evalEvents.Count | Should -BeGreaterOrEqual 1
+            $applyEvents.Count | Should -Be 1
+            $resultEvents.Count | Should -Be 1
+            $result.Changed | Should -Be $true
+        }
+
+        It 'does not emit events when EventSink is null' {
+            Add-TestMailbox -PrimarySmtpAddress 'evt2@contoso.com'
+
+            $provider.EventSink = $null
+
+            $permissions = @(
+                @{ AssignedUser = 'delegate1@contoso.com'; Right = 'FullAccess'; Ensure = 'Present' }
+            )
+
+            # Should not throw even with no EventSink
+            { $provider.EnsureMailboxPermissions('evt2@contoso.com', $permissions, $null) } | Should -Not -Throw
+        }
+    }
+
+    Context 'InvokeSafely transient error marking' {
+        BeforeAll {
+            $testsRoot = Split-Path -Path $PSScriptRoot -Parent
+            $repoRoot = Split-Path -Path $testsRoot -Parent
+            $adapterPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\Private\New-IdleExchangeOnlineAdapter.ps1'
+            . $adapterPath
+
+            # Dot-source provider helpers so EXO simulation functions are in scope for ScriptMethods
+            . (Join-Path -Path $PSScriptRoot -ChildPath '_testHelpers.Providers.ps1')
+
+            # Load Test-IdleTransientError for recursive exception chain checking
+            $retryHelpersPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Core\Private\Invoke-IdleWithRetry.ps1'
+            . $retryHelpersPath
+        }
+
+        It 'marks server-side EXO error as transient (detectable by retry engine)' {
+            $testAdapter = New-IdleExchangeOnlineAdapter
+
+            $caught = $null
+            try {
+                $testAdapter.InvokeSafely('Invoke-IdleEXOSimulateServerSideError', @{})
+            }
+            catch {
+                $caught = $_.Exception
+            }
+
+            $caught | Should -Not -BeNullOrEmpty
+            # Use Test-IdleTransientError (same check as the plan executor's Invoke-IdleWithRetry)
+            Test-IdleTransientError -Exception $caught | Should -Be $true
+        }
+
+        It 'marks throttling EXO error as transient (detectable by retry engine)' {
+            $testAdapter = New-IdleExchangeOnlineAdapter
+
+            $caught = $null
+            try {
+                $testAdapter.InvokeSafely('Invoke-IdleEXOSimulateThrottleError', @{})
+            }
+            catch {
+                $caught = $_.Exception
+            }
+
+            $caught | Should -Not -BeNullOrEmpty
+            Test-IdleTransientError -Exception $caught | Should -Be $true
+        }
+
+        It 'does not mark non-transient EXO error as transient' {
+            $testAdapter = New-IdleExchangeOnlineAdapter
+
+            $caught = $null
+            try {
+                $testAdapter.InvokeSafely('Invoke-IdleEXOSimulatePermError', @{})
+            }
+            catch {
+                $caught = $_.Exception
+            }
+
+            $caught | Should -Not -BeNullOrEmpty
+            Test-IdleTransientError -Exception $caught | Should -Be $false
+        }
+    }
+
+    Context 'Transient error propagation from EnsureMailboxPermissions' {
+        BeforeAll {
+            $testsRoot = Split-Path -Path $PSScriptRoot -Parent
+            $repoRoot = Split-Path -Path $testsRoot -Parent
+            $retryHelpersPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Core\Private\Invoke-IdleWithRetry.ps1'
+            . $retryHelpersPath
+        }
+
+        It 'propagates transient exception from Remove operation so plan executor can retry the step' {
+            Add-TestMailbox -PrimarySmtpAddress 'transient1@contoso.com'
+            $fakeAdapter.Store.FullAccess['transient1@contoso.com'] = @{ 'delegate1@contoso.com' = $true }
+
+            # Simulate what the real InvokeSafely does when EXO returns a server-side error
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveMailboxPermission -Value {
+                param($MailboxIdentity, $User, $AccessToken)
+                $inner = [System.Exception]::new('A server side error has occurred.')
+                $wrapped = [System.Exception]::new("Exchange Online command 'Remove-MailboxPermission' failed | A server side error has occurred.", $inner)
+                $wrapped.Data['Idle.IsTransient'] = $true
+                throw $wrapped
+            } -Force
+
+            $caught = $null
+            try {
+                $provider.EnsureMailboxPermissions('transient1@contoso.com', @(
+                    @{ AssignedUser = 'delegate1@contoso.com'; Right = 'FullAccess'; Ensure = 'Absent' }
+                ), $null)
+            }
+            catch {
+                $caught = $_.Exception
+            }
+            finally {
+                # Restore original RemoveMailboxPermission so other tests are not affected
+                $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveMailboxPermission -Value {
+                    param($MailboxIdentity, $User, $AccessToken)
+                    $key = $MailboxIdentity.ToLowerInvariant()
+                    if ($this.Store.FullAccess.ContainsKey($key)) {
+                        $this.Store.FullAccess[$key].Remove($User.ToLowerInvariant())
+                    }
+                } -Force
+            }
+
+            $caught | Should -Not -BeNullOrEmpty
+            # Use Test-IdleTransientError (same check as the plan executor's Invoke-IdleWithRetry)
+            Test-IdleTransientError -Exception $caught | Should -Be $true
+        }
+
+        It 'propagates transient exception from RemoveRecipientPermission (SendAs) so plan executor can retry the step' {
+            Add-TestMailbox -PrimarySmtpAddress 'transient2@contoso.com'
+            $fakeAdapter.Store.SendAs['transient2@contoso.com'] = @{ 'delegate1@contoso.com' = $true }
+
+            # Simulate what the real InvokeSafely does when EXO returns a server-side error for Remove-RecipientPermission
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveRecipientPermission -Value {
+                param($MailboxIdentity, $Trustee, $AccessToken)
+                $inner = [System.Exception]::new('A server side error has occurred.')
+                $wrapped = [System.Exception]::new("Exchange Online command 'Remove-RecipientPermission' failed | A server side error has occurred.", $inner)
+                $wrapped.Data['Idle.IsTransient'] = $true
+                throw $wrapped
+            } -Force
+
+            $caught = $null
+            try {
+                $provider.EnsureMailboxPermissions('transient2@contoso.com', @(
+                    @{ AssignedUser = 'delegate1@contoso.com'; Right = 'SendAs'; Ensure = 'Absent' }
+                ), $null)
+            }
+            catch {
+                $caught = $_.Exception
+            }
+            finally {
+                # Restore original RemoveRecipientPermission so other tests are not affected
+                $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveRecipientPermission -Value {
+                    param($MailboxIdentity, $Trustee, $AccessToken)
+                    $key = $MailboxIdentity.ToLowerInvariant()
+                    if ($this.Store.SendAs.ContainsKey($key)) {
+                        $this.Store.SendAs[$key].Remove($Trustee.ToLowerInvariant())
+                    }
+                } -Force
+            }
+
+            $caught | Should -Not -BeNullOrEmpty
+            Test-IdleTransientError -Exception $caught | Should -Be $true
+        }
+
+        It 'propagates transient exception from SetMailboxSendOnBehalf (SendOnBehalf Absent) so plan executor can retry the step' {
+            Add-TestMailbox -PrimarySmtpAddress 'transient3@contoso.com'
+            # Seed existing SendOnBehalf delegates so EnsureMailboxPermissions will attempt to remove one
+            $fakeAdapter.Store.SendOnBehalf['transient3@contoso.com'] = @('delegate1@contoso.com', 'someoneelse@contoso.com')
+
+            # Simulate what the real InvokeSafely does when EXO returns a server-side error for Set-Mailbox (SendOnBehalf)
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name SetMailboxSendOnBehalf -Value {
+                param($MailboxIdentity, $GrantSendOnBehalfTo, $AccessToken)
+                $inner = [System.Exception]::new('A server side error has occurred.')
+                $wrapped = [System.Exception]::new("Exchange Online command 'Set-Mailbox -GrantSendOnBehalfTo' failed | A server side error has occurred.", $inner)
+                $wrapped.Data['Idle.IsTransient'] = $true
+                throw $wrapped
+            } -Force
+
+            $caught = $null
+            try {
+                $provider.EnsureMailboxPermissions('transient3@contoso.com', @(
+                    @{ AssignedUser = 'delegate1@contoso.com'; Right = 'SendOnBehalf'; Ensure = 'Absent' }
+                ), $null)
+            }
+            catch {
+                $caught = $_.Exception
+            }
+            finally {
+                # Restore original SetMailboxSendOnBehalf so other tests are not affected
+                $fakeAdapter | Add-Member -MemberType ScriptMethod -Name SetMailboxSendOnBehalf -Value {
+                    param($MailboxIdentity, $GrantSendOnBehalfTo, $AccessToken)
+                    $key = $MailboxIdentity.ToLowerInvariant()
+                    if ($null -eq $GrantSendOnBehalfTo -or $GrantSendOnBehalfTo.Count -eq 0) {
+                        $this.Store.SendOnBehalf.Remove($key) | Out-Null
+                    }
+                    else {
+                        $this.Store.SendOnBehalf[$key] = $GrantSendOnBehalfTo
+                    }
+                } -Force
+            }
+
+            $caught | Should -Not -BeNullOrEmpty
+            Test-IdleTransientError -Exception $caught | Should -Be $true
+        }
+    }
+}
+
+Describe 'Test-IdleExchangeOnlinePrerequisites - Unit tests' {
+    BeforeAll {
+        $testsRoot = Split-Path -Path $PSScriptRoot -Parent
+        $repoRoot = Split-Path -Path $testsRoot -Parent
+        $modulePath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\IdLE.Provider.ExchangeOnline.psm1'
+        if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+            throw "ExchangeOnline provider module not found at: $modulePath"
+        }
+        Import-Module $modulePath -Force
+    }
+
+    Context 'Module not installed' {
+        It 'returns IsHealthy = false and lists ExchangeOnlineManagement as missing' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { $null } -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.IsHealthy | Should -Be $false
+                $result.MissingRequired | Should -Contain 'ExchangeOnlineManagement'
+                $result.Notes.Count | Should -BeGreaterThan 0
+            }
+        }
+
+        It 'includes install guidance in Notes' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { $null } -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                ($result.Notes -join ' ') | Should -Match 'Install-Module'
+            }
+        }
+    }
+
+    Context 'Module installed but not imported (Get-EXOMailbox missing)' {
+        It 'returns IsHealthy = false and lists Get-EXOMailbox as missing' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Get-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.IsHealthy | Should -Be $false
+                $result.MissingRequired | Should -Contain 'Get-EXOMailbox'
+                ($result.Notes -join ' ') | Should -Match 'Import-Module'
+            }
+        }
+    }
+
+    Context 'Module imported but no active session (Get-Mailbox missing)' {
+        It 'returns IsHealthy = false and lists ExchangeOnlineSession as missing' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Get-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.IsHealthy | Should -Be $false
+                $result.MissingRequired | Should -Contain 'ExchangeOnlineSession'
+                ($result.Notes -join ' ') | Should -Match 'Connect-ExchangeOnline'
+            }
+        }
+
+        It 'includes token scope guidance in Notes' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { $null } -ParameterFilter { $Name -eq 'Get-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                ($result.Notes -join ' ') | Should -Match 'outlook\.office365\.com'
+            }
+        }
+    }
+
+    Context 'All prerequisites met' {
+        It 'returns IsHealthy = true with empty MissingRequired' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-Mailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.IsHealthy | Should -Be $true
+                $result.MissingRequired | Should -BeNullOrEmpty
+            }
+        }
+
+        It 'returns a result with expected shape' {
+            InModuleScope 'IdLE.Provider.ExchangeOnline' {
+                Mock Get-Module { [pscustomobject]@{ Name = 'ExchangeOnlineManagement' } } `
+                    -ParameterFilter { $Name -eq 'ExchangeOnlineManagement' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-EXOMailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-EXOMailbox' }
+                Mock Get-Command { [pscustomobject]@{ Name = 'Get-Mailbox' } } `
+                    -ParameterFilter { $Name -eq 'Get-Mailbox' }
+
+                $result = Test-IdleExchangeOnlinePrerequisites
+
+                $result.PSObject.TypeNames | Should -Contain 'IdLE.PrerequisitesResult'
+                $result.ProviderName | Should -Be 'ExchangeOnlineProvider'
+                $result.CheckedAt | Should -BeOfType [datetime]
+            }
         }
     }
 }

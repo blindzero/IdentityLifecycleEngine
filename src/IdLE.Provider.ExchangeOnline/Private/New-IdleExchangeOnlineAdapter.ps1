@@ -37,6 +37,9 @@ function New-IdleExchangeOnlineAdapter {
         $bearerTokenPattern = 'Bearer\s+[^\s]+'
         $tokenAssignmentPattern = 'token[^\s]*\s*=\s*[^\s,;]+'
 
+        # Transient EXO error patterns: server-side 5xx errors and throttling (429)
+        $transientErrorPattern = 'server[\s-]+side[\s-]+error|throttl|too[\s-]+many[\s-]+requests|service[\s-]+unavailable|temporarily[\s-]+unavailable|bad[\s-]+gateway'
+
         try {
             $result = & $CommandName @Parameters
             return $result
@@ -44,14 +47,24 @@ function New-IdleExchangeOnlineAdapter {
         catch {
             # Build error message without exposing sensitive data
             $errorMessage = "Exchange Online command '$CommandName' failed"
+            $isTransient = $false
             if ($_.Exception.Message) {
                 # Sanitize error message to avoid leaking tokens/secrets
                 $sanitized = $_.Exception.Message -replace $bearerTokenPattern, 'Bearer <REDACTED>'
                 $sanitized = $sanitized -replace $tokenAssignmentPattern, 'token=<REDACTED>'
                 $errorMessage += " | $sanitized"
+
+                # Mark retryable server-side and throttling errors as transient so the
+                # plan executor's Invoke-IdleWithRetry can retry the enclosing step.
+                if ($_.Exception.Message -imatch $transientErrorPattern) {
+                    $isTransient = $true
+                }
             }
 
             $ex = [System.Exception]::new($errorMessage, $_.Exception)
+            if ($isTransient) {
+                $ex.Data['Idle.IsTransient'] = $true
+            }
             throw $ex
         }
     }
@@ -146,10 +159,8 @@ function New-IdleExchangeOnlineAdapter {
             }
         }
 
-        $this.InvokeSafely('Set-Mailbox', $params)
+        $null = $this.InvokeSafely('Set-Mailbox', $params)
     } -Force
-
-    # GetMailboxAutoReplyConfiguration: Get Out of Office settings
     $adapter | Add-Member -MemberType ScriptMethod -Name GetMailboxAutoReplyConfiguration -Value {
         [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'AccessToken', Justification = 'Reserved for future Graph API integration')]
         param(
@@ -255,7 +266,7 @@ function New-IdleExchangeOnlineAdapter {
             $params['ExternalAudience'] = $Config['ExternalAudience']
         }
 
-        $this.InvokeSafely('Set-MailboxAutoReplyConfiguration', $params)
+        $null = $this.InvokeSafely('Set-MailboxAutoReplyConfiguration', $params)
     } -Force
 
     # GetMailboxPermissions: Get FullAccess permissions for a mailbox
@@ -342,7 +353,7 @@ function New-IdleExchangeOnlineAdapter {
             ErrorAction  = 'Stop'
         }
 
-        $this.InvokeSafely('Add-MailboxPermission', $params)
+        $null = $this.InvokeSafely('Add-MailboxPermission', $params)
     } -Force
 
     # RemoveMailboxPermission: Revoke FullAccess from a mailbox
@@ -373,7 +384,7 @@ function New-IdleExchangeOnlineAdapter {
             ErrorAction  = 'Stop'
         }
 
-        $this.InvokeSafely('Remove-MailboxPermission', $params)
+        $null = $this.InvokeSafely('Remove-MailboxPermission', $params)
     } -Force
 
     # GetRecipientPermissions: Get SendAs permissions for a mailbox
@@ -459,7 +470,7 @@ function New-IdleExchangeOnlineAdapter {
             ErrorAction  = 'Stop'
         }
 
-        $this.InvokeSafely('Add-RecipientPermission', $params)
+        $null = $this.InvokeSafely('Add-RecipientPermission', $params)
     } -Force
 
     # RemoveRecipientPermission: Revoke SendAs from a mailbox
@@ -490,7 +501,7 @@ function New-IdleExchangeOnlineAdapter {
             ErrorAction  = 'Stop'
         }
 
-        $this.InvokeSafely('Remove-RecipientPermission', $params)
+        $null = $this.InvokeSafely('Remove-RecipientPermission', $params)
     } -Force
 
     # GetMailboxSendOnBehalf: Get the GrantSendOnBehalfTo list for a mailbox
@@ -562,7 +573,7 @@ function New-IdleExchangeOnlineAdapter {
             ErrorAction           = 'Stop'
         }
 
-        $this.InvokeSafely('Set-Mailbox', $params)
+        $null = $this.InvokeSafely('Set-Mailbox', $params)
     } -Force
 
     return $adapter
