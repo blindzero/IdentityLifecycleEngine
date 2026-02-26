@@ -273,10 +273,29 @@ function ConvertTo-IdlePlanExportObject {
         $stepList += $stepMap
     }
 
+
+    # ---- Plan warnings ------------------------------------------------------
+    $rawWarnings = Get-FirstPropertyValue -Object $Plan -Names @('Warnings', 'PlanningWarnings')
+    $warningList = @()
+    foreach ($w in @($rawWarnings)) {
+        if ($null -eq $w) { continue }
+
+        $warningMap = New-OrderedMap
+        $warningMap.code = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Code', 'code'))
+        $warningMap.type = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Type', 'type'))
+        $warningMap.step = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Step', 'step', 'StepName'))
+        $warningMap.source = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Source', 'source'))
+        $warningMap.paths = Get-FirstPropertyValue -Object $w -Names @('Paths', 'paths')
+        $warningMap.message = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Message', 'message'))
+
+        $warningList += $warningMap
+    }
+
     $planMap = New-OrderedMap
     $planMap.id = $planId
     $planMap.mode = $mode
     $planMap.steps = $stepList
+    $planMap.warnings = $warningList
 
     # ---- Metadata block ------------------------------------------------------
     $metadataMap = New-OrderedMap

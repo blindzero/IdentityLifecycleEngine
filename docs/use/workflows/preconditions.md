@@ -39,7 +39,7 @@ Add these optional properties to a workflow step definition:
 
 | Property | Type | Required | Description |
 |---|---|---|---|
-| `Preconditions` | `Array[Condition]` | No | One or more condition nodes (same DSL as `Condition`). All must pass for the step to execute. |
+| `Precondition` | `Condition` | No | One condition node (same DSL as `Condition`). It must evaluate to true for the step to execute. |
 | `OnPreconditionFalse` | `String` | No | Behavior when a precondition fails. `Blocked` (default), `Fail`, or `Continue`. |
 | `PreconditionEvent` | `Hashtable` | No | Structured event emitted when a precondition fails. |
 
@@ -72,14 +72,16 @@ Add these optional properties to a workflow step definition:
       # Runtime guard: only execute if BYOD wipe is confirmed.
       # Note: the condition DSL compares values as strings.
       # Request.Context.Byod.WipeConfirmed must be the string 'true' (e.g. set by a ContextResolver).
-      Preconditions      = @(
+      Precondition       = @{
+        All = @(
         @{
           Equals = @{
             Path  = 'Request.Context.Byod.WipeConfirmed'
             Value = 'true'
           }
         }
-      )
+        )
+      }
       OnPreconditionFalse = 'Blocked'
       PreconditionEvent   = @{
         Type    = 'ManualActionRequired'
@@ -97,7 +99,7 @@ Add these optional properties to a workflow step definition:
 
 ## Condition DSL
 
-Each entry in `Preconditions` uses the same **declarative condition DSL** as the `Condition`
+`Precondition` uses the same **declarative condition DSL** as the `Condition`
 property. Supported operators:
 
 | Operator | Shape | Description |
@@ -121,6 +123,10 @@ Paths are resolved against the **execution-time context**, which includes:
 
 A leading `context.` prefix is ignored for readability (e.g. `context.Request.Intent.Department`
 resolves identically to `Request.Intent.Department`).
+
+At planning time, IdLE validates `Path` references to fail fast on typos and wrong roots. For `Precondition`, unresolved paths under `Request.Context.*` are treated as soft (non-fatal) to support context enrichment that may arrive later at runtime (for example via host/runtime context resolver behavior). Other unresolved roots still fail fast.
+When this soft-check path is used, IdLE records a planning warning (`PreconditionContextPathUnresolvedAtPlan`) in `Plan.Warnings`, attaches the warning to the affected `Plan.Steps[*].Warnings`, and includes it in `Export-IdlePlan` output for CI policy checks.
+
 
 ---
 
@@ -214,7 +220,7 @@ Ensure context values are stored as strings when using `Equals` or `In` operator
 
 ## Backward compatibility
 
-Steps without `Preconditions` behave exactly as before. Adding preconditions to a step does not
+Steps without `Precondition` behave exactly as before. Adding a precondition to a step does not
 affect any other steps.
 
 ---

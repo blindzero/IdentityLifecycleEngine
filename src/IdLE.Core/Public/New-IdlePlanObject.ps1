@@ -107,7 +107,7 @@ function New-IdlePlanObject {
         OnFailureSteps = @()
 
         Actions        = @()
-        Warnings       = @()
+        Warnings       = [System.Collections.ArrayList]::new()
         Providers      = $Providers
     }
 
