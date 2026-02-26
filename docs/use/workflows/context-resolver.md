@@ -7,11 +7,13 @@ sidebar_label: Context Resolvers
 
 Context Resolvers populate **`Request.Context.*` during planning** using **read-only provider capabilities**.
 
-- Resolvers run during **plan build**
-- They enrich the request with stable, pre-resolved data (for example an entitlement snapshot)
-- They are **data-only** and validated strictly (fail-fast)
+- They run during **plan build**
+- They execute before step `Condition` evaluation
+- They enrich the request with stable, pre-resolved associated data
+- They are strictly validated and fail fast on invalid configuration
 
-This allows **Conditions**, **Preconditions**, and **Template Substitution** to reference values that were resolved once at planning time.
+Context Resolvers allow **Conditions**, **Preconditions**, and **Template Substitution**
+to rely on data that was resolved once during planning.
 
 ---
 
@@ -26,11 +28,102 @@ This allows **Conditions**, **Preconditions**, and **Template Substitution** to 
 
 ---
 
+## Full Example
+
+A resolver entry is defined at workflow root level:
+
+
+```powershell
+@{
+  Name           = 'Joiner - Context Resolver Demo'
+  LifecycleEvent = 'Joiner'
+
+  ContextResolvers = @(
+    @{
+      Capability = 'IdLE.Identity.Read'
+      Provider = 'Identity' # optional
+      With = @{
+        IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+      }
+    }
+
+    @{
+      Capability = 'IdLE.Entitlement.List'
+      With = @{
+        IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+      }
+    }
+  )
+
+  Steps = @(
+
+    @{
+      Name = 'Disable only if identity exists'
+      Type = 'IdLE.Step.DisableIdentity'
+
+      Condition = @{
+        Exists = 'Request.Context.Identity.Profile'
+      }
+    }
+
+    @{
+      Name = 'Emit audit event'
+      Type = 'IdLE.Step.EmitEvent'
+
+      With = @{
+        Message = 'Disabled identity {{Request.Context.Identity.Profile.DisplayName}}'
+      }
+    }
+  )
+}
+```
+
+### Keys
+
+- `Capability` (required)  
+  A permitted read-only capability.
+
+- `Provider` (optional)  
+  Provider alias. If omitted, IdLE selects a provider advertising the capability.
+
+- `With` (required)  
+  Inputs required by the capability. Template substitution is supported.
+
+Output paths are predefined and cannot be changed.
+
+---
+
 ## Common Patterns
 
-### Entitlement snapshot (without pattern matching)
+### Resolve once, use everywhere
 
-Resolve entitlements once during planning:
+Resolve identity or entitlements once and reuse the result in:
+
+- Conditions
+- Preconditions
+- Templates
+
+Example:
+
+```powershell
+Condition = @{ Exists = 'Request.Context.Identity.Profile' }
+
+DisplayName = '{{Request.Context.Identity.Profile.DisplayName}}'
+```
+
+### Guard destructive steps
+
+Only perform destructive actions if identity exists:
+
+```powershell
+Condition = @{
+    Exists = 'Request.Context.Identity.Profile'
+}
+```
+
+### Entitlement snapshot usage
+
+Resolve entitlements once:
 
 ```powershell
 ContextResolvers = @(
@@ -47,12 +140,29 @@ Then guard on availability:
 Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
 ```
 
-> The current Condition DSL does not support list-membership or pattern operators.
-> Membership evaluation requires either host-prepared boolean flags or a future DSL enhancement.
-
 ---
 
 ## Troubleshooting
 
+### Resolver not executed
+
 - Ensure `ContextResolvers` is defined at workflow root.
-- Ensure a provider advertises the requested capability.
+- Verify correct property name (`ContextResolvers`).
+
+### Capability not permitted
+
+- Only allowlisted read-only capabilities can be used.
+- Validation happens during plan build.
+
+### Ambiguous provider
+
+- If multiple providers advertise a capability, specify `Provider` explicitly.
+
+### Context value missing
+
+- Verify required `With` parameters.
+- Ensure template placeholders resolve correctly.
+
+### Type conflict in context path
+
+- A resolver cannot overwrite an existing path with incompatible type.
