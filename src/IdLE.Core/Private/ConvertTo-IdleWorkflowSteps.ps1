@@ -128,19 +128,27 @@ function ConvertTo-IdleWorkflowSteps {
             $null
         }
 
+        $planWarnings = Get-IdlePropertyValue -Object $PlanningContext.Plan -Name 'Warnings'
+        $planWarningsCanTrackCount = $null -ne $planWarnings -and $null -ne $planWarnings.PSObject.Properties['Count']
+        $warningCountBefore = if ($planWarningsCanTrackCount) { [int]$planWarnings.Count } else { 0 }
+
         $preconditionSettings = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $s -StepName $stepName -PlanningContext $PlanningContext
         $precondition = $preconditionSettings.Precondition
         $onPreconditionFalse = $preconditionSettings.OnPreconditionFalse
         $preconditionEvent = $preconditionSettings.PreconditionEvent
         $preconditionWarnings = @()
 
-        $planWarnings = Get-IdlePropertyValue -Object $PlanningContext.Plan -Name 'Warnings'
-        if ($null -ne $planWarnings) {
-            $preconditionWarnings = @($planWarnings | Where-Object {
-                    $warningStep = Get-IdlePropertyValue -Object $_ -Name 'Step'
-                    $warningSource = Get-IdlePropertyValue -Object $_ -Name 'Source'
-                    $warningStep -eq $stepName -and $warningSource -eq 'Precondition'
-                })
+        if ($planWarningsCanTrackCount) {
+            $warningCountAfter = [int]$planWarnings.Count
+            if ($warningCountAfter -gt $warningCountBefore) {
+                for ($warningIndex = $warningCountBefore; $warningIndex -lt $warningCountAfter; $warningIndex++) {
+                    $warning = $planWarnings[$warningIndex]
+                    $warningSource = Get-IdlePropertyValue -Object $warning -Name 'Source'
+                    if ($warningSource -eq 'Precondition') {
+                        $preconditionWarnings += $warning
+                    }
+                }
+            }
         }
 
         $normalizedSteps += [pscustomobject]@{
