@@ -5,14 +5,16 @@
     @{
       Name                = 'Step1'
       Type                = 'IdLE.Step.ContinuePreconditionEvent'
-      Preconditions       = @(
+      Precondition        = @{
+        All = @(
         @{
           Equals = @{
             Path  = 'Plan.LifecycleEvent'
             Value = 'Joiner'
           }
         }
-      )
+        )
+      }
       OnPreconditionFalse = 'Continue'
       PreconditionEvent   = @{
         Type    = 'PolicyAdvisory'
