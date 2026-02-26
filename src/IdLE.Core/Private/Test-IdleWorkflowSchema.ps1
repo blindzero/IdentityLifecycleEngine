@@ -77,7 +77,7 @@ function Test-IdleWorkflowSchema {
                 $ErrorList.Add("'$StepPath.Precondition' must be a hashtable (condition node).")
             }
             else {
-                foreach ($schemaError in (Test-IdleConditionSchema -Condition ([hashtable]$Step.Precondition) -StepName $StepPath)) {
+                foreach ($schemaError in (Test-IdleConditionSchema -Condition ([hashtable]$Step.Precondition) -StepName $null)) {
                     $ErrorList.Add("'$StepPath.Precondition' has invalid condition schema: $schemaError")
                 }
             }

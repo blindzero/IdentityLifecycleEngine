@@ -17,7 +17,7 @@ Describe 'Assert-IdleConditionPathsResolvable' {
 
             $context = @{
                 Plan    = @{ LifecycleEvent = 'Joiner' }
-                Request = @{ Intent = @{ OffboardingDate = '2026-02-30' }; Context = @{}; IdentityKeys = @{} }
+                Request = @{ Intent = @{ OffboardingDate = '2026-02-28' }; Context = @{}; IdentityKeys = @{} }
             }
 
             {
@@ -35,7 +35,7 @@ Describe 'Assert-IdleConditionPathsResolvable' {
 
             $context = @{
                 Plan    = @{ LifecycleEvent = 'Joiner' }
-                Request = @{ Intent = @{ OffboardingDate = '2026-02-30' }; Context = @{}; IdentityKeys = @{} }
+                Request = @{ Intent = @{ OffboardingDate = '2026-02-28' }; Context = @{}; IdentityKeys = @{} }
             }
 
             {
@@ -53,7 +53,7 @@ Describe 'Assert-IdleConditionPathsResolvable' {
 
             $context = @{
                 Plan    = @{ LifecycleEvent = 'Joiner' }
-                Request = @{ Intent = @{ OffboardingDate = '2026-02-30' }; Context = @{}; IdentityKeys = @{} }
+                Request = @{ Intent = @{ OffboardingDate = '2026-02-28' }; Context = @{}; IdentityKeys = @{} }
             }
 
             {
@@ -71,7 +71,7 @@ Describe 'Assert-IdleConditionPathsResolvable' {
 
             $context = @{
                 Plan    = @{ LifecycleEvent = 'Joiner' }
-                Request = @{ Intent = @{ OffboardingDate = '2026-02-30' }; Context = @{}; IdentityKeys = @{} }
+                Request = @{ Intent = @{ OffboardingDate = '2026-02-28' }; Context = @{}; IdentityKeys = @{} }
             }
 
             {
