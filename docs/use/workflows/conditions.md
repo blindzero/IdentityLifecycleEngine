@@ -18,13 +18,13 @@ They decide whether a step becomes part of the executable plan.
 
 ---
 
-## ⚠️ Conditions vs Preconditions
+## ⚠️ Context Resolvers vs Templates vs Conditions vs Preconditions
 
-:::warning Do not confuse Conditions and Preconditions
-Conditions decide step applicability during **planning**.  
-Preconditions guard step behavior during **execution**.  
-
-See: [Preconditions](./preconditions)
+:::warning Do not confuse these concepts
+**[Context Resolvers](./context-resolver.md)** populate `Request.Context.*` during **planning**.  
+**[Template Substitution](./templates.md)** consumes `Plan` / `Request` / `Workflow` values to build strings.  
+**Conditions** decide step applicability during **planning** (`NotApplicable`).  
+**[Preconditions](./preconditions.md)** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
 :::
 
 | Conditions | Preconditions |
