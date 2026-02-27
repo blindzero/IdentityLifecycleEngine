@@ -58,9 +58,9 @@ The step executes only if:
 
 If the precondition evaluates to false:
 
-- `Continue` → step is skipped
-- `Fail` → execution fails
-- `Continue` → execution continues
+- `Blocked` → step is marked `Blocked`; workflow stops at this step
+- `Fail` → execution fails immediately
+- `Continue` → step is skipped; workflow continues
 
 ---
 
