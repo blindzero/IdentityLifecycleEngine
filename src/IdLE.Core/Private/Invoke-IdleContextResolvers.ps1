@@ -14,9 +14,9 @@ function Invoke-IdleContextResolvers {
     - Only capabilities in the read-only allow-list (Get-IdleReadOnlyCapabilities) may be used.
     - Each capability writes to a fixed, predefined path under Request.Context.
       The output path is not user-configurable.
-    - Provider is selected by alias when 'With.Provider' is specified; otherwise the first
-      provider (sorted by alias) that advertises the capability is used; ambiguity when
-      multiple providers match causes a fail-fast error.
+    - Provider is selected by alias when 'With.Provider' is specified. When 'With.Provider'
+      is omitted, auto-selection only succeeds if exactly one provider advertises the
+      capability; zero matches or multiple matches both cause a fail-fast error.
     - Auth sessions are supported via With.AuthSessionName / With.AuthSessionOptions,
       using the AuthSessionBroker in Providers (same pattern as step execution).
 
