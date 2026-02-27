@@ -27,7 +27,7 @@ They protect execution but do not affect planning.
 **Preconditions** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
 :::
 
-| Preconditions | Conditions |
+| Precondition | Condition |
 |--------------|------------|
 | Execution time | Planning time |
 | Controls runtime behavior | Marks step `NotApplicable` |

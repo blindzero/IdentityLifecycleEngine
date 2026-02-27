@@ -194,7 +194,7 @@ This example shows a small workflow with:
       Name = 'Disable identity only if it exists'
       Type = 'IdLE.Step.DisableIdentity'
 
-      Preconditions = @{
+      Precondition = @{
         Equals = @{ Path = 'Request.Context.IdentityExists'; Value = 'True' }
       }
 

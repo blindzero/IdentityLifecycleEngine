@@ -27,7 +27,7 @@ They decide whether a step becomes part of the executable plan.
 **[Preconditions](./preconditions.md)** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
 :::
 
-| Conditions | Preconditions |
+| Condition | Precondition |
 |------------|--------------|
 | Planning time | Execution time |
 | Marks step `NotApplicable` | Controls runtime behavior |
