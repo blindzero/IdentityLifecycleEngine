@@ -134,7 +134,7 @@ See: [Template Substitution](./workflows/templates)
 A step is a self-contained unit of work. Most steps follow this pattern:
 
 - `Name` (string) – a human-readable identifier
-- `Type` (string) – the step type (for example `IdLE.Step.EnsureAttribute`)
+- `Type` (string) – the step type (for example `IdLE.Step.EnsureAttributes`)
 - `With` (hashtable) – step-specific configuration
 - `Condition` (hashtable, optional) – optional planning-time applicability
 - `Preconditions` (hashtable, optional) – optional execution-time guard
