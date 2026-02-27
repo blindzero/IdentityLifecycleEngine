@@ -244,4 +244,4 @@ property. Supported operators:
 ### Where is the DSL documented?
 
 Preconditions use the same Condition DSL as Conditions. For the complete DSL reference, see:  
-[Conditions → Condition DSL](./conditions)
+[Conditions → Condition DSL](./conditions.md)
