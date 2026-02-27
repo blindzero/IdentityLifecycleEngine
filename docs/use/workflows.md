@@ -43,7 +43,7 @@ When you run IdLE, it happens in two distinct phases:
    IdLE executes the planned steps and records results.
 
    - `Precondition` is evaluated here.
-   - If a precondition is false, `OnPreconditionFalse` decides what happens (for example `Skip` or `Fail`).
+   - If a precondition is false, `OnPreconditionFalse` decides what happens (`Blocked`, `Fail`, or `Continue`). `Continue` causes the step to be recorded with status `PreconditionSkipped`.
 
 ---
 
