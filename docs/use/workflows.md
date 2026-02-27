@@ -86,7 +86,7 @@ When you run IdLE, it happens in two distinct phases:
 2. **Execution (Plan Run)**  
    IdLE executes the planned steps and records results.
 
-   - `Precondition` are evaluated here.
+   - `Precondition` is evaluated here.
    - If a precondition is false, `OnPreconditionFalse` decides what happens (for example `Skip` or `Fail`).
 
 ---
