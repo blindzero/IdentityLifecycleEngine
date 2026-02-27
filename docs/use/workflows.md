@@ -123,7 +123,7 @@ request during plan build (`New-IdlePlan`). Multiple placeholders may appear in 
 
 ```powershell
 IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
-DisplayName = '{{Request.Intent.GivenName}} {{Request.Intent.SurnameName}}'
+DisplayName = '{{Request.Intent.GivenName}} {{Request.Intent.Surname}}'
 Message     = 'User {{Request.Intent.DisplayName}} is joining.'
 ```
 
