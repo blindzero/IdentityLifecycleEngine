@@ -330,8 +330,13 @@ function Invoke-IdlePlanObject {
                 # Fail closed: a malformed or unexpected node type is treated as a failed precondition.
                 $preconditionPassed = $false
             }
-            elseif (-not (Test-IdleCondition -Condition ([hashtable]$stepPrecondition) -Context $preconditionContext)) {
-                $preconditionPassed = $false
+            else {
+                # Validate that all non-Exists paths exist at execution time.
+                # Exists operator paths are excluded because Exists semantics intentionally allow missing paths.
+                Assert-IdleConditionPathsResolvable -Condition ([hashtable]$stepPrecondition) -Context $preconditionContext -StepName $stepName -Source 'Precondition' -ExcludeExistsOperatorPaths
+                if (-not (Test-IdleCondition -Condition ([hashtable]$stepPrecondition) -Context $preconditionContext)) {
+                    $preconditionPassed = $false
+                }
             }
 
             if (-not $preconditionPassed) {
@@ -626,8 +631,12 @@ function Invoke-IdlePlanObject {
                 if ($ofPrecondition -isnot [System.Collections.IDictionary]) {
                     $ofPreconditionPassed = $false
                 }
-                elseif (-not (Test-IdleCondition -Condition ([hashtable]$ofPrecondition) -Context $preconditionContext)) {
-                    $ofPreconditionPassed = $false
+                else {
+                    # Validate that all non-Exists paths exist at execution time.
+                    Assert-IdleConditionPathsResolvable -Condition ([hashtable]$ofPrecondition) -Context $preconditionContext -StepName $ofName -Source 'Precondition' -ExcludeExistsOperatorPaths
+                    if (-not (Test-IdleCondition -Condition ([hashtable]$ofPrecondition) -Context $preconditionContext)) {
+                        $ofPreconditionPassed = $false
+                    }
                 }
 
                 if (-not $ofPreconditionPassed) {
