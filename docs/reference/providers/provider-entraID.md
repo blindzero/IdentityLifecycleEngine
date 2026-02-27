@@ -86,6 +86,57 @@ Recommended wiring in examples:
 - `AuthSessionOptions = @{ Role = 'Admin' }` for routing (optional)
 - Use a more privileged role only for privileged actions (e.g. delete)
 
+## Context Resolvers
+
+This provider supports Context Resolvers for the allowlisted, read-only capabilities below.
+
+### Capability: `IdLE.Identity.Read`
+
+Writes to: `Request.Context.Identity.Profile`  
+Type: `PSCustomObject` (`PSTypeName = 'IdLE.Identity'`)
+
+Top-level properties:
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `PSTypeName` | `string` | Always `IdLE.Identity`. |
+| `IdentityKey` | `string` | The identity key used by the workflow (typically the Entra user `id`). |
+| `Enabled` | `bool` | Derived from Entra user `accountEnabled`. |
+| `Attributes` | `hashtable` | Key/value bag; keys are strings; values are typically `string`. |
+
+`Attributes` keys populated by this provider (when present on the user object):
+
+| Attribute key | Type | Source (Graph field) |
+| --- | --- | --- |
+| `GivenName` | `string` | `givenName` |
+| `Surname` | `string` | `surname` |
+| `DisplayName` | `string` | `displayName` |
+| `UserPrincipalName` | `string` | `userPrincipalName` |
+| `Mail` | `string` | `mail` |
+| `Department` | `string` | `department` |
+| `JobTitle` | `string` | `jobTitle` |
+| `OfficeLocation` | `string` | `officeLocation` |
+| `CompanyName` | `string` | `companyName` |
+
+### Capability: `IdLE.Entitlement.List`
+
+Writes to: `Request.Context.Identity.Entitlements`  
+Type: `object[]` (array of `PSCustomObject`, `PSTypeName = 'IdLE.Entitlement'`)
+
+Each element represents one Entra ID group membership:
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `PSTypeName` | `string` | Always `IdLE.Entitlement`. |
+| `Kind` | `string` | Always `Group`. |
+| `Id` | `string` | Entra group `id`. |
+| `DisplayName` | `string` or `$null` | Group `displayName` (if returned by the adapter). |
+| `Mail` | `string` or `$null` | Group `mail` (if returned by the adapter). |
+
+Notes:
+- The output paths are fixed by the engine and cannot be changed.
+- Use these values in **Conditions**, **Preconditions**, and **Templates** (resolved during planning).
+
 ## Configuration
 
 ### Provider constructor / factory

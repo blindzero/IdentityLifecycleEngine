@@ -19,13 +19,12 @@
       # Writes to Request.Context.Identity.Entitlements (predefined).
       Capability = 'IdLE.Entitlement.List'
 
-      # The provider alias that supports IdLE.Entitlement.List.
-      # If omitted, the first provider advertising the capability is used.
-      Provider   = 'Identity'
-
       # Resolver inputs.
       With       = @{
         IdentityKey = 'user1'
+        # Provider alias that supports IdLE.Entitlement.List.
+        # If omitted, the provider is auto-selected when exactly one match exists.
+        Provider    = 'Identity'
       }
     }
   )

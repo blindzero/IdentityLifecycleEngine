@@ -238,7 +238,7 @@ function Test-IdleWorkflowSchema {
         }
         else {
             # 'To' is not user-configurable; each capability has a predefined output path.
-            $allowedResolverKeys = @('Capability', 'Provider', 'With')
+            $allowedResolverKeys = @('Capability', 'With')
 
             $i = 0
             foreach ($resolver in $Workflow.ContextResolvers) {
@@ -261,13 +261,23 @@ function Test-IdleWorkflowSchema {
                 }
 
                 # 'With' is optional but must be a hashtable if present.
-                if ($resolver.ContainsKey('With') -and $null -ne $resolver.With -and $resolver.With -isnot [hashtable]) {
-                    $errors.Add("'$resolverPath.With' must be a hashtable (resolver input parameters).")
-                }
+                if ($resolver.ContainsKey('With') -and $null -ne $resolver.With) {
+                    if ($resolver.With -isnot [hashtable]) {
+                        $errors.Add("'$resolverPath.With' must be a hashtable (resolver input parameters).")
+                    }
+                    else {
+                        $with = $resolver.With
 
-                # 'Provider' is optional but must be a non-empty string if present.
-                if ($resolver.ContainsKey('Provider') -and $null -ne $resolver.Provider -and [string]::IsNullOrWhiteSpace([string]$resolver.Provider)) {
-                    $errors.Add("'$resolverPath.Provider' must not be an empty string.")
+                        # 'With.Provider' is optional but must be a non-empty string if present.
+                        if ($with.ContainsKey('Provider') -and $null -ne $with.Provider -and [string]::IsNullOrWhiteSpace([string]$with.Provider)) {
+                            $errors.Add("'$resolverPath.With.Provider' must not be an empty string.")
+                        }
+
+                        # 'With.AuthSessionOptions' must be a hashtable if present.
+                        if ($with.ContainsKey('AuthSessionOptions') -and $null -ne $with.AuthSessionOptions -and $with.AuthSessionOptions -isnot [hashtable]) {
+                            $errors.Add("'$resolverPath.With.AuthSessionOptions' must be a hashtable.")
+                        }
+                    }
                 }
 
                 $i++
