@@ -117,9 +117,9 @@ See: [Context Resolvers](./workflows/context-resolver.md)
 
 ### Template Substitution
 
-Many step configurations use **template substitution** to insert values from `Plan`, `Request`, and `Workflow` into strings (for example to build a UPN or display name). \
-These `{{path}}` placeholders that are resolved against the
-request during plan build (`New-IdlePlan`). Multiple placeholders may appear in a single value.
+Many step configurations use **template substitution** to insert values from the incoming request into strings (for example to build a UPN or display name). \
+These `{{Request.*}}` placeholders are resolved against the
+request during plan build (`New-IdlePlan`). Only `Request.*` roots are allowed (for example `Request.Intent`, `Request.Context`, `Request.IdentityKeys`, `Request.LifecycleEvent`). Multiple placeholders may appear in a single value.
 
 ```powershell
 IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
