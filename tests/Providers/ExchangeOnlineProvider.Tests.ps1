@@ -635,16 +635,17 @@ Describe 'ExchangeOnline provider - Unit tests' {
 
     Context 'Format-IdleExchangeOnlineAutoReplyMessage' {
         BeforeAll {
-            # Import the private normalization function for direct testing
+            # Import the private auto-reply message normalization helper for direct testing.
+            # Named Format-* (approved PS verb) but performs normalization for idempotency comparison.
             $repoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
-            $normalizeFunctionPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\Private\Format-IdleExchangeOnlineAutoReplyMessage.ps1'
-            
-            if (-not (Test-Path -LiteralPath $normalizeFunctionPath -PathType Leaf)) {
-                throw "Format-IdleExchangeOnlineAutoReplyMessage script not found at: $normalizeFunctionPath"
+            $formatHelperPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\Private\Format-IdleExchangeOnlineAutoReplyMessage.ps1'
+
+            if (-not (Test-Path -LiteralPath $formatHelperPath -PathType Leaf)) {
+                throw "Format-IdleExchangeOnlineAutoReplyMessage script not found at: $formatHelperPath"
             }
-            
-            # Dot-source the private function
-            . $normalizeFunctionPath
+
+            # Dot-source the private helper
+            . $formatHelperPath
         }
         
         It 'removes HTML wrappers' {
