@@ -113,7 +113,7 @@ using read-only provider capabilities.
 This allows Conditions, Preconditions and Templates to rely on
 stable pre-resolved associated data.
 
-See: [Context Resolvers](./context-resolvers)
+See: [Context Resolvers](./workflows/context-resolver.md)
 
 ### Template Substitution
 
