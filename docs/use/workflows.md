@@ -15,29 +15,6 @@ Workflows are designed for **admins and workflow authors**:
 
 ---
 
-## What a workflow contains
-
-At a high level, a workflow contains:
-
-- metadata (name, lifecycle event)
-- a list of steps (ordered)
-- per-step configuration (`With`)
-- optional execution logic (conditions, `OnFailureSteps`, etc.)
-
-The Big Picture is described in [Concepts](../about/concepts.md).
-
-### Step execution controls
-
-Each step supports several optional execution control properties:
-
-| Property | Evaluated at | Purpose |
-|---|---|---|
-| `Condition` | Plan time | Include or skip the step based on request/intent data. |
-| `Precondition` | Execution time (runtime) | Guard the step against stale or unsafe state immediately before it runs. See [Runtime Preconditions](workflows/preconditions.md). |
-| `OnFailureSteps` | After failure (workflow-level) | Cleanup/rollback steps run after a primary step fails. |
-
----
-
 ## How workflows are used in the lifecycle
 
 1. You write the workflow definition (`.psd1`).
@@ -67,6 +44,54 @@ When you run IdLE, it happens in two distinct phases:
 
    - `Precondition` is evaluated here.
    - If a precondition is false, `OnPreconditionFalse` decides what happens (for example `Skip` or `Fail`).
+
+---
+
+## Workflow example
+
+This example shows a small workflow with:
+
+- a value containing a [template substitution](./workflows/templates.md)
+- a step that is only applicable for `Joiner` ([Condition](./workflows/conditions.md))
+- a step that is guarded at runtime ([Preconditions](./workflows/preconditions.md))
+
+
+```powershell
+@{
+  Name           = 'Joiner - Standard'
+  LifecycleEvent = 'Joiner'
+
+  Steps          = @(
+    @{
+      Name = 'Emit start'
+      Type = 'IdLE.Step.EmitEvent'
+      With = @{ Message = 'Starting Joiner for {{Request.Intent.FullName}}' }
+    }
+
+    @{
+      Name = 'Provision only for Joiner'
+      Type = 'IdLE.Step.EmitEvent'
+
+      Condition = @{
+        Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' }
+      }
+
+      With = @{ Message = 'Provisioning for Joiner' }
+    }
+
+    @{
+      Name = 'Disable identity only if it exists'
+      Type = 'IdLE.Step.DisableIdentity'
+
+      Precondition = @{
+        Equals = @{ Path = 'Request.Context.IdentityExists'; Value = 'True' }
+      }
+
+      OnPreconditionFalse = 'Continue'
+    }
+  )
+}
+```
 
 ---
 
@@ -134,54 +159,6 @@ Each step supports several optional execution control properties:
 :::warning Do not confuse Conditions and Preconditions
 **Conditions** decide step applicability during **planning** (a step becomes `NotApplicable`).  
 **Preconditions** guard step behavior during **execution** (`OnPreconditionFalse` can mark the step `Blocked`, `Failed`, or allow it to `Continue`).
-
----
-
-## Workflow example
-
-This example shows a small workflow with:
-
-- a value containing a [template substitution](./workflows/templates.md)
-- a step that is only applicable for `Joiner` ([Condition](./workflows/conditions.md))
-- a step that is guarded at runtime ([Preconditions](./workflows/preconditions.md))
-
-
-```powershell
-@{
-  Name           = 'Joiner - Standard'
-  LifecycleEvent = 'Joiner'
-
-  Steps          = @(
-    @{
-      Name = 'Emit start'
-      Type = 'IdLE.Step.EmitEvent'
-      With = @{ Message = 'Starting Joiner for {{Request.Intent.FullName}}' }
-    }
-
-    @{
-      Name = 'Provision only for Joiner'
-      Type = 'IdLE.Step.EmitEvent'
-
-      Condition = @{
-        Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' }
-      }
-
-      With = @{ Message = 'Provisioning for Joiner' }
-    }
-
-    @{
-      Name = 'Disable identity only if it exists'
-      Type = 'IdLE.Step.DisableIdentity'
-
-      Precondition = @{
-        Equals = @{ Path = 'Request.Context.IdentityExists'; Value = 'True' }
-      }
-
-      OnPreconditionFalse = 'Continue'
-    }
-  )
-}
-```
 
 ---
 
