@@ -46,88 +46,88 @@ function Get-IdleADAttributeContract {
     if ($Operation -eq 'CreateIdentity') {
         $contract = @{
             # Identity Attributes
-            SamAccountName           = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
-            UserPrincipalName        = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
-            Path                     = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            SamAccountName           = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            UserPrincipalName        = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Path                     = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Name Attributes
-            Name                     = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
-            GivenName                = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
-            Surname                  = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
-            DisplayName              = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            Name                     = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            GivenName                = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Surname                  = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            DisplayName              = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Organizational Attributes
-            Description              = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
-            Department               = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
-            Title                    = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            Description              = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Department               = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Title                    = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Contact Attributes
-            EmailAddress             = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            EmailAddress             = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Relationship Attributes
-            Manager                  = @{ Target = 'Parameter'; Type = 'String';              Required = $false }
+            Manager                  = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Password Attributes
             AccountPassword          = @{ Target = 'Parameter'; Type = 'SecureString|String'; Required = $false }
-            AccountPasswordAsPlainText = @{ Target = 'Parameter'; Type = 'String';            Required = $false }
-            ResetOnFirstLogin        = @{ Target = 'Parameter'; Type = 'Boolean';             Required = $false }
-            AllowPlainTextPasswordOutput = @{ Target = 'Parameter'; Type = 'Boolean';         Required = $false }
+            AccountPasswordAsPlainText = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            ResetOnFirstLogin        = @{ Target = 'Parameter'; Type = 'Boolean'; Required = $false }
+            AllowPlainTextPasswordOutput = @{ Target = 'Parameter'; Type = 'Boolean'; Required = $false }
 
             # State Attributes
-            Enabled                  = @{ Target = 'Parameter'; Type = 'Boolean';             Required = $false }
+            Enabled                  = @{ Target = 'Parameter'; Type = 'Boolean'; Required = $false }
 
             # Extension Container (keys must be valid LDAP attribute names)
-            OtherAttributes          = @{ Target = 'Container'; Type = 'Hashtable';           Required = $false }
+            OtherAttributes          = @{ Target = 'Container'; Type = 'Hashtable'; Required = $false }
         }
     }
     elseif ($Operation -eq 'EnsureAttributes') {
         $contract = @{
             # Name Attributes
-            GivenName                = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            Surname                  = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            DisplayName              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            Initials                 = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            GivenName                = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Surname                  = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            DisplayName              = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Initials                 = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Identity Attributes
-            SamAccountName           = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            UserPrincipalName        = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            SamAccountName           = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            UserPrincipalName        = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Organizational Attributes
-            Description              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            Department               = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            Title                    = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            Company                  = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            Division                 = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            Office                   = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            EmployeeID               = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            EmployeeNumber           = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Description              = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Department               = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Title                    = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Company                  = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Division                 = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Office                   = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            EmployeeID               = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            EmployeeNumber           = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Contact Attributes
-            EmailAddress             = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            OfficePhone              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            MobilePhone              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            HomePhone                = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            Fax                      = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            EmailAddress             = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            OfficePhone              = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            MobilePhone              = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            HomePhone                = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Fax                      = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Address Attributes
-            StreetAddress            = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            City                     = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            State                    = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            PostalCode               = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            Country                  = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            POBox                    = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            StreetAddress            = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            City                     = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            State                    = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            PostalCode               = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            Country                  = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            POBox                    = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Web / Profile Attributes
-            HomePage                 = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            HomePage                 = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Relationship Attributes
-            Manager                  = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            Manager                  = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Account / Profile Path Attributes
-            HomeDirectory            = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            HomeDrive                = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            ProfilePath              = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
-            ScriptPath               = @{ Target = 'Parameter'; Type = 'String';    Required = $false }
+            HomeDirectory            = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            HomeDrive                = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            ProfilePath              = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
+            ScriptPath               = @{ Target = 'Parameter'; Type = 'String'; Required = $false }
 
             # Extension Container (keys must be valid LDAP attribute names, e.g. 'mobile', 'telephoneNumber')
             OtherAttributes          = @{ Target = 'Container'; Type = 'Hashtable'; Required = $false }

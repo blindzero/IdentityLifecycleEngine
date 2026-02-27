@@ -633,71 +633,72 @@ Describe 'ExchangeOnline provider - Unit tests' {
         }
     }
 
-    Context 'Normalize-IdleExchangeOnlineAutoReplyMessage' {
+    Context 'Format-IdleExchangeOnlineAutoReplyMessage' {
         BeforeAll {
-            # Import the private normalization function for direct testing
+            # Import the private auto-reply message normalization helper for direct testing.
+            # Named Format-* (approved PS verb) but performs normalization for idempotency comparison.
             $repoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
-            $normalizeFunctionPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\Private\Normalize-IdleExchangeOnlineAutoReplyMessage.ps1'
-            
-            if (-not (Test-Path -LiteralPath $normalizeFunctionPath -PathType Leaf)) {
-                throw "Normalize-IdleExchangeOnlineAutoReplyMessage script not found at: $normalizeFunctionPath"
+            $formatHelperPath = Join-Path -Path $repoRoot -ChildPath 'src\IdLE.Provider.ExchangeOnline\Private\Format-IdleExchangeOnlineAutoReplyMessage.ps1'
+
+            if (-not (Test-Path -LiteralPath $formatHelperPath -PathType Leaf)) {
+                throw "Format-IdleExchangeOnlineAutoReplyMessage script not found at: $formatHelperPath"
             }
-            
-            # Dot-source the private function
-            . $normalizeFunctionPath
+
+            # Dot-source the private helper
+            . $formatHelperPath
         }
         
         It 'removes HTML wrappers' {
             $input = '<html><head></head><body><p>Test message</p></body></html>'
-            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            $normalized = Format-IdleExchangeOnlineAutoReplyMessage -Message $input
             
             $normalized | Should -Be '<p>Test message</p>'
         }
 
         It 'normalizes CRLF to LF' {
             $input = "Line 1`r`nLine 2`r`nLine 3"
-            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            $normalized = Format-IdleExchangeOnlineAutoReplyMessage -Message $input
             
             $normalized | Should -Be "Line 1`nLine 2`nLine 3"
         }
 
         It 'trims leading and trailing whitespace' {
             $input = "   <p>Test message</p>   `n`n"
-            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            $normalized = Format-IdleExchangeOnlineAutoReplyMessage -Message $input
             
             $normalized | Should -Be '<p>Test message</p>'
         }
 
         It 'normalizes excessive spaces conservatively' {
             $input = '<p>Test    message     here</p>'
-            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            $normalized = Format-IdleExchangeOnlineAutoReplyMessage -Message $input
             
             # 3+ spaces become 2 spaces (conservative normalization)
             $normalized | Should -Be '<p>Test  message  here</p>'
         }
 
         It 'handles empty string input' {
-            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message ''
+            $normalized = Format-IdleExchangeOnlineAutoReplyMessage -Message ''
             
             $normalized | Should -Be ''
         }
 
         It 'handles null input' {
-            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $null
+            $normalized = Format-IdleExchangeOnlineAutoReplyMessage -Message $null
             
             $normalized | Should -Be ''
         }
 
         It 'removes DOCTYPE declarations' {
             $input = '<!DOCTYPE html><html><body><p>Test</p></body></html>'
-            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            $normalized = Format-IdleExchangeOnlineAutoReplyMessage -Message $input
             
             $normalized | Should -Be '<p>Test</p>'
         }
 
         It 'preserves intentional HTML formatting' {
             $input = '<p>This is <strong>important</strong> and <a href="mailto:test@example.com">contact us</a>.</p>'
-            $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $input
+            $normalized = Format-IdleExchangeOnlineAutoReplyMessage -Message $input
             
             $normalized | Should -Be '<p>This is <strong>important</strong> and <a href="mailto:test@example.com">contact us</a>.</p>'
         }

@@ -1,7 +1,7 @@
-function Normalize-IdleExchangeOnlineAutoReplyMessage {
+function Format-IdleExchangeOnlineAutoReplyMessage {
     <#
     .SYNOPSIS
-    Normalizes Exchange Online auto-reply messages for stable idempotency comparison.
+    Formats Exchange Online auto-reply messages for stable idempotency comparison.
 
     .DESCRIPTION
     Exchange Online may introduce server-side canonicalization when storing automatic reply messages,
@@ -26,8 +26,8 @@ function Normalize-IdleExchangeOnlineAutoReplyMessage {
     System.String - The normalized message string.
 
     .EXAMPLE
-    $normalized = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $currentMessage
-    if ($normalized -eq (Normalize-IdleExchangeOnlineAutoReplyMessage -Message $desiredMessage)) {
+    $normalized = Format-IdleExchangeOnlineAutoReplyMessage -Message $currentMessage
+    if ($normalized -eq (Format-IdleExchangeOnlineAutoReplyMessage -Message $desiredMessage)) {
         # Messages are functionally equivalent
     }
 
