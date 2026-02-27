@@ -27,7 +27,7 @@ It simply reads values from the context and inserts them into configuration fiel
 
 :::warning Do not confuse these concepts
 **[Context Resolvers](./context-resolver.md)** populate `Request.Context.*` during **planning**.  
-**Template Substitution** consumes `Plan` / `Request` / `Workflow` values to build strings.  
+**Template Substitution** consumes allowlisted `Request.*` values to build strings.  
 **[Conditions](./conditions.md)** decide step applicability during **planning** (`NotApplicable`).  
 **[Preconditions](./preconditions.md)** guard step behavior during **execution** (`Blocked` / `Fail` / `Continue`).
 :::
@@ -151,8 +151,8 @@ During plan build, IdLE validates every template value:
 
 ### Placeholder not resolved
 
-- Verify the path exists in the request or plan context.
-- Ensure correct casing and full path (e.g. `Request.Context.*`).
+- Verify the path exists on the request object (allowed `Request.*` roots only).
+- Ensure correct casing and full path (for example, `Request.Context.*`).
 
 ### Empty value after substitution
 
