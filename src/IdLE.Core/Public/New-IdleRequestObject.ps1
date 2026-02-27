@@ -100,8 +100,8 @@ function New-IdleRequestObject {
     # Clone hashtables to avoid external mutation after object creation
     # shallow clone is sufficient as we have already validated no ScriptBlocks are present
     $IdentityKeys = if ($null -eq $IdentityKeys) { @{} } else { $IdentityKeys.Clone() }
-    $Intent       = if ($null -eq $Intent) { @{} } else { $Intent.Clone() }
-    $Context      = if ($null -eq $Context) { @{} } else { $Context.Clone() }
+    $Intent = if ($null -eq $Intent) { @{} } else { $Intent.Clone() }
+    $Context = if ($null -eq $Context) { @{} } else { $Context.Clone() }
 
     # Construct and return the core domain object defined in Private/IdleLifecycleRequest.ps1
     return [IdleLifecycleRequest]::new(

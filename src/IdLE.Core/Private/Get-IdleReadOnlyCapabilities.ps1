@@ -70,7 +70,7 @@ function Get-IdleCapabilityContextPath {
 
     switch ($Capability) {
         'IdLE.Entitlement.List' { return 'Identity.Entitlements' }
-        'IdLE.Identity.Read'    { return 'Identity.Profile' }
+        'IdLE.Identity.Read' { return 'Identity.Profile' }
         default {
             throw [System.ArgumentException]::new(
                 "No predefined context path defined for capability '$Capability'.",

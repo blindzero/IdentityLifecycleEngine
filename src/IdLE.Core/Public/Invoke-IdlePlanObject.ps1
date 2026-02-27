@@ -118,7 +118,7 @@ function Invoke-IdlePlanObject {
             # Accept both IDictionary (hashtables) and PSCustomObject-shaped provider registries
             if ($null -ne $planProviders) {
                 $isValidProvider = ($planProviders -is [System.Collections.IDictionary]) -or 
-                                   ($planProviders.PSObject -and $planProviders.PSObject.Properties)
+                ($planProviders.PSObject -and $planProviders.PSObject.Properties)
                 if ($isValidProvider) {
                     $effectiveProviders = $planProviders
                 }
@@ -359,7 +359,7 @@ function Invoke-IdlePlanObject {
                 $pcEvt = Get-IdlePropertyValue -Object $step -Name 'PreconditionEvent'
                 if ($null -ne $pcEvt) {
                     $pcEvtType = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Type')
-                    $pcEvtMsg  = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Message')
+                    $pcEvtMsg = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Message')
                     $pcEvtData = Get-IdlePropertyValue -Object $pcEvt -Name 'Data'
                     # PreconditionEvent.Data is validated as a hashtable at planning time and
                     # stored via Copy-IdleDataObject, so it will be a hashtable (IDictionary) here.
@@ -659,7 +659,7 @@ function Invoke-IdlePlanObject {
                     $ofPcEvt = Get-IdlePropertyValue -Object $ofStep -Name 'PreconditionEvent'
                     if ($null -ne $ofPcEvt) {
                         $ofPcEvtType = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Type')
-                        $ofPcEvtMsg  = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Message')
+                        $ofPcEvtMsg = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Message')
                         $ofPcEvtData = Get-IdlePropertyValue -Object $ofPcEvt -Name 'Data'
                         $ofPcEvtDataHt = if ($ofPcEvtData -is [System.Collections.IDictionary]) { [hashtable]$ofPcEvtData } else { $null }
                         $context.EventSink.WriteEvent($ofPcEvtType, $ofPcEvtMsg, $ofName, $ofPcEvtDataHt)
