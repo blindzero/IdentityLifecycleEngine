@@ -58,7 +58,7 @@ Templates can reference:
 ```powershell
 @{
   Name = 'Create UPN'
-  Type = 'IdLE.Step.EnsureAttribute'
+  Type = 'IdLE.Step.EnsureAttributes'
 
   With = @{
     UserPrincipalName = '{{Request.IdentityKeys.FirstName}}.{{Request.IdentityKeys.LastName}}@example.com'
