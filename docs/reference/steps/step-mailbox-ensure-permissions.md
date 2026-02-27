@@ -63,14 +63,56 @@ The following keys are required in the step's ``With`` configuration:
 
 ## Example
 
+### Example 1
+
 ```powershell
+# In workflow definition (grant FullAccess and SendAs):
 @{
-  Name = 'IdLE.Step.Mailbox.EnsurePermissions Example'
-  Type = 'IdLE.Step.Mailbox.EnsurePermissions'
-  With = @{
-    IdentityKey          = 'user.name'
-    Permissions          = '<value>'
-  }
+    Name = 'Set Shared Mailbox Permissions'
+    Type = 'IdLE.Step.Mailbox.EnsurePermissions'
+    With = @{
+        Provider    = 'ExchangeOnline'
+        IdentityKey = 'shared@contoso.com'
+        Permissions = @(
+            @{ AssignedUser = 'user1@contoso.com'; Right = 'FullAccess'; Ensure = 'Present' }
+            @{ AssignedUser = 'user2@contoso.com'; Right = 'SendAs';     Ensure = 'Present' }
+        )
+    }
+}
+```
+
+### Example 2
+
+```powershell
+# In workflow definition (revoke access):
+@{
+    Name = 'Revoke Mailbox Access'
+    Type = 'IdLE.Step.Mailbox.EnsurePermissions'
+    With = @{
+        Provider    = 'ExchangeOnline'
+        IdentityKey = 'shared@contoso.com'
+        Permissions = @(
+            @{ AssignedUser = 'leaver@contoso.com'; Right = 'FullAccess';   Ensure = 'Absent' }
+            @{ AssignedUser = 'leaver@contoso.com'; Right = 'SendOnBehalf'; Ensure = 'Absent' }
+        )
+    }
+}
+```
+
+### Example 3
+
+```powershell
+# With dynamic identity from request:
+@{
+    Name = 'Grant Team Mailbox Access'
+    Type = 'IdLE.Step.Mailbox.EnsurePermissions'
+    With = @{
+        Provider    = 'ExchangeOnline'
+        IdentityKey = 'team@contoso.com'
+        Permissions = @(
+            @{ AssignedUser = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }; Right = 'FullAccess'; Ensure = 'Present' }
+        )
+    }
 }
 ```
 

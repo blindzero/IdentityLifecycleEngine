@@ -49,12 +49,16 @@ The following keys are required in the step's ``With`` configuration:
 ## Example
 
 ```powershell
+# In a workflow definition (PSD1):
 @{
-  Name = 'IdLE.Step.RevokeIdentitySessions Example'
-  Type = 'IdLE.Step.RevokeIdentitySessions'
-  With = @{
-    IdentityKey          = 'user.name'
-  }
+    Name = 'Revoke Entra sessions'
+    Type = 'IdLE.Step.RevokeIdentitySessions'
+    With = @{
+        Provider = 'Entra'
+        IdentityKey = 'max.power@contoso.com'
+        AuthSessionName = 'MicrosoftGraph'
+        AuthSessionOptions = @{ Role = 'Admin' }
+    }
 }
 ```
 

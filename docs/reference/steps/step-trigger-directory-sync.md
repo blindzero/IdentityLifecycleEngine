@@ -46,13 +46,14 @@ The following keys are required in the step's ``With`` configuration:
 ## Example
 
 ```powershell
-@{
-  Name = 'IdLE.Step.TriggerDirectorySync Example'
-  Type = 'IdLE.Step.TriggerDirectorySync'
-  With = @{
-    AuthSessionName      = 'AdminSession'
-    PolicyType           = 'Delta'
-  }
+$step = @{
+    Name = 'Trigger directory sync'
+    Type = 'IdLE.Step.TriggerDirectorySync'
+    With = @{
+        AuthSessionName = 'DirectorySync'
+        PolicyType = 'Delta'
+        Wait = $true
+    }
 }
 ```
 

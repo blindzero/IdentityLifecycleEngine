@@ -55,13 +55,15 @@ The following keys are required in the step's ``With`` configuration:
 ## Example
 
 ```powershell
+# In workflow definition (convert to shared mailbox):
 @{
-  Name = 'IdLE.Step.Mailbox.EnsureType Example'
-  Type = 'IdLE.Step.Mailbox.EnsureType'
-  With = @{
-    IdentityKey          = 'user.name'
-    MailboxType          = '<value>'
-  }
+    Name = 'Convert to shared mailbox'
+    Type = 'IdLE.Step.Mailbox.EnsureType'
+    With = @{
+        Provider    = 'ExchangeOnline'
+        IdentityKey = 'user@contoso.com'
+        MailboxType = 'Shared'
+    }
 }
 ```
 

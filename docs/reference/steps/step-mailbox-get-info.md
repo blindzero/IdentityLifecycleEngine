@@ -43,12 +43,14 @@ The following keys are required in the step's ``With`` configuration:
 ## Example
 
 ```powershell
+# In workflow definition:
 @{
-  Name = 'IdLE.Step.Mailbox.GetInfo Example'
-  Type = 'IdLE.Step.Mailbox.GetInfo'
-  With = @{
-    IdentityKey          = 'user.name'
-  }
+    Name = 'Get mailbox info'
+    Type = 'IdLE.Step.Mailbox.GetInfo'
+    With = @{
+        Provider      = 'ExchangeOnline'
+        IdentityKey   = 'user@contoso.com'
+    }
 }
 ```
 

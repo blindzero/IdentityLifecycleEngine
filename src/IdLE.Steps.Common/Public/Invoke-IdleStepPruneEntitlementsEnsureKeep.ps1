@@ -32,6 +32,18 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
       session selection (e.g., @{ Role = 'Tier0' }).
     - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
+    ### With.* Parameters
+
+    | Key                  | Required | Type         | Description |
+    | -------------------- | -------- | ------------ | ----------- |
+    | IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
+    | Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
+    | Keep                 | No       | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind and DisplayName are optional. At least one of Keep or KeepPattern is required. |
+    | KeepPattern          | No       | string array | Wildcard strings (PowerShell -like semantics). Entitlements whose Id matches any pattern are kept but NOT ensured (patterns cannot be granted). |
+    | Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
+    | AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |
+    | AuthSessionOptions   | No       | hashtable    | Options passed to AcquireAuthSession for session selection (e.g. role-scoped sessions). |
+
     .PARAMETER Context
     Execution context created by IdLE.Core.
 
@@ -39,17 +51,22 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     Normalized step object from the plan. Must contain a 'With' hashtable.
 
     .EXAMPLE
-    Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $context -Step [pscustomobject]@{
-        Name = 'Prune group memberships and ensure leaver group (leaver)'
-        Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
-        With = @{
-            IdentityKey = 'jsmith'
-            Provider    = 'Identity'
-            Kind        = 'Group'
-            Keep        = @(
+    # Leaver workflow: remove all group memberships AND ensure the leaver retention group is present.
+    # With.Keep entries are both kept (not removed) and ensured (granted if missing after the prune).
+    # With.KeepPattern entries are kept but NOT ensured — patterns cannot be granted.
+    @{
+        Name      = 'Prune group memberships and ensure retention group (leaver)'
+        Type      = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+        Condition = @{ Equals = @{ Path = 'Request.Intent.PruneGroups'; Value = $true } }
+        With      = @{
+            IdentityKey     = '{{Request.Identity.SamAccountName}}'
+            Provider        = 'Identity'
+            Kind            = 'Group'
+            Keep            = @(
                 @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=contoso,DC=com' }
             )
-            KeepPattern = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
+            KeepPattern     = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
+            AuthSessionName = 'Directory'
         }
     }
 

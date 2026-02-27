@@ -47,6 +47,18 @@ Authentication:
 
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
 
+### With.* Parameters
+
+| Key                  | Required | Type         | Description |
+| -------------------- | -------- | ------------ | ----------- |
+| IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
+| Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
+| Keep                 | No       | array        | Explicit entitlement objects to retain. Each entry must have an Id property; Kind and DisplayName are optional. At least one of Keep or KeepPattern is required. |
+| KeepPattern          | No       | string array | Wildcard strings (PowerShell -like semantics). Entitlements whose Id matches any pattern are kept. No regex or ScriptBlocks. |
+| Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
+| AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |
+| AuthSessionOptions   | No       | hashtable    | Options passed to AcquireAuthSession for session selection (e.g. role-scoped sessions). |
+
 ## Inputs (With.*)
 
 The following keys are required in the step's ``With`` configuration:
@@ -59,13 +71,22 @@ The following keys are required in the step's ``With`` configuration:
 ## Example
 
 ```powershell
+# Leaver workflow: remove all group memberships, keeping an explicit group and pattern matches.
+# This is remove-only. Use IdLE.Step.PruneEntitlementsEnsureKeep to also grant missing Keep entries.
 @{
-  Name = 'IdLE.Step.PruneEntitlements Example'
-  Type = 'IdLE.Step.PruneEntitlements'
-  With = @{
-    IdentityKey          = 'user.name'
-    Kind                 = '<value>'
-  }
+    Name      = 'Prune group memberships (leaver)'
+    Type      = 'IdLE.Step.PruneEntitlements'
+    Condition = @{ Equals = @{ Path = 'Request.Intent.PruneGroups'; Value = $true } }
+    With      = @{
+        IdentityKey     = '{{Request.Identity.SamAccountName}}'
+        Provider        = 'Identity'
+        Kind            = 'Group'
+        Keep            = @(
+            @{ Kind = 'Group'; Id = 'CN=All-Users,OU=Groups,DC=contoso,DC=com' }
+        )
+        KeepPattern     = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
+        AuthSessionName = 'Directory'
+    }
 }
 ```
 
