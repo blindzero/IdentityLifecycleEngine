@@ -198,7 +198,7 @@ This example shows a small workflow with:
         Equals = @{ Path = 'Request.Context.IdentityExists'; Value = 'True' }
       }
 
-      OnPreconditionFalse = 'Skip'
+      OnPreconditionFalse = 'Continue'
     }
   )
 }
