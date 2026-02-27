@@ -22,7 +22,7 @@ They protect execution but do not affect planning.
 
 :::warning Do not confuse these concepts
 **[Context Resolvers](./context-resolver.md)** populate `Request.Context.*` during **planning**.  
-**[Template Substitution](./templates.md)** consumes `Plan` / `Request` / `Workflow` values to build strings.  
+**[Template Substitution](./templates.md)** uses allowlisted `Request.*` values (such as `Request.Context.*`) to build strings.  
 **[Conditions](./conditions.md)** decide step applicability during **planning** (`NotApplicable`).  
 **Preconditions** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
 :::
@@ -67,7 +67,7 @@ If the precondition evaluates to false:
 ## Condition DSL
 
 :::tip Preconditions use the same **Condition DSL** as Conditions.
-For the complete DSL reference, see: [Conditions → Condition DSL](./conditions)
+For the complete DSL reference, see: [Conditions → Condition DSL](./conditions.md)
 :::
 
 ---
