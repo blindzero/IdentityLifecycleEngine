@@ -146,8 +146,10 @@ Each capability writes to a **predefined, fixed path** under `Request.Context`. 
 ContextResolvers = @(
     @{
         Capability = 'IdLE.Entitlement.List'
-        Provider   = 'Identity'          # optional; auto-selected if omitted
-        With       = @{ IdentityKey = '{{Request.IdentityKeys.EmployeeId}}' }
+        With       = @{
+            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+            Provider    = 'Identity'   # optional; auto-selected if omitted
+        }
         # Writes to Request.Context.Identity.Entitlements (predefined, not configurable)
     }
     @{
