@@ -33,9 +33,11 @@
         "inputs": {
           "mailboxType": "User"
         },
-        "expectedState": null
+        "expectedState": null,
+        "warnings": []
       }
-    ]
+    ],
+    "warnings": []
   },
   "metadata": {
     "generatedBy": "Export-IdlePlanObject",

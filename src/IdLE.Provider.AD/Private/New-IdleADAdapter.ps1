@@ -331,7 +331,7 @@ function New-IdleADAdapter {
             Write-Verbose "AD Provider: Derived CN/RDN Name='$derivedName' from DisplayName"
         }
         elseif ($effectiveAttributes.ContainsKey('GivenName') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['GivenName']) -and 
-                $effectiveAttributes.ContainsKey('Surname') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['Surname'])) {
+            $effectiveAttributes.ContainsKey('Surname') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['Surname'])) {
             $derivedName = "$($effectiveAttributes['GivenName']) $($effectiveAttributes['Surname'])"
             Write-Verbose "AD Provider: Derived CN/RDN Name='$derivedName' from GivenName+Surname"
         }

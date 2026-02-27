@@ -80,6 +80,53 @@ Describe 'Export-IdlePlan' {
         }
     }
 
+    Context 'Planning warnings export' {
+        It 'includes planning warnings in exported plan for CI checks' {
+            $cid = '22222222-2222-2222-2222-222222222222'
+
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner-export-warning.psd1' -Content @'
+@{
+  Name           = 'Joiner - Export Warning Fixture'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{
+      Name         = 'Check Context'
+      Type         = 'EnsureMailbox'
+      Precondition = @{ Exists = 'Request.Context.OffboardingDate' }
+      With         = @{ mailboxType = 'User' }
+    }
+  )
+}
+'@
+
+            $req = New-IdleTestRequest `
+              -LifecycleEvent 'Joiner' `
+              -CorrelationId $cid `
+              -IdentityKeys ([ordered]@{ userId = 'jdoe' }) `
+              -Intent ([ordered]@{ department = 'IT' })
+
+            $providers = @{
+                Dummy        = $true
+                StepRegistry = @{ 'EnsureMailbox' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('EnsureMailbox')
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            @($plan.Warnings).Count | Should -BeGreaterThan 0
+            @($plan.Steps[0].Warnings).Count | Should -BeGreaterThan 0
+            $plan.Steps[0].Warnings[0].Code | Should -Be 'PreconditionContextPathUnresolvedAtPlan'
+
+            $json = $plan | Export-IdlePlan | ConvertFrom-Json
+            @($json.plan.warnings).Count | Should -BeGreaterThan 0
+            $json.plan.warnings[0].code | Should -Be 'PreconditionContextPathUnresolvedAtPlan'
+            $json.plan.warnings[0].step | Should -Be 'Check Context'
+
+            $json.plan.steps[0].warnings | Should -Not -BeNullOrEmpty
+            ($json.plan.steps[0].warnings | Measure-Object).Count | Should -BeGreaterThan 0
+            $json.plan.steps[0].warnings[0].code | Should -Be 'PreconditionContextPathUnresolvedAtPlan'
+        }
+    }
     Context 'Contract invariants' {
         It 'always includes schemaVersion 1.0' {
             $cid = '11111111-1111-1111-1111-111111111111'

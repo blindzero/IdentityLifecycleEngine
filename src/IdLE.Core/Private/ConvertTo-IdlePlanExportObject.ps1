@@ -41,6 +41,12 @@ function ConvertTo-IdlePlanExportObject {
         )
 
         foreach ($name in $Names) {
+            if ($Object -is [System.Collections.IDictionary]) {
+                if ($Object.Contains($name)) {
+                    return $Object[$name]
+                }
+                continue
+            }
             $prop = $Object.PSObject.Properties[$name]
             if ($null -ne $prop) {
                 return $prop.Value
@@ -270,13 +276,49 @@ function ConvertTo-IdlePlanExportObject {
         $stepMap.inputs = $redactedInputs
         $stepMap.expectedState = $redactedExpectedState
 
+        # Per-step planning warnings (e.g. unresolved precondition context paths).
+        $rawStepWarnings = Get-FirstPropertyValue -Object $step -Names @('Warnings', 'PlanningWarnings', 'StepWarnings')
+        $stepWarningList = @()
+        foreach ($sw in @($rawStepWarnings)) {
+            if ($null -eq $sw) { continue }
+
+            $stepWarningMap = New-OrderedMap
+            $stepWarningMap.code = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $sw -Names @('Code', 'code'))
+            $stepWarningMap.type = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $sw -Names @('Type', 'type'))
+            $stepWarningMap.source = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $sw -Names @('Source', 'source'))
+            $stepWarningMap.paths = Get-FirstPropertyValue -Object $sw -Names @('Paths', 'paths')
+            $stepWarningMap.message = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $sw -Names @('Message', 'message'))
+
+            $stepWarningList += $stepWarningMap
+        }
+        $stepMap.warnings = $stepWarningList
+
         $stepList += $stepMap
+    }
+
+
+    # ---- Plan warnings ------------------------------------------------------
+    $rawWarnings = Get-FirstPropertyValue -Object $Plan -Names @('Warnings', 'PlanningWarnings')
+    $warningList = @()
+    foreach ($w in @($rawWarnings)) {
+        if ($null -eq $w) { continue }
+
+        $warningMap = New-OrderedMap
+        $warningMap.code = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Code', 'code'))
+        $warningMap.type = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Type', 'type'))
+        $warningMap.step = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Step', 'step', 'StepName'))
+        $warningMap.source = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Source', 'source'))
+        $warningMap.paths = Get-FirstPropertyValue -Object $w -Names @('Paths', 'paths')
+        $warningMap.message = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $w -Names @('Message', 'message'))
+
+        $warningList += $warningMap
     }
 
     $planMap = New-OrderedMap
     $planMap.id = $planId
     $planMap.mode = $mode
     $planMap.steps = $stepList
+    $planMap.warnings = $warningList
 
     # ---- Metadata block ------------------------------------------------------
     $metadataMap = New-OrderedMap

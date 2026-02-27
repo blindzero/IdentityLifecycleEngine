@@ -80,6 +80,8 @@ function ConvertTo-IdleWorkflowSteps {
                 )
             }
 
+            Assert-IdleConditionPathsResolvable -Condition $condition -Context $PlanningContext -StepName $stepName -Source 'Condition'
+
             $isApplicable = Test-IdleCondition -Condition $condition -Context $PlanningContext
             if (-not $isApplicable) {
                 $status = 'NotApplicable'
@@ -126,87 +128,36 @@ function ConvertTo-IdleWorkflowSteps {
             $null
         }
 
-        # Runtime Preconditions: evaluated at execution time (not planning time).
-        # Each precondition uses the same declarative condition DSL as Condition.
-        $preconditions = $null
-        if (Test-IdleWorkflowStepKey -Step $s -Key 'Preconditions') {
-            $rawPreconditions = Get-IdlePropertyValue -Object $s -Name 'Preconditions'
-            if ($null -ne $rawPreconditions) {
-                $pcList = @($rawPreconditions)
-                for ($pcIdx = 0; $pcIdx -lt $pcList.Count; $pcIdx++) {
-                    $pc = $pcList[$pcIdx]
-                    if ($pc -isnot [System.Collections.IDictionary]) {
-                        throw [System.ArgumentException]::new(
-                            ("Workflow step '{0}': Preconditions[{1}] must be a hashtable (condition node)." -f $stepName, $pcIdx),
-                            'Workflow'
-                        )
-                    }
-                    $pcErrors = Test-IdleConditionSchema -Condition $pc -StepName $stepName
-                    if (@($pcErrors).Count -gt 0) {
-                        throw [System.ArgumentException]::new(
-                            ("Invalid Preconditions[{0}] on step '{1}': {2}" -f $pcIdx, $stepName, ([string]::Join(' ', @($pcErrors)))),
-                            'Workflow'
-                        )
-                    }
-                }
-                $preconditions = @()
-                foreach ($pc in $pcList) {
-                    $preconditions += Copy-IdleDataObject -Value $pc
-                }
+        $planWarnings = $null
+        $planObj = $PlanningContext.Plan
+        if ($null -ne $planObj) {
+            if ($planObj -is [System.Collections.IDictionary]) {
+                if ($planObj.Contains('Warnings')) { $planWarnings = $planObj['Warnings'] }
+            } else {
+                $wProp = $planObj.PSObject.Properties['Warnings']
+                if ($null -ne $wProp) { $planWarnings = $wProp.Value }
             }
         }
+        $planWarningsCanTrackCount = $planWarnings -is [System.Collections.IList]
+        $warningCountBefore = if ($planWarningsCanTrackCount) { [int]$planWarnings.Count } else { 0 }
 
-        $onPreconditionFalse = $null
-        if (Test-IdleWorkflowStepKey -Step $s -Key 'OnPreconditionFalse') {
-            $rawOnPreconditionFalseValue = Get-IdlePropertyValue -Object $s -Name 'OnPreconditionFalse'
-            if ($null -ne $rawOnPreconditionFalseValue) {
-                $rawOnPreconditionFalse = [string]$rawOnPreconditionFalseValue
-                if (-not [string]::IsNullOrWhiteSpace($rawOnPreconditionFalse)) {
-                    if ($rawOnPreconditionFalse -notin @('Blocked', 'Fail', 'Continue')) {
-                        throw [System.ArgumentException]::new(
-                            ("Workflow step '{0}': OnPreconditionFalse must be 'Blocked', 'Fail', or 'Continue'. Got: '{1}'." -f $stepName, $rawOnPreconditionFalse),
-                            'Workflow'
-                        )
-                    }
-                    $onPreconditionFalse = $rawOnPreconditionFalse
-                }
-            }
-        }
+        $preconditionSettings = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $s -StepName $stepName -PlanningContext $PlanningContext
+        $precondition = $preconditionSettings.Precondition
+        $onPreconditionFalse = $preconditionSettings.OnPreconditionFalse
+        $preconditionEvent = $preconditionSettings.PreconditionEvent
+        $preconditionWarnings = @()
 
-        $preconditionEvent = $null
-        if (Test-IdleWorkflowStepKey -Step $s -Key 'PreconditionEvent') {
-            $rawPreconditionEvent = Get-IdlePropertyValue -Object $s -Name 'PreconditionEvent'
-            if ($null -ne $rawPreconditionEvent) {
-                if ($rawPreconditionEvent -isnot [System.Collections.IDictionary]) {
-                    throw [System.ArgumentException]::new(
-                        ("Workflow step '{0}': PreconditionEvent must be a hashtable." -f $stepName),
-                        'Workflow'
-                    )
-                }
-                $pcEvtType = if ($rawPreconditionEvent.Contains('Type')) { [string]$rawPreconditionEvent['Type'] } else { $null }
-                if ([string]::IsNullOrWhiteSpace($pcEvtType)) {
-                    throw [System.ArgumentException]::new(
-                        ("Workflow step '{0}': PreconditionEvent.Type is required and must be a non-empty string." -f $stepName),
-                        'Workflow'
-                    )
-                }
-                $pcEvtMsg = if ($rawPreconditionEvent.Contains('Message')) { [string]$rawPreconditionEvent['Message'] } else { $null }
-                if ([string]::IsNullOrWhiteSpace($pcEvtMsg)) {
-                    throw [System.ArgumentException]::new(
-                        ("Workflow step '{0}': PreconditionEvent.Message is required and must be a non-empty string." -f $stepName),
-                        'Workflow'
-                    )
-                }
-                # PreconditionEvent.Data is optional but must be a hashtable if present.
-                if ($rawPreconditionEvent.Contains('Data') -and $null -ne $rawPreconditionEvent['Data']) {
-                    if ($rawPreconditionEvent['Data'] -isnot [System.Collections.IDictionary]) {
-                        throw [System.ArgumentException]::new(
-                            ("Workflow step '{0}': PreconditionEvent.Data must be a hashtable." -f $stepName),
-                            'Workflow'
-                        )
+        if ($planWarningsCanTrackCount) {
+            $warningCountAfter = [int]$planWarnings.Count
+            if ($warningCountAfter -gt $warningCountBefore) {
+                for ($warningIndex = $warningCountBefore; $warningIndex -lt $warningCountAfter; $warningIndex++) {
+                    $warning = $planWarnings[$warningIndex]
+                    $warningSource = Get-IdlePropertyValue -Object $warning -Name 'Source'
+                    $warningStep = Get-IdlePropertyValue -Object $warning -Name 'Step'
+                    if ($warningSource -eq 'Precondition' -and $warningStep -eq $stepName) {
+                        $preconditionWarnings += $warning
                     }
                 }
-                $preconditionEvent = Copy-IdleDataObject -Value $rawPreconditionEvent
             }
         }
 
@@ -216,9 +167,10 @@ function ConvertTo-IdleWorkflowSteps {
             Type                 = $stepType
             Description          = $description
             Condition            = Copy-IdleDataObject -Value $condition
-            Preconditions        = $preconditions
+            Precondition         = $precondition
             OnPreconditionFalse  = $onPreconditionFalse
             PreconditionEvent    = $preconditionEvent
+            Warnings             = $preconditionWarnings
             With                 = $with
             RequiresCapabilities = $requiresCaps
             Status               = $status

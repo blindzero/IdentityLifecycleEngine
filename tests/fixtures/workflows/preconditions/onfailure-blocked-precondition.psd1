@@ -5,14 +5,16 @@
     @{
       Name                = 'Step1'
       Type                = 'IdLE.Step.FailRunsOnFailure'
-      Preconditions       = @(
+      Precondition        = @{
+        All = @(
         @{
           Equals = @{
             Path  = 'Plan.LifecycleEvent'
             Value = 'Joiner'
           }
         }
-      )
+        )
+      }
       OnPreconditionFalse = 'Fail'
     }
   )
@@ -20,14 +22,16 @@
     @{
       Name          = 'Cleanup'
       Type          = 'IdLE.Step.OnFailureCleanup'
-      Preconditions = @(
+      Precondition = @{
+        All = @(
         @{
           Equals = @{
             Path  = 'Plan.LifecycleEvent'
             Value = 'Joiner'
           }
         }
-      )
+        )
+      }
     }
   )
 }

@@ -5,14 +5,16 @@
     @{
       Name          = 'Step1'
       Type          = 'IdLE.Step.PassingPrecondition'
-      Preconditions = @(
+      Precondition = @{
+        All = @(
         @{
           Equals = @{
             Path  = 'Plan.LifecycleEvent'
             Value = 'Leaver'
           }
         }
-      )
+        )
+      }
     }
   )
 }

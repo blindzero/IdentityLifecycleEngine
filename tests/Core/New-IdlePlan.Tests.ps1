@@ -141,6 +141,49 @@ Describe 'New-IdlePlan' {
             $plan.OnFailureSteps[1].Type | Should -Be 'IdLE.Step.NeverApplicable'
             $plan.OnFailureSteps[1].Status | Should -Be 'NotApplicable'
         }
+
+        It 'associates precondition warnings with the correct step even when Steps and OnFailureSteps share a name' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner-shared-step-name-warning.psd1' -Content @'
+@{
+  Name           = 'Joiner - Shared Step Name Warning'
+  LifecycleEvent = 'Joiner'
+  Steps          = @(
+    @{
+      Name         = 'SharedName'
+      Type         = 'IdLE.Step.ResolveIdentity'
+      Precondition = @{ Exists = 'Request.Context.MissingAtPlan' }
+    }
+  )
+  OnFailureSteps = @(
+    @{
+      Name = 'SharedName'
+      Type = 'IdLE.Step.Containment'
+      With = @{ Mode = 'Quarantine' }
+    }
+  )
+}
+'@
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+            $providers = @{
+                Dummy        = $true
+                StepRegistry = @{
+                    'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.Containment'     = 'Invoke-IdleTestNoopStep'
+                }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @(
+                    'IdLE.Step.ResolveIdentity',
+                    'IdLE.Step.Containment'
+                )
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            @($plan.Warnings).Count | Should -BeGreaterThan 0
+            @($plan.Steps[0].Warnings).Count | Should -Be 1
+            $plan.Steps[0].Warnings[0].Code | Should -Be 'PreconditionContextPathUnresolvedAtPlan'
+            @($plan.OnFailureSteps[0].Warnings).Count | Should -Be 0
+        }
     }
 
     Context 'Validation' {

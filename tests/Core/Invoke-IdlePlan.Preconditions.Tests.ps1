@@ -320,12 +320,12 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw
             }
 
-            It 'throws when Preconditions is a single hashtable instead of an array' {
+            It 'accepts Precondition as a single condition object' {
                 $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'invalid-single-hashtable.psd1'
                 $req      = New-IdleRequest -LifecycleEvent 'Joiner'
                 $providers = @{ StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.InvalidPCSingleHt') }
 
-                { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw
+                { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Not -Throw
             }
         }
 
@@ -372,6 +372,25 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 $result.OnFailure.Steps[0].Status | Should -Be 'PreconditionSkipped'
                 @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 2
                 @($result.Events | Where-Object Type -eq 'OnFailureRan').Count | Should -Be 0
+            }
+        }
+
+        Context 'Unresolvable precondition path at execution time' {
+            It 'throws when a non-Exists precondition path is missing from the request context at invoke time' {
+                $wfPath   = Join-Path -Path $script:FixturesPath -ChildPath 'missing-context-at-invoke.psd1'
+                $req      = New-IdleRequest -LifecycleEvent 'Leaver'
+                $providers = @{
+                    StepRegistry = @{ 'IdLE.Step.MissingContextAtInvoke' = 'Invoke-IdlePreconditionTestNoopStep' }
+                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.MissingContextAtInvoke')
+                }
+
+                # Planning succeeds with a soft warning for the missing Request.Context path.
+                $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+                $plan | Should -Not -BeNullOrEmpty
+                @($plan.Warnings).Count | Should -BeGreaterThan 0
+
+                # Execution must throw because the path is still missing at runtime.
+                { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*unresolved condition path*'
             }
         }
 }

@@ -118,7 +118,7 @@ function Invoke-IdlePlanObject {
             # Accept both IDictionary (hashtables) and PSCustomObject-shaped provider registries
             if ($null -ne $planProviders) {
                 $isValidProvider = ($planProviders -is [System.Collections.IDictionary]) -or 
-                                   ($planProviders.PSObject -and $planProviders.PSObject.Properties)
+                ($planProviders.PSObject -and $planProviders.PSObject.Properties)
                 if ($isValidProvider) {
                     $effectiveProviders = $planProviders
                 }
@@ -318,23 +318,24 @@ function Invoke-IdlePlanObject {
             continue
         }
 
-        # Runtime Preconditions: evaluated immediately before step execution (online, not planning-time).
+        # Runtime Precondition: evaluated immediately before step execution (online, not planning-time).
         # Blocked = policy/precondition gate (does not trigger OnFailureSteps). Stops execution.
         # Fail    = treated as a technical failure (triggers OnFailureSteps). Stops execution.
         # Continue = emits events but skips the step and continues to the next step.
         # Non-IDictionary precondition nodes are treated as precondition failures (fail closed).
-        $stepPreconditions = Get-IdlePropertyValue -Object $step -Name 'Preconditions'
-        if ($null -ne $stepPreconditions -and @($stepPreconditions).Count -gt 0) {
+        $stepPrecondition = Get-IdlePropertyValue -Object $step -Name 'Precondition'
+        if ($null -ne $stepPrecondition) {
             $preconditionPassed = $true
-            foreach ($pc in @($stepPreconditions)) {
-                if ($pc -isnot [System.Collections.IDictionary]) {
-                    # Fail closed: a malformed or unexpected node type is treated as a failed precondition.
+            if ($stepPrecondition -isnot [System.Collections.IDictionary]) {
+                # Fail closed: a malformed or unexpected node type is treated as a failed precondition.
+                $preconditionPassed = $false
+            }
+            else {
+                # Validate that all non-Exists paths exist at execution time.
+                # Exists operator paths are excluded because Exists semantics intentionally allow missing paths.
+                Assert-IdleConditionPathsResolvable -Condition ([hashtable]$stepPrecondition) -Context $preconditionContext -StepName $stepName -Source 'Precondition' -ExcludeExistsOperatorPaths
+                if (-not (Test-IdleCondition -Condition ([hashtable]$stepPrecondition) -Context $preconditionContext)) {
                     $preconditionPassed = $false
-                    break
-                }
-                if (-not (Test-IdleCondition -Condition ([hashtable]$pc) -Context $preconditionContext)) {
-                    $preconditionPassed = $false
-                    break
                 }
             }
 
@@ -358,7 +359,7 @@ function Invoke-IdlePlanObject {
                 $pcEvt = Get-IdlePropertyValue -Object $step -Name 'PreconditionEvent'
                 if ($null -ne $pcEvt) {
                     $pcEvtType = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Type')
-                    $pcEvtMsg  = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Message')
+                    $pcEvtMsg = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Message')
                     $pcEvtData = Get-IdlePropertyValue -Object $pcEvt -Name 'Data'
                     # PreconditionEvent.Data is validated as a hashtable at planning time and
                     # stored via Copy-IdleDataObject, so it will be a hashtable (IDictionary) here.
@@ -621,20 +622,20 @@ function Invoke-IdlePlanObject {
                 continue
             }
 
-            # Runtime Preconditions for OnFailure steps: evaluated immediately before execution.
+            # Runtime Precondition for OnFailure steps: evaluated immediately before execution.
             # OnFailure runs best-effort, so precondition failures skip the step but do not halt
             # remaining OnFailure steps. Non-IDictionary nodes are treated as failures (fail closed).
-            $ofPreconditions = Get-IdlePropertyValue -Object $ofStep -Name 'Preconditions'
-            if ($null -ne $ofPreconditions -and @($ofPreconditions).Count -gt 0) {
+            $ofPrecondition = Get-IdlePropertyValue -Object $ofStep -Name 'Precondition'
+            if ($null -ne $ofPrecondition) {
                 $ofPreconditionPassed = $true
-                foreach ($opc in @($ofPreconditions)) {
-                    if ($opc -isnot [System.Collections.IDictionary]) {
+                if ($ofPrecondition -isnot [System.Collections.IDictionary]) {
+                    $ofPreconditionPassed = $false
+                }
+                else {
+                    # Validate that all non-Exists paths exist at execution time.
+                    Assert-IdleConditionPathsResolvable -Condition ([hashtable]$ofPrecondition) -Context $preconditionContext -StepName $ofName -Source 'Precondition' -ExcludeExistsOperatorPaths
+                    if (-not (Test-IdleCondition -Condition ([hashtable]$ofPrecondition) -Context $preconditionContext)) {
                         $ofPreconditionPassed = $false
-                        break
-                    }
-                    if (-not (Test-IdleCondition -Condition ([hashtable]$opc) -Context $preconditionContext)) {
-                        $ofPreconditionPassed = $false
-                        break
                     }
                 }
 
@@ -658,7 +659,7 @@ function Invoke-IdlePlanObject {
                     $ofPcEvt = Get-IdlePropertyValue -Object $ofStep -Name 'PreconditionEvent'
                     if ($null -ne $ofPcEvt) {
                         $ofPcEvtType = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Type')
-                        $ofPcEvtMsg  = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Message')
+                        $ofPcEvtMsg = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Message')
                         $ofPcEvtData = Get-IdlePropertyValue -Object $ofPcEvt -Name 'Data'
                         $ofPcEvtDataHt = if ($ofPcEvtData -is [System.Collections.IDictionary]) { [hashtable]$ofPcEvtData } else { $null }
                         $context.EventSink.WriteEvent($ofPcEvtType, $ofPcEvtMsg, $ofName, $ofPcEvtDataHt)
