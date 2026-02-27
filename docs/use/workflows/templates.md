@@ -14,11 +14,7 @@ No ScriptBlocks or dynamic PowerShell expressions are supported.
 
 ## What is Template Substitution?
 
-Template substitution resolves values from:
-
-- `Plan`
-- `Request`
-- `Workflow`
+Template substitution resolves values from: `Request.*`
 
 It replaces template placeholders with actual values before execution.
 
