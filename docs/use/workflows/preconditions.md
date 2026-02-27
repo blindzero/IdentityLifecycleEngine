@@ -24,7 +24,7 @@ They protect execution but do not affect planning.
 **[Context Resolvers](./context-resolver.md)** populate `Request.Context.*` during **planning**.  
 **[Template Substitution](./templates.md)** uses allowlisted `Request.*` values (such as `Request.Context.*`) to build strings.  
 **[Conditions](./conditions.md)** decide step applicability during **planning** (`NotApplicable`).  
-**Preconditions** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
+**Preconditions** guard step behavior during **execution** (`Blocked` / `Fail` / `Continue`).
 :::
 
 | Precondition | Condition |
@@ -42,7 +42,7 @@ They protect execution but do not affect planning.
   Name = 'Disable existing identity'
   Type = 'IdLE.Step.DisableIdentity'
 
-  Preconditions = @{
+  Precondition = @{
     Equals = @{ Path = 'Request.Context.IdentityExists'; Value = 'True' }
   }
 
