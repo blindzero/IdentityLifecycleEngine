@@ -86,7 +86,7 @@ When you run IdLE, it happens in two distinct phases:
 2. **Execution (Plan Run)**  
    IdLE executes the planned steps and records results.
 
-   - `Preconditions` are evaluated here.
+   - `Precondition` are evaluated here.
    - If a precondition is false, `OnPreconditionFalse` decides what happens (for example `Skip` or `Fail`).
 
 ---
@@ -99,7 +99,7 @@ At a high level, a workflow contains:
 - a list of context resolver instructions (`ContextResolvers`)
 - a list of steps (ordered) (`Steps`)
 - per-step configuration (`With`)
-- per-step optional execution logic (`Condition`, `Preconditions`, `OnFailureSteps`, etc.)
+- per-step optional execution logic (`Condition`, `Precondition`, `OnFailureSteps`, etc.)
 
 The Big Picture is described in [Concepts](../about/concepts.md).
 
@@ -117,13 +117,13 @@ See: [Context Resolvers](./workflows/context-resolver.md)
 
 ### Template Substitution
 
-Many step configurations use **template substitution** to insert values from `Plan`, `Request`, and `Workflow` into strings (for example to build a UPN or display name). \
-These `{{path}}` placeholders that are resolved against the
-request during plan build (`New-IdlePlan`). Multiple placeholders may appear in a single value.
+Many step configurations use **template substitution** to insert values from the incoming request into strings (for example to build a UPN or display name). \
+These `{{Request.*}}` placeholders are resolved against the
+request during plan build (`New-IdlePlan`). Only `Request.*` roots are allowed (for example `Request.Intent`, `Request.Context`, `Request.IdentityKeys`, `Request.LifecycleEvent`). Multiple placeholders may appear in a single value.
 
 ```powershell
 IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
-DisplayName = '{{Request.Intent.GivenName}} {{Request.Intent.SurnameName}}'
+DisplayName = '{{Request.Intent.GivenName}} {{Request.Intent.Surname}}'
 Message     = 'User {{Request.Intent.DisplayName}} is joining.'
 ```
 
@@ -134,10 +134,10 @@ See: [Template Substitution](./workflows/templates)
 A step is a self-contained unit of work. Most steps follow this pattern:
 
 - `Name` (string) – a human-readable identifier
-- `Type` (string) – the step type (for example `IdLE.Step.EnsureAttribute`)
+- `Type` (string) – the step type (for example `IdLE.Step.EnsureAttributes`)
 - `With` (hashtable) – step-specific configuration
 - `Condition` (hashtable, optional) – optional planning-time applicability
-- `Preconditions` (hashtable, optional) – optional execution-time guard
+- `Precondition` (hashtable, optional) – optional execution-time guard
 - `OnPreconditionFalse` (string, optional) – behavior when the precondition is false
 
 > Step types define which keys are supported inside `With`. See the step reference for details.
@@ -149,7 +149,7 @@ Each step supports several optional execution control properties:
 | Property | Evaluated at | Purpose |
 |---|---|---|
 | `Condition` | Plan time | Include or skip the step based on request/intent data during planning. See [Conditions](workflows/conditions.md) |
-| `Preconditions` | Execution time (runtime) | Guard the step against stale or unsafe state immediately before execution. See Runtime [Preconditions](workflows/preconditions.md). |
+| `Precondition` | Execution time (runtime) | Guard the step against stale or unsafe state immediately before execution. See Runtime [Preconditions](workflows/preconditions.md). |
 | `OnFailureSteps` | After failure (workflow-level) | Cleanup/rollback steps run after a primary step fails. |
 
 :::warning Do not confuse Conditions and Preconditions
@@ -162,7 +162,7 @@ Each step supports several optional execution control properties:
 
 This example shows a small workflow with:
 
-- a value containing a [template substition](./workflows/templates.md)
+- a value containing a [template substitution](./workflows/templates.md)
 - a step that is only applicable for `Joiner` ([Condition](./workflows/conditions.md))
 - a step that is guarded at runtime ([Preconditions](./workflows/preconditions.md))
 
