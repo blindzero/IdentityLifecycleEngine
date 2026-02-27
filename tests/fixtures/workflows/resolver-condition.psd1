@@ -4,8 +4,10 @@
   ContextResolvers = @(
     @{
       Capability = 'IdLE.Entitlement.List'
-      Provider   = 'Identity'
-      With       = @{ IdentityKey = 'user1' }
+      With       = @{
+        IdentityKey = 'user1'
+        Provider    = 'Identity'
+      }
     }
   )
   Steps = @(

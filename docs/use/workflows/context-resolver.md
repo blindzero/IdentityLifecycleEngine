@@ -41,9 +41,10 @@ A resolver entry is defined at workflow root level:
   ContextResolvers = @(
     @{
       Capability = 'IdLE.Identity.Read'
-      Provider = 'Identity' # optional
       With = @{
-        IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+        IdentityKey     = '{{Request.IdentityKeys.EmployeeId}}'
+        Provider        = 'Identity'        # optional; auto-selected if omitted
+        AuthSessionName = 'Tier0'           # optional; requires AuthSessionBroker in Providers
       }
     }
 
@@ -83,11 +84,15 @@ A resolver entry is defined at workflow root level:
 - `Capability` (required)  
   A permitted read-only capability.
 
-- `Provider` (optional)  
-  Provider alias. If omitted, IdLE selects a provider advertising the capability.
-
-- `With` (required)  
+- `With` (hashtable, optional — required in practice, as capabilities need at least `IdentityKey`)  
   Inputs required by the capability. Template substitution is supported.
+
+  | `With` key | Type | Required | Description |
+  |---|---|---|---|
+  | `IdentityKey` | `string` | Per capability | Required by `IdLE.Identity.Read` and `IdLE.Entitlement.List`. |
+  | `Provider` | `string` | No | Provider alias. If omitted, IdLE auto-selects a provider advertising the capability. Ambiguity (multiple providers matching) is a fail-fast error. |
+  | `AuthSessionName` | `string` | No | Named auth session to acquire via `AuthSessionBroker`. Requires an `AuthSessionBroker` entry in `Providers`. |
+  | `AuthSessionOptions` | `hashtable` | No | Options passed to `AuthSessionBroker.AcquireAuthSession`. Must be a hashtable. ScriptBlocks are rejected. |
 
 Output paths are predefined and cannot be changed.
 
@@ -156,7 +161,7 @@ Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
 
 ### Ambiguous provider
 
-- If multiple providers advertise a capability, specify `Provider` explicitly.
+- If multiple providers advertise a capability, specify `With.Provider` explicitly.
 
 ### Context value missing
 

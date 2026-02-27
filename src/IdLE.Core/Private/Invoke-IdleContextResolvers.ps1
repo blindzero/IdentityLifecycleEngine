@@ -14,7 +14,7 @@ function Invoke-IdleContextResolvers {
     - Only capabilities in the read-only allow-list (Get-IdleReadOnlyCapabilities) may be used.
     - Each capability writes to a fixed, predefined path under Request.Context.
       The output path is not user-configurable.
-    - Provider is selected by alias when 'Provider' is specified; otherwise the first
+    - Provider is selected by alias when 'With.Provider' is specified; otherwise the first
       provider (sorted by alias) that advertises the capability is used; ambiguity when
       multiple providers match causes a fail-fast error.
     - Auth sessions are supported via With.AuthSessionName / With.AuthSessionOptions,
@@ -93,8 +93,8 @@ function Invoke-IdleContextResolvers {
         $with = Resolve-IdleWorkflowTemplates -Value $with -Request $Request -StepName $resolverPath
 
         # --- Provider selection ---
-        $providerAlias = if ($resolver.Contains('Provider') -and -not [string]::IsNullOrWhiteSpace([string]$resolver.Provider)) {
-            [string]$resolver.Provider
+        $providerAlias = if ($with -is [System.Collections.IDictionary] -and $with.Contains('Provider') -and -not [string]::IsNullOrWhiteSpace([string]$with.Provider)) {
+            [string]$with.Provider
         }
         else {
             $null
@@ -244,7 +244,7 @@ function Select-IdleResolverProviderAlias {
     if ($matchingAliases.Count -gt 1) {
         $aliasList = $matchingAliases -join ', '
         throw [System.ArgumentException]::new(
-            "${ResolverPath}: Multiple providers advertise capability '$Capability': $aliasList. Specify 'Provider' in the resolver to disambiguate.",
+            "${ResolverPath}: Multiple providers advertise capability '$Capability': $aliasList. Specify 'With.Provider' in the resolver to disambiguate.",
             'Providers'
         )
     }

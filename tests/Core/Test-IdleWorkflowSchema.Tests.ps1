@@ -85,3 +85,89 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
         }
     }
 }
+
+Describe 'Workflow schema validation - ContextResolvers' {
+    InModuleScope 'IdLE.Core' {
+        It 'rejects root-level Provider key in a resolver entry (must use With.Provider)' {
+            $workflow = @{
+                Name             = 'Root Provider Rejected'
+                LifecycleEvent   = 'Joiner'
+                ContextResolvers = @(
+                    @{
+                        Capability = 'IdLE.Entitlement.List'
+                        Provider   = 'Identity'
+                        With       = @{ IdentityKey = 'user1' }
+                    }
+                )
+                Steps            = @(
+                    @{ Name = 'Step1'; Type = 'IdLE.Step.Noop' }
+                )
+            }
+
+            $errors = Test-IdleWorkflowSchema -Workflow $workflow
+            @($errors | Where-Object { $_ -like "*Unknown key*Provider*" }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'rejects With.Provider as empty string' {
+            $workflow = @{
+                Name             = 'With.Provider Empty'
+                LifecycleEvent   = 'Joiner'
+                ContextResolvers = @(
+                    @{
+                        Capability = 'IdLE.Entitlement.List'
+                        With       = @{ IdentityKey = 'user1'; Provider = '' }
+                    }
+                )
+                Steps            = @(
+                    @{ Name = 'Step1'; Type = 'IdLE.Step.Noop' }
+                )
+            }
+
+            $errors = Test-IdleWorkflowSchema -Workflow $workflow
+            @($errors | Where-Object { $_ -like "*With.Provider*must not be an empty string*" }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'rejects With.AuthSessionOptions as a non-hashtable' {
+            $workflow = @{
+                Name             = 'With.AuthSessionOptions Invalid'
+                LifecycleEvent   = 'Joiner'
+                ContextResolvers = @(
+                    @{
+                        Capability = 'IdLE.Entitlement.List'
+                        With       = @{ IdentityKey = 'user1'; AuthSessionName = 'Tier0'; AuthSessionOptions = 'not-a-hashtable' }
+                    }
+                )
+                Steps            = @(
+                    @{ Name = 'Step1'; Type = 'IdLE.Step.Noop' }
+                )
+            }
+
+            $errors = Test-IdleWorkflowSchema -Workflow $workflow
+            @($errors | Where-Object { $_ -like "*With.AuthSessionOptions*must be a hashtable*" }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'accepts a valid resolver with With.Provider and With.AuthSessionOptions' {
+            $workflow = @{
+                Name             = 'Valid Resolver With.Provider'
+                LifecycleEvent   = 'Joiner'
+                ContextResolvers = @(
+                    @{
+                        Capability = 'IdLE.Entitlement.List'
+                        With       = @{
+                            IdentityKey        = 'user1'
+                            Provider           = 'Identity'
+                            AuthSessionName    = 'Tier0'
+                            AuthSessionOptions = @{ Role = 'Tier0' }
+                        }
+                    }
+                )
+                Steps            = @(
+                    @{ Name = 'Step1'; Type = 'IdLE.Step.Noop' }
+                )
+            }
+
+            $errors = Test-IdleWorkflowSchema -Workflow $workflow
+            @($errors).Count | Should -Be 0
+        }
+    }
+}
