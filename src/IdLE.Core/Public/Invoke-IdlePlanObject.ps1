@@ -118,7 +118,7 @@ function Invoke-IdlePlanObject {
             # Accept both IDictionary (hashtables) and PSCustomObject-shaped provider registries
             if ($null -ne $planProviders) {
                 $isValidProvider = ($planProviders -is [System.Collections.IDictionary]) -or 
-                                   ($planProviders.PSObject -and $planProviders.PSObject.Properties)
+                ($planProviders.PSObject -and $planProviders.PSObject.Properties)
                 if ($isValidProvider) {
                     $effectiveProviders = $planProviders
                 }
@@ -330,8 +330,13 @@ function Invoke-IdlePlanObject {
                 # Fail closed: a malformed or unexpected node type is treated as a failed precondition.
                 $preconditionPassed = $false
             }
-            elseif (-not (Test-IdleCondition -Condition ([hashtable]$stepPrecondition) -Context $preconditionContext)) {
-                $preconditionPassed = $false
+            else {
+                # Validate that all non-Exists paths exist at execution time.
+                # Exists operator paths are excluded because Exists semantics intentionally allow missing paths.
+                Assert-IdleConditionPathsResolvable -Condition ([hashtable]$stepPrecondition) -Context $preconditionContext -StepName $stepName -Source 'Precondition' -ExcludeExistsOperatorPaths
+                if (-not (Test-IdleCondition -Condition ([hashtable]$stepPrecondition) -Context $preconditionContext)) {
+                    $preconditionPassed = $false
+                }
             }
 
             if (-not $preconditionPassed) {
@@ -354,7 +359,7 @@ function Invoke-IdlePlanObject {
                 $pcEvt = Get-IdlePropertyValue -Object $step -Name 'PreconditionEvent'
                 if ($null -ne $pcEvt) {
                     $pcEvtType = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Type')
-                    $pcEvtMsg  = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Message')
+                    $pcEvtMsg = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Message')
                     $pcEvtData = Get-IdlePropertyValue -Object $pcEvt -Name 'Data'
                     # PreconditionEvent.Data is validated as a hashtable at planning time and
                     # stored via Copy-IdleDataObject, so it will be a hashtable (IDictionary) here.
@@ -626,8 +631,12 @@ function Invoke-IdlePlanObject {
                 if ($ofPrecondition -isnot [System.Collections.IDictionary]) {
                     $ofPreconditionPassed = $false
                 }
-                elseif (-not (Test-IdleCondition -Condition ([hashtable]$ofPrecondition) -Context $preconditionContext)) {
-                    $ofPreconditionPassed = $false
+                else {
+                    # Validate that all non-Exists paths exist at execution time.
+                    Assert-IdleConditionPathsResolvable -Condition ([hashtable]$ofPrecondition) -Context $preconditionContext -StepName $ofName -Source 'Precondition' -ExcludeExistsOperatorPaths
+                    if (-not (Test-IdleCondition -Condition ([hashtable]$ofPrecondition) -Context $preconditionContext)) {
+                        $ofPreconditionPassed = $false
+                    }
                 }
 
                 if (-not $ofPreconditionPassed) {
@@ -650,7 +659,7 @@ function Invoke-IdlePlanObject {
                     $ofPcEvt = Get-IdlePropertyValue -Object $ofStep -Name 'PreconditionEvent'
                     if ($null -ne $ofPcEvt) {
                         $ofPcEvtType = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Type')
-                        $ofPcEvtMsg  = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Message')
+                        $ofPcEvtMsg = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Message')
                         $ofPcEvtData = Get-IdlePropertyValue -Object $ofPcEvt -Name 'Data'
                         $ofPcEvtDataHt = if ($ofPcEvtData -is [System.Collections.IDictionary]) { [hashtable]$ofPcEvtData } else { $null }
                         $context.EventSink.WriteEvent($ofPcEvtType, $ofPcEvtMsg, $ofName, $ofPcEvtDataHt)

@@ -128,10 +128,38 @@ function ConvertTo-IdleWorkflowSteps {
             $null
         }
 
+        $planWarnings = $null
+        $planObj = $PlanningContext.Plan
+        if ($null -ne $planObj) {
+            if ($planObj -is [System.Collections.IDictionary]) {
+                if ($planObj.Contains('Warnings')) { $planWarnings = $planObj['Warnings'] }
+            } else {
+                $wProp = $planObj.PSObject.Properties['Warnings']
+                if ($null -ne $wProp) { $planWarnings = $wProp.Value }
+            }
+        }
+        $planWarningsCanTrackCount = $planWarnings -is [System.Collections.IList]
+        $warningCountBefore = if ($planWarningsCanTrackCount) { [int]$planWarnings.Count } else { 0 }
+
         $preconditionSettings = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $s -StepName $stepName -PlanningContext $PlanningContext
         $precondition = $preconditionSettings.Precondition
         $onPreconditionFalse = $preconditionSettings.OnPreconditionFalse
         $preconditionEvent = $preconditionSettings.PreconditionEvent
+        $preconditionWarnings = @()
+
+        if ($planWarningsCanTrackCount) {
+            $warningCountAfter = [int]$planWarnings.Count
+            if ($warningCountAfter -gt $warningCountBefore) {
+                for ($warningIndex = $warningCountBefore; $warningIndex -lt $warningCountAfter; $warningIndex++) {
+                    $warning = $planWarnings[$warningIndex]
+                    $warningSource = Get-IdlePropertyValue -Object $warning -Name 'Source'
+                    $warningStep = Get-IdlePropertyValue -Object $warning -Name 'Step'
+                    if ($warningSource -eq 'Precondition' -and $warningStep -eq $stepName) {
+                        $preconditionWarnings += $warning
+                    }
+                }
+            }
+        }
 
         $normalizedSteps += [pscustomobject]@{
             PSTypeName           = 'IdLE.PlanStep'
@@ -142,6 +170,7 @@ function ConvertTo-IdleWorkflowSteps {
             Precondition         = $precondition
             OnPreconditionFalse  = $onPreconditionFalse
             PreconditionEvent    = $preconditionEvent
+            Warnings             = $preconditionWarnings
             With                 = $with
             RequiresCapabilities = $requiresCaps
             Status               = $status

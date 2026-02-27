@@ -369,8 +369,8 @@ function New-IdleExchangeOnlineProvider {
         # Check internal message with normalization
         if ($Config.ContainsKey('InternalMessage')) {
             # Use normalization to handle server-side HTML canonicalization
-            $normalizedCurrent = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $currentConfig.InternalMessage
-            $normalizedDesired = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $Config['InternalMessage']
+            $normalizedCurrent = Format-IdleExchangeOnlineAutoReplyMessage -Message $currentConfig.InternalMessage
+            $normalizedDesired = Format-IdleExchangeOnlineAutoReplyMessage -Message $Config['InternalMessage']
             if ($normalizedCurrent -ne $normalizedDesired) {
                 $changed = $true
             }
@@ -379,8 +379,8 @@ function New-IdleExchangeOnlineProvider {
         # Check external message with normalization
         if ($Config.ContainsKey('ExternalMessage')) {
             # Use normalization to handle server-side HTML canonicalization
-            $normalizedCurrent = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $currentConfig.ExternalMessage
-            $normalizedDesired = Normalize-IdleExchangeOnlineAutoReplyMessage -Message $Config['ExternalMessage']
+            $normalizedCurrent = Format-IdleExchangeOnlineAutoReplyMessage -Message $currentConfig.ExternalMessage
+            $normalizedDesired = Format-IdleExchangeOnlineAutoReplyMessage -Message $Config['ExternalMessage']
             if ($normalizedCurrent -ne $normalizedDesired) {
                 $changed = $true
             }
@@ -456,9 +456,8 @@ function New-IdleExchangeOnlineProvider {
             $currentPerms = $this.Adapter.GetMailboxPermissions($mailboxSmtp, $accessToken)
 
             # Normalize current delegates (case-insensitive)
-            $currentFullAccessUsers = @($currentPerms |
-                Where-Object { $_.AccessRight -eq 'FullAccess' -and -not $_.IsInherited } |
-                ForEach-Object { $_.User.ToLowerInvariant() })
+            $filteredFullAccessPerms = $currentPerms | Where-Object { $_.AccessRight -eq 'FullAccess' -and -not $_.IsInherited }
+            $currentFullAccessUsers = @($filteredFullAccessPerms | ForEach-Object { $_.User.ToLowerInvariant() })
 
             if ($hasEventSink) {
                 $null = $this.EventSink.WriteEvent(
@@ -505,9 +504,8 @@ function New-IdleExchangeOnlineProvider {
         if ($desiredSendAs.Count -gt 0) {
             $currentRecipientPerms = $this.Adapter.GetRecipientPermissions($mailboxSmtp, $accessToken)
 
-            $currentSendAsTrustees = @($currentRecipientPerms |
-                Where-Object { $_.AccessRight -match 'SendAs' -and -not $_.IsInherited } |
-                ForEach-Object { $_.Trustee.ToLowerInvariant() })
+            $filteredSendAsPerms = $currentRecipientPerms | Where-Object { $_.AccessRight -match 'SendAs' -and -not $_.IsInherited }
+            $currentSendAsTrustees = @($filteredSendAsPerms | ForEach-Object { $_.Trustee.ToLowerInvariant() })
 
             if ($hasEventSink) {
                 $null = $this.EventSink.WriteEvent(
