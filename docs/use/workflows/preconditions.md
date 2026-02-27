@@ -42,7 +42,7 @@ They protect execution but do not affect planning.
   Name = 'Disable existing identity'
   Type = 'IdLE.Step.DisableIdentity'
 
-  Preconditions = @{
+  Precondition = @{
     Equals = @{ Path = 'Request.Context.IdentityExists'; Value = 'True' }
   }
 
