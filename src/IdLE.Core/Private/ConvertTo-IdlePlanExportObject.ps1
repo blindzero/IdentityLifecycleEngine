@@ -276,6 +276,23 @@ function ConvertTo-IdlePlanExportObject {
         $stepMap.inputs = $redactedInputs
         $stepMap.expectedState = $redactedExpectedState
 
+        # Per-step planning warnings (e.g. unresolved precondition context paths).
+        $rawStepWarnings = Get-FirstPropertyValue -Object $step -Names @('Warnings', 'PlanningWarnings', 'StepWarnings')
+        $stepWarningList = @()
+        foreach ($sw in @($rawStepWarnings)) {
+            if ($null -eq $sw) { continue }
+
+            $stepWarningMap = New-OrderedMap
+            $stepWarningMap.code = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $sw -Names @('Code', 'code'))
+            $stepWarningMap.type = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $sw -Names @('Type', 'type'))
+            $stepWarningMap.source = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $sw -Names @('Source', 'source'))
+            $stepWarningMap.paths = Get-FirstPropertyValue -Object $sw -Names @('Paths', 'paths')
+            $stepWarningMap.message = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $sw -Names @('Message', 'message'))
+
+            $stepWarningList += $stepWarningMap
+        }
+        $stepMap.warnings = $stepWarningList
+
         $stepList += $stepMap
     }
 

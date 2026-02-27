@@ -179,11 +179,110 @@ function Initialize-Module {
             throw "Module '$Name' ($RequiredVersion) is required, but Install-Module is not available. Install the module manually and retry."
         }
 
-        Write-Host "Installing module '$Name' ($RequiredVersion) in CurrentUser scope..."
+        Write-Host "  Installing module '$Name' ($RequiredVersion) in CurrentUser scope..." -ForegroundColor DarkGray
         Install-Module -Name $Name -Scope CurrentUser -Force -RequiredVersion $RequiredVersion -AllowClobber | Out-Null
     }
 
     Import-Module -Name $Name -RequiredVersion $RequiredVersion -Force
+}
+
+function Write-PssaFinding {
+    <#
+    .SYNOPSIS
+    Writes a single PSScriptAnalyzer finding to the host with color coding.
+
+    .DESCRIPTION
+    Errors are written in red, warnings in yellow. Suppresses raw diagnostic
+    object noise and formats the output for human readability.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object] $Finding
+    )
+
+    $severity = [string]$Finding.Severity
+    $color = if ($severity -eq 'Error') { 'Red' } else { 'Yellow' }
+    $icon = if ($severity -eq 'Error') { [char]0x2717 } else { [char]0x26A0 }
+    $label = if ($severity -eq 'Error') { 'Error  ' } else { 'Warning' }
+    $scriptName = [System.IO.Path]::GetFileName([string]$Finding.ScriptPath)
+
+    Write-Host "  $icon [$label]  $($Finding.RuleName)" -ForegroundColor $color
+    Write-Host "           File : $scriptName  (line $($Finding.Line), col $($Finding.Column))" -ForegroundColor DarkGray
+    Write-Host "           Msg  : $($Finding.Message)" -ForegroundColor DarkGray
+    Write-Host ''
+}
+
+function Write-PssaHeader {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [version] $Version,
+
+        [Parameter(Mandatory)]
+        [string] $SettingsPath,
+
+        [Parameter(Mandatory)]
+        [string[]] $AnalyzedPaths
+    )
+
+    $separator = '-' * 64
+    Write-Host $separator -ForegroundColor DarkCyan
+    Write-Host "  PSScriptAnalyzer $Version" -ForegroundColor Cyan
+    Write-Host "  Settings : $(Split-Path -Leaf $SettingsPath)" -ForegroundColor DarkCyan
+    Write-Host '  Paths    :' -ForegroundColor DarkCyan
+    foreach ($p in $AnalyzedPaths) {
+        Write-Host "    > $p" -ForegroundColor DarkGray
+    }
+    Write-Host $separator -ForegroundColor DarkCyan
+    Write-Host ''
+}
+
+function Write-PssaSummary {
+    <#
+    .SYNOPSIS
+    Writes a color-coded summary of PSScriptAnalyzer results.
+
+    .DESCRIPTION
+    - Green : no findings at all
+    - Yellow: only warnings present (local run passes, CI may flag if FailOnSeverity=Warning)
+    - Red   : errors present (blocking findings)
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object[]] $Findings,
+
+        [Parameter(Mandatory)]
+        [string] $FailOnSeverity
+    )
+
+    $errorCount = @($Findings | Where-Object { $_.Severity -eq 'Error' }).Count
+    $warnCount = @($Findings | Where-Object { $_.Severity -eq 'Warning' }).Count
+    $separator = '-' * 64
+
+    Write-Host $separator -ForegroundColor DarkCyan
+
+    if ($errorCount -eq 0 -and $warnCount -eq 0) {
+        Write-Host "  $([char]0x2713) No findings — all checks passed." -ForegroundColor Green
+    }
+    else {
+        Write-Host "  Findings : $($errorCount + $warnCount) total  |  $errorCount error(s)  |  $warnCount warning(s)" -ForegroundColor DarkGray
+
+        if ($errorCount -gt 0) {
+            Write-Host "  $([char]0x2717) $errorCount error(s) found — this run will FAIL." -ForegroundColor Red
+        }
+
+        if ($warnCount -gt 0 -and $FailOnSeverity -eq 'Error') {
+            Write-Host "  $([char]0x26A0) $warnCount warning(s) found — these pass locally but CI will flag them if FailOnSeverity=Warning." -ForegroundColor Yellow
+        }
+        elseif ($warnCount -gt 0) {
+            Write-Host "  $([char]0x26A0) $warnCount warning(s) found — this run will FAIL." -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host $separator -ForegroundColor DarkCyan
+    Write-Host ''
 }
 
 function Write-JsonFile {
@@ -250,13 +349,16 @@ Initialize-Module -Name 'PSScriptAnalyzer' -RequiredVersion $PSScriptAnalyzerVer
 
 # Run analysis using the repo settings file.
 # We rely on the settings file for rule selection and severities.
-Write-Host "Running PSScriptAnalyzer ($PSScriptAnalyzerVersion) using settings: $resolvedSettingsPath"
-Write-Host "Analyzing paths:"
-$resolvedPaths | ForEach-Object { Write-Host "  - $_" }
+Write-PssaHeader -Version $PSScriptAnalyzerVersion -SettingsPath $resolvedSettingsPath -AnalyzedPaths $resolvedPaths
 
 $findings = @()
 foreach ($path in $resolvedPaths) {
     $findings += Invoke-ScriptAnalyzer -Path $path -Recurse -Settings $resolvedSettingsPath
+}
+
+# Display each finding with color coding (errors in red, warnings in yellow).
+foreach ($f in ($findings | Sort-Object ScriptName, Line, Column, RuleName)) {
+    Write-PssaFinding -Finding $f
 }
 
 # Create a stable, small JSON payload (DiagnosticRecord contains complex members).
@@ -274,7 +376,7 @@ $summary = @(
 )
 
 if ($CI -and $resolvedJsonOutputPath) {
-    Write-Host "Writing PSScriptAnalyzer JSON results: $resolvedJsonOutputPath"
+    Write-Host "  Writing JSON results : $resolvedJsonOutputPath" -ForegroundColor DarkGray
     Write-JsonFile -Path $resolvedJsonOutputPath -Object $summary
 }
 
@@ -288,9 +390,12 @@ if ($emitSarif -and $resolvedSarifOutputPath) {
         throw "ConvertToSARIF module is installed, but 'ConvertTo-SARIF' cmdlet was not found."
     }
 
-    Write-Host "Writing SARIF results: $resolvedSarifOutputPath"
+    Write-Host "  Writing SARIF results : $resolvedSarifOutputPath" -ForegroundColor DarkGray
     $findings | & $convertCommand -FilePath $resolvedSarifOutputPath
 }
+
+# Display color-coded summary (green/yellow/red) with CI hint for warnings.
+Write-PssaSummary -Findings $findings -FailOnSeverity $FailOnSeverity
 
 # Determine whether we should fail this run.
 $failSeverities = @($FailOnSeverity)
@@ -308,5 +413,3 @@ if ($blockingFindings) {
     $message = "PSScriptAnalyzer found blocking issues (FailOnSeverity: $FailOnSeverity). Errors: $errorCount, Warnings: $warningCount."
     throw $message
 }
-
-Write-Host "PSScriptAnalyzer completed with no blocking findings (FailOnSeverity: $FailOnSeverity)."

@@ -121,6 +121,10 @@ Describe 'Export-IdlePlan' {
             @($json.plan.warnings).Count | Should -BeGreaterThan 0
             $json.plan.warnings[0].code | Should -Be 'PreconditionContextPathUnresolvedAtPlan'
             $json.plan.warnings[0].step | Should -Be 'Check Context'
+
+            $json.plan.steps[0].warnings | Should -Not -BeNullOrEmpty
+            ($json.plan.steps[0].warnings | Measure-Object).Count | Should -BeGreaterThan 0
+            $json.plan.steps[0].warnings[0].code | Should -Be 'PreconditionContextPathUnresolvedAtPlan'
         }
     }
     Context 'Contract invariants' {
