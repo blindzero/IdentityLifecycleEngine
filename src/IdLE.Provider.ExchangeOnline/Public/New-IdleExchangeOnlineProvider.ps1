@@ -456,173 +456,171 @@ function New-IdleExchangeOnlineProvider {
             $currentPerms = $this.Adapter.GetMailboxPermissions($mailboxSmtp, $accessToken)
 
             # Normalize current delegates (case-insensitive)
-            $currentFullAccessUsers = @($currentPerms |
-                    Where-Object { $_.AccessRight -eq 'FullAccess' -and -not $_.IsInherited } |
-                    ForEach-Object { $_.User.ToLowerInvariant() })
+            $filteredFullAccessPerms = $currentPerms | Where-Object { $_.AccessRight -eq 'FullAccess' -and -not $_.IsInherited }
+            $currentFullAccessUsers = @($filteredFullAccessPerms | ForEach-Object { $_.User.ToLowerInvariant() })
 
-                if ($hasEventSink) {
-                    $null = $this.EventSink.WriteEvent(
-                        'Provider.ExchangeOnline.Permissions.Evaluated',
-                        "FullAccess current state evaluated for '$mailboxSmtp'",
-                        'EnsureMailboxPermissions',
-                        @{ MailboxSmtp = $mailboxSmtp; Right = 'FullAccess'; CurrentUsers = $currentFullAccessUsers }
-                    )
+            if ($hasEventSink) {
+                $null = $this.EventSink.WriteEvent(
+                    'Provider.ExchangeOnline.Permissions.Evaluated',
+                    "FullAccess current state evaluated for '$mailboxSmtp'",
+                    'EnsureMailboxPermissions',
+                    @{ MailboxSmtp = $mailboxSmtp; Right = 'FullAccess'; CurrentUsers = $currentFullAccessUsers }
+                )
+            }
+
+            foreach ($entry in $desiredFullAccess) {
+                $userLower = ([string]$entry.AssignedUser).ToLowerInvariant()
+                $isPresent = $currentFullAccessUsers -contains $userLower
+
+                if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
+                    if ($hasEventSink) {
+                        $null = $this.EventSink.WriteEvent(
+                            'Provider.ExchangeOnline.Permissions.Applying',
+                            "Granting FullAccess on '$mailboxSmtp' to '$($entry.AssignedUser)'",
+                            'EnsureMailboxPermissions',
+                            @{ MailboxSmtp = $mailboxSmtp; Right = 'FullAccess'; User = [string]$entry.AssignedUser; Action = 'Add' }
+                        )
+                    }
+                    $this.Adapter.AddMailboxPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
+                    $changed = $true
                 }
-
-                foreach ($entry in $desiredFullAccess) {
-                    $userLower = ([string]$entry.AssignedUser).ToLowerInvariant()
-                    $isPresent = $currentFullAccessUsers -contains $userLower
-
-                    if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
-                        if ($hasEventSink) {
-                            $null = $this.EventSink.WriteEvent(
-                                'Provider.ExchangeOnline.Permissions.Applying',
-                                "Granting FullAccess on '$mailboxSmtp' to '$($entry.AssignedUser)'",
-                                'EnsureMailboxPermissions',
-                                @{ MailboxSmtp = $mailboxSmtp; Right = 'FullAccess'; User = [string]$entry.AssignedUser; Action = 'Add' }
-                            )
-                        }
-                        $this.Adapter.AddMailboxPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
-                        $changed = $true
+                elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
+                    if ($hasEventSink) {
+                        $null = $this.EventSink.WriteEvent(
+                            'Provider.ExchangeOnline.Permissions.Applying',
+                            "Revoking FullAccess on '$mailboxSmtp' from '$($entry.AssignedUser)'",
+                            'EnsureMailboxPermissions',
+                            @{ MailboxSmtp = $mailboxSmtp; Right = 'FullAccess'; User = [string]$entry.AssignedUser; Action = 'Remove' }
+                        )
                     }
-                    elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
-                        if ($hasEventSink) {
-                            $null = $this.EventSink.WriteEvent(
-                                'Provider.ExchangeOnline.Permissions.Applying',
-                                "Revoking FullAccess on '$mailboxSmtp' from '$($entry.AssignedUser)'",
-                                'EnsureMailboxPermissions',
-                                @{ MailboxSmtp = $mailboxSmtp; Right = 'FullAccess'; User = [string]$entry.AssignedUser; Action = 'Remove' }
-                            )
-                        }
-                        $this.Adapter.RemoveMailboxPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
-                        $changed = $true
+                    $this.Adapter.RemoveMailboxPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
+                    $changed = $true
+                }
+            }
+        }
+
+        # --- SendAs ---
+        $desiredSendAs = @($Permissions | Where-Object { $_.Right -eq 'SendAs' })
+        if ($desiredSendAs.Count -gt 0) {
+            $currentRecipientPerms = $this.Adapter.GetRecipientPermissions($mailboxSmtp, $accessToken)
+
+            $filteredSendAsPerms = $currentRecipientPerms | Where-Object { $_.AccessRight -match 'SendAs' -and -not $_.IsInherited }
+            $currentSendAsTrustees = @($filteredSendAsPerms | ForEach-Object { $_.Trustee.ToLowerInvariant() })
+
+            if ($hasEventSink) {
+                $null = $this.EventSink.WriteEvent(
+                    'Provider.ExchangeOnline.Permissions.Evaluated',
+                    "SendAs current state evaluated for '$mailboxSmtp'",
+                    'EnsureMailboxPermissions',
+                    @{ MailboxSmtp = $mailboxSmtp; Right = 'SendAs'; CurrentUsers = $currentSendAsTrustees }
+                )
+            }
+
+            foreach ($entry in $desiredSendAs) {
+                $trusteeLower = ([string]$entry.AssignedUser).ToLowerInvariant()
+                $isPresent = $currentSendAsTrustees -contains $trusteeLower
+
+                if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
+                    if ($hasEventSink) {
+                        $null = $this.EventSink.WriteEvent(
+                            'Provider.ExchangeOnline.Permissions.Applying',
+                            "Granting SendAs on '$mailboxSmtp' to '$($entry.AssignedUser)'",
+                            'EnsureMailboxPermissions',
+                            @{ MailboxSmtp = $mailboxSmtp; Right = 'SendAs'; User = [string]$entry.AssignedUser; Action = 'Add' }
+                        )
                     }
+                    $this.Adapter.AddRecipientPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
+                    $changed = $true
+                }
+                elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
+                    if ($hasEventSink) {
+                        $null = $this.EventSink.WriteEvent(
+                            'Provider.ExchangeOnline.Permissions.Applying',
+                            "Revoking SendAs on '$mailboxSmtp' from '$($entry.AssignedUser)'",
+                            'EnsureMailboxPermissions',
+                            @{ MailboxSmtp = $mailboxSmtp; Right = 'SendAs'; User = [string]$entry.AssignedUser; Action = 'Remove' }
+                        )
+                    }
+                    $this.Adapter.RemoveRecipientPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
+                    $changed = $true
+                }
+            }
+        }
+
+        # --- SendOnBehalf ---
+        $desiredSendOnBehalf = @($Permissions | Where-Object { $_.Right -eq 'SendOnBehalf' })
+        if ($desiredSendOnBehalf.Count -gt 0) {
+            $currentDelegates = $this.Adapter.GetMailboxSendOnBehalf($mailboxSmtp, $accessToken)
+            $currentDelegatesLower = @($currentDelegates | ForEach-Object { $_.ToLowerInvariant() })
+
+            if ($hasEventSink) {
+                $null = $this.EventSink.WriteEvent(
+                    'Provider.ExchangeOnline.Permissions.Evaluated',
+                    "SendOnBehalf current state evaluated for '$mailboxSmtp'",
+                    'EnsureMailboxPermissions',
+                    @{ MailboxSmtp = $mailboxSmtp; Right = 'SendOnBehalf'; CurrentUsers = $currentDelegatesLower }
+                )
+            }
+
+            # Compute desired final list based on Present/Absent entries
+            $updatedDelegates = [System.Collections.Generic.List[string]]::new()
+            foreach ($d in $currentDelegates) { $updatedDelegates.Add($d) }
+
+            $sobChanged = $false
+            foreach ($entry in $desiredSendOnBehalf) {
+                $userLower = ([string]$entry.AssignedUser).ToLowerInvariant()
+                $isPresent = $currentDelegatesLower -contains $userLower
+
+                if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
+                    if ($hasEventSink) {
+                        $null = $this.EventSink.WriteEvent(
+                            'Provider.ExchangeOnline.Permissions.Applying',
+                            "Granting SendOnBehalf on '$mailboxSmtp' to '$($entry.AssignedUser)'",
+                            'EnsureMailboxPermissions',
+                            @{ MailboxSmtp = $mailboxSmtp; Right = 'SendOnBehalf'; User = [string]$entry.AssignedUser; Action = 'Add' }
+                        )
+                    }
+                    $updatedDelegates.Add([string]$entry.AssignedUser)
+                    $sobChanged = $true
+                }
+                elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
+                    if ($hasEventSink) {
+                        $null = $this.EventSink.WriteEvent(
+                            'Provider.ExchangeOnline.Permissions.Applying',
+                            "Revoking SendOnBehalf on '$mailboxSmtp' from '$($entry.AssignedUser)'",
+                            'EnsureMailboxPermissions',
+                            @{ MailboxSmtp = $mailboxSmtp; Right = 'SendOnBehalf'; User = [string]$entry.AssignedUser; Action = 'Remove' }
+                        )
+                    }
+                    # Remove case-insensitively
+                    $toRemove = $updatedDelegates | Where-Object { $_.ToLowerInvariant() -eq $userLower }
+                    foreach ($r in @($toRemove)) { $updatedDelegates.Remove($r) | Out-Null }
+                    $sobChanged = $true
                 }
             }
 
-            # --- SendAs ---
-            $desiredSendAs = @($Permissions | Where-Object { $_.Right -eq 'SendAs' })
-            if ($desiredSendAs.Count -gt 0) {
-                $currentRecipientPerms = $this.Adapter.GetRecipientPermissions($mailboxSmtp, $accessToken)
-
-                $currentSendAsTrustees = @($currentRecipientPerms |
-                        Where-Object { $_.AccessRight -match 'SendAs' -and -not $_.IsInherited } |
-                        ForEach-Object { $_.Trustee.ToLowerInvariant() })
-
-                    if ($hasEventSink) {
-                        $null = $this.EventSink.WriteEvent(
-                            'Provider.ExchangeOnline.Permissions.Evaluated',
-                            "SendAs current state evaluated for '$mailboxSmtp'",
-                            'EnsureMailboxPermissions',
-                            @{ MailboxSmtp = $mailboxSmtp; Right = 'SendAs'; CurrentUsers = $currentSendAsTrustees }
-                        )
-                    }
-
-                    foreach ($entry in $desiredSendAs) {
-                        $trusteeLower = ([string]$entry.AssignedUser).ToLowerInvariant()
-                        $isPresent = $currentSendAsTrustees -contains $trusteeLower
-
-                        if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
-                            if ($hasEventSink) {
-                                $null = $this.EventSink.WriteEvent(
-                                    'Provider.ExchangeOnline.Permissions.Applying',
-                                    "Granting SendAs on '$mailboxSmtp' to '$($entry.AssignedUser)'",
-                                    'EnsureMailboxPermissions',
-                                    @{ MailboxSmtp = $mailboxSmtp; Right = 'SendAs'; User = [string]$entry.AssignedUser; Action = 'Add' }
-                                )
-                            }
-                            $this.Adapter.AddRecipientPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
-                            $changed = $true
-                        }
-                        elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
-                            if ($hasEventSink) {
-                                $null = $this.EventSink.WriteEvent(
-                                    'Provider.ExchangeOnline.Permissions.Applying',
-                                    "Revoking SendAs on '$mailboxSmtp' from '$($entry.AssignedUser)'",
-                                    'EnsureMailboxPermissions',
-                                    @{ MailboxSmtp = $mailboxSmtp; Right = 'SendAs'; User = [string]$entry.AssignedUser; Action = 'Remove' }
-                                )
-                            }
-                            $this.Adapter.RemoveRecipientPermission($mailboxSmtp, [string]$entry.AssignedUser, $accessToken)
-                            $changed = $true
-                        }
-                    }
-                }
-
-                # --- SendOnBehalf ---
-                $desiredSendOnBehalf = @($Permissions | Where-Object { $_.Right -eq 'SendOnBehalf' })
-                if ($desiredSendOnBehalf.Count -gt 0) {
-                    $currentDelegates = $this.Adapter.GetMailboxSendOnBehalf($mailboxSmtp, $accessToken)
-                    $currentDelegatesLower = @($currentDelegates | ForEach-Object { $_.ToLowerInvariant() })
-
-                    if ($hasEventSink) {
-                        $null = $this.EventSink.WriteEvent(
-                            'Provider.ExchangeOnline.Permissions.Evaluated',
-                            "SendOnBehalf current state evaluated for '$mailboxSmtp'",
-                            'EnsureMailboxPermissions',
-                            @{ MailboxSmtp = $mailboxSmtp; Right = 'SendOnBehalf'; CurrentUsers = $currentDelegatesLower }
-                        )
-                    }
-
-                    # Compute desired final list based on Present/Absent entries
-                    $updatedDelegates = [System.Collections.Generic.List[string]]::new()
-                    foreach ($d in $currentDelegates) { $updatedDelegates.Add($d) }
-
-                    $sobChanged = $false
-                    foreach ($entry in $desiredSendOnBehalf) {
-                        $userLower = ([string]$entry.AssignedUser).ToLowerInvariant()
-                        $isPresent = $currentDelegatesLower -contains $userLower
-
-                        if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
-                            if ($hasEventSink) {
-                                $null = $this.EventSink.WriteEvent(
-                                    'Provider.ExchangeOnline.Permissions.Applying',
-                                    "Granting SendOnBehalf on '$mailboxSmtp' to '$($entry.AssignedUser)'",
-                                    'EnsureMailboxPermissions',
-                                    @{ MailboxSmtp = $mailboxSmtp; Right = 'SendOnBehalf'; User = [string]$entry.AssignedUser; Action = 'Add' }
-                                )
-                            }
-                            $updatedDelegates.Add([string]$entry.AssignedUser)
-                            $sobChanged = $true
-                        }
-                        elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
-                            if ($hasEventSink) {
-                                $null = $this.EventSink.WriteEvent(
-                                    'Provider.ExchangeOnline.Permissions.Applying',
-                                    "Revoking SendOnBehalf on '$mailboxSmtp' from '$($entry.AssignedUser)'",
-                                    'EnsureMailboxPermissions',
-                                    @{ MailboxSmtp = $mailboxSmtp; Right = 'SendOnBehalf'; User = [string]$entry.AssignedUser; Action = 'Remove' }
-                                )
-                            }
-                            # Remove case-insensitively
-                            $toRemove = $updatedDelegates | Where-Object { $_.ToLowerInvariant() -eq $userLower }
-                            foreach ($r in @($toRemove)) { $updatedDelegates.Remove($r) | Out-Null }
-                            $sobChanged = $true
-                        }
-                    }
-
-                    if ($sobChanged) {
-                        $this.Adapter.SetMailboxSendOnBehalf($mailboxSmtp, [string[]]$updatedDelegates, $accessToken)
-                        $changed = $true
-                    }
-                }
-
-                if ($hasEventSink) {
-                    $null = $this.EventSink.WriteEvent(
-                        'Provider.ExchangeOnline.Permissions.Result',
-                        "EnsureMailboxPermissions completed for '$mailboxSmtp': Changed=$changed",
-                        'EnsureMailboxPermissions',
-                        @{ MailboxSmtp = $mailboxSmtp; Changed = $changed }
-                    )
-                }
-
-                return [pscustomobject]@{
-                    PSTypeName  = 'IdLE.ProviderResult'
-                    Operation   = 'EnsureMailboxPermissions'
-                    IdentityKey = $mailboxSmtp
-                    Changed     = $changed
-                }
-            } -Force
-
-            return $provider
+            if ($sobChanged) {
+                $this.Adapter.SetMailboxSendOnBehalf($mailboxSmtp, [string[]]$updatedDelegates, $accessToken)
+                $changed = $true
+            }
         }
+
+        if ($hasEventSink) {
+            $null = $this.EventSink.WriteEvent(
+                'Provider.ExchangeOnline.Permissions.Result',
+                "EnsureMailboxPermissions completed for '$mailboxSmtp': Changed=$changed",
+                'EnsureMailboxPermissions',
+                @{ MailboxSmtp = $mailboxSmtp; Changed = $changed }
+            )
+        }
+
+        return [pscustomobject]@{
+            PSTypeName  = 'IdLE.ProviderResult'
+            Operation   = 'EnsureMailboxPermissions'
+            IdentityKey = $mailboxSmtp
+            Changed     = $changed
+        }
+    } -Force
+
+    return $provider
+}

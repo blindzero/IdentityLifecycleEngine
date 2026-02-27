@@ -33,7 +33,8 @@
         "inputs": {
           "mailboxType": "User"
         },
-        "expectedState": null
+        "expectedState": null,
+        "warnings": []
       }
     ],
     "warnings": []
