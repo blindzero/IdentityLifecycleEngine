@@ -370,10 +370,10 @@ function New-IdleAuthSessionBroker {
         # If multiple matches, this is ambiguous - fail with clear error
         if ($matchingEntries.Count -gt 1) {
             $matchDetails = ($matchingEntries | ForEach-Object {
-                $currentEntry = $_
-                $keyStr = ($currentEntry.Key.Keys | ForEach-Object { "$_=$($currentEntry.Key[$_])" }) -join ', '
-                "{ $keyStr }"
-            }) -join '; '
+                    $currentEntry = $_
+                    $keyStr = ($currentEntry.Key.Keys | ForEach-Object { "$_=$($currentEntry.Key[$_])" }) -join ', '
+                    "{ $keyStr }"
+                }) -join '; '
             throw "Ambiguous auth session match for Name='$Name'. Multiple entries matched: $matchDetails. Provide AuthSessionOptions to disambiguate."
         }
 
