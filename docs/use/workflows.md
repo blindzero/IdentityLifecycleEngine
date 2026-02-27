@@ -162,7 +162,7 @@ Each step supports several optional execution control properties:
 
 This example shows a small workflow with:
 
-- a value containing a [template substition](./workflows/templates.md)
+- a value containing a [template substitution](./workflows/templates.md)
 - a step that is only applicable for `Joiner` ([Condition](./workflows/conditions.md))
 - a step that is guarded at runtime ([Preconditions](./workflows/preconditions.md))
 
