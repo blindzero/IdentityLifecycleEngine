@@ -228,7 +228,7 @@ a `Blocked` outcome and a message instructing the operator to perform the wipe m
 `Precondition` uses the same **declarative condition DSL** as the `Condition`
 property. Supported operators:
 
-- Check `OnPreconditionFalse`. If it is set to `Skip`, a false precondition will skip execution by design.
+- Check `OnPreconditionFalse`. If it is set to `Continue`, a false precondition will skip execution by design.
 - Validate that the precondition `Path` resolves to the expected runtime value.
 
 ### Step fails due to precondition
@@ -245,12 +245,3 @@ property. Supported operators:
 
 Preconditions use the same Condition DSL as Conditions. For the complete DSL reference, see:  
 [Conditions → Condition DSL](./conditions)
-At planning time, IdLE validates `Path` references to fail fast on typos and wrong roots. For `Precondition`, unresolved paths under `Request.Context.*` are treated as soft (non-fatal) to support context enrichment that may arrive later at runtime (for example via host/runtime context resolver behavior). Other unresolved roots still fail fast.
-When this soft-check path is used, IdLE records a planning warning (`PreconditionContextPathUnresolvedAtPlan`) in `Plan.Warnings`, and the warning is included in `Export-IdlePlan` output for CI policy checks.
-
----
-
-## Reference
-
-- [Steps reference](../../reference/steps.md)
-- [Concepts: Plan → Execute separation](../../about/concepts.md)
