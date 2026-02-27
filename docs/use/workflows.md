@@ -38,27 +38,6 @@ Each step supports several optional execution control properties:
 
 ---
 
-## Minimal workflow example
-
-```powershell
-@{
-  Name           = 'Joiner - Minimal'
-  LifecycleEvent = 'Joiner'
-
-  Steps          = @(
-    @{
-      Name = 'Emit start'
-      Type = 'IdLE.Step.EmitEvent'
-      With = @{
-        Message = 'Starting Joiner workflow'
-      }
-    }
-  )
-}
-```
-
----
-
 ## How workflows are used in the lifecycle
 
 1. You write the workflow definition (`.psd1`).
@@ -127,7 +106,7 @@ DisplayName = '{{Request.Intent.GivenName}} {{Request.Intent.Surname}}'
 Message     = 'User {{Request.Intent.DisplayName}} is joining.'
 ```
 
-See: [Template Substitution](./workflows/templates)
+See: [Template Substitution](./workflows/templates.md)
 
 ### What a step contains
 
@@ -158,7 +137,7 @@ Each step supports several optional execution control properties:
 
 ---
 
-## Minimal workflow example
+## Workflow example
 
 This example shows a small workflow with:
 
