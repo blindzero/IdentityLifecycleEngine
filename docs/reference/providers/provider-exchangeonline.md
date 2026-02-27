@@ -156,6 +156,13 @@ For **app-only** flows, the token's `roles` claim must include:
 
 ---
 
+## Context Resolvers
+
+This provider does **not** support any of the allowlisted Context Resolver capabilities.
+
+Context Resolvers can only use read-only capabilities like `IdLE.Identity.Read` and `IdLE.Entitlement.List`.
+This provider does not advertise these capabilities, so it cannot be used in the workflow `ContextResolvers` section.
+
 ## Configuration
 
 ### Provider creation

@@ -117,6 +117,37 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 ---
 
+
+## Context Resolvers
+
+> Context Resolvers populate **`Request.Context.*` during planning** using **read-only** provider capabilities.  
+> Workflow authors can then reference the resolved values in **Conditions**, **Preconditions**, and **Templates**.
+
+### Supported Context Resolver capabilities
+
+> Document, **per supported read-only capability**, what your provider writes into `Request.Context.*`.
+> - If your provider supports none of the allowlisted capabilities, state that explicitly.
+> - Keep this section **reference-style**: focus on *paths*, *shapes*, and *types* (including nested properties).
+> - Output paths are **predefined** by the engine and **cannot be changed** by workflow authors.
+
+#### Capability: `IdLE.Capability.Path`
+
+Writes to: `Request.Context.Target`  
+Type: `OutputType` (`PSTypeName = 'IdLE.Identity'`)
+
+Top-level properties:
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `PSTypeName` | `string` | Always `IdLE.Identity`. |
+| `Property1` | `property1-type` | property1 description |
+| `PropertyN` | `propertyN-type` | propertyN description  |
+| `PropertyX` | `hashtable` | optional in case of Key/value bag; keys are strings; values are provider-defined (commonly `string`). |
+
+`PropertyX` contents:
+- List the attributes you populate and their types.
+- Only document what workflow authors can *rely on* (stable contract, not incidental Graph/AD fields).
+
 ## Configuration
 
 ### Provider creation

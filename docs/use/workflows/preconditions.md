@@ -1,35 +1,74 @@
 ---
-title: Runtime Preconditions
-sidebar_label: Runtime Preconditions
+title: Preconditions
+sidebar_label: Preconditions
 ---
 
-Runtime Preconditions are **read-only execution guards** evaluated immediately before a step runs.
-They protect against stale plans: when time passes between plan creation and execution, external
-state may have changed. Preconditions check live (or request-context) data at execution time and
-stop the run before an unsafe action is taken.
+# Preconditions
 
-:::info Planning-time vs. runtime
-`Condition` is evaluated at **planning time** and controls whether a step is included in the plan
-(`Status = Planned | NotApplicable`). Preconditions are evaluated at **execution time**, after the
-plan is built, immediately before each step runs. This keeps planning deterministic while enabling
-safety guards.
+## What are Preconditions?
+
+Preconditions guard **step execution**.
+
+- Evaluated during execution
+- Do not change plan shape
+- Controlled via `OnPreconditionFalse`
+
+Think of **Preconditions** as runtime safety checks. \
+They protect execution but do not affect planning.
+
+---
+
+## ⚠️ Context Resolvers vs Templates vs Conditions vs Preconditions
+
+:::warning Do not confuse these concepts
+**[Context Resolvers](./context-resolver.md)** populate `Request.Context.*` during **planning**.  
+**[Template Substitution](./templates.md)** uses allowlisted `Request.*` values (such as `Request.Context.*`) to build strings.  
+**[Conditions](./conditions.md)** decide step applicability during **planning** (`NotApplicable`).  
+**Preconditions** guard step behavior during **execution** (`Blocked` / `Fail` / `Continue`).
 :::
 
+| Precondition | Condition |
+|--------------|------------|
+| Execution time | Planning time |
+| Controls runtime behavior | Marks step `NotApplicable` |
+| Affects execution result | Affects plan shape |
+
 ---
 
-## When to use preconditions
+## Full Example
 
-Use preconditions when:
+```powershell
+@{
+  Name = 'Disable existing identity'
+  Type = 'IdLE.Step.DisableIdentity'
 
-- The validity of a step depends on **current state** that may change after plan creation.
-- A policy or compliance rule must be checked **live** before an action is allowed to proceed.
-- You want to surface a structured, human-readable message to an operator when a gate fails.
+  Precondition = @{
+    Equals = @{ Path = 'Request.Context.IdentityExists'; Value = 'True' }
+  }
 
-**Example — BYOD policy:**
+  OnPreconditionFalse = 'Continue'
+}
+```
 
-Before disabling an identity, the system should verify that company data has been wiped from any
-BYOD (Bring Your Own Device) device. If the wipe confirmation is missing, execution must stop with
-a `Blocked` outcome and a message instructing the operator to perform the wipe manually.
+### Explanation
+
+The step executes only if:
+
+- `IdentityExists` equals `True`
+
+If the precondition evaluates to false:
+
+- `Blocked` → step is marked `Blocked`; workflow stops at this step
+- `Fail` → execution fails immediately
+- `Continue` → step is skipped; workflow continues
+
+---
+
+## Condition DSL
+
+:::tip Preconditions use the same **Condition DSL** as Conditions.
+For the complete DSL reference, see: [Conditions → Condition DSL](./conditions.md)
+:::
 
 ---
 
@@ -50,83 +89,6 @@ Add these optional properties to a workflow step definition:
 | `Type` | `String` | **Yes** | Event type string (for example: `ManualActionRequired`). |
 | `Message` | `String` | **Yes** | Human-readable description of the required action. |
 | `Data` | `Hashtable` | No | Optional key-value payload. Must not contain secrets. |
-
----
-
-## Example
-
-```powershell
-@{
-  Name           = 'Leaver'
-  LifecycleEvent = 'Leaver'
-
-  Steps          = @(
-    @{
-      Name = 'DisableIdentity'
-      Type = 'IdLE.Step.DisableIdentity'
-      With = @{
-        Provider    = 'Identity'
-        IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
-      }
-
-      # Runtime guard: only execute if BYOD wipe is confirmed.
-      # Note: the condition DSL compares values as strings.
-      # Request.Context.Byod.WipeConfirmed must be the string 'true' (e.g. set by a ContextResolver).
-      Precondition       = @{
-        All = @(
-        @{
-          Equals = @{
-            Path  = 'Request.Context.Byod.WipeConfirmed'
-            Value = 'true'
-          }
-        }
-        )
-      }
-      OnPreconditionFalse = 'Blocked'
-      PreconditionEvent   = @{
-        Type    = 'ManualActionRequired'
-        Message = 'Perform Intune retire / wipe company data for BYOD device before disabling the identity.'
-        Data    = @{
-          Reason = 'BYOD wipe not confirmed'
-        }
-      }
-    }
-  )
-}
-```
-
----
-
-## Condition DSL
-
-`Precondition` uses the same **declarative condition DSL** as the `Condition`
-property. Supported operators:
-
-| Operator | Shape | Description |
-|---|---|---|
-| `Equals` | `@{ Path = '...'; Value = '...' }` | True when the resolved path equals the value (string comparison). |
-| `NotEquals` | `@{ Path = '...'; Value = '...' }` | True when the resolved path does not equal the value. |
-| `Exists` | `'path'` or `@{ Path = '...' }` | True when the resolved path is non-null. |
-| `In` | `@{ Path = '...'; Values = @(...) }` | True when the resolved path value is in the list. |
-| `All` | `@{ All = @( ... ) }` | True when all child conditions are true (AND). |
-| `Any` | `@{ Any = @( ... ) }` | True when at least one child condition is true (OR). |
-| `None` | `@{ None = @( ... ) }` | True when no child conditions are true (NOR). |
-
-### Path resolution
-
-Paths are resolved against the **execution-time context**, which includes:
-
-| Root | Description |
-|---|---|
-| `Plan.*` | The plan object (e.g. `Plan.LifecycleEvent`). |
-| `Request.*` | The lifecycle request, including `Request.Intent.*`, `Request.Context.*`, `Request.IdentityKeys.*`. |
-
-A leading `context.` prefix is ignored for readability (e.g. `context.Request.Intent.Department`
-resolves identically to `Request.Intent.Department`).
-
-At planning time, IdLE validates `Path` references to fail fast on typos and wrong roots. For `Precondition`, unresolved paths under `Request.Context.*` are treated as soft (non-fatal) to support context enrichment that may arrive later at runtime (for example via host/runtime context resolver behavior). Other unresolved roots still fail fast.
-When this soft-check path is used, IdLE records a planning warning (`PreconditionContextPathUnresolvedAtPlan`) in `Plan.Warnings`, and the warning is included in `Export-IdlePlan` output for CI policy checks.
-
 
 ---
 
@@ -218,14 +180,68 @@ Ensure context values are stored as strings when using `Equals` or `In` operator
 
 ---
 
-## Backward compatibility
+## Common Patterns
 
-Steps without `Precondition` behave exactly as before. Adding a precondition to a step does not
-affect any other steps.
+### Guard destructive operations (Skip if not safe)
+Use preconditions when:
+
+- The validity of a step depends on **current state** that may change after plan creation.
+- A policy or compliance rule must be checked **live** before an action is allowed to proceed.
+- You want to surface a structured, human-readable message to an operator when a gate fails.
+
+**Example — BYOD policy:**
+
+Before disabling an identity, the system should verify that company data has been wiped from any
+BYOD (Bring Your Own Device) device. If the wipe confirmation is missing, execution must stop with
+a `Blocked` outcome and a message instructing the operator to perform the wipe manually.
+
+### Fail fast if a mandatory prerequisite is missing
+```powershell
+      # Runtime guard: only execute if BYOD wipe is confirmed.
+      # Note: the condition DSL compares values as strings.
+      # Request.Context.Byod.WipeConfirmed must be the string 'true' (e.g. set by a ContextResolver).
+      Precondition       = @{
+        All = @(
+        @{
+          Equals = @{
+            Path  = 'Request.Context.Byod.WipeConfirmed'
+            Value = 'true'
+          }
+        }
+        )
+      }
+      OnPreconditionFalse = 'Blocked'
+      PreconditionEvent   = @{
+        Type    = 'ManualActionRequired'
+        Message = 'Perform Intune retire / wipe company data for BYOD device before disabling the identity.'
+        Data    = @{
+          Reason = 'BYOD wipe not confirmed'
+        }
+      }
+```
 
 ---
 
-## Reference
+## Troubleshooting
 
-- [Steps reference](../../reference/steps.md)
-- [Concepts: Plan → Execute separation](../../about/concepts.md)
+### Step is skipped unexpectedly
+`Precondition` uses the same **declarative condition DSL** as the `Condition`
+property. Supported operators:
+
+- Check `OnPreconditionFalse`. If it is set to `Continue`, a false precondition will skip execution by design.
+- Validate that the precondition `Path` resolves to the expected runtime value.
+
+### Step fails due to precondition
+
+- If `OnPreconditionFalse = 'Fail'`, the step will fail intentionally when the precondition is false.
+- Ensure required request values are prepared before execution (often host-side request preparation).
+
+### Precondition seems correct but still evaluates false
+
+- Remember comparisons are string-based. Normalize values (especially booleans) consistently (for example `'True'` / `'False'`).
+- Confirm you are using the correct path (`Plan.*`, `Request.*`).
+
+### Where is the DSL documented?
+
+Preconditions use the same Condition DSL as Conditions. For the complete DSL reference, see:  
+[Conditions → Condition DSL](./conditions.md)
