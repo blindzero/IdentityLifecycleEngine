@@ -86,6 +86,57 @@ The AD provider supports the common identity lifecycle and entitlement operation
 | `IdLE.Step.RemoveEntitlement` | Remove managed groups | Prefer explicit allow-lists / managed lists |
 | `IdLE.Step.DeleteIdentity` | Delete user | **Opt-in** via `-AllowDelete` (see Configuration) |
 
+## Context Resolvers
+
+This provider supports Context Resolvers for the allowlisted, read-only capabilities below.
+
+### Capability: `IdLE.Identity.Read`
+
+Writes to: `Request.Context.Identity.Profile`  
+Type: `PSCustomObject` (`PSTypeName = 'IdLE.Identity'`)
+
+Top-level properties:
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `PSTypeName` | `string` | Always `IdLE.Identity`. |
+| `IdentityKey` | `string` | The identity key used by the workflow (GUID/UPN/sAMAccountName). |
+| `Enabled` | `bool` | Derived from AD user `Enabled`. |
+| `Attributes` | `hashtable` | Key/value bag; keys are strings; values are typically `string`. |
+
+`Attributes` keys populated by this provider (when present on the AD user object):
+
+| Attribute key | Type |
+| --- | --- |
+| `GivenName` | `string` |
+| `Surname` | `string` |
+| `DisplayName` | `string` |
+| `Description` | `string` |
+| `Department` | `string` |
+| `Title` | `string` |
+| `EmailAddress` | `string` |
+| `UserPrincipalName` | `string` |
+| `sAMAccountName` | `string` |
+| `DistinguishedName` | `string` |
+
+### Capability: `IdLE.Entitlement.List`
+
+Writes to: `Request.Context.Identity.Entitlements`  
+Type: `object[]` (array of `PSCustomObject`, `PSTypeName = 'IdLE.Entitlement'`)
+
+Each element represents one AD group membership:
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `PSTypeName` | `string` | Always `IdLE.Entitlement`. |
+| `Kind` | `string` | Always `Group`. |
+| `Id` | `string` | AD group `DistinguishedName`. |
+| `DisplayName` | `string` | AD group `Name`. |
+
+Notes:
+- The output paths are fixed by the engine and cannot be changed.
+- Use these values in **Conditions**, **Preconditions**, and **Templates** (resolved during planning).
+
 ## Configuration
 
 ### Provider factory

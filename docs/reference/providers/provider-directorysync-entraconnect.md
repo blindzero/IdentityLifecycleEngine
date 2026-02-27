@@ -92,6 +92,13 @@ Those are typically used by step types like:
 
 - `IdLE.Step.TriggerDirectorySync` (trigger + optional wait/poll)
 
+## Context Resolvers
+
+This provider does **not** support any of the allowlisted Context Resolver capabilities.
+
+Context Resolvers can only use read-only capabilities like `IdLE.Identity.Read` and `IdLE.Entitlement.List`.
+This provider does not advertise these capabilities, so it cannot be used in the workflow `ContextResolvers` section.
+
 ## Configuration
 
 This provider has no admin-facing option bag. Configuration is done through:
