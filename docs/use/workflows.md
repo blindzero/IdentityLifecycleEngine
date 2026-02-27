@@ -154,7 +154,7 @@ Each step supports several optional execution control properties:
 
 :::warning Do not confuse Conditions and Preconditions
 **Conditions** decide step applicability during **planning** (a step becomes `NotApplicable`).  
-**Preconditions** guard step behavior during **execution** (`Blocked` / `Fail` / `Continue`).
+**Preconditions** guard step behavior during **execution** (`OnPreconditionFalse` can mark the step `Blocked`, `Failed`, or allow it to `Continue`).
 
 ---
 
