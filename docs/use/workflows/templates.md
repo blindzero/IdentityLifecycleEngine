@@ -5,7 +5,7 @@ sidebar_label: Template Substitution
 
 # Template Substitution
 
-Template substitution allows you to reference values from the **planning context** inside step configuration (`With`), Conditions, and Preconditions.
+Template substitution allows you to reference values from the **planning context** inside step configuration (`With`) values during planning. Conditions and Preconditions use the condition DSL and path resolution and do **not** support `{{...}}` templates.
 
 Templates are **data-only** and safe.  
 No ScriptBlocks or dynamic PowerShell expressions are supported.
@@ -33,7 +33,7 @@ It simply reads values from the context and inserts them into configuration fiel
 **[Context Resolvers](./context-resolver.md)** populate `Request.Context.*` during **planning**.  
 **Template Substitution** consumes `Plan` / `Request` / `Workflow` values to build strings.  
 **[Conditions](./conditions.md)** decide step applicability during **planning** (`NotApplicable`).  
-**[Preconditions](./preconditions.md)** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
+**[Preconditions](./preconditions.md)** guard step behavior during **execution** (`Blocked` / `Fail` / `Continue`).
 :::
 
 ---
@@ -58,7 +58,7 @@ Templates can reference:
 ```powershell
 @{
   Name = 'Create UPN'
-  Type = 'IdLE.Step.EnsureAttribute'
+  Type = 'IdLE.Step.EnsureAttributes'
 
   With = @{
     UserPrincipalName = '{{Request.IdentityKeys.FirstName}}.{{Request.IdentityKeys.LastName}}@example.com'
@@ -74,7 +74,7 @@ If:
 The resolved value becomes:
 
 ```
-john.doe@example.com
+John.Doe@example.com
 ```
 
 ---
@@ -101,7 +101,7 @@ DisplayName = '{{Request.IdentityKeys.FirstName}} {{Request.IdentityKeys.LastNam
 A value with surrounding text always produces a **string**:
 
 ```powershell
-Description = 'Provisioned during {{Plan.LifecycleEvent}}'
+Description = 'Provisioned during {{Request.LifecycleEvent}}'
 ```
 
 ### Backslash and special characters

@@ -117,13 +117,13 @@ See: [Context Resolvers](./workflows/context-resolver.md)
 
 ### Template Substitution
 
-Many step configurations use **template substitution** to insert values from `Plan`, `Request`, and `Workflow` into strings (for example to build a UPN or display name). \
-These `{{path}}` placeholders that are resolved against the
-request during plan build (`New-IdlePlan`). Multiple placeholders may appear in a single value.
+Many step configurations use **template substitution** to insert values from the incoming request into strings (for example to build a UPN or display name). \
+These `{{Request.*}}` placeholders are resolved against the
+request during plan build (`New-IdlePlan`). Only `Request.*` roots are allowed (for example `Request.Intent`, `Request.Context`, `Request.IdentityKeys`, `Request.LifecycleEvent`). Multiple placeholders may appear in a single value.
 
 ```powershell
 IdentityKey = '{{Request.IdentityKeys.sAMAccountName}}'
-DisplayName = '{{Request.Intent.GivenName}} {{Request.Intent.SurnameName}}'
+DisplayName = '{{Request.Intent.GivenName}} {{Request.Intent.Surname}}'
 Message     = 'User {{Request.Intent.DisplayName}} is joining.'
 ```
 
@@ -134,7 +134,7 @@ See: [Template Substitution](./workflows/templates)
 A step is a self-contained unit of work. Most steps follow this pattern:
 
 - `Name` (string) – a human-readable identifier
-- `Type` (string) – the step type (for example `IdLE.Step.EnsureAttribute`)
+- `Type` (string) – the step type (for example `IdLE.Step.EnsureAttributes`)
 - `With` (hashtable) – step-specific configuration
 - `Condition` (hashtable, optional) – optional planning-time applicability
 - `Preconditions` (hashtable, optional) – optional execution-time guard
@@ -162,7 +162,7 @@ Each step supports several optional execution control properties:
 
 This example shows a small workflow with:
 
-- a value containing a [template substition](./workflows/templates.md)
+- a value containing a [template substitution](./workflows/templates.md)
 - a step that is only applicable for `Joiner` ([Condition](./workflows/conditions.md))
 - a step that is guarded at runtime ([Preconditions](./workflows/preconditions.md))
 

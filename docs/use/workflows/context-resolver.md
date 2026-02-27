@@ -21,9 +21,9 @@ to rely on data that was resolved once during planning.
 
 :::warning Do not confuse these concepts
 **Context Resolvers** populate `Request.Context.*` during **planning**.  
-**[Template Substitution](./templates.md)** consumes `Plan` / `Request` / `Workflow` values to build strings.  
+**[Template Substitution](./templates.md)** consumes `Request.*` values to build strings.  
 **[Conditions](conditions.md)** decide step applicability during **planning** (`NotApplicable`).  
-**[Preconditions](./preconditions.md)** guard step behavior during **execution** (`Skip` / `Fail` / `Continue`).
+**[Preconditions](./preconditions.md)** guard step behavior during **execution** (`Blocked` / `Fail` / `Continue`).
 :::
 
 ---
