@@ -1,35 +1,42 @@
 function Invoke-IdleStepPruneEntitlements {
     <#
     .SYNOPSIS
-    Converges an identity's entitlements by removing all non-kept entitlements of a given kind.
+    Removes all non-kept entitlements of a given kind from an identity. Remove-only — does not grant anything.
 
     .DESCRIPTION
-    This provider-agnostic step implements "remove all except" semantics for entitlements.
-    It is intended for leaver and mover workflows where all entitlements of a given kind
-    (e.g. group memberships) must be removed, except for an explicit keep-set and/or
-    entitlements matching a wildcard keep pattern.
+    *** REMOVE-ONLY step. This step NEVER grants entitlements. ***
 
-    This step is remove-only. Use IdLE.Step.PruneEntitlementsEnsureKeep when you also need
-    to guarantee that explicit Keep entitlements are present after the prune.
+    Use this step when you want to strip an identity of all entitlements of a given kind (e.g., all group
+    memberships) and you do NOT need to guarantee that any specific entitlement is actually present
+    afterwards. The step reads the current entitlements once, computes the remove-set (all entitlements
+    that are NOT in the keep-set), and revokes each one individually.
 
-    The host must supply a provider that:
+    Use IdLE.Step.PruneEntitlementsEnsureKeep instead when you also need to guarantee that one or more
+    explicit Keep entries are present after the prune (e.g., a leaver-retention group must be granted
+    if it is missing).
 
-    - Advertises the IdLE.Entitlement.Prune capability (explicit opt-in)
-    - Implements ListEntitlements(identityKey)
-    - Implements RevokeEntitlement(identityKey, entitlement)
+    How the keep-set is built:
+    - With.Keep      — explicit entitlement references (kept AND matched case-insensitively by Id)
+    - With.KeepPattern — wildcard strings (-like semantics); any current entitlement whose Id matches
+                        is kept. Patterns are NEVER granted, only protected from removal.
 
-    Provider/system non-removable entitlements (e.g., AD primary group / Domain Users) are
-    handled safely: if a revoke operation fails, the step emits a structured warning event,
-    skips the entitlement, and continues. The workflow is not failed for these items.
+    At least one of With.Keep or With.KeepPattern must be supplied.
+
+    Provider contract:
+    - Must advertise the IdLE.Entitlement.Prune capability (explicit opt-in)
+    - Must implement ListEntitlements(identityKey)
+    - Must implement RevokeEntitlement(identityKey, entitlement)
+    - GrantEntitlement is NOT called by this step.
+
+    Non-removable entitlements (e.g., AD primary group / Domain Users) are handled safely: if a revoke
+    operation fails, the step emits a structured warning event, records the item as Skipped, and
+    continues. The workflow is not failed.
 
     Authentication:
-
     - If With.AuthSessionName is present, the step acquires an auth session via
-      Context.AcquireAuthSession(Name, Options) and passes it to provider methods
-      if the provider supports an AuthSession parameter.
-    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-      session selection (e.g., @{ Role = 'Tier0' }).
-    - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+      Context.AcquireAuthSession(Name, Options) and passes it to provider methods.
+    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for session selection
+      (e.g., @{ Role = 'Tier0' }). ScriptBlocks in AuthSessionOptions are rejected.
 
     ### With.* Parameters
 
@@ -37,8 +44,8 @@ function Invoke-IdleStepPruneEntitlements {
     | -------------------- | -------- | ------------ | ----------- |
     | IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
     | Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
-    | Keep                 | No       | array        | Explicit entitlement objects to retain. Each entry must have an Id property; Kind and DisplayName are optional. At least one of Keep or KeepPattern is required. |
-    | KeepPattern          | No       | string array | Wildcard strings (PowerShell -like semantics). Entitlements whose Id matches any pattern are kept. No regex or ScriptBlocks. |
+    | Keep                 | No*      | array        | Explicit entitlement objects to retain (kept, never removed). Each entry must have an Id property; Kind and DisplayName are optional. *At least one of Keep or KeepPattern is required. These entries are NOT granted — use PruneEntitlementsEnsureKeep for that. |
+    | KeepPattern          | No*      | string array | Wildcard strings (PowerShell -like semantics). Current entitlements whose Id matches any pattern are kept. Patterns are NEVER granted. *At least one of Keep or KeepPattern is required. |
     | Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
     | AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |
     | AuthSessionOptions   | No       | hashtable    | Options passed to AcquireAuthSession for session selection (e.g. role-scoped sessions). |
@@ -50,10 +57,30 @@ function Invoke-IdleStepPruneEntitlements {
     Normalized step object from the plan. Must contain a 'With' hashtable.
 
     .EXAMPLE
-    # Leaver workflow: remove all group memberships, keeping an explicit group and pattern matches.
-    # This is remove-only. Use IdLE.Step.PruneEntitlementsEnsureKeep to also grant missing Keep entries.
+    # Mover workflow: strip all role assignments except those matching a wildcard pattern.
+    # REMOVE-ONLY — no groups are granted. If you also need to ensure a specific role is present,
+    # use IdLE.Step.PruneEntitlementsEnsureKeep instead.
     @{
-        Name      = 'Prune group memberships (leaver)'
+        Name      = 'Strip role assignments (mover)'
+        Type      = 'IdLE.Step.PruneEntitlements'
+        Condition = @{ Equals = @{ Path = 'Request.Intent.StripRoles'; Value = $true } }
+        With      = @{
+            IdentityKey     = '{{Request.Identity.UserPrincipalName}}'
+            Provider        = 'Identity'
+            Kind            = 'Role'
+            # Keep any role whose Id matches this pattern — everything else is removed.
+            # No entitlements are granted; this is a cleanup-only operation.
+            KeepPattern     = @('ROLE-READONLY-*')
+            AuthSessionName = 'Directory'
+        }
+    }
+
+    .EXAMPLE
+    # Leaver workflow: remove all group memberships except a static keep-list.
+    # The identity will NOT be added to any group — only existing memberships outside the keep-list
+    # are removed. For a guaranteed leaver-retention group use PruneEntitlementsEnsureKeep.
+    @{
+        Name      = 'Remove group memberships (leaver, remove-only)'
         Type      = 'IdLE.Step.PruneEntitlements'
         Condition = @{ Equals = @{ Path = 'Request.Intent.PruneGroups'; Value = $true } }
         With      = @{
@@ -61,6 +88,7 @@ function Invoke-IdleStepPruneEntitlements {
             Provider        = 'Identity'
             Kind            = 'Group'
             Keep            = @(
+                # Kept if currently a member — but NOT granted if missing.
                 @{ Kind = 'Group'; Id = 'CN=All-Users,OU=Groups,DC=contoso,DC=com' }
             )
             KeepPattern     = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
