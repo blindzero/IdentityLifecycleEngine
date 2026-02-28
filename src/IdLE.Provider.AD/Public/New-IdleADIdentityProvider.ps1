@@ -290,7 +290,7 @@ function New-IdleADIdentityProvider {
         # Check TypeNames collection (PSTypeName in hashtable adds to TypeNames, not as a property)
         if ($null -eq $AuthSession) {
             $isRealAdapter = ($this.Adapter.PSObject.TypeNames -contains 'IdLE.ADAdapter')
-            
+
             if ($isRealAdapter) {
                 $prereqCheck = Test-IdleADPrerequisites
                 if (-not $prereqCheck.IsHealthy) {

@@ -213,12 +213,13 @@ function Invoke-IdleStepPruneEntitlements {
     if ($keepItems.Count -gt 0 -and $provider.PSObject.Methods.Name -contains 'ResolveEntitlement') {
         $resolveSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ResolveEntitlement'] -ParameterName 'AuthSession'
         $keepItems = @($keepItems | ForEach-Object {
-            if ($resolveSupportsAuthSession -and $null -ne $authSession) {
-                $provider.ResolveEntitlement($kind, $_, $authSession)
-            } else {
-                $provider.ResolveEntitlement($kind, $_)
+                if ($resolveSupportsAuthSession -and $null -ne $authSession) {
+                    $provider.ResolveEntitlement($kind, $_, $authSession)
+                } else {
+                    $provider.ResolveEntitlement($kind, $_)
+                }
             }
-        })
+        )
     }
 
     $listSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'AuthSession'
@@ -244,11 +245,12 @@ function Invoke-IdleStepPruneEntitlements {
         @($provider.ListEntitlements($identityKey))
     }
 
-    $current = @($allCurrent | Where-Object {
-        $null -ne $_ -and
-        ($_.PSObject.Properties.Name -contains 'Kind') -and
-        [string]::Equals([string]$_.Kind, $kind, [System.StringComparison]::OrdinalIgnoreCase)
-    })
+    $current = @(
+        $allCurrent | Where-Object { $null -ne $_ -and
+            ($_.PSObject.Properties.Name -contains 'Kind') -and
+            [string]::Equals([string]$_.Kind, $kind, [System.StringComparison]::OrdinalIgnoreCase)
+        }
+    )
 
     # 2. Compute keep-set and remove-set
     $toKeep = @()
@@ -265,11 +267,13 @@ function Invoke-IdleStepPruneEntitlements {
     # Emit plan intent event
     if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
         $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-        $Context.EventSink.WriteEvent('Information', "PruneEntitlements: plan - keep=$(@($toKeep).Count), remove=$(@($toRemove).Count)", $Step.Name, @{
-            Kind       = $kind
-            KeepCount  = @($toKeep).Count
-            PruneCount = @($toRemove).Count
-        })
+        $Context.EventSink.WriteEvent('Information', "PruneEntitlements: plan - keep=$(
+            @($toKeep).Count), remove=$(@($toRemove).Count)", $Step.Name, @{
+                Kind       = $kind
+                KeepCount  = @($toKeep).Count
+                PruneCount = @($toRemove).Count
+            }
+        )
     }
 
     $changed = $false
@@ -293,19 +297,21 @@ function Invoke-IdleStepPruneEntitlements {
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                     $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: skipped non-removable entitlement '$($br.Entitlement.Id)': $($br.Error)", $Step.Name, @{
-                        Kind          = $kind
-                        EntitlementId = [string]$br.Entitlement.Id
-                        Reason        = [string]$br.Error
-                    })
+                            Kind          = $kind
+                            EntitlementId = [string]$br.Entitlement.Id
+                            Reason        = [string]$br.Error
+                        }
+                    )
                 }
             } else {
                 if ($br.Changed) { $changed = $true }
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                     $Context.EventSink.WriteEvent('Information', "PruneEntitlements: revoked entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
-                        Kind          = $kind
-                        EntitlementId = [string]$br.Entitlement.Id
-                    })
+                            Kind          = $kind
+                            EntitlementId = [string]$br.Entitlement.Id
+                        }
+                    )
                 }
             }
         }
@@ -325,9 +331,10 @@ function Invoke-IdleStepPruneEntitlements {
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                     $Context.EventSink.WriteEvent('Information', "PruneEntitlements: revoked entitlement '$($ent.Id)'", $Step.Name, @{
-                        Kind          = $kind
-                        EntitlementId = [string]$ent.Id
-                    })
+                            Kind          = $kind
+                            EntitlementId = [string]$ent.Id
+                        }
+                    )
                 }
             }
             catch {
@@ -341,10 +348,11 @@ function Invoke-IdleStepPruneEntitlements {
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                     $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: skipped non-removable entitlement '$($ent.Id)': $reason", $Step.Name, @{
-                        Kind          = $kind
-                        EntitlementId = [string]$ent.Id
-                        Reason        = $reason
-                    })
+                            Kind          = $kind
+                            EntitlementId = [string]$ent.Id
+                            Reason        = $reason
+                        }
+                    )
                 }
             }
         }
@@ -353,10 +361,12 @@ function Invoke-IdleStepPruneEntitlements {
     # 4. If EnsureKeepEntitlements: grant any explicit Keep items that are missing
     if ($ensureKeep -and $keepItems.Count -gt 0) {
         $toEnsure = @($keepItems | Where-Object { $k = $_
-            @($current | Where-Object {
-                [string]::Equals([string]$_.Id, [string]$k.Id, [System.StringComparison]::OrdinalIgnoreCase)
-            }).Count -eq 0
-        })
+                @($current | Where-Object {
+                        [string]::Equals([string]$_.Id, [string]$k.Id, [System.StringComparison]::OrdinalIgnoreCase)
+                    }
+                ).Count -eq 0
+            }
+        )
 
         if ($hasBulkGrant -and $toEnsure.Count -gt 0) {
             # Bulk grant path
@@ -375,19 +385,21 @@ function Invoke-IdleStepPruneEntitlements {
                     if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                         $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                         $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: failed to grant keep entitlement '$($br.Entitlement.Id)': $($br.Error)", $Step.Name, @{
-                            Kind          = $kind
-                            EntitlementId = [string]$br.Entitlement.Id
-                            Reason        = [string]$br.Error
-                        })
+                                Kind          = $kind
+                                EntitlementId = [string]$br.Entitlement.Id
+                                Reason        = [string]$br.Error
+                            }
+                        )
                     }
                 } else {
                     if ($br.Changed) { $changed = $true }
                     if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                         $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                         $Context.EventSink.WriteEvent('Information', "PruneEntitlements: granted keep entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
-                            Kind          = $kind
-                            EntitlementId = [string]$br.Entitlement.Id
-                        })
+                                Kind          = $kind
+                                EntitlementId = [string]$br.Entitlement.Id
+                            }
+                        )
                     }
                 }
             }
@@ -410,9 +422,10 @@ function Invoke-IdleStepPruneEntitlements {
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                     $Context.EventSink.WriteEvent('Information', "PruneEntitlements: granted keep entitlement '$($k.Id)'", $Step.Name, @{
-                        Kind          = $kind
-                        EntitlementId = [string]$k.Id
-                    })
+                            Kind          = $kind
+                            EntitlementId = [string]$k.Id
+                        }
+                    )
                 }
             }
         }
