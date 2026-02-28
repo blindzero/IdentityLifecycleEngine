@@ -767,7 +767,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Identity    = $UserIdentity
-            Properties  = @('primaryGroupID', 'objectSid')
+            Properties  = @('primaryGroupID')
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -776,17 +776,16 @@ function New-IdleADAdapter {
 
         try {
             $user = Get-ADUser @params
-            if ($null -eq $user -or $null -eq $user.primaryGroupID -or $null -eq $user.objectSid) {
+            if ($null -eq $user -or $null -eq $user.primaryGroupID) {
                 return $null
             }
 
-            # Build primary group SID: strip the last RID from the user SID and append primaryGroupID
-            $userSid   = $user.objectSid.Value
-            $domainSid = $userSid -replace '-\d+$', ''
-            $primaryGroupSid = "$domainSid-$($user.primaryGroupID)"
-
+            # primaryGroupToken is a constructed attribute on every group that equals the group's RID.
+            # Matching on it is simpler and more reliable than parsing/comparing objectSid strings.
+            $rid         = [int]$user.primaryGroupID
             $groupParams = @{
-                Filter      = "objectSid -eq '$primaryGroupSid'"
+                Filter      = "primaryGroupToken -eq $rid"
+                Properties  = @('DistinguishedName')
                 ErrorAction = 'Stop'
             }
             if ($null -ne $this.Credential) {
