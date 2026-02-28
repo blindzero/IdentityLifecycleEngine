@@ -772,8 +772,15 @@ function New-IdleADIdentityProvider {
 
         $groups = $adapter.GetUserGroups($user.DistinguishedName)
 
+        # Exclude the user's primary group — AD does not allow removing it via
+        # group membership revocation; filtering here avoids spurious Skipped events.
+        $primaryGroupDN = $adapter.GetPrimaryGroupDN($user.DistinguishedName)
+
         $result = @()
         foreach ($group in $groups) {
+            if ($null -ne $primaryGroupDN -and $group.DistinguishedName -eq $primaryGroupDN) {
+                continue
+            }
             $result += [pscustomobject]@{
                 PSTypeName  = 'IdLE.Entitlement'
                 Kind        = 'Group'

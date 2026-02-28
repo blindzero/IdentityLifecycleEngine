@@ -758,6 +758,54 @@ function New-IdleADAdapter {
         }
     } -Force
 
+    $adapter | Add-Member -MemberType ScriptMethod -Name GetPrimaryGroupDN -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $UserIdentity
+        )
+
+        $params = @{
+            Identity    = $UserIdentity
+            Properties  = @('primaryGroupID', 'objectSid')
+            ErrorAction = 'Stop'
+        }
+        if ($null -ne $this.Credential) {
+            $params['Credential'] = $this.Credential
+        }
+
+        try {
+            $user = Get-ADUser @params
+            if ($null -eq $user -or $null -eq $user.primaryGroupID -or $null -eq $user.objectSid) {
+                return $null
+            }
+
+            # Build primary group SID: strip the last RID from the user SID and append primaryGroupID
+            $userSid   = $user.objectSid.Value
+            $domainSid = $userSid -replace '-\d+$', ''
+            $primaryGroupSid = "$domainSid-$($user.primaryGroupID)"
+
+            $groupParams = @{
+                Filter      = "objectSid -eq '$primaryGroupSid'"
+                ErrorAction = 'Stop'
+            }
+            if ($null -ne $this.Credential) {
+                $groupParams['Credential'] = $this.Credential
+            }
+
+            $group = Get-ADGroup @groupParams
+            if ($null -ne $group) {
+                return $group.DistinguishedName
+            }
+        }
+        catch {
+            # Fail-open: cannot determine primary group → do not filter anything
+            Write-Verbose "GetPrimaryGroupDN: could not resolve primary group for '$UserIdentity': $_"
+        }
+
+        return $null
+    } -Force
+
     $adapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {
         param(
             [Parameter()]

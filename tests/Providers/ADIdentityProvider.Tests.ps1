@@ -61,6 +61,8 @@ Describe 'AD identity provider' {
                 PasswordGenerationRequireDigit = $true
                 PasswordGenerationRequireSpecial = $true
                 PasswordGenerationSpecialCharSet = '!@#$%&*+-_=?'
+                # Configurable: set to a DN string to simulate a primary group for all users
+                PrimaryGroupDN = $null
             }
 
             # Add Manager DN validation helper (matching real adapter)
@@ -555,6 +557,12 @@ Describe 'AD identity provider' {
                 return $groups
             } -Force
 
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetPrimaryGroupDN -Value {
+                param([string]$UserIdentity)
+                # Configurable via $this.PrimaryGroupDN; $null = no primary group filtering
+                return $this.PrimaryGroupDN
+            } -Force
+
             $adapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {
                 param([hashtable]$Filter)
                 
@@ -683,6 +691,27 @@ Describe 'AD identity provider' {
 
             @($afterGrant | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
             @($afterRevoke | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
+        }
+
+        It 'ListEntitlements excludes the primary group (AD primary group cannot be revoked)' {
+            $primaryGroupDN = 'CN=Domain Users,CN=Users,DC=domain,DC=local'
+            $adapter = New-FakeADAdapter
+            $adapter.PrimaryGroupDN = $primaryGroupDN
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+
+            $testUser = $adapter.NewUser('EntTest5', @{ SamAccountName = 'enttest5' }, $true)
+            $id = $testUser.ObjectGuid.ToString()
+
+            # Grant both a regular group and the primary group
+            $provider.GrantEntitlement($id, @{ Kind = 'Group'; Id = 'CN=RegularGroup,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            $provider.GrantEntitlement($id, @{ Kind = 'Group'; Id = $primaryGroupDN }) | Out-Null
+
+            $result = @($provider.ListEntitlements($id))
+
+            # Regular group must appear
+            @($result | Where-Object { $_.Id -eq 'CN=RegularGroup,OU=Groups,DC=domain,DC=local' }).Count | Should -Be 1
+            # Primary group must NOT appear
+            @($result | Where-Object { $_.Id -eq $primaryGroupDN }).Count | Should -Be 0
         }
     }
 
