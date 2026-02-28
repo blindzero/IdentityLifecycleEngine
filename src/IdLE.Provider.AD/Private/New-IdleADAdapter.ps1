@@ -765,19 +765,40 @@ function New-IdleADAdapter {
             [string] $UserIdentity
         )
 
-        $params = @{
+        # Strategy: the 'MemberOf' attribute on user objects is a direct (non-constructed) LDAP
+        # attribute that lists every group the user belongs to EXCEPT the primary group — by
+        # Active Directory design, the primary group is never included in MemberOf.
+        # Get-ADPrincipalGroupMembership returns ALL groups including the primary group.
+        # Therefore: PrimaryGroup DN = (AllGroups − MemberOf).
+        # This approach works on all AD DC versions and does not rely on any computed/constructed
+        # attribute (primaryGroup, primaryGroupToken) or SID string operations.
+
+        $userParams = @{
             Identity    = $UserIdentity
-            Properties  = @('primaryGroup')
+            Properties  = @('MemberOf')
             ErrorAction = 'Stop'
         }
-        if ($null -ne $this.Credential) {
-            $params['Credential'] = $this.Credential
+        if ($null -ne $this.Credential) { $userParams['Credential'] = $this.Credential }
+
+        $allGroupsParams = @{
+            Identity    = $UserIdentity
+            ErrorAction = 'Stop'
         }
+        if ($null -ne $this.Credential) { $allGroupsParams['Credential'] = $this.Credential }
 
         try {
-            $user = Get-ADUser @params
-            # primaryGroup is a constructed attribute that directly returns the DN of the primary group.
-            return $user.primaryGroup
+            $user        = Get-ADUser @userParams
+            $memberOfSet = [System.Collections.Generic.HashSet[string]]::new(
+                [string[]]@($user.MemberOf),
+                [System.StringComparer]::OrdinalIgnoreCase
+            )
+
+            $allGroups = Get-ADPrincipalGroupMembership @allGroupsParams
+            foreach ($g in $allGroups) {
+                if (-not $memberOfSet.Contains($g.DistinguishedName)) {
+                    return $g.DistinguishedName
+                }
+            }
         }
         catch {
             # Fail-open: cannot determine primary group → do not filter anything
