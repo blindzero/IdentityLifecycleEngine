@@ -767,7 +767,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Identity    = $UserIdentity
-            Properties  = @('primaryGroupID')
+            Properties  = @('primaryGroupID', 'objectSid')
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -776,15 +776,20 @@ function New-IdleADAdapter {
 
         try {
             $user = Get-ADUser @params
-            if ($null -eq $user -or $null -eq $user.primaryGroupID) {
+            if ($null -eq $user -or $null -eq $user.primaryGroupID -or $null -eq $user.objectSid) {
                 return $null
             }
 
-            # primaryGroupToken is a constructed attribute on every group that equals the group's RID.
-            # Matching on it is simpler and more reliable than parsing/comparing objectSid strings.
-            $rid         = [int]$user.primaryGroupID
+            # Build the primary group SID from the user's domain SID + primaryGroupID (RID).
+            # Using Get-ADGroup -Identity <SID> is the most reliable approach — it does a direct
+            # SID lookup and works regardless of AD environment or DC version, unlike filtering on
+            # constructed attributes (primaryGroupToken) which are not filterable on all DCs.
+            $userSidStr       = $user.objectSid.Value                                   # e.g. S-1-5-21-x-y-z-1000
+            $domainSid        = $userSidStr.Substring(0, $userSidStr.LastIndexOf('-'))   # S-1-5-21-x-y-z
+            $primaryGroupSid  = "$domainSid-$($user.primaryGroupID)"                     # S-1-5-21-x-y-z-513
+
             $groupParams = @{
-                Filter      = "primaryGroupToken -eq $rid"
+                Identity    = $primaryGroupSid
                 Properties  = @('DistinguishedName')
                 ErrorAction = 'Stop'
             }
