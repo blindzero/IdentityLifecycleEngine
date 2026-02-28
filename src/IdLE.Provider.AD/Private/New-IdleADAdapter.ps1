@@ -767,7 +767,7 @@ function New-IdleADAdapter {
 
         $params = @{
             Identity    = $UserIdentity
-            Properties  = @('primaryGroupID', 'objectSid')
+            Properties  = @('primaryGroup')
             ErrorAction = 'Stop'
         }
         if ($null -ne $this.Credential) {
@@ -776,35 +776,12 @@ function New-IdleADAdapter {
 
         try {
             $user = Get-ADUser @params
-            if ($null -eq $user -or $null -eq $user.primaryGroupID -or $null -eq $user.objectSid) {
-                return $null
-            }
-
-            # Build the primary group SID from the user's domain SID + primaryGroupID (RID).
-            # Using Get-ADGroup -Identity <SID> is the most reliable approach — it does a direct
-            # SID lookup and works regardless of AD environment or DC version, unlike filtering on
-            # constructed attributes (primaryGroupToken) which are not filterable on all DCs.
-            $userSidStr       = $user.objectSid.Value                                   # e.g. S-1-5-21-x-y-z-1000
-            $domainSid        = $userSidStr.Substring(0, $userSidStr.LastIndexOf('-'))   # S-1-5-21-x-y-z
-            $primaryGroupSid  = "$domainSid-$($user.primaryGroupID)"                     # S-1-5-21-x-y-z-513
-
-            $groupParams = @{
-                Identity    = $primaryGroupSid
-                Properties  = @('DistinguishedName')
-                ErrorAction = 'Stop'
-            }
-            if ($null -ne $this.Credential) {
-                $groupParams['Credential'] = $this.Credential
-            }
-
-            $group = Get-ADGroup @groupParams
-            if ($null -ne $group) {
-                return $group.DistinguishedName
-            }
+            # primaryGroup is a constructed attribute that directly returns the DN of the primary group.
+            return $user.primaryGroup
         }
         catch {
             # Fail-open: cannot determine primary group → do not filter anything
-            Write-Verbose "GetPrimaryGroupDN: could not resolve primary group for '$UserIdentity': $_"
+            Write-Verbose "GetPrimaryGroupDN: could not determine primary group for '$UserIdentity': $_"
         }
 
         return $null
