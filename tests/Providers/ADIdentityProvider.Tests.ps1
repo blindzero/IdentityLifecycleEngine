@@ -902,6 +902,27 @@ Describe 'AD identity provider' {
         }
     }
 
+    Context 'Capabilities' {
+        It 'Advertises IdLE.Entitlement.Prune capability' {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+
+            $caps = $provider.GetCapabilities()
+            $caps | Should -Contain 'IdLE.Entitlement.Prune'
+        }
+
+        It 'Advertises all expected entitlement capabilities' {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+
+            $caps = $provider.GetCapabilities()
+            $caps | Should -Contain 'IdLE.Entitlement.List'
+            $caps | Should -Contain 'IdLE.Entitlement.Grant'
+            $caps | Should -Contain 'IdLE.Entitlement.Revoke'
+            $caps | Should -Contain 'IdLE.Entitlement.Prune'
+        }
+    }
+
     Context 'AllowDelete gating' {
         It 'Advertises Delete capability when AllowDelete=$true' {
             $adapter = New-FakeADAdapter
