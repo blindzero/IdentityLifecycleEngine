@@ -171,3 +171,51 @@ Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
 ### Type conflict in context path
 
 - A resolver cannot overwrite an existing path with incompatible type.
+
+### Inspecting resolved context data
+
+When working with complex objects (like entitlements), you may need to inspect the structure to determine the correct path syntax for Conditions or to understand what properties are available.
+
+**Method 1: Inspect the plan object after planning**
+
+```powershell
+$plan = New-IdlePlan -WorkflowPath ./workflow.psd1 -Request $req -Providers $providers
+
+# View the entire context structure
+$plan.Request.Context | ConvertTo-Json -Depth 5
+
+# View specific resolved data
+$plan.Request.Context.Identity.Entitlements | ConvertTo-Json -Depth 2
+```
+
+**Method 2: Use Format-Table for quick inspection**
+
+```powershell
+# After planning, inspect entitlements structure
+$plan.Request.Context.Identity.Entitlements | Format-Table -AutoSize
+```
+
+**Method 3: Access individual properties**
+
+```powershell
+# Check if entitlements are objects with properties
+$plan.Request.Context.Identity.Entitlements[0] | Get-Member
+$plan.Request.Context.Identity.Entitlements[0].Id
+$plan.Request.Context.Identity.Entitlements[0].DisplayName
+```
+
+**Using discovered structure in Conditions**
+
+Once you know the structure (e.g., entitlements are objects with `Kind`, `Id`, `DisplayName`), use member-access enumeration in your condition paths:
+
+```powershell
+# Extract Id values from all entitlement objects
+Condition = @{
+  NotContains = @{
+    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
+  }
+}
+```
+
+See [Conditions - Member-Access Enumeration](./conditions.md#member-access-enumeration) for details.

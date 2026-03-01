@@ -499,13 +499,13 @@ function New-IdleEntraIDAdapter {
                 }
 
                 $results.Add([pscustomobject]@{
-                    PSTypeName    = 'IdLE.BatchMembershipResult'
-                    RequestId     = $resp.id
-                    GroupObjectId = $op.GroupObjectId
-                    Action        = $op.Action
-                    Changed       = $changed
-                    Error         = $errorMsg
-                })
+                        PSTypeName    = 'IdLE.BatchMembershipResult'
+                        RequestId     = $resp.id
+                        GroupObjectId = $op.GroupObjectId
+                        Action        = $op.Action
+                        Changed       = $changed
+                        Error         = $errorMsg
+                    })
             }
         }
 

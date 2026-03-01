@@ -110,13 +110,142 @@ This section is the authoritative DSL reference.
 }
 ```
 
+#### Contains
+
+**For list membership evaluation** (case-insensitive).
+
+- `Path` must resolve to a list/array
+- Returns `true` if the list contains the specified value
+- Throws an error if `Path` resolves to a scalar
+
+```powershell
+# Check if a specific group DN is in the entitlements
+@{
+  Contains = @{
+    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
+  }
+}
+```
+
+> **Note**: When `Request.Context.Identity.Entitlements` contains objects (e.g., `@{ Kind = 'Group'; Id = '...'; DisplayName = '...' }`), use `.Id` or `.DisplayName` to extract the property values: `Entitlements.Id` returns an array of all Id values.
+
+#### NotContains
+
+**For list non-membership evaluation** (case-insensitive).
+
+- `Path` must resolve to a list/array
+- Returns `true` if the list does not contain the specified value
+- Throws an error if `Path` resolves to a scalar
+
+```powershell
+# Prevent execution if identity has a specific group
+@{
+  NotContains = @{
+    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
+  }
+}
+```
+
+#### Like
+
+**For wildcard pattern matching** (case-insensitive).
+
+- If `Path` resolves to a **scalar**: matches against the value directly
+- If `Path` resolves to a **list**: returns `true` if **any** element matches the pattern
+- Uses PowerShell's `-like` operator (supports `*` and `?` wildcards)
+
+```powershell
+# Scalar example: check if DisplayName contains "Contractor"
+@{
+  Like = @{
+    Path    = 'Request.Context.Identity.Profile.DisplayName'
+    Pattern = '* (Contractor)'
+  }
+}
+
+# List example: check if any entitlement Id matches the pattern
+@{
+  Like = @{
+    Path    = 'Request.Context.Identity.Entitlements.Id'
+    Pattern = 'CN=HR-*'
+  }
+}
+```
+
+> **Note**: When checking entitlement Ids or DisplayNames, use `.Id` or `.DisplayName` to extract property values from entitlement objects. The path `Entitlements.Id` uses member-access enumeration to return an array of all Id values.
+
+#### NotLike
+
+**For wildcard pattern non-matching** (case-insensitive).
+
+- If `Path` resolves to a **scalar**: returns `true` if the value does not match the pattern
+- If `Path` resolves to a **list**: returns `true` if **no** element matches the pattern
+- Uses PowerShell's `-notlike` operator (supports `*` and `?` wildcards)
+
+```powershell
+# Scalar example
+@{
+  NotLike = @{
+    Path    = 'Request.Context.Identity.Profile.DisplayName'
+    Pattern = '* (Contractor)'
+  }
+}
+
+# List example: ensure no HR groups in entitlements
+@{
+  NotLike = @{
+    Path    = 'Request.Context.Identity.Entitlements.Id'
+    Pattern = 'CN=HR-*'
+  }
+}
+```
+
 ---
 
 ## Comparison Semantics
 
-- Comparisons are string-based
+- All comparisons are **case-insensitive** by default
+- String-based comparisons for `Equals`, `NotEquals`, `In`, `Contains`, `NotContains`
+- Pattern matching for `Like` and `NotLike` uses PowerShell's `-like` operator
 - Deterministic evaluation
 - Values are converted to string before comparison
+
+### Member-Access Enumeration
+
+When a `Path` points to a list of objects, you can access properties of those objects using dot notation:
+
+- `Request.Context.Identity.Entitlements` → returns array of entitlement objects
+- `Request.Context.Identity.Entitlements.Id` → returns array of all `Id` values
+- `Request.Context.Identity.Entitlements.DisplayName` → returns array of all `DisplayName` values
+
+**Example**:
+```powershell
+# Entitlements contains: @(
+#   @{ Kind = 'Group'; Id = 'CN=Users,...'; DisplayName = 'Users' }
+#   @{ Kind = 'Group'; Id = 'CN=Admins,...'; DisplayName = 'Admins' }
+# )
+
+# Check if any entitlement Id matches a pattern
+@{
+  Like = @{
+    Path    = 'Request.Context.Identity.Entitlements.Id'
+    Pattern = 'CN=HR-*'
+  }
+}
+```
+
+This follows PowerShell's native member-access enumeration behavior.
+
+### List vs Scalar Behavior
+
+| Operator | Scalar Path | List Path |
+|----------|-------------|-----------|
+| `Contains` | ❌ Error (must be list) | ✅ Check if value in list |
+| `NotContains` | ❌ Error (must be list) | ✅ Check if value not in list |
+| `Like` | ✅ Match against value | ✅ Match if **any** element matches |
+| `NotLike` | ✅ Check value doesn't match | ✅ Check **no** element matches |
 
 ---
 
@@ -165,6 +294,55 @@ Condition = @{
 }
 ```
 
+### Only if not member of a specific group (NotContains)
+
+```powershell
+Condition = @{
+  NotContains = @{
+    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
+  }
+}
+```
+
+### Only if not member of any HR group (NotLike)
+
+```powershell
+Condition = @{
+  NotLike = @{
+    Path    = 'Request.Context.Identity.Entitlements.Id'
+    Pattern = 'CN=HR-*'
+  }
+}
+```
+
+### Only for contractors (Like with scalar)
+
+```powershell
+Condition = @{
+  Like = @{
+    Path    = 'Request.Context.Identity.Profile.DisplayName'
+    Pattern = '* (Contractor)'
+  }
+}
+```
+
+### Guard destructive step (combine NotContains with lifecycle check)
+
+```powershell
+Condition = @{
+  All = @(
+    @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Leaver' } }
+    @{
+      NotContains = @{
+        Path  = 'Request.Context.Identity.Entitlements.Id'
+        Value = 'CN=Protected-Accounts,OU=Groups,DC=example,DC=com'
+      }
+    }
+  )
+}
+```
+
 ---
 
 ## Troubleshooting
@@ -179,14 +357,18 @@ Condition = @{
 Each node may contain exactly one of:
 
 - a group: `All`, `Any`, `None`
-- an operator: `Equals`, `NotEquals`, `Exists`, `In`
+- an operator: `Equals`, `NotEquals`, `Exists`, `In`, `Contains`, `NotContains`, `Like`, `NotLike`
 
 Any additional keys cause a planning-time validation error.
 
 ### Planning fails with “Missing or empty Path”
 
-Operators like `Equals`, `NotEquals`, and `In` require a non-empty `Path`.  
+All operators require a non-empty `Path`.  
 For `Exists`, prefer the short form `Exists = '…'` to avoid shape errors.
+
+### Planning fails with "Contains operator requires Path to resolve to a list"
+
+`Contains` and `NotContains` only work with list/array paths. If you need to check a scalar value, use `Equals` or `Like` instead.
 
 ### Confusion about “Skipped”
 
