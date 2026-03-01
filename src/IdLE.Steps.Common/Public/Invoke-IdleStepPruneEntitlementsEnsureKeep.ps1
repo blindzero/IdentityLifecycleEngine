@@ -24,7 +24,9 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     step completes, every identity referenced by With.Keep is guaranteed to hold that entitlement —
     regardless of whether it was already present.
 
-    At least one With.Keep entry must be supplied.
+    With.Keep is optional. If omitted, all current entitlements of the given Kind are removed and no
+    grants are made (equivalent to PruneEntitlements with no keep-set). The AD provider always
+    excludes the primary group from the remove-set.
 
     Provider contract:
     - Must advertise the IdLE.Entitlement.Prune capability (explicit opt-in)
@@ -48,7 +50,7 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     | -------------------- | -------- | ------------ | ----------- |
     | IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
     | Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
-    | Keep                 | Yes      | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind and DisplayName are optional. **These entries are GRANTED if missing after the prune.** At least one Keep entry is required. |
+    | Keep                 | No       | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind and DisplayName are optional. **These entries are GRANTED if missing after the prune.** If omitted, all entitlements of the given Kind are removed and no grants are made. |
     | Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
     | AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |
     | AuthSessionOptions   | No       | hashtable    | Options passed to AcquireAuthSession for session selection (e.g. role-scoped sessions). |
@@ -126,15 +128,6 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
 
     if ($sourceWith.ContainsKey('KeepPattern')) {
         throw "PruneEntitlementsEnsureKeep does not support With.KeepPattern. Use With.Keep for explicit entitlements to retain and ensure."
-    }
-
-    if (-not ($sourceWith.ContainsKey('Keep'))) {
-        throw "PruneEntitlementsEnsureKeep requires With.Keep to contain at least one entitlement. Use IdLE.Step.PruneEntitlements when only pattern-based retention is needed."
-    }
-
-    $keepEntries = @($sourceWith['Keep']) | Where-Object { $null -ne $_ }
-    if ($keepEntries.Count -eq 0) {
-        throw "PruneEntitlementsEnsureKeep requires With.Keep to contain at least one entitlement. Use IdLE.Step.PruneEntitlements when only pattern-based retention is needed."
     }
 
     # Inject EnsureKeepEntitlements = $true into With, then delegate to Invoke-IdleStepPruneEntitlements.

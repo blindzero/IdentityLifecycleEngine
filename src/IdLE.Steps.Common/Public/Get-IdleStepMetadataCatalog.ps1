@@ -74,8 +74,10 @@ function Get-IdleStepMetadataCatalog {
     }
 
     # IdLE.Step.PruneEntitlementsEnsureKeep - remove + ensure keep present: requires prune + list/revoke/grant
+    # ForbiddenWithKeys: KeepPattern is not supported because patterns cannot be "ensured" (granted).
     $catalog['IdLE.Step.PruneEntitlementsEnsureKeep'] = @{
         RequiredCapabilities = @('IdLE.Entitlement.Prune', 'IdLE.Entitlement.List', 'IdLE.Entitlement.Revoke', 'IdLE.Entitlement.Grant')
+        ForbiddenWithKeys    = @('KeepPattern')
     }
 
     return $catalog

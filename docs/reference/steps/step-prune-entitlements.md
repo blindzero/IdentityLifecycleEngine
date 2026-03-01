@@ -34,7 +34,9 @@ How the keep-set is built:
 - With.KeepPattern — wildcard strings (-like semantics); any current entitlement whose Id matches
                     is kept. Patterns are NEVER granted, only protected from removal.
 
-At least one of With.Keep or With.KeepPattern must be supplied.
+If neither With.Keep nor With.KeepPattern is supplied, ALL current entitlements of the given Kind
+are removed (no keep-set). On the AD provider the primary group is always excluded by ListEntitlements
+and is never placed in the remove-set.
 
 Provider contract:
 
@@ -64,8 +66,8 @@ Authentication:
 | -------------------- | -------- | ------------ | ----------- |
 | IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
 | Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
-| Keep                 | No*      | array        | Explicit entitlement objects to retain (kept, never removed). Each entry must have an Id property; Kind and DisplayName are optional. *At least one of Keep or KeepPattern is required. These entries are NOT granted — use PruneEntitlementsEnsureKeep for that. |
-| KeepPattern          | No*      | string array | Wildcard strings (PowerShell -like semantics). Current entitlements whose Id matches any pattern are kept. Patterns are NEVER granted. *At least one of Keep or KeepPattern is required. |
+| Keep                 | No       | array        | Explicit entitlement objects to retain (kept, never removed). Each entry must have an Id property; Kind and DisplayName are optional. These entries are NOT granted — use PruneEntitlementsEnsureKeep for that. |
+| KeepPattern          | No       | string array | Wildcard strings (PowerShell -like semantics). Current entitlements whose Id matches any pattern are kept. Patterns are NEVER granted. |
 | Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
 | AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |
 | AuthSessionOptions   | No       | hashtable    | Options passed to AcquireAuthSession for session selection (e.g. role-scoped sessions). |

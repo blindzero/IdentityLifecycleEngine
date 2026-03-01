@@ -38,7 +38,9 @@ With.Keep entries -> kept (NOT removed) AND ensured (GRANTED if currently missin
 step completes, every identity referenced by With.Keep is guaranteed to hold that entitlement —
 regardless of whether it was already present.
 
-At least one With.Keep entry must be supplied.
+With.Keep is optional. If omitted, all current entitlements of the given Kind are removed and no
+grants are made (equivalent to PruneEntitlements with no keep-set). The AD provider always
+excludes the primary group from the remove-set.
 
 Provider contract:
 
@@ -68,18 +70,15 @@ Authentication:
 | -------------------- | -------- | ------------ | ----------- |
 | IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
 | Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
-| Keep                 | Yes      | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind and DisplayName are optional. **These entries are GRANTED if missing after the prune.** At least one Keep entry is required. |
+| Keep                 | No       | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind and DisplayName are optional. **These entries are GRANTED if missing after the prune.** If omitted, all entitlements of the given Kind are removed and no grants are made. |
 | Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
 | AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |
 | AuthSessionOptions   | No       | hashtable    | Options passed to AcquireAuthSession for session selection (e.g. role-scoped sessions). |
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
-
-| Key | Required | Description |
-| --- | --- | --- |
-| `Keep` | Yes | See step description for details |
+The required input keys could not be detected automatically.
+Please refer to the step description and examples for usage details.
 
 ## Example
 

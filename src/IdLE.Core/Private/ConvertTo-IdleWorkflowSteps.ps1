@@ -121,6 +121,21 @@ function ConvertTo-IdleWorkflowSteps {
         # Resolve template placeholders in With (planning-time resolution)
         $with = Resolve-IdleWorkflowTemplates -Value $with -Request $PlanningContext.Request -StepName $stepName
 
+        # Validate ForbiddenWithKeys declared by step metadata (fail-fast plan-time schema check)
+        if ($StepMetadataCatalog.ContainsKey($stepType)) {
+            $md = $StepMetadataCatalog[$stepType]
+            if ($null -ne $md -and $md -is [hashtable] -and $md.ContainsKey('ForbiddenWithKeys')) {
+                foreach ($fk in @($md['ForbiddenWithKeys'])) {
+                    if (-not [string]::IsNullOrWhiteSpace([string]$fk) -and $with.ContainsKey([string]$fk)) {
+                        throw [System.ArgumentException]::new(
+                            ("Step '{0}' (type '{1}') does not support With.{2}. Remove this key from the step definition." -f $stepName, $stepType, [string]$fk),
+                            'Workflow'
+                        )
+                    }
+                }
+            }
+        }
+
         $retryProfile = if (Test-IdleWorkflowStepKey -Step $s -Key 'RetryProfile') {
             [string](Get-IdlePropertyValue -Object $s -Name 'RetryProfile')
         }

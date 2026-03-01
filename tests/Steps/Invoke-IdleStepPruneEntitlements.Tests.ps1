@@ -78,6 +78,42 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
         }
     }
 
+    Context 'Behavior: No keep-set (prune all)' {
+        It 'removes all entitlements when neither Keep nor KeepPattern is provided' {
+            $step = [pscustomobject]@{
+                Name = 'Prune all groups'
+                Type = 'IdLE.Step.PruneEntitlements'
+                With = @{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = 'Group' }
+            }
+
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+
+            $remaining = $script:Provider.ListEntitlements('user1')
+            @($remaining | Where-Object { $_.Kind -eq 'Group' }).Count | Should -Be 0
+        }
+
+        It 'removes all entitlements when Keep is an empty array and KeepPattern is absent' {
+            $step = [pscustomobject]@{
+                Name = 'Prune all groups (empty keep)'
+                Type = 'IdLE.Step.PruneEntitlements'
+                With = @{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = 'Group'; Keep = @() }
+            }
+
+            $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+
+            $remaining = $script:Provider.ListEntitlements('user1')
+            @($remaining | Where-Object { $_.Kind -eq 'Group' }).Count | Should -Be 0
+        }
+    }
+
     Context 'Behavior: Keep + KeepPattern union' {
         It 'keeps entitlements matching wildcard KeepPattern' {
             $step = $script:StepTemplate
@@ -287,28 +323,6 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
                 Name = 'bad'
                 Type = 'IdLE.Step.PruneEntitlements'
                 With = @{ IdentityKey = 'user1'; Keep = @(@{ Kind = 'Group'; Id = 'x' }) }
-            }
-
-            $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw
-        }
-
-        It 'throws when neither Keep nor KeepPattern is provided' {
-            $step = [pscustomobject]@{
-                Name = 'bad'
-                Type = 'IdLE.Step.PruneEntitlements'
-                With = @{ IdentityKey = 'user1'; Kind = 'Group'; Provider = 'Identity' }
-            }
-
-            $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*at least one*'
-        }
-
-        It 'throws when Keep is empty array and KeepPattern is absent' {
-            $step = [pscustomobject]@{
-                Name = 'bad'
-                Type = 'IdLE.Step.PruneEntitlements'
-                With = @{ IdentityKey = 'user1'; Kind = 'Group'; Provider = 'Identity'; Keep = @() }
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
@@ -606,15 +620,21 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
         }
     }
 
-    Context 'Validation: Keep is required' {
-        It 'throws when Keep is missing' {
+    Context 'Behavior: No keep-set (prune all, no grants)' {
+        It 'removes all entitlements and makes no grants when Keep is absent' {
             $step = [pscustomobject]@{
-                Name = 'bad'
+                Name = 'Prune all groups'
                 Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
                 With = @{ IdentityKey = 'user1'; Kind = 'Group'; Provider = 'Identity' }
             }
 
-            { & $script:Handler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*With.Keep*'
+            $result = & $script:Handler -Context $script:Context -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+
+            $remaining = $script:Provider.ListEntitlements('user1')
+            @($remaining | Where-Object { $_.Kind -eq 'Group' }).Count | Should -Be 0
         }
     }
 
