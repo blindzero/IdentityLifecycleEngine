@@ -507,6 +507,46 @@ function New-IdleStepDocModel {
 
     $slug = ConvertTo-IdleStepSlug -StepType $stepType
 
+    # Extract workflow-style examples from comment-based help.
+    # Only workflow-style examples (not starting with 'Invoke-') are included; these map
+    # directly to what a workflow author would write in a PSD1 step definition.
+    $examples = @()
+    if ($null -ne $help -and
+        ($help.PSObject.Properties.Name -contains 'Examples') -and
+        $null -ne $help.Examples -and
+        ($help.Examples.PSObject.Properties.Name -contains 'Example') -and
+        $null -ne $help.Examples.Example) {
+        foreach ($ex in @($help.Examples.Example)) {
+            $codeText = ''
+            if ($null -ne $ex -and ($ex.PSObject.Properties.Name -contains 'Code') -and $null -ne $ex.Code) {
+                $codeText = ($ex.Code | Out-String).Trim()
+            }
+            # Skip function-call-style examples (e.g. "Invoke-IdleStep... -Context $ctx ...").
+            # Only include workflow hashtable / variable-assignment style examples.
+            if ([string]::IsNullOrWhiteSpace($codeText) -or $codeText.TrimStart().StartsWith('Invoke-')) {
+                continue
+            }
+            $remarksText = ''
+            if ($null -ne $ex -and ($ex.PSObject.Properties.Name -contains 'Remarks') -and $null -ne $ex.Remarks) {
+                $remarksText = ((@($ex.Remarks) | ForEach-Object {
+                    $r = $_
+                    if ($null -ne $r -and ($r.PSObject.Properties.Name -contains 'Text') -and $null -ne $r.Text) {
+                        [string]$r.Text
+                    } else {
+                        ''
+                    }
+                }) -join "`n").Trim()
+                if (-not [string]::IsNullOrWhiteSpace($remarksText)) {
+                    $remarksText = ConvertTo-IdleMdxSafeText -Text $remarksText
+                }
+            }
+            $examples += [pscustomobject]@{
+                Code    = $codeText
+                Remarks = $remarksText
+            }
+        }
+    }
+
     return [pscustomobject]@{
         StepType              = $stepType
         Slug                  = $slug
@@ -517,6 +557,7 @@ function New-IdleStepDocModel {
         RequiredWithKeys      = $requiredWithKeys
         Idempotent            = $idempotent
         RequiredCapabilities  = $requiredCapabilities
+        Examples              = $examples
     }
 }
 
@@ -603,44 +644,67 @@ function New-IdleStepDetailPageContent {
     # Add examples section
     [void]$sb.AppendLine('## Example')
     [void]$sb.AppendLine()
-    [void]$sb.AppendLine('```powershell')
-    [void]$sb.AppendLine('@{')
-    [void]$sb.AppendLine(("  Name = '{0} Example'" -f $Model.StepType))
-    # StepType already includes the full name (e.g., 'IdLE.Step.Mailbox.EnsureType')
-    [void]$sb.AppendLine(("  Type = '{0}'" -f $Model.StepType))
-    [void]$sb.AppendLine('  With = @{')
-    
-    if ($Model.RequiredWithKeys.Count -gt 0) {
-        foreach ($k in $Model.RequiredWithKeys) {
-            $exampleValue = switch ($k) {
-                'IdentityKey' { '''user.name''' }
-                'Name' { '''AttributeName''' }
-                'Value' { '''AttributeValue''' }
-                'Attributes' { "@{ GivenName = 'First'; Surname = 'Last' }" }
-                'DestinationPath' { '''OU=Users,DC=domain,DC=com''' }
-                'Message' { '''Custom event message''' }
-                'EntitlementType' { '''Group''' }
-                'EntitlementValue' { '''CN=GroupName,OU=Groups,DC=domain,DC=com''' }
-                'Entitlement' { "@{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }" }
-                'State' { '''Present''' }
-                'Ensure' { '''Present''' }
-                'Provider' { '''Identity''' }
-                'AuthSessionName' { '''AdminSession''' }
-                'PolicyType' { '''Delta''' }
-                'Wait' { '$true' }
-                default { '''<value>''' }
+
+    if ($Model.Examples -and $Model.Examples.Count -gt 0) {
+        # Use workflow-style examples extracted from comment-based help.
+        $exIdx = 0
+        foreach ($ex in $Model.Examples) {
+            $exIdx++
+            if ($Model.Examples.Count -gt 1) {
+                [void]$sb.AppendLine("### Example $exIdx")
+                [void]$sb.AppendLine()
             }
-            [void]$sb.AppendLine(("    {0,-20} = {1}" -f $k, $exampleValue))
+            if (-not [string]::IsNullOrWhiteSpace($ex.Remarks)) {
+                [void]$sb.AppendLine($ex.Remarks)
+                [void]$sb.AppendLine()
+            }
+            [void]$sb.AppendLine('```powershell')
+            [void]$sb.AppendLine($ex.Code)
+            [void]$sb.AppendLine('```')
+            [void]$sb.AppendLine()
         }
     }
     else {
-        [void]$sb.AppendLine('    # See step description for available options')
+        # Auto-generated fallback from detected required With.* keys.
+        [void]$sb.AppendLine('```powershell')
+        [void]$sb.AppendLine('@{')
+        [void]$sb.AppendLine(("  Name = '{0} Example'" -f $Model.StepType))
+        # StepType already includes the full name (e.g., 'IdLE.Step.Mailbox.EnsureType')
+        [void]$sb.AppendLine(("  Type = '{0}'" -f $Model.StepType))
+        [void]$sb.AppendLine('  With = @{')
+
+        if ($Model.RequiredWithKeys.Count -gt 0) {
+            foreach ($k in $Model.RequiredWithKeys) {
+                $exampleValue = switch ($k) {
+                    'IdentityKey' { '''user.name''' }
+                    'Name' { '''AttributeName''' }
+                    'Value' { '''AttributeValue''' }
+                    'Attributes' { "@{ GivenName = 'First'; Surname = 'Last' }" }
+                    'DestinationPath' { '''OU=Users,DC=domain,DC=com''' }
+                    'Message' { '''Custom event message''' }
+                    'EntitlementType' { '''Group''' }
+                    'EntitlementValue' { '''CN=GroupName,OU=Groups,DC=domain,DC=com''' }
+                    'Entitlement' { "@{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }" }
+                    'State' { '''Present''' }
+                    'Ensure' { '''Present''' }
+                    'Provider' { '''Identity''' }
+                    'AuthSessionName' { '''AdminSession''' }
+                    'PolicyType' { '''Delta''' }
+                    'Wait' { '$true' }
+                    default { '''<value>''' }
+                }
+                [void]$sb.AppendLine(("    {0,-20} = {1}" -f $k, $exampleValue))
+            }
+        }
+        else {
+            [void]$sb.AppendLine('    # See step description for available options')
+        }
+
+        [void]$sb.AppendLine('  }')
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('```')
+        [void]$sb.AppendLine()
     }
-    
-    [void]$sb.AppendLine('  }')
-    [void]$sb.AppendLine('}')
-    [void]$sb.AppendLine('```')
-    [void]$sb.AppendLine()
 
     # Add "See Also" section for consistency across all step pages
     [void]$sb.AppendLine('## See Also')

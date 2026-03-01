@@ -61,6 +61,8 @@ Describe 'AD identity provider' {
                 PasswordGenerationRequireDigit = $true
                 PasswordGenerationRequireSpecial = $true
                 PasswordGenerationSpecialCharSet = '!@#$%&*+-_=?'
+                # Configurable: set to a DN string to simulate a primary group for all users
+                PrimaryGroupDN = $null
             }
 
             # Add Manager DN validation helper (matching real adapter)
@@ -500,7 +502,9 @@ Describe 'AD identity provider' {
                 $existingGroup = $user.Groups | Where-Object { $_.Id -eq $GroupIdentity }
                 if ($null -eq $existingGroup) {
                     $user.Groups = @($user.Groups) + @([pscustomobject]@{ Id = $GroupIdentity; Kind = 'Group' })
+                    return $true
                 }
+                return $false
             } -Force
 
             $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
@@ -518,9 +522,11 @@ Describe 'AD identity provider' {
                     throw "User not found: $MemberIdentity"
                 }
 
+                $wasMember = $null -ne ($user.Groups | Where-Object { $_.Id -eq $GroupIdentity })
                 if ($null -ne $user.Groups) {
                     $user.Groups = @($user.Groups | Where-Object { $_.Id -ne $GroupIdentity })
                 }
+                return $wasMember
             } -Force
 
             $adapter | Add-Member -MemberType ScriptMethod -Name GetUserGroups -Value {
@@ -549,6 +555,12 @@ Describe 'AD identity provider' {
                     }
                 }
                 return $groups
+            } -Force
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetPrimaryGroupDN -Value {
+                param([string]$UserIdentity)
+                # Configurable via $this.PrimaryGroupDN; $null = no primary group filtering
+                return $this.PrimaryGroupDN
             } -Force
 
             $adapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {
@@ -679,6 +691,27 @@ Describe 'AD identity provider' {
 
             @($afterGrant | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
             @($afterRevoke | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
+        }
+
+        It 'ListEntitlements excludes the primary group (AD primary group cannot be revoked)' {
+            $primaryGroupDN = 'CN=Domain Users,CN=Users,DC=domain,DC=local'
+            $adapter = New-FakeADAdapter
+            $adapter.PrimaryGroupDN = $primaryGroupDN
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+
+            $testUser = $adapter.NewUser('EntTest5', @{ SamAccountName = 'enttest5' }, $true)
+            $id = $testUser.ObjectGuid.ToString()
+
+            # Grant both a regular group and the primary group
+            $provider.GrantEntitlement($id, @{ Kind = 'Group'; Id = 'CN=RegularGroup,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            $provider.GrantEntitlement($id, @{ Kind = 'Group'; Id = $primaryGroupDN }) | Out-Null
+
+            $result = @($provider.ListEntitlements($id))
+
+            # Regular group must appear
+            @($result | Where-Object { $_.Id -eq 'CN=RegularGroup,OU=Groups,DC=domain,DC=local' }).Count | Should -Be 1
+            # Primary group must NOT appear
+            @($result | Where-Object { $_.Id -eq $primaryGroupDN }).Count | Should -Be 0
         }
     }
 
@@ -895,6 +928,27 @@ Describe 'AD identity provider' {
 
             $result2 = $script:TestProvider.RevokeEntitlement($guid, $entitlement)
             $result2.Changed | Should -BeFalse
+        }
+    }
+
+    Context 'Capabilities' {
+        It 'Advertises IdLE.Entitlement.Prune capability' {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+
+            $caps = $provider.GetCapabilities()
+            $caps | Should -Contain 'IdLE.Entitlement.Prune'
+        }
+
+        It 'Advertises all expected entitlement capabilities' {
+            $adapter = New-FakeADAdapter
+            $provider = New-IdleADIdentityProvider -Adapter $adapter
+
+            $caps = $provider.GetCapabilities()
+            $caps | Should -Contain 'IdLE.Entitlement.List'
+            $caps | Should -Contain 'IdLE.Entitlement.Grant'
+            $caps | Should -Contain 'IdLE.Entitlement.Revoke'
+            $caps | Should -Contain 'IdLE.Entitlement.Prune'
         }
     }
 
@@ -2025,6 +2079,165 @@ Describe 'AD identity provider' {
             # Verify conversion works
             $secure = ConvertTo-SecureString -String $protectedString
             $secure | Should -BeOfType [securestring]
+        }
+    }
+
+    Context 'ResolveEntitlement' {
+        BeforeAll {
+            $adapter = New-FakeADAdapter
+            $script:NormProvider = New-IdleADIdentityProvider -Adapter $adapter
+        }
+
+        It 'Exposes ResolveEntitlement as a ScriptMethod' {
+            $script:NormProvider.PSObject.Methods.Name | Should -Contain 'ResolveEntitlement'
+        }
+
+        It 'Normalizes a Group entitlement with a DN Id to canonical DN' {
+            $ent = @{ Kind = 'Group'; Id = 'CN=TestGroup,OU=Groups,DC=domain,DC=local' }
+            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, $null)
+            $result.Kind | Should -Be 'Group'
+            $result.Id   | Should -Be 'CN=TestGroup,OU=Groups,DC=domain,DC=local'
+        }
+
+        It 'Returns entitlement unchanged when Kind is not Group' {
+            $ent = [pscustomobject]@{ Kind = 'License'; Id = 'Some-License-Id' }
+            $result = $script:NormProvider.ResolveEntitlement('License', $ent, $null)
+            $result.Kind | Should -Be 'License'
+            $result.Id   | Should -Be 'Some-License-Id'
+        }
+    }
+
+    Context 'PruneEntitlementsEnsureKeep step integration with AD provider' {
+        BeforeEach {
+            $adapter = New-FakeADAdapter
+            $adapter.PrimaryGroupDN = 'CN=Domain Users,CN=Users,DC=domain,DC=local'
+            $script:ADProvider = New-IdleADIdentityProvider -Adapter $adapter
+
+            $testUser = $adapter.NewUser('PruneUser', @{ SamAccountName = 'pruneuser' }, $true)
+            $script:PruneUserId = $testUser.ObjectGuid.ToString()
+
+            # Seed groups: primary (auto-excluded), a keep group, two to-be-removed groups
+            $script:ADProvider.GrantEntitlement($script:PruneUserId, @{ Kind = 'Group'; Id = 'CN=Domain Users,CN=Users,DC=domain,DC=local' }) | Out-Null
+            $script:ADProvider.GrantEntitlement($script:PruneUserId, @{ Kind = 'Group'; Id = 'CN=Keep-Group,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            $script:ADProvider.GrantEntitlement($script:PruneUserId, @{ Kind = 'Group'; Id = 'CN=Remove-A,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            $script:ADProvider.GrantEntitlement($script:PruneUserId, @{ Kind = 'Group'; Id = 'CN=Remove-B,OU=Groups,DC=domain,DC=local' }) | Out-Null
+
+            $script:StepContext = [pscustomobject]@{
+                PSTypeName = 'IdLE.ExecutionContext'
+                Plan       = $null
+                Providers  = @{ AD = $script:ADProvider }
+                EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            }
+        }
+
+        It 'removes non-kept groups and retains the explicit Keep group' {
+            $step = [pscustomobject]@{
+                Name = 'Prune AD groups (EnsureKeep)'
+                Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+                With = @{
+                    IdentityKey = $script:PruneUserId
+                    Provider    = 'AD'
+                    Kind        = 'Group'
+                    Keep        = @(
+                        @{ Kind = 'Group'; Id = 'CN=Keep-Group,OU=Groups,DC=domain,DC=local' }
+                    )
+                }
+            }
+
+            $result = Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+
+            $remaining = @($script:ADProvider.ListEntitlements($script:PruneUserId))
+            @($remaining | Where-Object { $_.Kind -eq 'Group' }).Count | Should -Be 1
+            $remaining[0].Id | Should -Be 'CN=Keep-Group,OU=Groups,DC=domain,DC=local'
+        }
+
+        It 'grants a Keep group that is not yet present, and removes all others' {
+            $step = [pscustomobject]@{
+                Name = 'Prune AD groups and ensure new group'
+                Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+                With = @{
+                    IdentityKey = $script:PruneUserId
+                    Provider    = 'AD'
+                    Kind        = 'Group'
+                    Keep        = @(
+                        @{ Kind = 'Group'; Id = 'CN=New-Leaver-Group,OU=Groups,DC=domain,DC=local' }
+                    )
+                }
+            }
+
+            $result = Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+
+            $remaining = @($script:ADProvider.ListEntitlements($script:PruneUserId))
+            @($remaining | Where-Object { $_.Kind -eq 'Group' }).Count | Should -Be 1
+            $remaining[0].Id | Should -Be 'CN=New-Leaver-Group,OU=Groups,DC=domain,DC=local'
+        }
+
+        It 'does NOT remove the primary group even when no Keep is specified (prune all)' {
+            $step = [pscustomobject]@{
+                Name = 'Prune AD groups (no keep)'
+                Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+                With = @{
+                    IdentityKey = $script:PruneUserId
+                    Provider    = 'AD'
+                    Kind        = 'Group'
+                }
+            }
+
+            $result = Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeTrue
+            @($result.Skipped).Count | Should -Be 0
+
+            # All non-primary groups removed; primary group (Domain Users) is never in the remove-set
+            $remaining = @($script:ADProvider.ListEntitlements($script:PruneUserId))
+            @($remaining | Where-Object { $_.Kind -eq 'Group' }).Count | Should -Be 0
+        }
+
+        It 'is idempotent when the identity already holds only the Keep group' {
+            # Remove the to-be-pruned groups first so the state is already converged
+            $script:ADProvider.RevokeEntitlement($script:PruneUserId, @{ Kind = 'Group'; Id = 'CN=Remove-A,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            $script:ADProvider.RevokeEntitlement($script:PruneUserId, @{ Kind = 'Group'; Id = 'CN=Remove-B,OU=Groups,DC=domain,DC=local' }) | Out-Null
+
+            $step = [pscustomobject]@{
+                Name = 'Idempotent prune (already converged)'
+                Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+                With = @{
+                    IdentityKey = $script:PruneUserId
+                    Provider    = 'AD'
+                    Kind        = 'Group'
+                    Keep        = @(
+                        @{ Kind = 'Group'; Id = 'CN=Keep-Group,OU=Groups,DC=domain,DC=local' }
+                    )
+                }
+            }
+
+            $result = Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step
+
+            $result.Status  | Should -Be 'Completed'
+            $result.Changed | Should -BeFalse
+        }
+
+        It 'throws at execution when KeepPattern is supplied (defense-in-depth; plan-time check is primary)' {
+            $step = [pscustomobject]@{
+                Name = 'Bad EnsureKeep with KeepPattern'
+                Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+                With = @{
+                    IdentityKey = $script:PruneUserId
+                    Provider    = 'AD'
+                    Kind        = 'Group'
+                    KeepPattern = @('CN=LEAVER-*')
+                }
+            }
+
+            { Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step } |
+                Should -Throw -ExpectedMessage '*KeepPattern*'
         }
     }
 }

@@ -28,7 +28,29 @@
 
         # Optional, use with caution:
         # Removing groups can break business processes unexpectedly.
-        # Prefer an explicit allow-list or a "remove only managed groups" approach.
+        # PruneEntitlementsEnsureKeep removes all groups except the keep set AND ensures
+        # explicit Keep items are present. Use PruneEntitlements if you only need removal.
+        @{
+            Type      = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+            Name      = 'Prune group memberships (leaver)'
+            Condition = @{ Equals = @{ Path = 'Request.Intent.PruneGroups'; Value = $true } }
+            With      = @{
+                AuthSessionName = 'Directory'
+                IdentityKey     = '{{Request.Intent.SamAccountName}}'
+                Kind            = 'Group'
+
+                # Explicitly retain this group and ensure it is present after pruning.
+                Keep            = @(
+                    @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupDn}}'; DisplayName = 'Leaver Retain' }
+                )
+                # Pattern-based retention is not supported by PruneEntitlementsEnsureKeep. Use a
+                # separate IdLE.Step.PruneEntitlements step earlier in the workflow if you need to
+                # preserve wildcard-matched memberships without granting them.
+            }
+        }
+
+        # Alternatively, remove individual managed group memberships one by one:
+        # Prefer PruneEntitlements above for bulk removal scenarios.
         @{
             Type = 'IdLE.Step.EnsureEntitlement'
             Name     = 'Remove managed group memberships (optional, item 1)'

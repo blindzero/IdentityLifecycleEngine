@@ -115,9 +115,10 @@ function New-IdleMockIdentityProvider {
     }
 
     $provider = [pscustomobject]@{
-        PSTypeName = 'IdLE.Provider.MockIdentityProvider'
-        Name       = 'MockIdentityProvider'
-        Store      = $store
+        PSTypeName               = 'IdLE.Provider.MockIdentityProvider'
+        Name                     = 'MockIdentityProvider'
+        Store                    = $store
+        ProtectedEntitlementIds  = @()
     }
 
     $provider | Add-Member -MemberType ScriptMethod -Name ConvertToEntitlement -Value $convertToEntitlement -Force
@@ -143,6 +144,7 @@ function New-IdleMockIdentityProvider {
             'IdLE.Entitlement.List'
             'IdLE.Entitlement.Grant'
             'IdLE.Entitlement.Revoke'
+            'IdLE.Entitlement.Prune'
         )
     } -Force
 
@@ -355,6 +357,11 @@ function New-IdleMockIdentityProvider {
         }
 
         $normalized = $this.ConvertToEntitlement($Entitlement)
+
+        # Simulate non-removable entitlements (e.g. AD primary group)
+        if ($this.ProtectedEntitlementIds -contains $normalized.Id) {
+            throw "Entitlement '$($normalized.Id)' is protected and cannot be removed."
+        }
 
         $identity = $this.Store[$IdentityKey]
         if ($null -eq $identity.Entitlements) {

@@ -687,7 +687,17 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        Add-ADGroupMember @params
+        try {
+            Add-ADGroupMember @params
+            return $true
+        }
+        catch {
+            # Idempotency: already a member is a no-op
+            if ($_.Exception.Message -match 'already a member') {
+                return $false
+            }
+            throw
+        }
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
@@ -711,14 +721,27 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        Remove-ADGroupMember @params
+        try {
+            Remove-ADGroupMember @params
+            return $true
+        }
+        catch {
+            # Idempotency: not a member is a no-op
+            if ($_.Exception.Message -match 'not a member|Member does not exist') {
+                return $false
+            }
+            throw
+        }
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name GetUserGroups -Value {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $Identity
+            [string] $Identity,
+
+            [Parameter()]
+            [bool] $ExcludePrimaryGroup = $false
         )
 
         $params = @{
@@ -731,11 +754,67 @@ function New-IdleADAdapter {
 
         try {
             $groups = Get-ADPrincipalGroupMembership @params
+            if ($ExcludePrimaryGroup) {
+                $primaryGroupDN = $this.GetPrimaryGroupDN($Identity)
+                if ($null -ne $primaryGroupDN) {
+                    $groups = @($groups | Where-Object { $_.DistinguishedName -ne $primaryGroupDN })
+                }
+            }
             return $groups
         }
         catch {
             return @()
         }
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name GetPrimaryGroupDN -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $UserIdentity
+        )
+
+        # Strategy: the 'MemberOf' attribute on user objects is a direct (non-constructed) LDAP
+        # attribute that lists every group the user belongs to EXCEPT the primary group — by
+        # Active Directory design, the primary group is never included in MemberOf.
+        # Get-ADPrincipalGroupMembership returns ALL groups including the primary group.
+        # Therefore: PrimaryGroup DN = (AllGroups − MemberOf).
+        # This approach works on all AD DC versions and does not rely on any computed/constructed
+        # attribute (primaryGroup, primaryGroupToken) or SID string operations.
+
+        $userParams = @{
+            Identity    = $UserIdentity
+            Properties  = @('MemberOf')
+            ErrorAction = 'Stop'
+        }
+        if ($null -ne $this.Credential) { $userParams['Credential'] = $this.Credential }
+
+        $allGroupsParams = @{
+            Identity    = $UserIdentity
+            ErrorAction = 'Stop'
+        }
+        if ($null -ne $this.Credential) { $allGroupsParams['Credential'] = $this.Credential }
+
+        try {
+            $user        = Get-ADUser @userParams
+            $memberOfSet = [System.Collections.Generic.HashSet[string]]::new(
+                [string[]]@($user.MemberOf),
+                [System.StringComparer]::OrdinalIgnoreCase
+            )
+
+            $allGroups = Get-ADPrincipalGroupMembership @allGroupsParams
+            foreach ($g in $allGroups) {
+                if (-not $memberOfSet.Contains($g.DistinguishedName)) {
+                    return $g.DistinguishedName
+                }
+            }
+        }
+        catch {
+            # Fail-open: cannot determine primary group → do not filter anything
+            Write-Verbose "GetPrimaryGroupDN: could not determine primary group for '$UserIdentity': $_"
+        }
+
+        return $null
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {

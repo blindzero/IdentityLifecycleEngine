@@ -390,11 +390,12 @@ function New-IdleEntraIDAdapter {
 
         try {
             $null = $this.InvokeGraphRequest('POST', $uri, $AccessToken, $body)
+            return $true
         }
         catch {
-            # Idempotency: if already a member, treat as success
+            # Idempotency: if already a member, treat as no-op
             if ($_.Exception.Message -match 'already exists|already a member') {
-                return
+                return $false
             }
             throw
         }
@@ -419,14 +420,96 @@ function New-IdleEntraIDAdapter {
 
         try {
             $null = $this.InvokeGraphRequest('DELETE', $uri, $AccessToken, $null)
+            return $true
         }
         catch {
-            # Idempotency: if not a member, treat as success
+            # Idempotency: if not a member, treat as no-op
             if ($_.Exception.Message -match '404|not found|does not exist') {
-                return
+                return $false
             }
             throw
         }
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name BatchMembershipChanges -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object[]] $Operations,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $results = [System.Collections.Generic.List[object]]::new()
+        $batchSize = 20
+
+        for ($i = 0; $i -lt $Operations.Count; $i += $batchSize) {
+            $end = [Math]::Min($i + $batchSize - 1, $Operations.Count - 1)
+            $batch = @($Operations[$i..$end])
+
+            $requests = @()
+            foreach ($op in $batch) {
+                if ($op.Action -eq 'remove') {
+                    $requests += @{
+                        id     = $op.RequestId
+                        method = 'DELETE'
+                        url    = "/groups/$($op.GroupObjectId)/members/$($op.UserObjectId)/`$ref"
+                    }
+                }
+                else {
+                    $requests += @{
+                        id      = $op.RequestId
+                        method  = 'POST'
+                        url     = "/groups/$($op.GroupObjectId)/members/`$ref"
+                        headers = @{ 'Content-Type' = 'application/json' }
+                        body    = @{ '@odata.id' = "$($this.BaseUri)/directoryObjects/$($op.UserObjectId)" }
+                    }
+                }
+            }
+
+            $batchUri = "$($this.BaseUri)/`$batch"
+            $batchResponse = $this.InvokeGraphRequest('POST', $batchUri, $AccessToken, @{ requests = $requests })
+
+            foreach ($resp in $batchResponse.responses) {
+                $op = $batch | Where-Object { $_.RequestId -eq $resp.id }
+                $changed = $false
+                $errorMsg = $null
+
+                if ($resp.status -ge 200 -and $resp.status -lt 300) {
+                    $changed = $true
+                }
+                elseif ($resp.status -eq 404 -and $op.Action -eq 'remove') {
+                    # Not a member — idempotent no-op
+                    $changed = $false
+                }
+                elseif ($resp.status -eq 400 -and $op.Action -eq 'add') {
+                    $msg = if ($resp.body -and $resp.body.error) { $resp.body.error.message } else { '' }
+                    if ($msg -match 'already exists|already a member') {
+                        $changed = $false
+                    }
+                    else {
+                        $errorMsg = "HTTP $($resp.status): $msg"
+                    }
+                }
+                else {
+                    $msg = if ($resp.body -and $resp.body.error) { $resp.body.error.message } else { '' }
+                    $errorMsg = "HTTP $($resp.status): $msg"
+                }
+
+                $results.Add([pscustomobject]@{
+                    PSTypeName    = 'IdLE.BatchMembershipResult'
+                    RequestId     = $resp.id
+                    GroupObjectId = $op.GroupObjectId
+                    Action        = $op.Action
+                    Changed       = $changed
+                    Error         = $errorMsg
+                })
+            }
+        }
+
+        return @($results)
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name RevokeSignInSessions -Value {

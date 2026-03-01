@@ -111,6 +111,8 @@ const sidebars = {
             'reference/steps/step-emit-event',
             'reference/steps/step-ensure-attributes',
             'reference/steps/step-ensure-entitlement',
+            'reference/steps/step-prune-entitlements',
+            'reference/steps/step-prune-entitlements-ensure-keep',
             'reference/steps/step-move-identity',
             'reference/steps/step-trigger-directory-sync',
             'reference/steps/step-mailbox-get-info',
