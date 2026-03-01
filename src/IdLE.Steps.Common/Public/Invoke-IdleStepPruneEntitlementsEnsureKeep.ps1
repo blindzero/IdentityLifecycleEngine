@@ -14,17 +14,17 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     Use IdLE.Step.PruneEntitlements instead when you only need removal and do NOT need any grants
     (e.g., cleanup-only without a mandatory retention group).
 
-    Key behavioral difference vs PruneEntitlements — how With.Keep and With.KeepPattern behave:
+    Key behavioral difference vs PruneEntitlements: this EnsureKeep variant only accepts explicit
+    With.Keep entries. Wildcard retention via With.KeepPattern is not supported because patterns
+    cannot be granted reliably. If you need to protect entitlements via wildcard matches without
+    granting them, run IdLE.Step.PruneEntitlements or another cleanup step before this EnsureKeep
+    step.
 
-      With.Keep entries    → kept (NOT removed) AND ensured (GRANTED if currently missing)
-      With.KeepPattern     → kept (NOT removed) but NOT ensured (patterns cannot be granted)
+    With.Keep entries -> kept (NOT removed) AND ensured (GRANTED if currently missing). After this
+    step completes, every identity referenced by With.Keep is guaranteed to hold that entitlement —
+    regardless of whether it was already present.
 
-    This means after this step completes, every identity referenced by a With.Keep entry is
-    guaranteed to hold that entitlement — regardless of whether it was already present or not.
-    Pattern-matched entitlements that were already present are kept, but the step does not
-    search for or grant patterns that are not yet present.
-
-    At least one of With.Keep or With.KeepPattern must be supplied.
+    At least one With.Keep entry must be supplied.
 
     Provider contract:
     - Must advertise the IdLE.Entitlement.Prune capability (explicit opt-in)
@@ -48,8 +48,7 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     | -------------------- | -------- | ------------ | ----------- |
     | IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
     | Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
-    | Keep                 | No*      | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind and DisplayName are optional. **These entries are GRANTED if missing after the prune.** *At least one of Keep or KeepPattern is required. |
-    | KeepPattern          | No*      | string array | Wildcard strings (PowerShell -like semantics). Current entitlements whose Id matches any pattern are kept but NOT ensured — patterns cannot be granted. *At least one of Keep or KeepPattern is required. |
+    | Keep                 | Yes      | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind and DisplayName are optional. **These entries are GRANTED if missing after the prune.** At least one Keep entry is required. |
     | Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
     | AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |
     | AuthSessionOptions   | No       | hashtable    | Options passed to AcquireAuthSession for session selection (e.g. role-scoped sessions). |
@@ -67,7 +66,6 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     #
     # After this step:
     #   - CN=LEAVER-RETAIN,...  is present  (kept + granted if it was missing)
-    #   - CN=LEAVER-*,...       are present  (kept if they were already there; not granted if missing)
     #   - All other groups      are removed
     @{
         Name      = 'Prune groups and ensure leaver-retention group (leaver)'
@@ -81,8 +79,8 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
             Keep            = @(
                 @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=contoso,DC=com' }
             )
-            # KEPT but NOT granted: already-present LEAVER-* groups are preserved; absent ones are not added.
-            KeepPattern     = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
+            # Pattern-based retention is not supported by EnsureKeep. Use IdLE.Step.PruneEntitlements
+            # earlier in the workflow if you must preserve wildcard-matched entitlements without grants.
             AuthSessionName = 'Directory'
         }
     }
@@ -120,11 +118,30 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
         [object] $Step
     )
 
+    if ($null -eq $Step.With -or -not ($Step.With -is [hashtable])) {
+        throw "PruneEntitlementsEnsureKeep requires 'With' to be a hashtable."
+    }
+
+    $sourceWith = $Step.With
+
+    if ($sourceWith.ContainsKey('KeepPattern')) {
+        throw "PruneEntitlementsEnsureKeep does not support With.KeepPattern. Use With.Keep for explicit entitlements to retain and ensure."
+    }
+
+    if (-not ($sourceWith.ContainsKey('Keep'))) {
+        throw "PruneEntitlementsEnsureKeep requires With.Keep to contain at least one entitlement. Use IdLE.Step.PruneEntitlements when only pattern-based retention is needed."
+    }
+
+    $keepEntries = @($sourceWith['Keep']) | Where-Object { $null -ne $_ }
+    if ($keepEntries.Count -eq 0) {
+        throw "PruneEntitlementsEnsureKeep requires With.Keep to contain at least one entitlement. Use IdLE.Step.PruneEntitlements when only pattern-based retention is needed."
+    }
+
     # Inject EnsureKeepEntitlements = $true into With, then delegate to Invoke-IdleStepPruneEntitlements.
     # This ensures the ensure-grant phase always runs for this step type.
     $ensureWith = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($key in $Step.With.Keys) {
-        $ensureWith[$key] = $Step.With[$key]
+    foreach ($key in $sourceWith.Keys) {
+        $ensureWith[$key] = $sourceWith[$key]
     }
     $ensureWith['EnsureKeepEntitlements'] = $true
 

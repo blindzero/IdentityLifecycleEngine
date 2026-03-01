@@ -590,56 +590,31 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
         }
     }
 
-    Context 'Behavior: Keep + KeepPattern union (prune + ensure)' {
-        It 'keeps entitlements matching wildcard KeepPattern and ensures explicit Keep items' {
+    Context 'Validation: KeepPattern unsupported' {
+        It 'throws when KeepPattern is provided' {
             $step = $script:StepTemplate
             $step.With.KeepPattern = @('CN=LEAVER-*,DC=contoso,DC=com')
-            $step.With.Keep = @(
-                @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' }
-                @{ Kind = 'Group'; Id = 'CN=LEAVER-NEWGROUP,DC=contoso,DC=com' }
-            )
 
-            $result = & $script:Handler -Context $script:Context -Step $step
-
-            $result.Status  | Should -Be 'Completed'
-            $result.Changed | Should -BeTrue
-
-            $remaining = $script:Provider.ListEntitlements('user1')
-            $remainingIds = $remaining | Select-Object -ExpandProperty Id
-            # LEAVER-RETAIN + LEAVER-EXTRA (pattern) + LEAVER-NEWGROUP (ensured)
-            $remainingIds | Should -Contain 'CN=LEAVER-RETAIN,DC=contoso,DC=com'
-            $remainingIds | Should -Contain 'CN=LEAVER-EXTRA,DC=contoso,DC=com'
-            $remainingIds | Should -Contain 'CN=LEAVER-NEWGROUP,DC=contoso,DC=com'
-            $remainingIds | Should -Not -Contain 'CN=G-All,DC=contoso,DC=com'
-            $remainingIds | Should -Not -Contain 'CN=G-HR,DC=contoso,DC=com'
+            { & $script:Handler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*KeepPattern*'
         }
 
-        It 'does not grant pattern-matched entitlements (only explicit Keep items)' {
+        It 'throws when KeepPattern is provided even if empty' {
             $step = $script:StepTemplate
-            $step.With.KeepPattern = @('CN=LEAVER-*,DC=contoso,DC=com')
+            $step.With.KeepPattern = @()
 
-            # No new explicit Keep items beyond what's already present
-            $result = & $script:Handler -Context $script:Context -Step $step
-
-            $result.Status  | Should -Be 'Completed'
-
-            # LEAVER-EXTRA was kept by pattern but not granted (it was already present)
-            $remaining = $script:Provider.ListEntitlements('user1')
-            $remainingIds = $remaining | Select-Object -ExpandProperty Id
-            $remainingIds | Should -Contain 'CN=LEAVER-RETAIN,DC=contoso,DC=com'
-            $remainingIds | Should -Contain 'CN=LEAVER-EXTRA,DC=contoso,DC=com'
+            { & $script:Handler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*KeepPattern*'
         }
     }
 
-    Context 'Validation: Guardrail - missing Keep and KeepPattern fails fast' {
-        It 'throws when neither Keep nor KeepPattern is provided' {
+    Context 'Validation: Keep is required' {
+        It 'throws when Keep is missing' {
             $step = [pscustomobject]@{
                 Name = 'bad'
                 Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
                 With = @{ IdentityKey = 'user1'; Kind = 'Group'; Provider = 'Identity' }
             }
 
-            { & $script:Handler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*at least one*'
+            { & $script:Handler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*With.Keep*'
         }
     }
 

@@ -43,9 +43,9 @@
                 Keep            = @(
                     @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupDn}}'; DisplayName = 'Leaver Retain' }
                 )
-
-                # Also retain any group whose DN starts with CN=LEAVER- (e.g. LEAVER-*)
-                KeepPattern     = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
+                # Pattern-based retention is not supported by PruneEntitlementsEnsureKeep. Use a
+                # separate IdLE.Step.PruneEntitlements step earlier in the workflow if you need to
+                # preserve wildcard-matched memberships without granting them.
             }
         }
 

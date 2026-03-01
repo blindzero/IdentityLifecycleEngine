@@ -93,9 +93,9 @@
                 Keep               = @(
                     @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupId}}'; DisplayName = 'Leaver Retain' }
                 )
-
-                # Also retain any group whose displayName starts with LEAVER-.
-                KeepPattern        = @('LEAVER-*')
+                # Pattern-based retention is not supported by PruneEntitlementsEnsureKeep. Use a
+                # separate IdLE.Step.PruneEntitlements step earlier if you must protect wildcard
+                # matches without granting them.
             }
         }
 
