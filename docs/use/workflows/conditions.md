@@ -119,13 +119,16 @@ This section is the authoritative DSL reference.
 - Throws an error if `Path` resolves to a scalar
 
 ```powershell
+# Check if a specific group DN is in the entitlements
 @{
   Contains = @{
-    Path  = 'Request.Context.Identity.Entitlements'
+    Path  = 'Request.Context.Identity.Entitlements.Id'
     Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
   }
 }
 ```
+
+> **Note**: When `Request.Context.Identity.Entitlements` contains objects (e.g., `@{ Kind = 'Group'; Id = '...'; DisplayName = '...' }`), use `.Id` or `.DisplayName` to extract the property values: `Entitlements.Id` returns an array of all Id values.
 
 #### NotContains
 
@@ -136,9 +139,10 @@ This section is the authoritative DSL reference.
 - Throws an error if `Path` resolves to a scalar
 
 ```powershell
+# Prevent execution if identity has a specific group
 @{
   NotContains = @{
-    Path  = 'Request.Context.Identity.Entitlements'
+    Path  = 'Request.Context.Identity.Entitlements.Id'
     Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
   }
 }
@@ -153,7 +157,7 @@ This section is the authoritative DSL reference.
 - Uses PowerShell's `-like` operator (supports `*` and `?` wildcards)
 
 ```powershell
-# Scalar example
+# Scalar example: check if DisplayName contains "Contractor"
 @{
   Like = @{
     Path    = 'Request.Context.Identity.Profile.DisplayName'
@@ -161,14 +165,16 @@ This section is the authoritative DSL reference.
   }
 }
 
-# List example
+# List example: check if any entitlement Id matches the pattern
 @{
   Like = @{
-    Path    = 'Request.Context.Identity.Entitlements'
+    Path    = 'Request.Context.Identity.Entitlements.Id'
     Pattern = 'CN=HR-*'
   }
 }
 ```
+
+> **Note**: When checking entitlement Ids or DisplayNames, use `.Id` or `.DisplayName` to extract property values from entitlement objects. The path `Entitlements.Id` uses member-access enumeration to return an array of all Id values.
 
 #### NotLike
 
@@ -187,10 +193,10 @@ This section is the authoritative DSL reference.
   }
 }
 
-# List example
+# List example: ensure no HR groups in entitlements
 @{
   NotLike = @{
-    Path    = 'Request.Context.Identity.Entitlements'
+    Path    = 'Request.Context.Identity.Entitlements.Id'
     Pattern = 'CN=HR-*'
   }
 }
@@ -205,6 +211,32 @@ This section is the authoritative DSL reference.
 - Pattern matching for `Like` and `NotLike` uses PowerShell's `-like` operator
 - Deterministic evaluation
 - Values are converted to string before comparison
+
+### Member-Access Enumeration
+
+When a `Path` points to a list of objects, you can access properties of those objects using dot notation:
+
+- `Request.Context.Identity.Entitlements` → returns array of entitlement objects
+- `Request.Context.Identity.Entitlements.Id` → returns array of all `Id` values
+- `Request.Context.Identity.Entitlements.DisplayName` → returns array of all `DisplayName` values
+
+**Example**:
+```powershell
+# Entitlements contains: @(
+#   @{ Kind = 'Group'; Id = 'CN=Users,...'; DisplayName = 'Users' }
+#   @{ Kind = 'Group'; Id = 'CN=Admins,...'; DisplayName = 'Admins' }
+# )
+
+# Check if any entitlement Id matches a pattern
+@{
+  Like = @{
+    Path    = 'Request.Context.Identity.Entitlements.Id'
+    Pattern = 'CN=HR-*'
+  }
+}
+```
+
+This follows PowerShell's native member-access enumeration behavior.
 
 ### List vs Scalar Behavior
 
@@ -267,7 +299,7 @@ Condition = @{
 ```powershell
 Condition = @{
   NotContains = @{
-    Path  = 'Request.Context.Identity.Entitlements'
+    Path  = 'Request.Context.Identity.Entitlements.Id'
     Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
   }
 }
@@ -278,7 +310,7 @@ Condition = @{
 ```powershell
 Condition = @{
   NotLike = @{
-    Path    = 'Request.Context.Identity.Entitlements'
+    Path    = 'Request.Context.Identity.Entitlements.Id'
     Pattern = 'CN=HR-*'
   }
 }
@@ -303,7 +335,7 @@ Condition = @{
     @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Leaver' } }
     @{
       NotContains = @{
-        Path  = 'Request.Context.Identity.Entitlements'
+        Path  = 'Request.Context.Identity.Entitlements.Id'
         Value = 'CN=Protected-Accounts,OU=Groups,DC=example,DC=com'
       }
     }
