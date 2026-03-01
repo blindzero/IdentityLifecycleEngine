@@ -678,6 +678,28 @@ function New-IdleADAdapter {
             [string] $MemberIdentity
         )
 
+        # Check if already a member (idempotency + reliable change detection)
+        $getMembersParams = @{
+            Identity    = $GroupIdentity
+            ErrorAction = 'Stop'
+        }
+        if ($null -ne $this.Credential) {
+            $getMembersParams['Credential'] = $this.Credential
+        }
+
+        try {
+            $members = Get-ADGroupMember @getMembersParams
+            $isMember = $null -ne ($members | Where-Object { $_.DistinguishedName -eq $MemberIdentity })
+
+            if ($isMember) {
+                # Already a member - no change needed
+                return $false
+            }
+        }
+        catch {
+            # If Get-ADGroupMember fails (e.g., group doesn't exist), let Add-ADGroupMember handle it
+        }
+
         $params = @{
             Identity    = $GroupIdentity
             Members     = $MemberIdentity
@@ -687,17 +709,8 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        try {
-            Add-ADGroupMember @params
-            return $true
-        }
-        catch {
-            # Idempotency: already a member is a no-op
-            if ($_.Exception.Message -match 'already a member') {
-                return $false
-            }
-            throw
-        }
+        Add-ADGroupMember @params
+        return $true
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
@@ -711,6 +724,28 @@ function New-IdleADAdapter {
             [string] $MemberIdentity
         )
 
+        # Check if actually a member (idempotency + reliable change detection)
+        $getMembersParams = @{
+            Identity    = $GroupIdentity
+            ErrorAction = 'Stop'
+        }
+        if ($null -ne $this.Credential) {
+            $getMembersParams['Credential'] = $this.Credential
+        }
+
+        try {
+            $members = Get-ADGroupMember @getMembersParams
+            $isMember = $null -ne ($members | Where-Object { $_.DistinguishedName -eq $MemberIdentity })
+
+            if (-not $isMember) {
+                # Not a member - no change needed
+                return $false
+            }
+        }
+        catch {
+            # If Get-ADGroupMember fails (e.g., group doesn't exist), let Remove-ADGroupMember handle it
+        }
+
         $params = @{
             Identity    = $GroupIdentity
             Members     = $MemberIdentity
@@ -721,17 +756,8 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        try {
-            Remove-ADGroupMember @params
-            return $true
-        }
-        catch {
-            # Idempotency: not a member is a no-op
-            if ($_.Exception.Message -match 'not a member|Member does not exist') {
-                return $false
-            }
-            throw
-        }
+        Remove-ADGroupMember @params
+        return $true
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name GetUserGroups -Value {
