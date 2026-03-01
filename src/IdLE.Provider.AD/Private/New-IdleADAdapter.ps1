@@ -734,45 +734,6 @@ function New-IdleADAdapter {
         }
     } -Force
 
-    $adapter | Add-Member -MemberType ScriptMethod -Name BulkRevokeEntitlements -Value {
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $IdentityKey,
-
-            [Parameter(Mandatory)]
-            [object[]] $Entitlements
-        )
-
-        $primaryGroupDN = $this.GetPrimaryGroupDN($IdentityKey)
-        $results = @()
-
-        foreach ($ent in $Entitlements) {
-            $groupId = $ent.Id
-            $result = [pscustomobject]@{
-                PSTypeName  = 'IdLE.BulkOperationResult'
-                Entitlement = $ent
-                Changed     = $false
-                Error       = $null
-            }
-
-            if ($null -ne $primaryGroupDN -and [string]::Equals($groupId, $primaryGroupDN, [System.StringComparison]::OrdinalIgnoreCase)) {
-                $result.Error = 'Cannot remove primary group.'
-                $results += $result
-                continue
-            }
-
-            try {
-                $result.Changed = $this.RemoveGroupMember($groupId, $IdentityKey)
-            }
-            catch {
-                $result.Error = $_.Exception.Message
-            }
-            $results += $result
-        }
-        return $results
-    } -Force
-
     $adapter | Add-Member -MemberType ScriptMethod -Name GetUserGroups -Value {
         param(
             [Parameter(Mandatory)]

@@ -205,7 +205,7 @@ function Invoke-IdleStepPruneEntitlements {
         }
     }
 
-    # Normalize Keep IDs to canonical form via provider.NormalizeEntitlementId (when available).
+    # Normalize Keep IDs to canonical form via provider.ResolveEntitlement (when available).
     # This ensures correct comparison with the canonical IDs returned by ListEntitlements.
     # Each provider handles its own ID-type detection (e.g., GUID/DN/sAMAccountName for AD;
     # objectId/displayName for Entra ID).

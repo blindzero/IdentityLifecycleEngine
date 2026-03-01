@@ -205,13 +205,20 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $step = $script:StepTemplate
             $step.With.EnsureKeepEntitlements = $true
 
-            $grantCount = 0
-            $originalGrant = $script:Provider.PSObject.Methods['GrantEntitlement']
+            # Replace GrantEntitlement with a counter to verify it is never called
+            # (CN=LEAVER-RETAIN is already present in the seeded entitlements)
+            $script:grantCount = 0
+            $script:Provider | Add-Member -MemberType ScriptMethod -Name GrantEntitlement -Value {
+                param($IdentityKey, $Entitlement)
+                $script:grantCount++
+                return [pscustomobject]@{ Changed = $true }
+            } -Force
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
             $result = & $handler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
+            $script:grantCount | Should -Be 0 -Because 'CN=LEAVER-RETAIN is already present; GrantEntitlement must not be called'
 
             $remaining = $script:Provider.ListEntitlements('user1')
             $remainingIds = $remaining | Select-Object -ExpandProperty Id
