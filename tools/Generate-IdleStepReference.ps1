@@ -118,7 +118,7 @@ function ConvertTo-IdleMarkdownSafeText {
     return $normalized.Trim()
 }
 
-function Ensure-IdleBlankLineBeforeMarkdownLists {
+function Add-IdleBlankLineBeforeMarkdownLists {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -161,7 +161,7 @@ function ConvertTo-IdleMdxSafeText {
     $t = $t -replace '\}', '\}'
 
     # Lint-friendly markdown lists.
-    $t = Ensure-IdleBlankLineBeforeMarkdownLists -Text $t
+    $t = Add-IdleBlankLineBeforeMarkdownLists -Text $t
 
     return $t.Trim()
 }
@@ -529,13 +529,13 @@ function New-IdleStepDocModel {
             $remarksText = ''
             if ($null -ne $ex -and ($ex.PSObject.Properties.Name -contains 'Remarks') -and $null -ne $ex.Remarks) {
                 $remarksText = ((@($ex.Remarks) | ForEach-Object {
-                    $r = $_
-                    if ($null -ne $r -and ($r.PSObject.Properties.Name -contains 'Text') -and $null -ne $r.Text) {
-                        [string]$r.Text
-                    } else {
-                        ''
-                    }
-                }) -join "`n").Trim()
+                            $r = $_
+                            if ($null -ne $r -and ($r.PSObject.Properties.Name -contains 'Text') -and $null -ne $r.Text) {
+                                [string]$r.Text
+                            } else {
+                                ''
+                            }
+                        }) -join "`n").Trim()
                 if (-not [string]::IsNullOrWhiteSpace($remarksText)) {
                     $remarksText = ConvertTo-IdleMdxSafeText -Text $remarksText
                 }
@@ -841,8 +841,7 @@ foreach ($m in $StepModules) {
         } else { '' }
         $repoRootNormalized = [System.IO.Path]::GetFullPath($repoRoot)
         
-        $isRepoModule = $loadedModuleBase -and 
-                        $loadedModuleBase.StartsWith($repoRootNormalized, [System.StringComparison]::OrdinalIgnoreCase)
+        $isRepoModule = $loadedModuleBase -and $loadedModuleBase.StartsWith($repoRootNormalized, [System.StringComparison]::OrdinalIgnoreCase)
         
         if ($isRepoModule) {
             Write-Verbose "Step module '$m' already loaded from repo: $($loadedModule.ModuleBase)"
