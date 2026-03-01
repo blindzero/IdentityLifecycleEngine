@@ -16,10 +16,14 @@ function Test-IdleCondition {
     # Supported schema (validated by Test-IdleConditionSchema):
     # - Groups: All | Any | None  (each contains an array/list of condition nodes)
     # - Operators:
-    #   - Equals    = @{ Path = '<path>'; Value  = <value>  }
-    #   - NotEquals = @{ Path = '<path>'; Value  = <value>  }
-    #   - Exists    = '<path>' OR @{ Path = '<path>' }
-    #   - In        = @{ Path = '<path>'; Values = <array|scalar> }
+    #   - Equals       = @{ Path = '<path>'; Value   = <value>   }
+    #   - NotEquals    = @{ Path = '<path>'; Value   = <value>   }
+    #   - Exists       = '<path>' OR @{ Path = '<path>' }
+    #   - In           = @{ Path = '<path>'; Values  = <array|scalar> }
+    #   - Contains     = @{ Path = '<path>'; Value   = <value>   }
+    #   - NotContains  = @{ Path = '<path>'; Value   = <value>   }
+    #   - Like         = @{ Path = '<path>'; Pattern = <pattern> }
+    #   - NotLike      = @{ Path = '<path>'; Pattern = <pattern> }
     #
     # Paths are resolved via Get-IdleValueByPath against the provided $Context.
     # For readability in configuration, a leading "context." prefix is ignored.
@@ -137,6 +141,110 @@ function Test-IdleCondition {
             }
 
             return $false
+        }
+
+        if ($Node.Contains('Contains')) {
+            $op = $Node.Contains
+
+            $actual = Resolve-IdleConditionPathValue -Path ([string]$op.Path)
+            $expected = $op.Value
+
+            # Contains requires the resolved path to be a list.
+            if ($null -eq $actual) {
+                return $false
+            }
+
+            if (-not ($actual -is [System.Collections.IEnumerable]) -or ($actual -is [string])) {
+                throw [System.ArgumentException]::new(
+                    ("Contains operator requires Path to resolve to a list, but got '{0}'." -f $actual.GetType().Name),
+                    'Condition'
+                )
+            }
+
+            # Check if any element in the list matches the expected value (case-insensitive).
+            foreach ($item in @($actual)) {
+                if ([string]$item -eq [string]$expected) {
+                    return $true
+                }
+            }
+
+            return $false
+        }
+
+        if ($Node.Contains('NotContains')) {
+            $op = $Node.NotContains
+
+            $actual = Resolve-IdleConditionPathValue -Path ([string]$op.Path)
+            $expected = $op.Value
+
+            # NotContains requires the resolved path to be a list.
+            if ($null -eq $actual) {
+                return $true
+            }
+
+            if (-not ($actual -is [System.Collections.IEnumerable]) -or ($actual -is [string])) {
+                throw [System.ArgumentException]::new(
+                    ("NotContains operator requires Path to resolve to a list, but got '{0}'." -f $actual.GetType().Name),
+                    'Condition'
+                )
+            }
+
+            # Check if no element in the list matches the expected value (case-insensitive).
+            foreach ($item in @($actual)) {
+                if ([string]$item -eq [string]$expected) {
+                    return $false
+                }
+            }
+
+            return $true
+        }
+
+        if ($Node.Contains('Like')) {
+            $op = $Node.Like
+
+            $actual = Resolve-IdleConditionPathValue -Path ([string]$op.Path)
+            $pattern = $op.Pattern
+
+            if ($null -eq $actual) {
+                return $false
+            }
+
+            # If the value is a list, return true if ANY element matches the pattern.
+            if (($actual -is [System.Collections.IEnumerable]) -and -not ($actual -is [string])) {
+                foreach ($item in @($actual)) {
+                    if ([string]$item -like [string]$pattern) {
+                        return $true
+                    }
+                }
+                return $false
+            }
+
+            # Scalar: direct pattern match (case-insensitive by default).
+            return ([string]$actual -like [string]$pattern)
+        }
+
+        if ($Node.Contains('NotLike')) {
+            $op = $Node.NotLike
+
+            $actual = Resolve-IdleConditionPathValue -Path ([string]$op.Path)
+            $pattern = $op.Pattern
+
+            if ($null -eq $actual) {
+                return $true
+            }
+
+            # If the value is a list, return true if NO element matches the pattern.
+            if (($actual -is [System.Collections.IEnumerable]) -and -not ($actual -is [string])) {
+                foreach ($item in @($actual)) {
+                    if ([string]$item -like [string]$pattern) {
+                        return $false
+                    }
+                }
+                return $true
+            }
+
+            # Scalar: direct pattern non-match (case-insensitive by default).
+            return ([string]$actual -notlike [string]$pattern)
         }
 
         # Should never happen due to schema validation.

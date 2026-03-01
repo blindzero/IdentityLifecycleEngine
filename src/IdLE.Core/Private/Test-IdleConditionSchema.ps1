@@ -13,14 +13,18 @@ function Test-IdleConditionSchema {
     # NOTE:
     # This validator is intentionally strict:
     # - Unknown keys are errors (keeps configuration deterministic and toolable).
-    # - A node must be either a group (All/Any/None) OR an operator (Equals/NotEquals/Exists/In).
+    # - A node must be either a group (All/Any/None) OR an operator (Equals/NotEquals/Exists/In/Contains/NotContains/Like/NotLike).
     # - ScriptBlocks are validated elsewhere (Assert-IdleNoScriptBlock). We assume data-only input here.
     #
     # Supported operator shapes:
-    # - Equals    = @{ Path = '<path>'; Value  = <value>  }
-    # - NotEquals = @{ Path = '<path>'; Value  = <value>  }
-    # - Exists    = '<path>' OR @{ Path = '<path>' }
-    # - In        = @{ Path = '<path>'; Values = <array|scalar> }
+    # - Equals       = @{ Path = '<path>'; Value  = <value>  }
+    # - NotEquals    = @{ Path = '<path>'; Value  = <value>  }
+    # - Exists       = '<path>' OR @{ Path = '<path>' }
+    # - In           = @{ Path = '<path>'; Values = <array|scalar> }
+    # - Contains     = @{ Path = '<path>'; Value  = <value>  }
+    # - NotContains  = @{ Path = '<path>'; Value  = <value>  }
+    # - Like         = @{ Path = '<path>'; Pattern = <pattern> }
+    # - NotLike      = @{ Path = '<path>'; Pattern = <pattern> }
 
     $errors = [System.Collections.Generic.List[string]]::new()
     $prefix = if ([string]::IsNullOrWhiteSpace($StepName)) { 'Step' } else { "Step '$StepName'" }
@@ -71,7 +75,7 @@ function Test-IdleConditionSchema {
         }
 
         $allowedGroupKeys = @('All', 'Any', 'None')
-        $allowedOpKeys = @('Equals', 'NotEquals', 'Exists', 'In')
+        $allowedOpKeys = @('Equals', 'NotEquals', 'Exists', 'In', 'Contains', 'NotContains', 'Like', 'NotLike')
         $allowedKeys = @($allowedGroupKeys + $allowedOpKeys)
 
         $presentGroupKeys = @($allowedGroupKeys | Where-Object { $Node.Contains($_) })
@@ -79,13 +83,13 @@ function Test-IdleConditionSchema {
 
         # Enforce: either group OR operator, never both.
         if ($presentGroupKeys.Count -gt 0 -and $presentOpKeys.Count -gt 0) {
-            Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must be either a group (All/Any/None) or an operator (Equals/NotEquals/Exists/In), not both." -f $NodePath)
+            Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must be either a group (All/Any/None) or an operator (Equals/NotEquals/Exists/In/Contains/NotContains/Like/NotLike), not both." -f $NodePath)
             return , $nodeErrors
         }
 
         # Enforce: at least one recognized key.
         if ($presentGroupKeys.Count -eq 0 -and $presentOpKeys.Count -eq 0) {
-            Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must specify one group (All/Any/None) or one operator (Equals/NotEquals/Exists/In)." -f $NodePath)
+            Add-IdleConditionError -List $nodeErrors -Message ("{0}: Condition node must specify one group (All/Any/None) or one operator (Equals/NotEquals/Exists/In/Contains/NotContains/Like/NotLike)." -f $NodePath)
             return , $nodeErrors
         }
 
@@ -139,7 +143,7 @@ function Test-IdleConditionSchema {
             return , $nodeErrors
         }
 
-        # OPERATOR: Exactly one of Equals/NotEquals/Exists/In.
+        # OPERATOR: Exactly one of Equals/NotEquals/Exists/In/Contains/NotContains/Like/NotLike.
         $opKey = [string]$presentOpKeys[0]
         $opVal = $Node[$opKey]
         $opPath = ("{0}.{1}" -f $NodePath, $opKey)
@@ -252,6 +256,106 @@ function Test-IdleConditionSchema {
                 # Values should be list/array (or scalar) but must not be a dictionary (ambiguous).
                 if ($values -is [System.Collections.IDictionary]) {
                     Add-IdleConditionError -List $nodeErrors -Message ("{0}: Values must be a list/array (or scalar), not a dictionary." -f $opPath)
+                }
+
+                return , $nodeErrors
+            }
+
+            'Contains' {
+                # Contains operator:
+                #   Contains = @{ Path = 'context.Identity.Entitlements'; Value = 'CN=Group,OU=Groups,DC=example,DC=com' }
+                if (-not ($opVal -is [System.Collections.IDictionary])) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Contains must be a hashtable with keys Path and Value." -f $opPath)
+                    return , $nodeErrors
+                }
+
+                foreach ($k in @($opVal.Keys)) {
+                    if (@('Path', 'Value') -notcontains [string]$k) {
+                        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Path, Value." -f $opPath, [string]$k)
+                    }
+                }
+
+                if (-not $opVal.Contains('Path') -or [string]::IsNullOrWhiteSpace([string]$opVal.Path)) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
+                }
+
+                if (-not $opVal.Contains('Value')) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Value." -f $opPath)
+                }
+
+                return , $nodeErrors
+            }
+
+            'NotContains' {
+                # NotContains operator:
+                #   NotContains = @{ Path = 'context.Identity.Entitlements'; Value = 'CN=Group,OU=Groups,DC=example,DC=com' }
+                if (-not ($opVal -is [System.Collections.IDictionary])) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: NotContains must be a hashtable with keys Path and Value." -f $opPath)
+                    return , $nodeErrors
+                }
+
+                foreach ($k in @($opVal.Keys)) {
+                    if (@('Path', 'Value') -notcontains [string]$k) {
+                        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Path, Value." -f $opPath, [string]$k)
+                    }
+                }
+
+                if (-not $opVal.Contains('Path') -or [string]::IsNullOrWhiteSpace([string]$opVal.Path)) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
+                }
+
+                if (-not $opVal.Contains('Value')) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Value." -f $opPath)
+                }
+
+                return , $nodeErrors
+            }
+
+            'Like' {
+                # Like operator:
+                #   Like = @{ Path = 'context.Identity.Profile.DisplayName'; Pattern = '* (Contractor)' }
+                if (-not ($opVal -is [System.Collections.IDictionary])) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Like must be a hashtable with keys Path and Pattern." -f $opPath)
+                    return , $nodeErrors
+                }
+
+                foreach ($k in @($opVal.Keys)) {
+                    if (@('Path', 'Pattern') -notcontains [string]$k) {
+                        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Path, Pattern." -f $opPath, [string]$k)
+                    }
+                }
+
+                if (-not $opVal.Contains('Path') -or [string]::IsNullOrWhiteSpace([string]$opVal.Path)) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
+                }
+
+                if (-not $opVal.Contains('Pattern')) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Pattern." -f $opPath)
+                }
+
+                return , $nodeErrors
+            }
+
+            'NotLike' {
+                # NotLike operator:
+                #   NotLike = @{ Path = 'context.Identity.Entitlements'; Pattern = 'CN=HR-*' }
+                if (-not ($opVal -is [System.Collections.IDictionary])) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: NotLike must be a hashtable with keys Path and Pattern." -f $opPath)
+                    return , $nodeErrors
+                }
+
+                foreach ($k in @($opVal.Keys)) {
+                    if (@('Path', 'Pattern') -notcontains [string]$k) {
+                        Add-IdleConditionError -List $nodeErrors -Message ("{0}: Unknown key '{1}'. Allowed: Path, Pattern." -f $opPath, [string]$k)
+                    }
+                }
+
+                if (-not $opVal.Contains('Path') -or [string]::IsNullOrWhiteSpace([string]$opVal.Path)) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing or empty Path." -f $opPath)
+                }
+
+                if (-not $opVal.Contains('Pattern')) {
+                    Add-IdleConditionError -List $nodeErrors -Message ("{0}: Missing Pattern." -f $opPath)
                 }
 
                 return , $nodeErrors
