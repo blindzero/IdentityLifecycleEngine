@@ -203,7 +203,7 @@ Describe 'New-IdlePlan' {
             { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw -ExpectedMessage '*does not match request LifecycleEvent*'
         }
 
-        It 'fails plan building when PruneEntitlementsEnsureKeep step contains forbidden With.KeepPattern key' {
+        It 'fails plan building when PruneEntitlementsEnsureKeep step contains unsupported With.KeepPattern key (not in AllowedWithKeys)' {
             $wfPath = New-IdleTestWorkflowFile -FileName 'leaver-bad.psd1' -Content @'
 @{
   Name           = 'Leaver - Bad KeepPattern'

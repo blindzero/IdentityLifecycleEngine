@@ -121,14 +121,21 @@ function ConvertTo-IdleWorkflowSteps {
         # Resolve template placeholders in With (planning-time resolution)
         $with = Resolve-IdleWorkflowTemplates -Value $with -Request $PlanningContext.Request -StepName $stepName
 
-        # Validate ForbiddenWithKeys declared by step metadata (fail-fast plan-time schema check)
+        # Validate AllowedWithKeys declared by step metadata (fail-fast plan-time schema check).
+        # Steps that declare AllowedWithKeys accept only those keys in With; any other key is rejected.
+        # Steps that do not declare AllowedWithKeys skip this validation (backward compatible).
         if ($StepMetadataCatalog.ContainsKey($stepType)) {
             $md = $StepMetadataCatalog[$stepType]
-            if ($null -ne $md -and $md -is [hashtable] -and $md.ContainsKey('ForbiddenWithKeys')) {
-                foreach ($fk in @($md['ForbiddenWithKeys'])) {
-                    if (-not [string]::IsNullOrWhiteSpace([string]$fk) -and $with.ContainsKey([string]$fk)) {
+            if ($null -ne $md -and $md -is [hashtable] -and $md.ContainsKey('AllowedWithKeys')) {
+                $allowedSet = [System.Collections.Generic.HashSet[string]]::new(
+                    [string[]]@($md['AllowedWithKeys']),
+                    [System.StringComparer]::OrdinalIgnoreCase
+                )
+                foreach ($wk in @($with.Keys)) {
+                    if (-not $allowedSet.Contains([string]$wk)) {
+                        $allowedList = [string]::Join(', ', ([string[]]@($md['AllowedWithKeys']) | Sort-Object))
                         throw [System.ArgumentException]::new(
-                            ("Step '{0}' (type '{1}') does not support With.{2}. Remove this key from the step definition." -f $stepName, $stepType, [string]$fk),
+                            ("Step '{0}' (type '{1}') does not support With.{2}. Allowed With keys: {3}." -f $stepName, $stepType, [string]$wk, $allowedList),
                             'Workflow'
                         )
                     }
