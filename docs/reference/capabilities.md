@@ -143,6 +143,8 @@ Each capability writes to a **predefined, fixed path** under `Request.Context`. 
 | `IdLE.Entitlement.List` | `Request.Context.Identity.Entitlements` | `IdentityKey` (string) |
 | `IdLE.Identity.Read` | `Request.Context.Identity.Profile` | `IdentityKey` (string) |
 
+> **Note**: `IdLE.Entitlement.List` writes an array of entitlement objects, each with properties: `Kind` (string), `Id` (string), and optionally `DisplayName` (string). To reference entitlement Ids in Conditions, use `Request.Context.Identity.Entitlements.Id`. See [Conditions - Member-Access Enumeration](../use/workflows/conditions.md#member-access-enumeration).
+
 ### Example
 
 ```powershell
@@ -166,5 +168,16 @@ ContextResolvers = @(
 Steps can then reference the resolved data in their `Condition`:
 
 ```powershell
+# Check if entitlements exist
 Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
+
+# Check if a specific group Id is present
+Condition = @{
+  Contains = @{
+    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Value = 'CN=Admins,OU=Groups,DC=example,DC=com'
+  }
+}
 ```
+
+> **Tip**: Use `$plan.Request.Context.Identity.Entitlements | Format-Table` to inspect the structure of resolved entitlements. See [Context Resolvers - Inspecting resolved context data](../use/workflows/context-resolver.md#inspecting-resolved-context-data).
