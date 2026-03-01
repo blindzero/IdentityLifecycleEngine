@@ -28,6 +28,12 @@ Describe 'Get-IdlePropertyValue' {
             $result | Should -BeNullOrEmpty
         }
 
+        It 'returns null for non-existent key in hashtable' {
+            $obj = @{ Name = 'John' }
+            $result = Get-IdlePropertyValue -Object $obj -Name 'Missing'
+            $result | Should -BeNullOrEmpty
+        }
+
         It 'returns null when Object is null' {
             $result = Get-IdlePropertyValue -Object $null -Name 'Name'
             $result | Should -BeNullOrEmpty

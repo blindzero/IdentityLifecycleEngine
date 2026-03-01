@@ -45,7 +45,7 @@ function Get-IdlePropertyValue {
 
                 if ($null -ne $testProp) {
                     # Extract the property from all items
-                    $result = @()
+                    $result = [System.Collections.Generic.List[object]]::new()
                     foreach ($item in $items) {
                         if ($null -ne $item) {
                             $val = if ($item -is [System.Collections.IDictionary]) {
@@ -54,10 +54,10 @@ function Get-IdlePropertyValue {
                                 $p = $item.PSObject.Properties[$Name]
                                 if ($null -ne $p) { $p.Value } else { $null }
                             }
-                            $result += $val
+                            $result.Add($val)
                         }
                     }
-                    return $result
+                    return $result.ToArray()
                 }
             }
         }
