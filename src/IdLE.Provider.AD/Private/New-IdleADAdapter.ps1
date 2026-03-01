@@ -697,7 +697,9 @@ function New-IdleADAdapter {
             }
         }
         catch {
-            # If Get-ADGroupMember fails (e.g., group doesn't exist), let Add-ADGroupMember handle it
+            # If Get-ADGroupMember fails (e.g., group doesn't exist, permission denied), proceed
+            # to Add-ADGroupMember which will provide the authoritative error message.
+            # This ensures idempotency check doesn't prevent legitimate operations.
         }
 
         $params = @{
@@ -743,7 +745,9 @@ function New-IdleADAdapter {
             }
         }
         catch {
-            # If Get-ADGroupMember fails (e.g., group doesn't exist), let Remove-ADGroupMember handle it
+            # If Get-ADGroupMember fails (e.g., group doesn't exist, permission denied), proceed
+            # to Remove-ADGroupMember which will provide the authoritative error message.
+            # This ensures idempotency check doesn't prevent legitimate operations.
         }
 
         $params = @{
