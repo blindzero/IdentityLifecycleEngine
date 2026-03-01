@@ -154,6 +154,14 @@ function Test-IdleCondition {
                 return $false
             }
 
+            # Reject dictionaries/hashtables explicitly (they implement IEnumerable but are not lists).
+            if ($actual -is [System.Collections.IDictionary]) {
+                throw [System.ArgumentException]::new(
+                    ("Contains operator requires Path to resolve to a list/array, not a hashtable/dictionary."),
+                    'Condition'
+                )
+            }
+
             if (-not ($actual -is [System.Collections.IEnumerable]) -or ($actual -is [string])) {
                 throw [System.ArgumentException]::new(
                     ("Contains operator requires Path to resolve to a list, but got '{0}'." -f $actual.GetType().Name),
@@ -180,6 +188,14 @@ function Test-IdleCondition {
             # NotContains requires the resolved path to be a list.
             if ($null -eq $actual) {
                 return $true
+            }
+
+            # Reject dictionaries/hashtables explicitly (they implement IEnumerable but are not lists).
+            if ($actual -is [System.Collections.IDictionary]) {
+                throw [System.ArgumentException]::new(
+                    ("NotContains operator requires Path to resolve to a list/array, not a hashtable/dictionary."),
+                    'Condition'
+                )
             }
 
             if (-not ($actual -is [System.Collections.IEnumerable]) -or ($actual -is [string])) {
@@ -209,6 +225,14 @@ function Test-IdleCondition {
                 return $false
             }
 
+            # Reject dictionaries/hashtables explicitly to avoid ambiguous iteration over keys/entries.
+            if ($actual -is [System.Collections.IDictionary]) {
+                throw [System.ArgumentException]::new(
+                    ("Like operator cannot evaluate a hashtable/dictionary. Use a list/array or scalar value."),
+                    'Condition'
+                )
+            }
+
             # If the value is a list, return true if ANY element matches the pattern.
             if (($actual -is [System.Collections.IEnumerable]) -and -not ($actual -is [string])) {
                 foreach ($item in @($actual)) {
@@ -231,6 +255,14 @@ function Test-IdleCondition {
 
             if ($null -eq $actual) {
                 return $true
+            }
+
+            # Reject dictionaries/hashtables explicitly to avoid ambiguous iteration over keys/entries.
+            if ($actual -is [System.Collections.IDictionary]) {
+                throw [System.ArgumentException]::new(
+                    ("NotLike operator cannot evaluate a hashtable/dictionary. Use a list/array or scalar value."),
+                    'Condition'
+                )
             }
 
             # If the value is a list, return true if NO element matches the pattern.

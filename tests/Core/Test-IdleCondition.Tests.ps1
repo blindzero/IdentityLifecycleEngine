@@ -442,6 +442,102 @@ Describe 'Condition DSL (schema + evaluator)' {
                 { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw
             }
 
+            It 'throws when Contains is used on hashtable' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Identity = [pscustomobject]@{
+                                Metadata = @{
+                                    Department = 'Engineering'
+                                    Location   = 'Seattle'
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Contains = @{
+                        Path  = 'Request.Context.Identity.Metadata'
+                        Value = 'Engineering'
+                    }
+                }
+
+                { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw -ExpectedMessage '*hashtable/dictionary*'
+            }
+
+            It 'throws when NotContains is used on hashtable' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Identity = [pscustomobject]@{
+                                Metadata = @{
+                                    Department = 'Engineering'
+                                    Location   = 'Seattle'
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotContains = @{
+                        Path  = 'Request.Context.Identity.Metadata'
+                        Value = 'HR'
+                    }
+                }
+
+                { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw -ExpectedMessage '*hashtable/dictionary*'
+            }
+
+            It 'throws when Like is used on hashtable' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Identity = [pscustomobject]@{
+                                Metadata = @{
+                                    Department = 'Engineering'
+                                    Location   = 'Seattle'
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Like = @{
+                        Path    = 'Request.Context.Identity.Metadata'
+                        Pattern = 'Eng*'
+                    }
+                }
+
+                { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw -ExpectedMessage '*hashtable/dictionary*'
+            }
+
+            It 'throws when NotLike is used on hashtable' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Identity = [pscustomobject]@{
+                                Metadata = @{
+                                    Department = 'Engineering'
+                                    Location   = 'Seattle'
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotLike = @{
+                        Path    = 'Request.Context.Identity.Metadata'
+                        Pattern = 'HR*'
+                    }
+                }
+
+                { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw -ExpectedMessage '*hashtable/dictionary*'
+            }
+
             It 'returns true when NotContains does not find value in list' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
