@@ -977,9 +977,15 @@ function New-IdleEntraIDIdentityProvider {
 
         $batchResults = $this.Adapter.BatchMembershipChanges($operations, $accessToken)
 
+        # Build lookup table for operations by RequestId to avoid O(n²) Where-Object scans
+        $operationByRequestId = @{}
+        foreach ($op in $operations) {
+            $operationByRequestId[$op.RequestId] = $op
+        }
+
         $results = @()
         foreach ($br in $batchResults) {
-            $op = $operations | Where-Object { $_.RequestId -eq $br.RequestId }
+            $op = $operationByRequestId[$br.RequestId]
             $results += [pscustomobject]@{
                 PSTypeName  = 'IdLE.BulkProviderResult'
                 Operation   = 'RevokeEntitlement'
