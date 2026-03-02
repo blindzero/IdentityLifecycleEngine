@@ -667,6 +667,41 @@ function New-IdleADAdapter {
         }
     } -Force
 
+    # Helper method to check if a user is a member of a group
+    # Returns $true if member, $false if not a member, $null if check fails
+    $adapter | Add-Member -MemberType ScriptMethod -Name TestGroupMembership -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $GroupIdentity,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $MemberIdentity
+        )
+
+        $getMembersParams = @{
+            Identity    = $GroupIdentity
+            ErrorAction = 'Stop'
+        }
+        if ($null -ne $this.Credential) {
+            $getMembersParams['Credential'] = $this.Credential
+        }
+
+        try {
+            # For large groups, short-circuit after finding the first match
+            $existingMember = Get-ADGroupMember @getMembersParams |
+                Where-Object { $_.DistinguishedName -eq $MemberIdentity } |
+                Select-Object -First 1
+            return ($null -ne $existingMember)
+        }
+        catch {
+            # Return null to signal check failure (let calling method proceed to authoritative operation)
+            Write-Verbose "TestGroupMembership: Get-ADGroupMember failed for group '$GroupIdentity' and member '$MemberIdentity': $($_.Exception.Message)"
+            return $null
+        }
+    } -Force
+
     $adapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {
         param(
             [Parameter(Mandatory)]
@@ -678,6 +713,15 @@ function New-IdleADAdapter {
             [string] $MemberIdentity
         )
 
+        # Check if already a member (idempotency + reliable change detection)
+        $isMember = $this.TestGroupMembership($GroupIdentity, $MemberIdentity)
+        
+        if ($isMember -eq $true) {
+            # Already a member - no change needed
+            return $false
+        }
+        # If $isMember is $null (check failed), proceed to Add-ADGroupMember for authoritative error
+
         $params = @{
             Identity    = $GroupIdentity
             Members     = $MemberIdentity
@@ -687,17 +731,8 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        try {
-            Add-ADGroupMember @params
-            return $true
-        }
-        catch {
-            # Idempotency: already a member is a no-op
-            if ($_.Exception.Message -match 'already a member') {
-                return $false
-            }
-            throw
-        }
+        Add-ADGroupMember @params
+        return $true
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
@@ -711,6 +746,15 @@ function New-IdleADAdapter {
             [string] $MemberIdentity
         )
 
+        # Check if actually a member (idempotency + reliable change detection)
+        $isMember = $this.TestGroupMembership($GroupIdentity, $MemberIdentity)
+        
+        if ($isMember -eq $false) {
+            # Not a member - no change needed
+            return $false
+        }
+        # If $isMember is $null (check failed), proceed to Remove-ADGroupMember for authoritative error
+
         $params = @{
             Identity    = $GroupIdentity
             Members     = $MemberIdentity
@@ -721,17 +765,8 @@ function New-IdleADAdapter {
             $params['Credential'] = $this.Credential
         }
 
-        try {
-            Remove-ADGroupMember @params
-            return $true
-        }
-        catch {
-            # Idempotency: not a member is a no-op
-            if ($_.Exception.Message -match 'not a member|Member does not exist') {
-                return $false
-            }
-            throw
-        }
+        Remove-ADGroupMember @params
+        return $true
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name GetUserGroups -Value {
