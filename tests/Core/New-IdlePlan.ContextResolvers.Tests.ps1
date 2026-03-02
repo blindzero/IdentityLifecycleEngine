@@ -169,6 +169,114 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $profile.EmailAddress | Should -Be 'user1@example.com'
             $profile.UserPrincipalName | Should -Be 'user1@example.com'
         }
+
+        It 'IdLE.Identity.Read resolver handles null Attributes gracefully' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = $null
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+            $profile = $plan.Request.Context.Identity.Profile
+
+            # Core properties should be present
+            $profile.IdentityKey | Should -Be 'user1'
+            $profile.Enabled | Should -Be $true
+
+            # Attributes should be null (not an empty hashtable)
+            $profile.Attributes | Should -BeNullOrEmpty
+        }
+
+        It 'IdLE.Identity.Read resolver handles empty Attributes hashtable' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{}
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+            $profile = $plan.Request.Context.Identity.Profile
+
+            # Core properties should be present
+            $profile.IdentityKey | Should -Be 'user1'
+            $profile.Enabled | Should -Be $true
+
+            # Attributes should be an empty hashtable (not null)
+            $profile.Attributes | Should -BeOfType [hashtable]
+            $profile.Attributes.Count | Should -Be 0
+        }
+
+        It 'IdLE.Identity.Read resolver does not overwrite core properties with conflicting attributes' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{
+                        IdentityKey = 'conflicting-value'  # This conflicts with core property
+                        Enabled     = $false                # This also conflicts
+                        DisplayName = 'User One'
+                    }
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+            $profile = $plan.Request.Context.Identity.Profile
+
+            # Core IdentityKey should NOT be overwritten by conflicting attribute
+            $profile.IdentityKey | Should -Be 'user1'
+
+            # Core Enabled should NOT be overwritten by conflicting attribute
+            $profile.Enabled | Should -Be $true
+
+            # DisplayName should be flattened (no conflict)
+            $profile.DisplayName | Should -Be 'User One'
+
+            # Conflicting attributes should still be accessible via Attributes hashtable
+            $profile.Attributes.IdentityKey | Should -Be 'conflicting-value'
+            $profile.Attributes.Enabled | Should -Be $false
+            $profile.Attributes.DisplayName | Should -Be 'User One'
+        }
     }
 
     Context 'To is not a supported key (output path is predefined per capability)' {

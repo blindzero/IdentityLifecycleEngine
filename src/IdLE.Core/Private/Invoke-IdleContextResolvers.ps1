@@ -476,6 +476,11 @@ function ConvertTo-IdleFlattenedIdentity {
             if (-not $flattened.Contains($key)) {
                 $flattened[$key] = $attributes[$key]
             }
+            else {
+                # Warn if an attribute key conflicts with a core property name
+                # This helps users understand why an attribute might not be accessible at top level
+                Write-Verbose "Identity attribute '$key' conflicts with a core property name and will not be promoted to top level. Access via Attributes.$key instead."
+            }
         }
     }
 
