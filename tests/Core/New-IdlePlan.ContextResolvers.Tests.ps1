@@ -199,7 +199,8 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $profile.Enabled | Should -Be $true
 
             # Attributes should be null (not an empty hashtable)
-            $profile.Attributes | Should -BeNullOrEmpty
+            $profile | Should -HaveProperty 'Attributes'
+            $profile.Attributes | Should -Be $null
         }
 
         It 'IdLE.Identity.Read resolver handles empty Attributes hashtable' {
