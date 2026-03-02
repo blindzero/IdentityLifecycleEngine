@@ -425,6 +425,10 @@ function ConvertTo-IdleFlattenedIdentity {
     - All properties from the Attributes hashtable are promoted to top-level properties
     - The original Attributes hashtable is preserved for backwards compatibility
 
+    Reserved property names (IdentityKey, Enabled, Attributes) will not be overwritten
+    if they appear as keys in the Attributes hashtable. If a conflict occurs, a verbose
+    warning is emitted and the attribute remains accessible only via Attributes.PropertyName.
+
     This allows users to access Request.Context.Identity.Profile.DisplayName
     instead of Request.Context.Identity.Profile.Attributes.DisplayName.
 
@@ -469,7 +473,9 @@ function ConvertTo-IdleFlattenedIdentity {
         Attributes  = $attributes
     }
 
-    # Promote all attribute keys to top level
+    # Promote all attribute keys to top level.
+    # Reserved property names (IdentityKey, Enabled, Attributes) will not be overwritten
+    # if they appear as keys in the Attributes hashtable.
     if ($null -ne $attributes -and $attributes -is [System.Collections.IDictionary]) {
         foreach ($key in $attributes.Keys) {
             # Only add if not already present (core properties take precedence)

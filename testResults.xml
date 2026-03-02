@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="20" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-03-02" time="15:47:12">
+  <environment clr-version="8.0.21" cwd="/home/runner/work/IdentityLifecycleEngine/IdentityLifecycleEngine" nunit-version="2.5.8.0" user-domain="" machine-name="runnervmnay03" user="runner" platform="Linux" os-version="6.14.0-1017-azure" />
+  <culture-info current-culture="" current-uiculture="" />
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="2.1696" asserts="0" description="Pester">
+    <results>
+      <test-suite type="TestFixture" name="/home/runner/work/IdentityLifecycleEngine/IdentityLifecycleEngine/tests/Core/New-IdlePlan.ContextResolvers.Tests.ps1" executed="True" result="Success" success="True" time="2.1696" asserts="0" description="/home/runner/work/IdentityLifecycleEngine/IdentityLifecycleEngine/tests/Core/New-IdlePlan.ContextResolvers.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers" executed="True" result="Success" success="True" time="1.5732" asserts="0" description="New-IdlePlan - ContextResolvers">
+            <results>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Resolver runs before conditions and influences step applicability" executed="True" result="Success" success="True" time="0.8917" asserts="0" description="New-IdlePlan - ContextResolvers.Resolver runs before conditions and influences step applicability">
+                <results>
+                  <test-case description="resolver populates Request.Context and condition references resolved data" name="New-IdlePlan - ContextResolvers.Resolver runs before conditions and influences step applicability.resolver populates Request.Context and condition references resolved data" time="0.4602" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="step is NotApplicable when resolver returns empty entitlements and condition requires them" name="New-IdlePlan - ContextResolvers.Resolver runs before conditions and influences step applicability.step is NotApplicable when resolver returns empty entitlements and condition requires them" time="0.0918" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="IdLE.Identity.Read resolver populates Request.Context.Identity.Profile" name="New-IdlePlan - ContextResolvers.Resolver runs before conditions and influences step applicability.IdLE.Identity.Read resolver populates Request.Context.Identity.Profile" time="0.0619" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="IdLE.Identity.Read resolver flattens Attributes to top-level properties" name="New-IdlePlan - ContextResolvers.Resolver runs before conditions and influences step applicability.IdLE.Identity.Read resolver flattens Attributes to top-level properties" time="0.0927" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="IdLE.Identity.Read resolver handles null Attributes gracefully" name="New-IdlePlan - ContextResolvers.Resolver runs before conditions and influences step applicability.IdLE.Identity.Read resolver handles null Attributes gracefully" time="0.0619" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="IdLE.Identity.Read resolver handles empty Attributes hashtable" name="New-IdlePlan - ContextResolvers.Resolver runs before conditions and influences step applicability.IdLE.Identity.Read resolver handles empty Attributes hashtable" time="0.0463" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="IdLE.Identity.Read resolver does not overwrite core properties with conflicting attributes" name="New-IdlePlan - ContextResolvers.Resolver runs before conditions and influences step applicability.IdLE.Identity.Read resolver does not overwrite core properties with conflicting attributes" time="0.0516" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.To is not a supported key (output path is predefined per capability)" executed="True" result="Success" success="True" time="0.928" asserts="0" description="New-IdlePlan - ContextResolvers.To is not a supported key (output path is predefined per capability)">
+                <results>
+                  <test-case description="rejects a resolver entry that specifies To (unknown key)" name="New-IdlePlan - ContextResolvers.To is not a supported key (output path is predefined per capability).rejects a resolver entry that specifies To (unknown key)" time="0.0324" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Non-allow-listed capability" executed="True" result="Success" success="True" time="0.9601" asserts="0" description="New-IdlePlan - ContextResolvers.Non-allow-listed capability">
+                <results>
+                  <test-case description="rejects a resolver that uses a capability not in the read-only allow-list" name="New-IdlePlan - ContextResolvers.Non-allow-listed capability.rejects a resolver that uses a capability not in the read-only allow-list" time="0.0277" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Resolver output captured in plan snapshot" executed="True" result="Success" success="True" time="1.0124" asserts="0" description="New-IdlePlan - ContextResolvers.Resolver output captured in plan snapshot">
+                <results>
+                  <test-case description="plan.Request.Context contains the resolved value after planning" name="New-IdlePlan - ContextResolvers.Resolver output captured in plan snapshot.plan.Request.Context contains the resolved value after planning" time="0.0472" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Provider auto-selection" executed="True" result="Success" success="True" time="1.1801" asserts="0" description="New-IdlePlan - ContextResolvers.Provider auto-selection">
+                <results>
+                  <test-case description="auto-selects provider when Provider is not specified in resolver" name="New-IdlePlan - ContextResolvers.Provider auto-selection.auto-selects provider when Provider is not specified in resolver" time="0.1182" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="fails when no provider supports the capability and Provider is not specified" name="New-IdlePlan - ContextResolvers.Provider auto-selection.fails when no provider supports the capability and Provider is not specified" time="0.0422" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Workflow schema validation for ContextResolvers" executed="True" result="Success" success="True" time="1.2252" asserts="0" description="New-IdlePlan - ContextResolvers.Workflow schema validation for ContextResolvers">
+                <results>
+                  <test-case description="rejects unknown keys in a resolver entry" name="New-IdlePlan - ContextResolvers.Workflow schema validation for ContextResolvers.rejects unknown keys in a resolver entry" time="0.016" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="rejects a resolver missing the required Capability key" name="New-IdlePlan - ContextResolvers.Workflow schema validation for ContextResolvers.rejects a resolver missing the required Capability key" time="0.0188" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Template resolution in With" executed="True" result="Success" success="True" time="1.3601" asserts="0" description="New-IdlePlan - ContextResolvers.Template resolution in With">
+                <results>
+                  <test-case description="resolves Request.IdentityKeys template in With.IdentityKey" name="New-IdlePlan - ContextResolvers.Template resolution in With.resolves Request.IdentityKeys template in With.IdentityKey" time="0.0603" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="resolves templates using flattened Identity.Profile attributes" name="New-IdlePlan - ContextResolvers.Template resolution in With.resolves templates using flattened Identity.Profile attributes" time="0.0663" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Auth session threading" executed="True" result="Success" success="True" time="1.4217" asserts="0" description="New-IdlePlan - ContextResolvers.Auth session threading">
+                <results>
+                  <test-case description="passes AuthSession to ListEntitlements when provider method supports it" name="New-IdlePlan - ContextResolvers.Auth session threading.passes AuthSession to ListEntitlements when provider method supports it" time="0.0561" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Provider ambiguity detection" executed="True" result="Success" success="True" time="1.4615" asserts="0" description="New-IdlePlan - ContextResolvers.Provider ambiguity detection">
+                <results>
+                  <test-case description="fails when multiple providers support the same capability and Provider is not specified" name="New-IdlePlan - ContextResolvers.Provider ambiguity detection.fails when multiple providers support the same capability and Provider is not specified" time="0.0345" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Context type conflict detection" executed="True" result="Success" success="True" time="1.4923" asserts="0" description="New-IdlePlan - ContextResolvers.Context type conflict detection">
+                <results>
+                  <test-case description="fails when an intermediate context node is a non-dictionary type" name="New-IdlePlan - ContextResolvers.Context type conflict detection.fails when an intermediate context node is a non-dictionary type" time="0.0262" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+              <test-suite type="TestFixture" name="New-IdlePlan - ContextResolvers.Request.Context guard in New-IdlePlanObject" executed="True" result="Success" success="True" time="1.5608" asserts="0" description="New-IdlePlan - ContextResolvers.Request.Context guard in New-IdlePlanObject">
+                <results>
+                  <test-case description="creates Request.Context when the request has no Context property" name="New-IdlePlan - ContextResolvers.Request.Context guard in New-IdlePlanObject.creates Request.Context when the request has no Context property" time="0.0624" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+    </results>
+  </test-suite>
+</test-results>
