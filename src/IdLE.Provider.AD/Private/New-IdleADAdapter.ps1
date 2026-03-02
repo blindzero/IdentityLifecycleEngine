@@ -688,8 +688,10 @@ function New-IdleADAdapter {
         }
 
         try {
-            $members = Get-ADGroupMember @getMembersParams
-            $isMember = $null -ne ($members | Where-Object { $_.DistinguishedName -eq $MemberIdentity })
+            $existingMember = Get-ADGroupMember @getMembersParams |
+                Where-Object { $_.DistinguishedName -eq $MemberIdentity } |
+                Select-Object -First 1
+            $isMember = $null -ne $existingMember
 
             if ($isMember) {
                 # Already a member - no change needed
