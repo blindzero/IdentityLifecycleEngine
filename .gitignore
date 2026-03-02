@@ -46,6 +46,8 @@ coverage.*
 test-results.*
 *.lcov
 testresults.xml
+testResults.xml
+*.trx
 docs-audit.json
 
 # Packages
