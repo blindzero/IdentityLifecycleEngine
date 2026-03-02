@@ -158,16 +158,14 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $profile.IdentityKey | Should -Be 'user1'
             $profile.Enabled | Should -Be $true
 
-            # Attributes hashtable should be preserved for backwards compatibility
-            $profile.Attributes | Should -Not -BeNullOrEmpty
-            $profile.Attributes | Should -BeOfType [hashtable]
-            $profile.Attributes.DisplayName | Should -Be 'User One'
-
             # Attributes should be flattened to top level for direct access
             $profile.DisplayName | Should -Be 'User One'
             $profile.Department | Should -Be 'IT'
             $profile.EmailAddress | Should -Be 'user1@example.com'
             $profile.UserPrincipalName | Should -Be 'user1@example.com'
+            
+            # Attributes hashtable should be removed after flattening
+            $profile.PSObject.Properties.Name | Should -Not -Contain 'Attributes'
             
             # PSTypeName should be preserved from the original identity object
             $profile.PSObject.TypeNames | Should -Contain 'IdLE.Identity'
@@ -201,9 +199,8 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $profile.IdentityKey | Should -Be 'user1'
             $profile.Enabled | Should -Be $true
 
-            # Attributes should be null (not an empty hashtable)
-            $profile.PSObject.Properties.Name | Should -Contain 'Attributes'
-            $profile.Attributes | Should -Be $null
+            # Attributes should be removed (was null, so after flattening there's no Attributes property)
+            $profile.PSObject.Properties.Name | Should -Not -Contain 'Attributes'
         }
 
         It 'IdLE.Identity.Read resolver handles empty Attributes hashtable' {
@@ -234,9 +231,8 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $profile.IdentityKey | Should -Be 'user1'
             $profile.Enabled | Should -Be $true
 
-            # Attributes should be an empty hashtable (not null)
-            $profile.Attributes | Should -BeOfType [hashtable]
-            $profile.Attributes.Count | Should -Be 0
+            # Attributes should be removed after flattening (was empty, so nothing to flatten)
+            $profile.PSObject.Properties.Name | Should -Not -Contain 'Attributes'
         }
 
         It 'IdLE.Identity.Read resolver does not overwrite core properties with conflicting attributes' {
@@ -276,10 +272,8 @@ Describe 'New-IdlePlan - ContextResolvers' {
             # DisplayName should be flattened (no conflict)
             $profile.DisplayName | Should -Be 'User One'
 
-            # Conflicting attributes should still be accessible via Attributes hashtable
-            $profile.Attributes.IdentityKey | Should -Be 'conflicting-value'
-            $profile.Attributes.Enabled | Should -Be $false
-            $profile.Attributes.DisplayName | Should -Be 'User One'
+            # Attributes hashtable should be removed after flattening
+            $profile.PSObject.Properties.Name | Should -Not -Contain 'Attributes'
         }
     }
 

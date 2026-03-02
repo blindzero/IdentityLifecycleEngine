@@ -344,10 +344,10 @@ function Invoke-IdleResolverCapabilityDispatch {
                 $provider.GetIdentity($identityKey)
             }
 
-            # Flatten the identity object by merging Attributes into the top level.
+            # Flatten the identity object by promoting Attributes to the top level.
             # This allows users to access Request.Context.Identity.Profile.DisplayName
-            # instead of Request.Context.Identity.Profile.Attributes.DisplayName.
-            # The Attributes hashtable is still preserved as a property for backwards compatibility.
+            # directly instead of Request.Context.Identity.Profile.Attributes.DisplayName.
+            # The Attributes hashtable is removed after flattening.
             return ConvertTo-IdleFlattenedIdentity -Identity $identity
         }
 
@@ -423,14 +423,14 @@ function ConvertTo-IdleFlattenedIdentity {
     and creates a new object where:
     - IdentityKey and Enabled are preserved at the top level
     - All properties from the Attributes hashtable are promoted to top-level properties
-    - The original Attributes hashtable is preserved for backwards compatibility
+    - The original Attributes hashtable is removed after flattening
 
-    Reserved property names (IdentityKey, Enabled, Attributes) will not be overwritten
+    Reserved property names (IdentityKey, Enabled) will not be overwritten
     if they appear as keys in the Attributes hashtable. If a conflict occurs, a verbose
-    warning is emitted and the attribute remains accessible only via Attributes.PropertyName.
+    warning is emitted and the conflicting attribute is skipped.
 
     This allows users to access Request.Context.Identity.Profile.DisplayName
-    instead of Request.Context.Identity.Profile.Attributes.DisplayName.
+    directly at the top level.
 
     .PARAMETER Identity
     The identity object returned by a provider's GetIdentity method.
@@ -489,7 +489,7 @@ function ConvertTo-IdleFlattenedIdentity {
     $flattened = [pscustomobject]$cloned
 
     # Promote all attribute keys to top level.
-    # Reserved property names (IdentityKey, Enabled, Attributes) will not be overwritten
+    # Reserved property names (IdentityKey, Enabled) will not be overwritten
     # if they appear as keys in the Attributes hashtable.
     $attributes = $null
     if ($flattened.PSObject.Properties.Name -contains 'Attributes') {
@@ -497,7 +497,7 @@ function ConvertTo-IdleFlattenedIdentity {
     }
     
     if ($null -ne $attributes -and $attributes -is [System.Collections.IDictionary]) {
-        $reservedNames = @('IdentityKey', 'Enabled', 'Attributes')
+        $reservedNames = @('IdentityKey', 'Enabled')
         foreach ($key in $attributes.Keys) {
             # Only add if not already present (existing properties take precedence)
             if ($flattened.PSObject.Properties.Name -notcontains $key) {
@@ -505,10 +505,16 @@ function ConvertTo-IdleFlattenedIdentity {
             }
             elseif ($reservedNames -contains $key) {
                 # Warn if an attribute key conflicts with a reserved property name
-                # This helps users understand why an attribute might not be accessible at top level
-                Write-Verbose "Identity attribute '$key' conflicts with a core property name and will not be promoted to top level. Access via Attributes.$key instead."
+                # This helps users understand why an attribute was skipped
+                Write-Verbose "Identity attribute '$key' conflicts with a core property name and will be skipped during flattening."
             }
         }
+    }
+    
+    # Always remove the Attributes property after flattening (no backward compatibility)
+    # This applies whether Attributes was null, empty, or had content
+    if ($flattened.PSObject.Properties.Name -contains 'Attributes') {
+        $flattened.PSObject.Properties.Remove('Attributes')
     }
 
     return $flattened

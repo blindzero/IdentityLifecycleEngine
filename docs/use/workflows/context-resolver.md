@@ -234,22 +234,13 @@ When using `IdLE.Identity.Read`, the identity object returned by the provider co
 
 ### Direct Access Pattern
 
-You can access identity attributes directly without nested `.Attributes.` path:
+You can access identity attributes directly at the top level:
 
 ```powershell
-# ✅ Direct access (recommended)
+# ✅ Direct access
 '{{Request.Context.Identity.Profile.DisplayName}}'
 '{{Request.Context.Identity.Profile.EmailAddress}}'
 '{{Request.Context.Identity.Profile.Department}}'
-```
-
-### Backwards Compatibility
-
-The original `Attributes` hashtable is preserved, so legacy workflows continue to work:
-
-```powershell
-# ✅ Also works (backwards compatible)
-'{{Request.Context.Identity.Profile.Attributes.DisplayName}}'
 ```
 
 ### Structure Example
@@ -261,11 +252,10 @@ Request.Context.Identity.Profile = @{
     PSTypeName   = 'IdLE.Identity'          # Preserved from provider
     IdentityKey  = 'user123'                # Core property
     Enabled      = $true                    # Core property
-    Attributes   = @{ ... }                 # Original hashtable (backwards compat)
-    DisplayName  = 'Jane Doe'               # Flattened from Attributes
-    EmailAddress = 'jane.doe@example.com'   # Flattened from Attributes
-    Department   = 'Engineering'            # Flattened from Attributes
-    # ... all other attribute keys promoted to top level
+    DisplayName  = 'Jane Doe'               # Flattened from provider Attributes
+    EmailAddress = 'jane.doe@example.com'   # Flattened from provider Attributes
+    Department   = 'Engineering'            # Flattened from provider Attributes
+    # ... all other attributes promoted to top level
 }
 ```
 
@@ -275,17 +265,112 @@ The following property names are **reserved** and will not be overwritten by att
 
 - `IdentityKey`
 - `Enabled`
-- `Attributes`
 - `PSTypeName` (internal type metadata)
 
-If an attribute key conflicts with a reserved name, a verbose warning is emitted and the attribute remains accessible only via `Attributes.PropertyName`:
+If an attribute key conflicts with a reserved name, a verbose warning is emitted during planning, and the conflicting attribute is skipped.
+
+---
+
+## Multiple Resolvers and Precedence
+
+### Execution Order
+
+Context Resolvers are executed **sequentially in the order they are declared** in the workflow's `ContextResolvers` array:
 
 ```powershell
-# If provider returns Attributes = @{ IdentityKey = 'some-value' }
-# ⚠️  Warning emitted, attribute not promoted
-# ✅ Access via: Request.Context.Identity.Profile.Attributes.IdentityKey
-# ❌ Request.Context.Identity.Profile.IdentityKey returns the actual identity key
+ContextResolvers = @(
+    @{  # Executed first
+        Capability = 'IdLE.Identity.Read'
+        With = @{
+            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+            Provider    = 'PrimaryAD'
+        }
+    }
+    @{  # Executed second
+        Capability = 'IdLE.Entitlement.List'
+        With = @{
+            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+            Provider    = 'PrimaryAD'
+        }
+    }
+)
 ```
+
+### Precedence for Overlapping Data
+
+If multiple resolvers write to the **same context path**, later resolvers **overwrite** earlier ones:
+
+```powershell
+ContextResolvers = @(
+    @{
+        Capability = 'IdLE.Identity.Read'
+        With = @{
+            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+            Provider    = 'PrimaryAD'      # Reads from Primary AD
+        }
+    }
+    @{
+        Capability = 'IdLE.Identity.Read'
+        With = @{
+            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+            Provider    = 'EntraID'        # Overwrites Identity.Profile with Entra ID data
+        }
+    }
+)
+```
+
+> **Important**: Both resolvers write to `Request.Context.Identity.Profile`. The **second resolver wins** and its data becomes the final `Identity.Profile` value.
+
+### Using Multiple Providers with Different Auth Sessions
+
+You can configure multiple resolvers that use different providers and authentication sessions for different systems:
+
+```powershell
+ContextResolvers = @(
+    @{
+        Capability      = 'IdLE.Identity.Read'
+        With = @{
+            IdentityKey     = '{{Request.IdentityKeys.sAMAccountName}}'
+            Provider        = 'PrimaryAD'
+            AuthSessionName = 'Tier0-AD'   # On-premises AD auth session
+        }
+    }
+    @{
+        Capability      = 'IdLE.Entitlement.List'
+        With = @{
+            IdentityKey     = '{{Request.IdentityKeys.UserPrincipalName}}'
+            Provider        = 'EntraID'
+            AuthSessionName = 'GraphAPI'   # Cloud auth session
+        }
+    }
+)
+```
+
+Each resolver independently:
+- Selects its own `Provider`
+- Uses its own `AuthSessionName` (if authentication is required)
+- Can pass provider-specific options via `AuthSessionOptions`
+
+### Avoiding Conflicts
+
+To avoid unintended overwrites when using multiple providers:
+
+1. **Use different capabilities** that write to different context paths:
+   - `IdLE.Identity.Read` → `Request.Context.Identity.Profile`
+   - `IdLE.Entitlement.List` → `Request.Context.Identity.Entitlements`
+
+2. **Declare resolvers in intentional order** if you need the later resolver to win:
+   ```powershell
+   # Get basic profile from AD first
+   @{ Capability = 'IdLE.Identity.Read'; With = @{ Provider = 'AD' } }
+   
+   # Overwrite with cloud-enriched profile if needed
+   @{ Capability = 'IdLE.Identity.Read'; With = @{ Provider = 'EntraID' } }
+   ```
+
+3. **Use unique identity keys** appropriate for each provider:
+   - AD providers often use `sAMAccountName` or `DistinguishedName`
+   - Entra ID providers use `UserPrincipalName` or `ObjectId`
 
 ---
 
