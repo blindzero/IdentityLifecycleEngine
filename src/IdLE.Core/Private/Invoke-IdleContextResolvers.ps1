@@ -337,10 +337,18 @@ function Invoke-IdleResolverCapabilityDispatch {
             }
 
             $supportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $method -ParameterName 'AuthSession'
-            if ($supportsAuthSession -and $null -ne $AuthSession) {
-                return $provider.GetIdentity($identityKey, $AuthSession)
+            $identity = if ($supportsAuthSession -and $null -ne $AuthSession) {
+                $provider.GetIdentity($identityKey, $AuthSession)
             }
-            return $provider.GetIdentity($identityKey)
+            else {
+                $provider.GetIdentity($identityKey)
+            }
+
+            # Flatten the identity object by merging Attributes into the top level.
+            # This allows users to access Request.Context.Identity.Profile.DisplayName
+            # instead of Request.Context.Identity.Profile.Attributes.DisplayName.
+            # The Attributes hashtable is still preserved as a property for backwards compatibility.
+            return ConvertTo-IdleFlattenedIdentity -Identity $identity
         }
 
         default {
@@ -403,4 +411,73 @@ function Set-IdleContextValue {
     }
 
     $current[$segments[-1]] = $Value
+}
+
+function ConvertTo-IdleFlattenedIdentity {
+    <#
+    .SYNOPSIS
+    Flattens an identity object by promoting Attributes to top-level properties.
+
+    .DESCRIPTION
+    Takes an identity object returned by a provider (with IdentityKey, Enabled, Attributes)
+    and creates a new object where:
+    - IdentityKey and Enabled are preserved at the top level
+    - All properties from the Attributes hashtable are promoted to top-level properties
+    - The original Attributes hashtable is preserved for backwards compatibility
+
+    This allows users to access Request.Context.Identity.Profile.DisplayName
+    instead of Request.Context.Identity.Profile.Attributes.DisplayName.
+
+    .PARAMETER Identity
+    The identity object returned by a provider's GetIdentity method.
+
+    .OUTPUTS
+    PSCustomObject with flattened attributes.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        [object] $Identity
+    )
+
+    if ($null -eq $Identity) {
+        return $null
+    }
+
+    # Extract core properties
+    $identityKey = $null
+    $enabled = $null
+    $attributes = $null
+
+    if ($Identity -is [System.Collections.IDictionary]) {
+        $identityKey = $Identity['IdentityKey']
+        $enabled = $Identity['Enabled']
+        $attributes = $Identity['Attributes']
+    }
+    else {
+        $props = $Identity.PSObject.Properties
+        if ($props.Name -contains 'IdentityKey') { $identityKey = $Identity.IdentityKey }
+        if ($props.Name -contains 'Enabled') { $enabled = $Identity.Enabled }
+        if ($props.Name -contains 'Attributes') { $attributes = $Identity.Attributes }
+    }
+
+    # Build flattened object
+    $flattened = [ordered]@{
+        IdentityKey = $identityKey
+        Enabled     = $enabled
+        Attributes  = $attributes
+    }
+
+    # Promote all attribute keys to top level
+    if ($null -ne $attributes -and $attributes -is [System.Collections.IDictionary]) {
+        foreach ($key in $attributes.Keys) {
+            # Only add if not already present (core properties take precedence)
+            if (-not $flattened.Contains($key)) {
+                $flattened[$key] = $attributes[$key]
+            }
+        }
+    }
+
+    return [pscustomobject]$flattened
 }

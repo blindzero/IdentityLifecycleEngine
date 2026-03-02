@@ -124,6 +124,51 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan.Request.Context.Identity.Profile | Should -Not -BeNullOrEmpty
             $plan.Request.Context.Identity.Profile.IdentityKey | Should -Be 'user1'
         }
+
+        It 'IdLE.Identity.Read resolver flattens Attributes to top-level properties' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{
+                        DisplayName        = 'User One'
+                        Department         = 'IT'
+                        EmailAddress       = 'user1@example.com'
+                        UserPrincipalName  = 'user1@example.com'
+                    }
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+            $profile = $plan.Request.Context.Identity.Profile
+
+            # Core properties should be present
+            $profile.IdentityKey | Should -Be 'user1'
+            $profile.Enabled | Should -Be $true
+
+            # Attributes hashtable should be preserved for backwards compatibility
+            $profile.Attributes | Should -Not -BeNullOrEmpty
+            $profile.Attributes | Should -BeOfType [hashtable]
+            $profile.Attributes.DisplayName | Should -Be 'User One'
+
+            # Attributes should be flattened to top level for direct access
+            $profile.DisplayName | Should -Be 'User One'
+            $profile.Department | Should -Be 'IT'
+            $profile.EmailAddress | Should -Be 'user1@example.com'
+            $profile.UserPrincipalName | Should -Be 'user1@example.com'
+        }
     }
 
     Context 'To is not a supported key (output path is predefined per capability)' {
@@ -279,6 +324,65 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $entitlements = @($plan.Request.Context.Identity.Entitlements)
             $entitlements.Count | Should -Be 1
             $entitlements[0].Id | Should -Be 'tmpl-grp'
+        }
+
+        It 'resolves templates using flattened Identity.Profile attributes' {
+            # Create a workflow with a step that uses template substitution with Identity.Profile attributes
+            $wfContent = @'
+@{
+    Name = 'Identity Profile Template Test'
+    LifecycleEvent = 'Joiner'
+    ContextResolvers = @(
+        @{
+            Capability = 'IdLE.Identity.Read'
+            With = @{
+                IdentityKey = '{{Request.IdentityKeys.Id}}'
+                Provider = 'Identity'
+            }
+        }
+    )
+    Steps = @(
+        @{
+            Name = 'TestStep'
+            Type = 'IdLE.Step.EmitEvent'
+            With = @{
+                Message = 'User: {{Request.Context.Identity.Profile.DisplayName}}, Email: {{Request.Context.Identity.Profile.EmailAddress}}'
+                Department = '{{Request.Context.Identity.Profile.Department}}'
+            }
+        }
+    )
+}
+'@
+            $tempWfPath = Join-Path $TestDrive 'wf-identity-profile-template.psd1'
+            Set-Content -Path $tempWfPath -Value $wfContent
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{
+                        DisplayName   = 'John Doe'
+                        EmailAddress  = 'john.doe@example.com'
+                        Department    = 'Engineering'
+                    }
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $tempWfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+            $plan.Steps[0].Status | Should -Be 'Planned'
+            # Verify templates were resolved using flattened attributes
+            $plan.Steps[0].With.Message | Should -Be 'User: John Doe, Email: john.doe@example.com'
+            $plan.Steps[0].With.Department | Should -Be 'Engineering'
         }
     }
 
