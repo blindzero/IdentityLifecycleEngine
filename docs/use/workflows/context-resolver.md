@@ -98,6 +98,134 @@ Output paths are predefined and cannot be changed.
 
 ---
 
+## Provider Selection and Authentication
+
+### Provider Selection
+
+Context Resolvers use providers to access external systems for reading identity and entitlement data.
+
+**Auto-selection (recommended for single provider scenarios):**
+
+If you have only one provider that advertises the capability, you can omit the `Provider` parameter:
+
+```powershell
+ContextResolvers = @(
+    @{
+        Capability = 'IdLE.Identity.Read'
+        With = @{
+            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+            # Provider is omitted - IdLE auto-selects the matching provider
+        }
+    }
+)
+```
+
+**Explicit provider selection (required for multiple providers):**
+
+If you have multiple providers that advertise the same capability (e.g., multiple AD forests, AD + Entra ID), you must specify which provider to use:
+
+```powershell
+ContextResolvers = @(
+    @{
+        Capability = 'IdLE.Identity.Read'
+        With = @{
+            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+            Provider    = 'PrimaryAD'  # explicit selection required
+        }
+    }
+)
+```
+
+If multiple providers match and no explicit `Provider` is specified, planning fails with an ambiguity error.
+
+### Authentication Sessions
+
+Providers may require authentication to access external systems. IdLE uses **AuthSessionBroker** to manage authentication sessions.
+
+**Basic usage (no authentication required):**
+
+Some providers (like Mock) don't require authentication:
+
+```powershell
+ContextResolvers = @(
+    @{
+        Capability = 'IdLE.Identity.Read'
+        With = @{
+            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+            Provider    = 'Mock'
+        }
+    }
+)
+```
+
+**Using named auth sessions:**
+
+For providers that require authentication, specify an `AuthSessionName` that references a session managed by your `AuthSessionBroker`:
+
+```powershell
+ContextResolvers = @(
+    @{
+        Capability = 'IdLE.Identity.Read'
+        With = @{
+            IdentityKey     = '{{Request.IdentityKeys.EmployeeId}}'
+            Provider        = 'PrimaryAD'
+            AuthSessionName = 'Tier0'  # Named session from AuthSessionBroker
+        }
+    }
+)
+```
+
+The `AuthSessionBroker` must be configured in your `Providers` parameter when calling `New-IdlePlan`. The broker is responsible for:
+- Managing credential/token lifecycle
+- Acquiring and caching authentication sessions
+- Providing sessions to providers and steps on demand
+
+**Advanced: AuthSessionOptions**
+
+Some `AuthSessionBroker` implementations accept additional options via `AuthSessionOptions`:
+
+```powershell
+ContextResolvers = @(
+    @{
+        Capability = 'IdLE.Identity.Read'
+        With = @{
+            IdentityKey         = '{{Request.IdentityKeys.EmployeeId}}'
+            Provider            = 'EntraID'
+            AuthSessionName     = 'GraphAPI'
+            AuthSessionOptions  = @{
+                Scopes = @('User.Read.All', 'Group.Read.All')
+            }
+        }
+    }
+)
+```
+
+> **Security note**: `AuthSessionOptions` must be data-only (hashtables, strings, numbers, booleans). ScriptBlocks and executable objects are rejected.
+
+### Provider-Specific Identity Attributes
+
+Different providers populate different attributes in the `Identity.Profile.Attributes` hashtable. After flattening, these become top-level properties.
+
+**Active Directory (AD) provider** populates:
+- `GivenName`, `Surname`, `DisplayName`
+- `Department`, `Title`, `Description`
+- `EmailAddress`, `UserPrincipalName`, `sAMAccountName`, `DistinguishedName`
+
+**Entra ID (EntraID) provider** populates:
+- `GivenName`, `Surname`, `DisplayName`
+- `UserPrincipalName`, `Mail`
+- `Department`, `JobTitle`, `OfficeLocation`, `CompanyName`
+
+**Mock provider** populates:
+- Any attributes you configure in your test/demo scenarios
+
+For complete provider-specific attribute lists, see the individual provider documentation:
+- [Active Directory Provider](../../reference/providers/provider-ad.md#capability-idleidentityread)
+- [Entra ID Provider](../../reference/providers/provider-entraID.md#capability-idleidentityread)
+- [Mock Provider](../../reference/providers/provider-mock.md#capability-idleidentityread)
+
+---
+
 ## Identity Profile Attribute Flattening
 
 When using `IdLE.Identity.Read`, the identity object returned by the provider contains an `Attributes` hashtable with properties like `DisplayName`, `EmailAddress`, `Department`, etc.
