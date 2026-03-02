@@ -98,6 +98,69 @@ Output paths are predefined and cannot be changed.
 
 ---
 
+## Identity Profile Attribute Flattening
+
+When using `IdLE.Identity.Read`, the identity object returned by the provider contains an `Attributes` hashtable with properties like `DisplayName`, `EmailAddress`, `Department`, etc.
+
+**IdLE automatically flattens these attributes** to the top level of `Request.Context.Identity.Profile` for convenient access in templates and conditions.
+
+### Direct Access Pattern
+
+You can access identity attributes directly without nested `.Attributes.` path:
+
+```powershell
+# ✅ Direct access (recommended)
+'{{Request.Context.Identity.Profile.DisplayName}}'
+'{{Request.Context.Identity.Profile.EmailAddress}}'
+'{{Request.Context.Identity.Profile.Department}}'
+```
+
+### Backwards Compatibility
+
+The original `Attributes` hashtable is preserved, so legacy workflows continue to work:
+
+```powershell
+# ✅ Also works (backwards compatible)
+'{{Request.Context.Identity.Profile.Attributes.DisplayName}}'
+```
+
+### Structure Example
+
+After resolution, the profile object contains:
+
+```powershell
+Request.Context.Identity.Profile = @{
+    PSTypeName   = 'IdLE.Identity'          # Preserved from provider
+    IdentityKey  = 'user123'                # Core property
+    Enabled      = $true                    # Core property
+    Attributes   = @{ ... }                 # Original hashtable (backwards compat)
+    DisplayName  = 'Jane Doe'               # Flattened from Attributes
+    EmailAddress = 'jane.doe@example.com'   # Flattened from Attributes
+    Department   = 'Engineering'            # Flattened from Attributes
+    # ... all other attribute keys promoted to top level
+}
+```
+
+### Reserved Property Names
+
+The following property names are **reserved** and will not be overwritten by attribute keys:
+
+- `IdentityKey`
+- `Enabled`
+- `Attributes`
+- `PSTypeName` (internal type metadata)
+
+If an attribute key conflicts with a reserved name, a verbose warning is emitted and the attribute remains accessible only via `Attributes.PropertyName`:
+
+```powershell
+# If provider returns Attributes = @{ IdentityKey = 'some-value' }
+# ⚠️  Warning emitted, attribute not promoted
+# ✅ Access via: Request.Context.Identity.Profile.Attributes.IdentityKey
+# ❌ Request.Context.Identity.Profile.IdentityKey returns the actual identity key
+```
+
+---
+
 ## Common Patterns
 
 ### Resolve once, use everywhere

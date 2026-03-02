@@ -104,6 +104,8 @@ Top-level properties:
 | `Enabled` | `bool` | Derived from Entra user `accountEnabled`. |
 | `Attributes` | `hashtable` | Key/value bag; keys are strings; values are typically `string`. |
 
+> **Note**: Identity attributes are automatically flattened to the top level of `Request.Context.Identity.Profile`. You can access attributes directly (e.g., `Profile.DisplayName`) instead of via the nested path (`Profile.Attributes.DisplayName`). See [Context Resolvers - Identity Profile Attribute Flattening](../../use/workflows/context-resolver.md#identity-profile-attribute-flattening).
+
 `Attributes` keys populated by this provider (when present on the user object):
 
 | Attribute key | Type | Source (Graph field) |

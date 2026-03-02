@@ -145,6 +145,8 @@ Each capability writes to a **predefined, fixed path** under `Request.Context`. 
 
 > **Note**: `IdLE.Entitlement.List` writes an array of entitlement objects, each with properties: `Kind` (string), `Id` (string), and optionally `DisplayName` (string). To reference entitlement Ids in Conditions, use `Request.Context.Identity.Entitlements.Id`. See [Conditions - Member-Access Enumeration](../use/workflows/conditions.md#member-access-enumeration).
 
+> **Note**: `IdLE.Identity.Read` automatically flattens identity attributes to the top level of `Request.Context.Identity.Profile`. You can access attributes directly (e.g., `Request.Context.Identity.Profile.DisplayName`) instead of via the nested path (e.g., `Request.Context.Identity.Profile.Attributes.DisplayName`). The `Attributes` hashtable is preserved for backwards compatibility. See [Context Resolvers - Identity Profile Attribute Flattening](../use/workflows/context-resolver.md#identity-profile-attribute-flattening) for details.
+
 ### Example
 
 ```powershell

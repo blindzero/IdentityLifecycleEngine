@@ -79,6 +79,8 @@ Top-level properties:
 | `Enabled` | `bool` | Stored boolean value (defaults to `$true` when created on demand). |
 | `Attributes` | `hashtable` | Free-form key/value bag stored in the mock provider store. |
 
+> **Note**: Identity attributes are automatically flattened to the top level of `Request.Context.Identity.Profile`. You can access attributes directly (e.g., `Profile.DisplayName`) instead of via the nested path (`Profile.Attributes.DisplayName`). See [Context Resolvers - Identity Profile Attribute Flattening](../../use/workflows/context-resolver.md#identity-profile-attribute-flattening).
+
 Mock-specific behavior:
 - Missing identities are created **on-demand** on first `GetIdentity` call (planning-time resolvers may therefore “create” a record in the in-memory store).
 - `Attributes` is whatever your tests/demos put into the store (commonly `string` values).
