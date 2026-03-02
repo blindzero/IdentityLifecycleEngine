@@ -28,73 +28,97 @@ to rely on data that was resolved once during planning.
 
 ---
 
-## Full Example
-
-A resolver entry is defined at workflow root level:
-
+## Complete Example with Inline Comments
 
 ```powershell
 @{
-  Name           = 'Joiner - Context Resolver Demo'
-  LifecycleEvent = 'Joiner'
+  Name           = 'Offboarding - Context Resolver Example'
+  LifecycleEvent = 'Leaver'
 
+  # ContextResolvers populate Request.Context.* during planning
+  # They execute sequentially in declaration order BEFORE step conditions are evaluated
   ContextResolvers = @(
+    
+    # Resolver 1: Read identity profile from Active Directory
     @{
-      Capability = 'IdLE.Identity.Read'
+      Capability = 'IdLE.Identity.Read'           # REQUIRED - Must be from allow-list
       With = @{
-        IdentityKey     = '{{Request.IdentityKeys.EmployeeId}}'
-        Provider        = 'Identity'        # optional; auto-selected if omitted
-        AuthSessionName = 'Tier0'           # optional; requires AuthSessionBroker in Providers
+        IdentityKey     = '{{Request.IdentityKeys.EmployeeId}}'  # REQUIRED - Template substitution supported
+        Provider        = 'PrimaryAD'                             # OPTIONAL - Auto-selected if only one provider matches
+        AuthSessionName = 'Tier0-AD'                             # OPTIONAL - Named auth session from AuthSessionBroker
+        # AuthSessionOptions = @{ Scopes = @('...') }           # OPTIONAL - Provider-specific auth options (must be data-only)
       }
+      # Output: Request.Context.Identity.Profile (fixed path, cannot be changed)
+      # After flattening: Profile.DisplayName, Profile.EmailAddress, etc. are accessible directly
     }
 
+    # Resolver 2: List entitlements for the identity
     @{
       Capability = 'IdLE.Entitlement.List'
       With = @{
         IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+        Provider    = 'PrimaryAD'      # OPTIONAL
+        # AuthSessionName can be different per resolver if needed
       }
+      # Output: Request.Context.Identity.Entitlements (fixed path)
     }
   )
 
   Steps = @(
-
+    # Step conditions can reference resolved context data
     @{
-      Name = 'Disable only if identity exists'
+      Name = 'Disable account only if identity exists in AD'
       Type = 'IdLE.Step.DisableIdentity'
-
       Condition = @{
-        Exists = 'Request.Context.Identity.Profile'
+        Exists = 'Request.Context.Identity.Profile'  # Check if identity was found
       }
     }
 
+    # Template substitution can use flattened attributes
     @{
-      Name = 'Emit audit event'
+      Name = 'Send notification email'
       Type = 'IdLE.Step.EmitEvent'
-
       With = @{
-        Message = 'Disabled identity {{Request.Context.Identity.Profile.DisplayName}}'
+        # Direct access to flattened attributes (no .Attributes. needed)
+        Message = 'Disabled account for {{Request.Context.Identity.Profile.DisplayName}} ({{Request.Context.Identity.Profile.EmailAddress}})'
+      }
+    }
+
+    # Preconditions can also reference context (evaluated at execution time)
+    @{
+      Name = 'Revoke admin entitlements'
+      Type = 'IdLE.Step.PruneEntitlements'
+      Precondition = @{
+        Exists = 'Request.Context.Identity.Entitlements'  # Ensure entitlements were resolved
       }
     }
   )
 }
 ```
 
-### Keys
+### Resolver Configuration Keys
 
-- `Capability` (required)  
-  A permitted read-only capability.
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `Capability` | `string` | **Yes** | Read-only capability from allow-list: `IdLE.Identity.Read`, `IdLE.Entitlement.List` |
+| `With` | `hashtable` | **Yes**¹ | Inputs required by the capability. Template substitution supported. |
+| `With.IdentityKey` | `string` | **Yes** | Identity key for lookup. Required by both capabilities. |
+| `With.Provider` | `string` | No | Provider alias. Auto-selected if omitted and only one provider matches. Required if multiple providers advertise the capability. |
+| `With.AuthSessionName` | `string` | No | Named auth session to acquire via `AuthSessionBroker`. |
+| `With.AuthSessionOptions` | `hashtable` | No | Provider-specific auth options. Must be data-only (no ScriptBlocks). |
 
-- `With` (hashtable, optional — required in practice, as capabilities need at least `IdentityKey`)  
-  Inputs required by the capability. Template substitution is supported.
+¹ Technically optional, but required in practice for all current capabilities.
 
-  | `With` key | Type | Required | Description |
-  |---|---|---|---|
-  | `IdentityKey` | `string` | Per capability | Required by `IdLE.Identity.Read` and `IdLE.Entitlement.List`. |
-  | `Provider` | `string` | No | Provider alias. If omitted, IdLE auto-selects a provider advertising the capability. Ambiguity (multiple providers matching) is a fail-fast error. |
-  | `AuthSessionName` | `string` | No | Named auth session to acquire via `AuthSessionBroker`. Requires an `AuthSessionBroker` entry in `Providers`. |
-  | `AuthSessionOptions` | `hashtable` | No | Options passed to `AuthSessionBroker.AcquireAuthSession`. Must be a hashtable. ScriptBlocks are rejected. |
+### Output Paths (Predefined)
 
-Output paths are predefined and cannot be changed.
+Each capability writes to a fixed path under `Request.Context`:
+
+| Capability | Output Path | Description |
+|------------|-------------|-------------|
+| `IdLE.Identity.Read` | `Identity.Profile` | Identity object with attributes flattened to top level |
+| `IdLE.Entitlement.List` | `Identity.Entitlements` | Array of entitlement objects |
+
+> **Important**: Output paths cannot be customized. If multiple resolvers use the same capability, later resolvers overwrite earlier ones (last-writer-wins).
 
 ---
 
@@ -102,404 +126,187 @@ Output paths are predefined and cannot be changed.
 
 ### Provider Selection
 
-Context Resolvers use providers to access external systems for reading identity and entitlement data.
-
-**Auto-selection (recommended for single provider scenarios):**
-
-If you have only one provider that advertises the capability, you can omit the `Provider` parameter:
+**Auto-selection:** If only one provider advertises the capability, omit `Provider`:
 
 ```powershell
-ContextResolvers = @(
-    @{
-        Capability = 'IdLE.Identity.Read'
-        With = @{
-            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
-            # Provider is omitted - IdLE auto-selects the matching provider
-        }
-    }
-)
+With = @{
+    IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+    # Provider omitted - auto-selected
+}
 ```
 
-**Explicit provider selection (required for multiple providers):**
-
-If you have multiple providers that advertise the same capability (e.g., multiple AD forests, AD + Entra ID), you must specify which provider to use:
+**Explicit selection:** Required when multiple providers match:
 
 ```powershell
-ContextResolvers = @(
-    @{
-        Capability = 'IdLE.Identity.Read'
-        With = @{
-            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
-            Provider    = 'PrimaryAD'  # explicit selection required
-        }
-    }
-)
+With = @{
+    IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+    Provider    = 'PrimaryAD'  # Disambiguates between PrimaryAD and EntraID
+}
 ```
 
-If multiple providers match and no explicit `Provider` is specified, planning fails with an ambiguity error.
+### Authentication
 
-### Authentication Sessions
-
-Providers may require authentication to access external systems. IdLE uses **AuthSessionBroker** to manage authentication sessions.
-
-**Basic usage (no authentication required):**
-
-Some providers (like Mock) don't require authentication:
+Some providers require authentication via `AuthSessionBroker`:
 
 ```powershell
-ContextResolvers = @(
-    @{
-        Capability = 'IdLE.Identity.Read'
-        With = @{
-            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
-            Provider    = 'Mock'
-        }
-    }
-)
+With = @{
+    IdentityKey     = '{{Request.IdentityKeys.EmployeeId}}'
+    Provider        = 'PrimaryAD'
+    AuthSessionName = 'Tier0'  # Named session from AuthSessionBroker
+}
 ```
 
-**Using named auth sessions:**
-
-For providers that require authentication, specify an `AuthSessionName` that references a session managed by your `AuthSessionBroker`:
+Advanced auth options (provider-specific):
 
 ```powershell
-ContextResolvers = @(
-    @{
-        Capability = 'IdLE.Identity.Read'
-        With = @{
-            IdentityKey     = '{{Request.IdentityKeys.EmployeeId}}'
-            Provider        = 'PrimaryAD'
-            AuthSessionName = 'Tier0'  # Named session from AuthSessionBroker
-        }
-    }
-)
+AuthSessionOptions = @{
+    Scopes = @('User.Read.All', 'Group.Read.All')
+}
 ```
 
-The `AuthSessionBroker` must be configured in your `Providers` parameter when calling `New-IdlePlan`. The broker is responsible for:
-- Managing credential/token lifecycle
-- Acquiring and caching authentication sessions
-- Providing sessions to providers and steps on demand
+> **Security**: `AuthSessionOptions` must be data-only (no ScriptBlocks).
 
-**Advanced: AuthSessionOptions**
+### Provider-Specific Attributes
 
-Some `AuthSessionBroker` implementations accept additional options via `AuthSessionOptions`:
+Different providers populate different attributes. After flattening, attributes become top-level properties:
 
-```powershell
-ContextResolvers = @(
-    @{
-        Capability = 'IdLE.Identity.Read'
-        With = @{
-            IdentityKey         = '{{Request.IdentityKeys.EmployeeId}}'
-            Provider            = 'EntraID'
-            AuthSessionName     = 'GraphAPI'
-            AuthSessionOptions  = @{
-                Scopes = @('User.Read.All', 'Group.Read.All')
-            }
-        }
-    }
-)
-```
+- **AD**: `GivenName`, `Surname`, `DisplayName`, `Department`, `Title`, `EmailAddress`, `UserPrincipalName`, `sAMAccountName`, `DistinguishedName`
+- **Entra ID**: `GivenName`, `Surname`, `DisplayName`, `UserPrincipalName`, `Mail`, `Department`, `JobTitle`, `OfficeLocation`
+- **Mock**: Configurable test attributes
 
-> **Security note**: `AuthSessionOptions` must be data-only (hashtables, strings, numbers, booleans). ScriptBlocks and executable objects are rejected.
-
-### Provider-Specific Identity Attributes
-
-Different providers populate different attributes in the `Identity.Profile.Attributes` hashtable. After flattening, these become top-level properties.
-
-**Active Directory (AD) provider** populates:
-- `GivenName`, `Surname`, `DisplayName`
-- `Department`, `Title`, `Description`
-- `EmailAddress`, `UserPrincipalName`, `sAMAccountName`, `DistinguishedName`
-
-**Entra ID (EntraID) provider** populates:
-- `GivenName`, `Surname`, `DisplayName`
-- `UserPrincipalName`, `Mail`
-- `Department`, `JobTitle`, `OfficeLocation`, `CompanyName`
-
-**Mock provider** populates:
-- Any attributes you configure in your test/demo scenarios
-
-For complete provider-specific attribute lists, see the individual provider documentation:
-- [Active Directory Provider](../../reference/providers/provider-ad.md#capability-idleidentityread)
-- [Entra ID Provider](../../reference/providers/provider-entraID.md#capability-idleidentityread)
-- [Mock Provider](../../reference/providers/provider-mock.md#capability-idleidentityread)
+See provider docs for complete lists: [AD](../../reference/providers/provider-ad.md#capability-idleidentityread), [Entra ID](../../reference/providers/provider-entraID.md#capability-idleidentityread), [Mock](../../reference/providers/provider-mock.md#capability-idleidentityread)
 
 ---
 
 ## Identity Profile Attribute Flattening
 
-When using `IdLE.Identity.Read`, the identity object returned by the provider contains an `Attributes` hashtable with properties like `DisplayName`, `EmailAddress`, `Department`, etc.
-
-**IdLE automatically flattens these attributes** to the top level of `Request.Context.Identity.Profile` for convenient access in templates and conditions.
-
-### Direct Access Pattern
-
-You can access identity attributes directly at the top level:
+Provider identity objects contain an `Attributes` hashtable. **IdLE automatically flattens these to top-level properties** for direct access:
 
 ```powershell
-# ✅ Direct access
+# ✅ Direct access (attributes flattened to top level)
 '{{Request.Context.Identity.Profile.DisplayName}}'
 '{{Request.Context.Identity.Profile.EmailAddress}}'
-'{{Request.Context.Identity.Profile.Department}}'
+
+# ❌ Nested access no longer supported (Attributes removed after flattening)
+'{{Request.Context.Identity.Profile.Attributes.DisplayName}}'
 ```
 
-### Structure Example
-
-After resolution, the profile object contains:
+**Flattened structure:**
 
 ```powershell
 Request.Context.Identity.Profile = @{
-    PSTypeName   = 'IdLE.Identity'          # Preserved from provider
-    IdentityKey  = 'user123'                # Core property
-    Enabled      = $true                    # Core property
-    DisplayName  = 'Jane Doe'               # Flattened from provider Attributes
-    EmailAddress = 'jane.doe@example.com'   # Flattened from provider Attributes
-    Department   = 'Engineering'            # Flattened from provider Attributes
-    # ... all other attributes promoted to top level
+    PSTypeName   = 'IdLE.Identity'  # Preserved from provider
+    IdentityKey  = 'user123'        # Core property
+    Enabled      = $true            # Core property
+    DisplayName  = 'Jane Doe'       # Flattened from Attributes
+    EmailAddress = 'jane@example.com'  # Flattened from Attributes
+    # ... other attributes as top-level properties
 }
 ```
 
-### Reserved Property Names
-
-The following core property names are **reserved** and will not be overwritten by attribute keys during flattening:
-
-- `IdentityKey` - The identity key used by the workflow
-- `Enabled` - The identity enabled status
-
-The following is preserved as internal type metadata:
-
-- `PSTypeName` - Type name metadata (e.g., 'IdLE.Identity')
-
-If an attribute key conflicts with a reserved core property name, a verbose warning is emitted during planning, and the conflicting attribute is skipped:
-
-```powershell
-# Example: Provider returns Attributes = @{ IdentityKey = 'conflicting-value'; Enabled = $false }
-# ⚠️  Verbose warnings emitted for both IdentityKey and Enabled
-# ✅ Profile.IdentityKey returns the actual identity key (core property wins)
-# ✅ Profile.Enabled returns the actual enabled status (core property wins)
-# ❌ Conflicting attribute values are lost during flattening
-```
+**Reserved names:** `IdentityKey` and `Enabled` cannot be overwritten by attributes. Conflicts trigger verbose warnings and the attribute is skipped.
 
 ---
 
 ## Multiple Resolvers and Precedence
 
-### Execution Order
-
-Context Resolvers are executed **sequentially in the order they are declared** in the workflow's `ContextResolvers` array:
+Resolvers execute **sequentially in declaration order**. If multiple resolvers write to the same path, **later ones overwrite earlier ones** (last-writer-wins):
 
 ```powershell
 ContextResolvers = @(
-    @{  # Executed first
-        Capability = 'IdLE.Identity.Read'
-        With = @{
-            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
-            Provider    = 'PrimaryAD'
-        }
-    }
-    @{  # Executed second
-        Capability = 'IdLE.Entitlement.List'
-        With = @{
-            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
-            Provider    = 'PrimaryAD'
-        }
-    }
+    @{ Capability = 'IdLE.Identity.Read'; With = @{ Provider = 'PrimaryAD' } }    # Executes first
+    @{ Capability = 'IdLE.Identity.Read'; With = @{ Provider = 'EntraID' } }      # Overwrites Profile with EntraID data
 )
+# Result: Request.Context.Identity.Profile contains EntraID data only
 ```
 
-### Precedence for Overlapping Data
-
-If multiple resolvers write to the **same context path**, later resolvers **overwrite** earlier ones:
+**Using different providers per resolver:**
 
 ```powershell
 ContextResolvers = @(
     @{
         Capability = 'IdLE.Identity.Read'
-        With = @{
-            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
-            Provider    = 'PrimaryAD'      # Reads from Primary AD
-        }
-    }
-    @{
-        Capability = 'IdLE.Identity.Read'
-        With = @{
-            IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
-            Provider    = 'EntraID'        # Overwrites Identity.Profile with Entra ID data
-        }
-    }
-)
-```
-
-> **Important**: Both resolvers write to `Request.Context.Identity.Profile`. The **second resolver wins** and its data becomes the final `Identity.Profile` value.
-
-### Using Multiple Providers with Different Auth Sessions
-
-You can configure multiple resolvers that use different providers and authentication sessions for different systems:
-
-```powershell
-ContextResolvers = @(
-    @{
-        Capability      = 'IdLE.Identity.Read'
         With = @{
             IdentityKey     = '{{Request.IdentityKeys.sAMAccountName}}'
             Provider        = 'PrimaryAD'
-            AuthSessionName = 'Tier0-AD'   # On-premises AD auth session
+            AuthSessionName = 'Tier0-AD'    # On-premises AD auth
         }
     }
     @{
-        Capability      = 'IdLE.Entitlement.List'
+        Capability = 'IdLE.Entitlement.List'
         With = @{
             IdentityKey     = '{{Request.IdentityKeys.UserPrincipalName}}'
             Provider        = 'EntraID'
-            AuthSessionName = 'GraphAPI'   # Cloud auth session
+            AuthSessionName = 'GraphAPI'     # Cloud auth (different session)
         }
     }
 )
+# Result: Profile from AD, Entitlements from EntraID (no conflicts - different paths)
 ```
 
-Each resolver independently:
-- Selects its own `Provider`
-- Uses its own `AuthSessionName` (if authentication is required)
-- Can pass provider-specific options via `AuthSessionOptions`
-
-### Avoiding Conflicts
-
-To avoid unintended overwrites when using multiple providers:
-
-1. **Use different capabilities** that write to different context paths:
-   - `IdLE.Identity.Read` → `Request.Context.Identity.Profile`
-   - `IdLE.Entitlement.List` → `Request.Context.Identity.Entitlements`
-
-2. **Declare resolvers in intentional order** if you need the later resolver to win:
-   ```powershell
-   # Get basic profile from AD first
-   @{ Capability = 'IdLE.Identity.Read'; With = @{ Provider = 'AD' } }
-   
-   # Overwrite with cloud-enriched profile if needed
-   @{ Capability = 'IdLE.Identity.Read'; With = @{ Provider = 'EntraID' } }
-   ```
-
-3. **Use unique identity keys** appropriate for each provider:
-   - AD providers often use `sAMAccountName` or `DistinguishedName`
-   - Entra ID providers use `UserPrincipalName` or `ObjectId`
+**Best practices:**
+- Use different capabilities to avoid overwrites (`IdLE.Identity.Read` → `Identity.Profile`, `IdLE.Entitlement.List` → `Identity.Entitlements`)
+- If intentional overwrite is needed, declare resolvers in the desired order
+- Use appropriate identity keys for each provider (AD: `sAMAccountName`, Entra ID: `UserPrincipalName`)
 
 ---
 
-## Common Patterns
+## Common Patterns and Troubleshooting
 
-### Resolve once, use everywhere
+### Resolve Once, Use Everywhere
 
-Resolve identity or entitlements once and reuse the result in:
+Resolve identity/entitlements once during planning, then reuse in conditions, preconditions, and templates:
 
-- Conditions
-- Preconditions
-- Templates
+```powershell
+# In step condition
+Condition = @{ Exists = 'Request.Context.Identity.Profile' }
 
-Example:
+# In template
+Message = '{{Request.Context.Identity.Profile.DisplayName}} offboarded'
+```
+
+### Guard Destructive Operations
+
+Only perform actions if identity exists:
 
 ```powershell
 Condition = @{ Exists = 'Request.Context.Identity.Profile' }
-
-DisplayName = '{{Request.Context.Identity.Profile.DisplayName}}'
 ```
 
-### Guard destructive steps
+### Troubleshooting
 
-Only perform destructive actions if identity exists:
+| Problem | Solution |
+|---------|----------|
+| Resolver not executed | Ensure `ContextResolvers` is at workflow root level |
+| Capability not permitted | Only `IdLE.Identity.Read` and `IdLE.Entitlement.List` are allowed |
+| Ambiguous provider | Specify `With.Provider` explicitly when multiple providers match |
+| Context value missing | Verify `With` parameters and template placeholders resolve correctly |
+| Type conflict in context | Cannot overwrite existing context path with incompatible type |
 
-```powershell
-Condition = @{
-    Exists = 'Request.Context.Identity.Profile'
-}
-```
+### Inspecting Resolved Context
 
-### Entitlement snapshot usage
-
-Resolve entitlements once:
-
-```powershell
-ContextResolvers = @(
-    @{
-        Capability = 'IdLE.Entitlement.List'
-        With       = @{ IdentityKey = '{{Request.IdentityKeys.EmployeeId}}' }
-    }
-)
-```
-
-Then guard on availability:
-
-```powershell
-Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
-```
-
----
-
-## Troubleshooting
-
-### Resolver not executed
-
-- Ensure `ContextResolvers` is defined at workflow root.
-- Verify correct property name (`ContextResolvers`).
-
-### Capability not permitted
-
-- Only allowlisted read-only capabilities can be used.
-- Validation happens during plan build.
-
-### Ambiguous provider
-
-- If multiple providers advertise a capability, specify `With.Provider` explicitly.
-
-### Context value missing
-
-- Verify required `With` parameters.
-- Ensure template placeholders resolve correctly.
-
-### Type conflict in context path
-
-- A resolver cannot overwrite an existing path with incompatible type.
-
-### Inspecting resolved context data
-
-When working with complex objects (like entitlements), you may need to inspect the structure to determine the correct path syntax for Conditions or to understand what properties are available.
-
-**Method 1: Inspect the plan object after planning**
+View resolved context after planning:
 
 ```powershell
 $plan = New-IdlePlan -WorkflowPath ./workflow.psd1 -Request $req -Providers $providers
 
-# View the entire context structure
+# View entire context
 $plan.Request.Context | ConvertTo-Json -Depth 5
 
-# View specific resolved data
-$plan.Request.Context.Identity.Entitlements | ConvertTo-Json -Depth 2
-```
+# View specific data
+$plan.Request.Context.Identity.Profile
+$plan.Request.Context.Identity.Entitlements | Format-Table
 
-**Method 2: Use Format-Table for quick inspection**
-
-```powershell
-# After planning, inspect entitlements structure
-$plan.Request.Context.Identity.Entitlements | Format-Table -AutoSize
-```
-
-**Method 3: Access individual properties**
-
-```powershell
-# Check if entitlements are objects with properties
+# Inspect object structure
 $plan.Request.Context.Identity.Entitlements[0] | Get-Member
-$plan.Request.Context.Identity.Entitlements[0].Id
-$plan.Request.Context.Identity.Entitlements[0].DisplayName
 ```
 
-**Using discovered structure in Conditions**
-
-Once you know the structure (e.g., entitlements are objects with `Kind`, `Id`, `DisplayName`), use member-access enumeration in your condition paths:
+Use discovered structure in conditions:
 
 ```powershell
-# Extract Id values from all entitlement objects
 Condition = @{
   NotContains = @{
-    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Path  = 'Request.Context.Identity.Entitlements.Id'  # Member-access enumeration
     Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
   }
 }
