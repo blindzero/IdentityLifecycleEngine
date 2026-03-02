@@ -449,46 +449,67 @@ function ConvertTo-IdleFlattenedIdentity {
         return $null
     }
 
-    # Extract core properties
-    $identityKey = $null
-    $enabled = $null
-    $attributes = $null
-
+    # Clone the original identity object to preserve all existing properties and PSTypeName
+    $cloned = [ordered]@{}
+    
+    # Capture PSTypeName(s) from the original object if it's a PSCustomObject
+    $typeNames = @()
+    if ($Identity -isnot [System.Collections.IDictionary]) {
+        foreach ($typeName in $Identity.PSObject.TypeNames) {
+            if ($typeName -ne 'System.Management.Automation.PSCustomObject' -and $typeName -ne 'System.Object') {
+                $typeNames += $typeName
+            }
+        }
+    }
+    
+    # Copy all properties from the original object
     if ($Identity -is [System.Collections.IDictionary]) {
-        $identityKey = $Identity['IdentityKey']
-        $enabled = $Identity['Enabled']
-        $attributes = $Identity['Attributes']
+        foreach ($key in $Identity.Keys) {
+            if ($key -ne 'PSTypeName') {
+                $cloned[$key] = $Identity[$key]
+            }
+        }
+        # Also check for PSTypeName in the hashtable
+        if ($Identity.ContainsKey('PSTypeName')) {
+            $typeNames += $Identity['PSTypeName']
+        }
     }
     else {
-        $props = $Identity.PSObject.Properties
-        if ($props.Name -contains 'IdentityKey') { $identityKey = $Identity.IdentityKey }
-        if ($props.Name -contains 'Enabled') { $enabled = $Identity.Enabled }
-        if ($props.Name -contains 'Attributes') { $attributes = $Identity.Attributes }
+        foreach ($prop in $Identity.PSObject.Properties) {
+            $cloned[$prop.Name] = $prop.Value
+        }
     }
-
-    # Build flattened object
-    $flattened = [ordered]@{
-        IdentityKey = $identityKey
-        Enabled     = $enabled
-        Attributes  = $attributes
+    
+    # Add PSTypeName to the cloned hashtable if we captured any
+    if ($typeNames.Count -gt 0) {
+        $cloned['PSTypeName'] = $typeNames[0]  # Primary type name
     }
+    
+    # Convert to PSCustomObject
+    $flattened = [pscustomobject]$cloned
 
     # Promote all attribute keys to top level.
     # Reserved property names (IdentityKey, Enabled, Attributes) will not be overwritten
     # if they appear as keys in the Attributes hashtable.
+    $attributes = $null
+    if ($flattened.PSObject.Properties.Name -contains 'Attributes') {
+        $attributes = $flattened.Attributes
+    }
+    
     if ($null -ne $attributes -and $attributes -is [System.Collections.IDictionary]) {
+        $reservedNames = @('IdentityKey', 'Enabled', 'Attributes')
         foreach ($key in $attributes.Keys) {
-            # Only add if not already present (core properties take precedence)
-            if (-not $flattened.Contains($key)) {
-                $flattened[$key] = $attributes[$key]
+            # Only add if not already present (existing properties take precedence)
+            if ($flattened.PSObject.Properties.Name -notcontains $key) {
+                $flattened | Add-Member -MemberType NoteProperty -Name $key -Value $attributes[$key] -Force
             }
-            else {
-                # Warn if an attribute key conflicts with a core property name
+            elseif ($reservedNames -contains $key) {
+                # Warn if an attribute key conflicts with a reserved property name
                 # This helps users understand why an attribute might not be accessible at top level
                 Write-Verbose "Identity attribute '$key' conflicts with a core property name and will not be promoted to top level. Access via Attributes.$key instead."
             }
         }
     }
 
-    return [pscustomobject]$flattened
+    return $flattened
 }

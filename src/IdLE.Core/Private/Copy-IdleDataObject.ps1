@@ -50,10 +50,23 @@ function Copy-IdleDataObject {
     $props = @($Value.PSObject.Properties | Where-Object MemberType -in @('NoteProperty', 'Property'))
     if ($null -ne $props -and @($props).Count -gt 0) {
         $o = [ordered]@{}
+        
         foreach ($p in $props) {
             $o[$p.Name] = Copy-IdleDataObject -Value $p.Value
         }
-        return [pscustomobject]$o
+        
+        $result = [pscustomobject]$o
+        
+        # Preserve PSTypeName(s) from the original object by inserting into TypeNames collection
+        $typeNames = @($Value.PSObject.TypeNames | Where-Object { 
+            $_ -ne 'System.Management.Automation.PSCustomObject' -and $_ -ne 'System.Object' 
+        })
+        if ($typeNames.Count -gt 0) {
+            # Insert the primary type name at position 0 (before PSCustomObject)
+            $result.PSObject.TypeNames.Insert(0, $typeNames[0])
+        }
+        
+        return $result
     }
 
     return $Value

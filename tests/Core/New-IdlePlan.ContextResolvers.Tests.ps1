@@ -168,6 +168,9 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $profile.Department | Should -Be 'IT'
             $profile.EmailAddress | Should -Be 'user1@example.com'
             $profile.UserPrincipalName | Should -Be 'user1@example.com'
+            
+            # PSTypeName should be preserved from the original identity object
+            $profile.PSObject.TypeNames | Should -Contain 'IdLE.Identity'
         }
 
         It 'IdLE.Identity.Read resolver handles null Attributes gracefully' {
@@ -199,7 +202,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $profile.Enabled | Should -Be $true
 
             # Attributes should be null (not an empty hashtable)
-            $profile | Should -HaveProperty 'Attributes'
+            $profile.PSObject.Properties.Name | Should -Contain 'Attributes'
             $profile.Attributes | Should -Be $null
         }
 
