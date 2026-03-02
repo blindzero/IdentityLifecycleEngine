@@ -261,13 +261,24 @@ Request.Context.Identity.Profile = @{
 
 ### Reserved Property Names
 
-The following property names are **reserved** and will not be overwritten by attribute keys:
+The following core property names are **reserved** and will not be overwritten by attribute keys during flattening:
 
-- `IdentityKey`
-- `Enabled`
-- `PSTypeName` (internal type metadata)
+- `IdentityKey` - The identity key used by the workflow
+- `Enabled` - The identity enabled status
 
-If an attribute key conflicts with a reserved name, a verbose warning is emitted during planning, and the conflicting attribute is skipped.
+The following is preserved as internal type metadata:
+
+- `PSTypeName` - Type name metadata (e.g., 'IdLE.Identity')
+
+If an attribute key conflicts with a reserved core property name, a verbose warning is emitted during planning, and the conflicting attribute is skipped:
+
+```powershell
+# Example: Provider returns Attributes = @{ IdentityKey = 'conflicting-value'; Enabled = $false }
+# ⚠️  Verbose warnings emitted for both IdentityKey and Enabled
+# ✅ Profile.IdentityKey returns the actual identity key (core property wins)
+# ✅ Profile.Enabled returns the actual enabled status (core property wins)
+# ❌ Conflicting attribute values are lost during flattening
+```
 
 ---
 
