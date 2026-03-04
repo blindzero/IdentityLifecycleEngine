@@ -162,8 +162,10 @@ For `IdLE.Entitlement.List`, the engine additionally builds:
 
 | View | Path |
 |---|---|
-| Global (all providers merged) | `Request.Context.Views.Identity.Entitlements` |
-| Provider-specific (one provider merged) | `Request.Context.Views.Providers.<ProviderAlias>.Identity.Entitlements` |
+| All providers, all sessions | `Request.Context.Views.Identity.Entitlements` |
+| One provider, all sessions | `Request.Context.Views.Providers.<ProviderAlias>.Identity.Entitlements` |
+| All providers, one session | `Request.Context.Views.Sessions.<AuthSessionKey>.Identity.Entitlements` |
+| One provider, one session | `Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Entitlements` |
 
 > **Note**: `IdLE.Entitlement.List` writes an array of entitlement objects. Each entry includes:
 > `Kind` (string), `Id` (string), and optionally `DisplayName` (string),

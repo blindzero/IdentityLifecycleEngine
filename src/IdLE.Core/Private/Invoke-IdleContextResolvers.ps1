@@ -295,11 +295,16 @@ function Build-IdleContextResolverViews {
     Called after each resolver execution to keep views current.
 
     Currently only IdLE.Entitlement.List has defined view semantics:
-      - Global view:   Request.Context.Views.Identity.Entitlements
-                       (merge of all provider/session scoped lists, sorted by ProviderAlias then AuthSessionKey)
-      - Provider view: Request.Context.Views.Providers.<ProviderAlias>.Identity.Entitlements
-                       (merge of all session scoped lists for that provider)
+      - Global view (all providers, all sessions):
+          Request.Context.Views.Identity.Entitlements
+      - Provider view (one provider, all sessions):
+          Request.Context.Views.Providers.<ProviderAlias>.Identity.Entitlements
+      - Session view (all providers, one session):
+          Request.Context.Views.Sessions.<AuthSessionKey>.Identity.Entitlements
+      - Provider+Session view (one provider, one session):
+          Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Entitlements
 
+    All views use stable ordering (sorted by ProviderAlias then AuthSessionKey).
     No view is defined for IdLE.Identity.Read; results are only in the scoped path.
 
     .PARAMETER Context
@@ -333,6 +338,8 @@ function Build-IdleContextResolverViews {
 
     $globalList = [System.Collections.Generic.List[object]]::new()
     $perProviderLists = @{}
+    $perSessionLists = @{}
+    $perProviderSessionLists = @{}
 
     $providersNode = if ($Context.Contains('Providers')) { $Context['Providers'] } else { $null }
     if ($null -ne $providersNode -and $providersNode -is [System.Collections.IDictionary]) {
@@ -354,26 +361,52 @@ function Build-IdleContextResolverViews {
                 $itemArray = @($items)
                 if ($itemArray.Count -eq 0) { continue }
 
-                foreach ($item in $itemArray) {
-                    $globalList.Add($item)
-                }
+                # Global list: all providers, all sessions
+                foreach ($item in $itemArray) { $globalList.Add($item) }
 
+                # Per-provider list (all sessions for this provider)
                 if (-not $perProviderLists.Contains($providerAlias)) {
                     $perProviderLists[$providerAlias] = [System.Collections.Generic.List[object]]::new()
                 }
-                foreach ($item in $itemArray) {
-                    $perProviderLists[$providerAlias].Add($item)
+                foreach ($item in $itemArray) { $perProviderLists[$providerAlias].Add($item) }
+
+                # Per-session list (all providers for this auth session key)
+                if (-not $perSessionLists.Contains($authKey)) {
+                    $perSessionLists[$authKey] = [System.Collections.Generic.List[object]]::new()
                 }
+                foreach ($item in $itemArray) { $perSessionLists[$authKey].Add($item) }
+
+                # Per-provider+session list (one provider, one session)
+                # Use a nested hashtable keyed by provider alias to avoid delimiter collision issues.
+                if (-not $perProviderSessionLists.Contains($providerAlias)) {
+                    $perProviderSessionLists[$providerAlias] = @{}
+                }
+                if (-not $perProviderSessionLists[$providerAlias].Contains($authKey)) {
+                    $perProviderSessionLists[$providerAlias][$authKey] = [System.Collections.Generic.List[object]]::new()
+                }
+                foreach ($item in $itemArray) { $perProviderSessionLists[$providerAlias][$authKey].Add($item) }
             }
         }
     }
 
-    # Global view: Request.Context.Views.<CapabilitySubPath>
+    # Global view: all providers, all sessions → Request.Context.Views.<CapabilitySubPath>
     Set-IdleContextValue -Context $Context -Path "Views.$CapabilitySubPath" -Value @($globalList)
 
-    # Provider views: Request.Context.Views.Providers.<ProviderAlias>.<CapabilitySubPath>
+    # Provider views: one provider, all sessions → Request.Context.Views.Providers.<ProviderAlias>.<CapabilitySubPath>
     foreach ($providerAlias in $perProviderLists.Keys) {
         Set-IdleContextValue -Context $Context -Path "Views.Providers.$providerAlias.$CapabilitySubPath" -Value @($perProviderLists[$providerAlias])
+    }
+
+    # Session views: all providers, one session → Request.Context.Views.Sessions.<AuthSessionKey>.<CapabilitySubPath>
+    foreach ($authKey in $perSessionLists.Keys) {
+        Set-IdleContextValue -Context $Context -Path "Views.Sessions.$authKey.$CapabilitySubPath" -Value @($perSessionLists[$authKey])
+    }
+
+    # Provider+Session views: one provider, one session → Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.<CapabilitySubPath>
+    foreach ($pAlias in $perProviderSessionLists.Keys) {
+        foreach ($aKey in $perProviderSessionLists[$pAlias].Keys) {
+            Set-IdleContextValue -Context $Context -Path "Views.Providers.$pAlias.Sessions.$aKey.$CapabilitySubPath" -Value @($perProviderSessionLists[$pAlias][$aKey])
+        }
     }
 }
 

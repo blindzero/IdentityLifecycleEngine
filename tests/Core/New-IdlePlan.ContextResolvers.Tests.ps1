@@ -629,6 +629,84 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $entitlements[0].SourceProvider | Should -Be 'Identity'
             $entitlements[0].SourceAuthSessionName | Should -Be 'Default'
         }
+
+        It 'session view (all providers, one auth session) contains entitlements from all providers using that session key' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-two-auth-sessions.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = [pscustomobject]@{}
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+            $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param([string]$IdentityKey, [object]$AuthSession)
+                return @(@{ Kind = 'Group'; Id = "grp-from-$AuthSession" })
+            }
+
+            $broker = New-IdleAuthSessionBroker -AuthSessionType 'OAuth' -DefaultAuthSession 'token-corp'
+            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+                param([string]$Name, $Options)
+                if ($Name -eq 'Corp') { return 'token-corp' }
+                if ($Name -eq 'Tier0') { return 'token-tier0' }
+                return 'token-default'
+            } -Force
+
+            $providers = @{
+                Identity          = $provider
+                AuthSessionBroker = $broker
+                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            # Session view for Corp: all providers that ran with the Corp session
+            $corpView = @($plan.Request.Context.Views.Sessions.Corp.Identity.Entitlements)
+            $corpView.Count | Should -Be 1
+            $corpView[0].Id | Should -Be 'grp-from-token-corp'
+
+            # Session view for Tier0: all providers that ran with the Tier0 session
+            $tier0View = @($plan.Request.Context.Views.Sessions.Tier0.Identity.Entitlements)
+            $tier0View.Count | Should -Be 1
+            $tier0View[0].Id | Should -Be 'grp-from-token-tier0'
+        }
+
+        It 'provider+session view (one provider, one auth session) contains only that exact combination' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-two-auth-sessions.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = [pscustomobject]@{}
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+            $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param([string]$IdentityKey, [object]$AuthSession)
+                return @(@{ Kind = 'Group'; Id = "grp-from-$AuthSession" })
+            }
+
+            $broker = New-IdleAuthSessionBroker -AuthSessionType 'OAuth' -DefaultAuthSession 'token-corp'
+            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+                param([string]$Name, $Options)
+                if ($Name -eq 'Corp') { return 'token-corp' }
+                if ($Name -eq 'Tier0') { return 'token-tier0' }
+                return 'token-default'
+            } -Force
+
+            $providers = @{
+                Identity          = $provider
+                AuthSessionBroker = $broker
+                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            # Provider+Session view: Identity provider + Corp session only
+            $identityCorpView = @($plan.Request.Context.Views.Providers.Identity.Sessions.Corp.Identity.Entitlements)
+            $identityCorpView.Count | Should -Be 1
+            $identityCorpView[0].Id | Should -Be 'grp-from-token-corp'
+
+            # Provider+Session view: Identity provider + Tier0 session only
+            $identityTier0View = @($plan.Request.Context.Views.Providers.Identity.Sessions.Tier0.Identity.Entitlements)
+            $identityTier0View.Count | Should -Be 1
+            $identityTier0View[0].Id | Should -Be 'grp-from-token-tier0'
+        }
     }
 
     Context 'Fail-fast on invalid path segments' {
