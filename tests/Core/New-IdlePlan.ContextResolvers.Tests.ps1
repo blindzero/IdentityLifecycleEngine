@@ -921,6 +921,120 @@ Describe 'New-IdlePlan - ContextResolvers' {
         }
     }
 
+    Context 'View stale-data regression (empty and null results)' {
+        It 'entitlement global view is an empty array when the resolver returns no items' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-empty-entitlements.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user2' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user2' = @{
+                    IdentityKey  = 'user2'
+                    Enabled      = $true
+                    Attributes   = @{}
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            # Global view must be written as empty array, not absent.
+            # Use Contains() because -BeNullOrEmpty also matches @() (empty array).
+            $plan.Request.Context.Views.Identity.Contains('Entitlements') | Should -BeTrue -Because 'global view key must be present even when empty'
+            @($plan.Request.Context.Views.Identity.Entitlements).Count | Should -Be 0
+
+            # Per-provider view must also be written.
+            $plan.Request.Context.Views.Providers.Identity.Identity.Contains('Entitlements') | Should -BeTrue -Because 'provider view key must be present even when empty'
+            @($plan.Request.Context.Views.Providers.Identity.Identity.Entitlements).Count | Should -Be 0
+        }
+
+        It 'entitlement provider view is written as empty array when that provider returns no items' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-two-providers.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $entraProvider = [pscustomobject]@{}
+            $entraProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+            $entraProvider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param([string]$IdentityKey)
+                return @(@{ Kind = 'Group'; Id = 'grp-entra' })
+            }
+
+            $adProvider = [pscustomobject]@{}
+            $adProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+            $adProvider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param([string]$IdentityKey)
+                return @()  # AD returns no entitlements
+            }
+
+            $providers = @{
+                Entra        = $entraProvider
+                AD           = $adProvider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            # Global view has Entra's entitlement
+            @($plan.Request.Context.Views.Identity.Entitlements).Count | Should -Be 1
+
+            # AD provider view must be written (as empty array), not absent.
+            # Use Contains() because -BeNullOrEmpty also matches @() (empty array).
+            $plan.Request.Context.Views.Providers.AD.Identity.Contains('Entitlements') | Should -BeTrue -Because 'AD provider view key must be present even when empty'
+            @($plan.Request.Context.Views.Providers.AD.Identity.Entitlements).Count | Should -Be 0
+
+            # AD default session provider+session view must also be written.
+            $plan.Request.Context.Views.Providers.AD.Sessions.Default.Identity.Contains('Entitlements') | Should -BeTrue -Because 'AD provider+session view key must be present even when empty'
+            @($plan.Request.Context.Views.Providers.AD.Sessions.Default.Identity.Entitlements).Count | Should -Be 0
+        }
+
+        It 'profile provider view is written as null when that provider returns no profile' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read-two-providers.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $makeProvider = {
+                param([object]$ProfileToReturn)
+                $p = [pscustomobject]@{ ProfileData = $ProfileToReturn }
+                $p | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Identity.Read') }
+                $p | Add-Member -MemberType ScriptMethod -Name GetIdentity -Value {
+                    param([string]$IdentityKey)
+                    return $this.ProfileData
+                }
+                return $p
+            }
+
+            $providers = @{
+                Entra        = & $makeProvider -ProfileToReturn @{ IdentityKey = 'user1'; Source = 'Entra' }
+                HR           = & $makeProvider -ProfileToReturn $null  # HR finds no profile
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            # Global view: last-non-null wins → Entra wins (HR returned null)
+            $plan.Request.Context.Views.Identity.Profile | Should -Not -BeNullOrEmpty
+            $plan.Request.Context.Views.Identity.Profile.Source | Should -Be 'Entra'
+
+            # HR provider view must be present as null (not absent)
+            $hrViewPresent = $plan.Request.Context.Views.Contains('Providers') -and
+                             $plan.Request.Context.Views.Providers.Contains('HR')
+            $hrViewPresent | Should -BeTrue -Because 'HR provider view node must be present'
+            $plan.Request.Context.Views.Providers.HR.Identity.Profile | Should -BeNullOrEmpty
+
+            # HR provider+session view must be present as null
+            $hrSessionViewPresent = $plan.Request.Context.Views.Providers.HR.Contains('Sessions') -and
+                                    $plan.Request.Context.Views.Providers.HR.Sessions.Contains('Default')
+            $hrSessionViewPresent | Should -BeTrue -Because 'HR provider+session view node must be present'
+            $plan.Request.Context.Views.Providers.HR.Sessions.Default.Identity.Profile | Should -BeNullOrEmpty
+        }
+    }
+
     Context 'Request.Context.Current alias (execution-time preconditions)' {
         It 'Current resolves to the step provider/auth scoped context during precondition evaluation' {
             $wfPath = Join-Path $script:FixturesPath 'resolver-current-precondition.psd1'

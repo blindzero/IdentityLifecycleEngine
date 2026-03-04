@@ -470,6 +470,11 @@ function Invoke-IdlePlanObject {
                     )
                 }
 
+                # Clean up the Current alias before exiting the step loop.
+                if ($currentContextSet -and $null -ne $request -and $null -ne $request.Context -and $request.Context -is [System.Collections.IDictionary]) {
+                    $null = $request.Context.Remove('Current')
+                }
+
                 break
             }
         }
