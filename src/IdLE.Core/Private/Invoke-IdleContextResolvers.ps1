@@ -19,9 +19,13 @@ function Invoke-IdleContextResolvers {
     - Engine-defined Views are (re)built deterministically after each resolver:
         Request.Context.Views.<CapabilitySubPath>               (global: all providers/sessions)
         Request.Context.Views.Providers.<ProviderAlias>.<...>   (provider: all sessions)
-      View semantics are capability-specific; currently only IdLE.Entitlement.List has views.
+        Request.Context.Views.Sessions.<AuthSessionKey>.<...>   (session: all providers)
+        Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.<...> (exact)
+      View semantics are capability-specific; both IdLE.Entitlement.List and IdLE.Identity.Read have views.
     - For IdLE.Entitlement.List, each entry is annotated with SourceProvider and
       SourceAuthSessionName to enable auditing and source-specific filtering.
+    - For IdLE.Identity.Read, the profile object is annotated with SourceProvider and
+      SourceAuthSessionName; multi-source views use last-write-wins with deterministic sort order.
     - Provider alias and AuthSessionKey must be valid context path segments.
     - Provider is selected by alias when 'With.Provider' is specified. When 'With.Provider'
       is omitted, auto-selection only succeeds if exactly one provider advertises the
@@ -164,6 +168,11 @@ function Invoke-IdleContextResolvers {
             $result = @(Add-IdleEntitlementSourceMetadata -Entitlements @($result) -SourceProvider $resolvedProviderAlias -SourceAuthSessionName $authSessionKey)
         }
 
+        # --- Annotate profile result with source metadata ---
+        if ($capability -eq 'IdLE.Identity.Read') {
+            $result = Add-IdleProfileSourceMetadata -Profile $result -SourceProvider $resolvedProviderAlias -SourceAuthSessionName $authSessionKey
+        }
+
         # --- Write to provider/auth-scoped path (source of truth) ---
         # Path: Providers.<ProviderAlias>.<AuthSessionKey>.<CapabilitySubPath>
         $contextSubPath = Get-IdleCapabilityContextPath -Capability $capability
@@ -285,6 +294,63 @@ function Add-IdleEntitlementSourceMetadata {
     return @($result)
 }
 
+function Add-IdleProfileSourceMetadata {
+    <#
+    .SYNOPSIS
+    Annotates a profile object with SourceProvider and SourceAuthSessionName metadata.
+
+    .DESCRIPTION
+    Ensures every profile returned by IdLE.Identity.Read resolvers carries source
+    information to support auditing and view semantics (including identifying which
+    provider/session a profile came from in aggregated views).
+
+    .PARAMETER Profile
+    The profile object (hashtable or PSCustomObject) to annotate.
+
+    .PARAMETER SourceProvider
+    The provider alias that produced the profile.
+
+    .PARAMETER SourceAuthSessionName
+    The auth session key used ('Default' if no explicit session was specified).
+
+    .OUTPUTS
+    Object
+    #>
+    [CmdletBinding()]
+    [OutputType([object])]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Profile,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $SourceProvider,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $SourceAuthSessionName
+    )
+
+    if ($null -eq $Profile) {
+        return $null
+    }
+
+    if ($Profile -is [System.Collections.IDictionary]) {
+        $enriched = @{}
+        foreach ($key in $Profile.Keys) { $enriched[$key] = $Profile[$key] }
+        $enriched['SourceProvider'] = $SourceProvider
+        $enriched['SourceAuthSessionName'] = $SourceAuthSessionName
+        return $enriched
+    }
+    else {
+        # PSCustomObject or other reference type — add properties non-destructively
+        $Profile | Add-Member -MemberType NoteProperty -Name 'SourceProvider' -Value $SourceProvider -Force
+        $Profile | Add-Member -MemberType NoteProperty -Name 'SourceAuthSessionName' -Value $SourceAuthSessionName -Force
+        return $Profile
+    }
+}
+
 function Build-IdleContextResolverViews {
     <#
     .SYNOPSIS
@@ -294,7 +360,7 @@ function Build-IdleContextResolverViews {
     Views are deterministic, engine-defined aggregations of scoped resolver outputs.
     Called after each resolver execution to keep views current.
 
-    Currently only IdLE.Entitlement.List has defined view semantics:
+    IdLE.Entitlement.List view semantics (list merge, all entries are preserved):
       - Global view (all providers, all sessions):
           Request.Context.Views.Identity.Entitlements
       - Provider view (one provider, all sessions):
@@ -304,8 +370,19 @@ function Build-IdleContextResolverViews {
       - Provider+Session view (one provider, one session):
           Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Entitlements
 
+    IdLE.Identity.Read view semantics (single object, last writer wins, deterministic sort order):
+      - Global view (all providers, all sessions):
+          Request.Context.Views.Identity.Profile
+      - Provider view (one provider, all sessions):
+          Request.Context.Views.Providers.<ProviderAlias>.Identity.Profile
+      - Session view (all providers, one session):
+          Request.Context.Views.Sessions.<AuthSessionKey>.Identity.Profile
+      - Provider+Session view (one provider, one session):
+          Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Profile
+
     All views use stable ordering (sorted by ProviderAlias then AuthSessionKey).
-    No view is defined for IdLE.Identity.Read; results are only in the scoped path.
+    For IdLE.Identity.Read, views where multiple profiles could contribute use last-write-wins
+    with deterministic sort order (last provider or session alphabetically wins).
 
     .PARAMETER Context
     The Request.Context hashtable to update.
@@ -331,18 +408,22 @@ function Build-IdleContextResolverViews {
         [string] $CapabilitySubPath
     )
 
-    # Only IdLE.Entitlement.List has defined view semantics.
-    if ($Capability -ne 'IdLE.Entitlement.List') {
+    # Only capabilities with defined view semantics are processed.
+    if ($Capability -notin @('IdLE.Entitlement.List', 'IdLE.Identity.Read')) {
         return
     }
 
-    $globalList = [System.Collections.Generic.List[object]]::new()
-    $perProviderLists = @{}
-    $perSessionLists = @{}
-    $perProviderSessionLists = @{}
-
     $providersNode = if ($Context.Contains('Providers')) { $Context['Providers'] } else { $null }
-    if ($null -ne $providersNode -and $providersNode -is [System.Collections.IDictionary]) {
+    if ($null -eq $providersNode -or -not ($providersNode -is [System.Collections.IDictionary])) {
+        return
+    }
+
+    if ($Capability -eq 'IdLE.Entitlement.List') {
+        $globalList = [System.Collections.Generic.List[object]]::new()
+        $perProviderLists = @{}
+        $perSessionLists = @{}
+        $perProviderSessionLists = @{}
+
         # Stable ordering: sorted by ProviderAlias, then AuthSessionKey
         $sortedProviders = @($providersNode.Keys | Sort-Object)
         foreach ($providerAlias in $sortedProviders) {
@@ -387,25 +468,89 @@ function Build-IdleContextResolverViews {
                 foreach ($item in $itemArray) { $perProviderSessionLists[$providerAlias][$authKey].Add($item) }
             }
         }
+
+        # Global view: all providers, all sessions → Request.Context.Views.<CapabilitySubPath>
+        Set-IdleContextValue -Context $Context -Path "Views.$CapabilitySubPath" -Value @($globalList)
+
+        # Provider views: one provider, all sessions → Request.Context.Views.Providers.<ProviderAlias>.<CapabilitySubPath>
+        foreach ($providerAlias in $perProviderLists.Keys) {
+            Set-IdleContextValue -Context $Context -Path "Views.Providers.$providerAlias.$CapabilitySubPath" -Value @($perProviderLists[$providerAlias])
+        }
+
+        # Session views: all providers, one session → Request.Context.Views.Sessions.<AuthSessionKey>.<CapabilitySubPath>
+        foreach ($authKey in $perSessionLists.Keys) {
+            Set-IdleContextValue -Context $Context -Path "Views.Sessions.$authKey.$CapabilitySubPath" -Value @($perSessionLists[$authKey])
+        }
+
+        # Provider+Session views: one provider, one session → Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.<CapabilitySubPath>
+        foreach ($pAlias in $perProviderSessionLists.Keys) {
+            foreach ($aKey in $perProviderSessionLists[$pAlias].Keys) {
+                Set-IdleContextValue -Context $Context -Path "Views.Providers.$pAlias.Sessions.$aKey.$CapabilitySubPath" -Value @($perProviderSessionLists[$pAlias][$aKey])
+            }
+        }
+        return
     }
 
-    # Global view: all providers, all sessions → Request.Context.Views.<CapabilitySubPath>
-    Set-IdleContextValue -Context $Context -Path "Views.$CapabilitySubPath" -Value @($globalList)
+    if ($Capability -eq 'IdLE.Identity.Read') {
+        # Profile views use last-write-wins with deterministic (sorted) ordering.
+        # When multiple profiles exist for a view scope (e.g., two providers for the global view),
+        # the profile from the last entry in sort order (provider alias asc, auth key asc) wins.
+        $globalProfile = $null
+        $perProviderProfiles = @{}
+        $perSessionProfiles = @{}
+        $perProviderSessionProfiles = @{}
 
-    # Provider views: one provider, all sessions → Request.Context.Views.Providers.<ProviderAlias>.<CapabilitySubPath>
-    foreach ($providerAlias in $perProviderLists.Keys) {
-        Set-IdleContextValue -Context $Context -Path "Views.Providers.$providerAlias.$CapabilitySubPath" -Value @($perProviderLists[$providerAlias])
-    }
+        # Stable ordering: sorted by ProviderAlias, then AuthSessionKey
+        $sortedProviders = @($providersNode.Keys | Sort-Object)
+        foreach ($providerAlias in $sortedProviders) {
+            $providerNode = $providersNode[$providerAlias]
+            if ($null -eq $providerNode -or -not ($providerNode -is [System.Collections.IDictionary])) { continue }
 
-    # Session views: all providers, one session → Request.Context.Views.Sessions.<AuthSessionKey>.<CapabilitySubPath>
-    foreach ($authKey in $perSessionLists.Keys) {
-        Set-IdleContextValue -Context $Context -Path "Views.Sessions.$authKey.$CapabilitySubPath" -Value @($perSessionLists[$authKey])
-    }
+            $sortedAuthKeys = @($providerNode.Keys | Sort-Object)
+            foreach ($authKey in $sortedAuthKeys) {
+                $authNode = $providerNode[$authKey]
+                if ($null -eq $authNode -or -not ($authNode -is [System.Collections.IDictionary])) { continue }
 
-    # Provider+Session views: one provider, one session → Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.<CapabilitySubPath>
-    foreach ($pAlias in $perProviderSessionLists.Keys) {
-        foreach ($aKey in $perProviderSessionLists[$pAlias].Keys) {
-            Set-IdleContextValue -Context $Context -Path "Views.Providers.$pAlias.Sessions.$aKey.$CapabilitySubPath" -Value @($perProviderSessionLists[$pAlias][$aKey])
+                $profile = Get-IdleValueByPath -Object $authNode -Path $CapabilitySubPath
+                if ($null -eq $profile) { continue }
+
+                # Global view: last profile (sorted by provider then auth key)
+                $globalProfile = $profile
+
+                # Per-provider view: last session's profile for this provider
+                $perProviderProfiles[$providerAlias] = $profile
+
+                # Per-session view: last provider's profile for this session key
+                $perSessionProfiles[$authKey] = $profile
+
+                # Per-provider+session view: exact profile (no ambiguity)
+                if (-not $perProviderSessionProfiles.Contains($providerAlias)) {
+                    $perProviderSessionProfiles[$providerAlias] = @{}
+                }
+                $perProviderSessionProfiles[$providerAlias][$authKey] = $profile
+            }
+        }
+
+        # Global view: all providers, all sessions → Request.Context.Views.<CapabilitySubPath>
+        if ($null -ne $globalProfile) {
+            Set-IdleContextValue -Context $Context -Path "Views.$CapabilitySubPath" -Value $globalProfile
+        }
+
+        # Provider views: one provider, all sessions → Request.Context.Views.Providers.<ProviderAlias>.<CapabilitySubPath>
+        foreach ($pAlias in $perProviderProfiles.Keys) {
+            Set-IdleContextValue -Context $Context -Path "Views.Providers.$pAlias.$CapabilitySubPath" -Value $perProviderProfiles[$pAlias]
+        }
+
+        # Session views: all providers, one session → Request.Context.Views.Sessions.<AuthSessionKey>.<CapabilitySubPath>
+        foreach ($aKey in $perSessionProfiles.Keys) {
+            Set-IdleContextValue -Context $Context -Path "Views.Sessions.$aKey.$CapabilitySubPath" -Value $perSessionProfiles[$aKey]
+        }
+
+        # Provider+Session views: one provider, one session → Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.<CapabilitySubPath>
+        foreach ($pAlias in $perProviderSessionProfiles.Keys) {
+            foreach ($aKey in $perProviderSessionProfiles[$pAlias].Keys) {
+                Set-IdleContextValue -Context $Context -Path "Views.Providers.$pAlias.Sessions.$aKey.$CapabilitySubPath" -Value $perProviderSessionProfiles[$pAlias][$aKey]
+            }
         }
     }
 }

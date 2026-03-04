@@ -56,18 +56,26 @@ For capabilities with defined view semantics, the engine builds deterministic Vi
 
 | View | Path | Description |
 |---|---|---|
-| All providers, all sessions | `Request.Context.Views.<CapabilitySubPath>` | Merged from all providers and all auth sessions. |
-| One provider, all sessions | `Request.Context.Views.Providers.<ProviderAlias>.<CapabilitySubPath>` | Merged for one provider across all its auth sessions. |
-| All providers, one session | `Request.Context.Views.Sessions.<AuthSessionKey>.<CapabilitySubPath>` | Merged across all providers that ran with the given auth session key. |
+| All providers, all sessions | `Request.Context.Views.<CapabilitySubPath>` | Aggregated from all providers and all auth sessions. |
+| One provider, all sessions | `Request.Context.Views.Providers.<ProviderAlias>.<CapabilitySubPath>` | Aggregated for one provider across all its auth sessions. |
+| All providers, one session | `Request.Context.Views.Sessions.<AuthSessionKey>.<CapabilitySubPath>` | Aggregated across all providers that ran with the given auth session key. |
 | One provider, one session | `Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.<CapabilitySubPath>` | Exactly one provider + one auth session. |
 
-Currently only `IdLE.Entitlement.List` has defined view semantics.
+**`IdLE.Entitlement.List`** — list merge (all entries preserved across all contributing providers/sessions):
 
-Examples:
 - `Request.Context.Views.Identity.Entitlements` — all providers, all sessions merged
 - `Request.Context.Views.Providers.Entra.Identity.Entitlements` — Entra only, all sessions
 - `Request.Context.Views.Sessions.Default.Identity.Entitlements` — all providers, Default session only
 - `Request.Context.Views.Providers.Entra.Sessions.CorpAdmin.Identity.Entitlements` — Entra + CorpAdmin session only
+
+**`IdLE.Identity.Read`** — single-object view (last writer wins with deterministic sort order: provider alias asc, then auth key asc):
+
+- `Request.Context.Views.Identity.Profile` — last profile across all providers and sessions
+- `Request.Context.Views.Providers.Entra.Identity.Profile` — last profile from Entra (across all sessions)
+- `Request.Context.Views.Sessions.Default.Identity.Profile` — last profile from any provider using the Default session
+- `Request.Context.Views.Providers.Entra.Sessions.CorpAdmin.Identity.Profile` — exact profile for Entra + CorpAdmin
+
+All profile and entitlement entries include `SourceProvider` and `SourceAuthSessionName` metadata for auditing.
 
 ### Step-relative Current alias (execution-time only)
 

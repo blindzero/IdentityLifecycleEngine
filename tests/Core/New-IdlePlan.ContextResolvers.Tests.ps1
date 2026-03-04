@@ -709,6 +709,173 @@ Describe 'New-IdlePlan - ContextResolvers' {
         }
     }
 
+    Context 'Deterministic Views for IdLE.Identity.Read' {
+        It 'profile includes SourceProvider and SourceAuthSessionName metadata' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{ Department = 'IT' }
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $profile = $plan.Request.Context.Providers.Identity.Default.Identity.Profile
+            $profile.SourceProvider | Should -Be 'Identity'
+            $profile.SourceAuthSessionName | Should -Be 'Default'
+        }
+
+        It 'global view (all providers, all sessions) contains the last profile in sort order' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read-two-providers.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $makeProvider = {
+                param([string]$Dept)
+                $p = [pscustomobject]@{ FixtureDept = $Dept }
+                $p | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Identity.Read') }
+                $p | Add-Member -MemberType ScriptMethod -Name GetIdentity -Value {
+                    param([string]$IdentityKey)
+                    return @{ IdentityKey = $IdentityKey; Department = $this.FixtureDept }
+                }
+                return $p
+            }
+
+            $providers = @{
+                Entra        = & $makeProvider -Dept 'Entra-IT'
+                HR           = & $makeProvider -Dept 'HR-IT'
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            # Sorted: Entra < HR, so HR (last alphabetically) wins the global view
+            $globalProfile = $plan.Request.Context.Views.Identity.Profile
+            $globalProfile | Should -Not -BeNullOrEmpty
+            $globalProfile.Department | Should -Be 'HR-IT'
+            $globalProfile.SourceProvider | Should -Be 'HR'
+        }
+
+        It 'provider view contains only the profile for that provider' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read-two-providers.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $makeProvider = {
+                param([string]$Dept)
+                $p = [pscustomobject]@{ FixtureDept = $Dept }
+                $p | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Identity.Read') }
+                $p | Add-Member -MemberType ScriptMethod -Name GetIdentity -Value {
+                    param([string]$IdentityKey)
+                    return @{ IdentityKey = $IdentityKey; Department = $this.FixtureDept }
+                }
+                return $p
+            }
+
+            $providers = @{
+                Entra        = & $makeProvider -Dept 'Entra-IT'
+                HR           = & $makeProvider -Dept 'HR-IT'
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $entraProfile = $plan.Request.Context.Views.Providers.Entra.Identity.Profile
+            $entraProfile.Department | Should -Be 'Entra-IT'
+            $entraProfile.SourceProvider | Should -Be 'Entra'
+
+            $hrProfile = $plan.Request.Context.Views.Providers.HR.Identity.Profile
+            $hrProfile.Department | Should -Be 'HR-IT'
+            $hrProfile.SourceProvider | Should -Be 'HR'
+        }
+
+        It 'session view (all providers, one auth session) contains the profile for that session' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read-two-auth-sessions.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = [pscustomobject]@{}
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Identity.Read') }
+            $provider | Add-Member -MemberType ScriptMethod -Name GetIdentity -Value {
+                param([string]$IdentityKey, [object]$AuthSession)
+                return @{ IdentityKey = $IdentityKey; TokenUsed = "$AuthSession" }
+            }
+
+            $broker = New-IdleAuthSessionBroker -AuthSessionType 'OAuth' -DefaultAuthSession 'token-corp'
+            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+                param([string]$Name, $Options)
+                if ($Name -eq 'Corp') { return 'token-corp' }
+                if ($Name -eq 'Tier0') { return 'token-tier0' }
+                return 'token-default'
+            } -Force
+
+            $providers = @{
+                Identity          = $provider
+                AuthSessionBroker = $broker
+                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $corpView = $plan.Request.Context.Views.Sessions.Corp.Identity.Profile
+            $corpView.TokenUsed | Should -Be 'token-corp'
+            $corpView.SourceAuthSessionName | Should -Be 'Corp'
+
+            $tier0View = $plan.Request.Context.Views.Sessions.Tier0.Identity.Profile
+            $tier0View.TokenUsed | Should -Be 'token-tier0'
+            $tier0View.SourceAuthSessionName | Should -Be 'Tier0'
+        }
+
+        It 'provider+session view contains the exact profile for that provider and session' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read-two-auth-sessions.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = [pscustomobject]@{}
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Identity.Read') }
+            $provider | Add-Member -MemberType ScriptMethod -Name GetIdentity -Value {
+                param([string]$IdentityKey, [object]$AuthSession)
+                return @{ IdentityKey = $IdentityKey; TokenUsed = "$AuthSession" }
+            }
+
+            $broker = New-IdleAuthSessionBroker -AuthSessionType 'OAuth' -DefaultAuthSession 'token-corp'
+            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+                param([string]$Name, $Options)
+                if ($Name -eq 'Corp') { return 'token-corp' }
+                if ($Name -eq 'Tier0') { return 'token-tier0' }
+                return 'token-default'
+            } -Force
+
+            $providers = @{
+                Identity          = $provider
+                AuthSessionBroker = $broker
+                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $identityCorpView = $plan.Request.Context.Views.Providers.Identity.Sessions.Corp.Identity.Profile
+            $identityCorpView.TokenUsed | Should -Be 'token-corp'
+            $identityCorpView.SourceProvider | Should -Be 'Identity'
+            $identityCorpView.SourceAuthSessionName | Should -Be 'Corp'
+
+            $identityTier0View = $plan.Request.Context.Views.Providers.Identity.Sessions.Tier0.Identity.Profile
+            $identityTier0View.TokenUsed | Should -Be 'token-tier0'
+            $identityTier0View.SourceAuthSessionName | Should -Be 'Tier0'
+        }
+    }
+
     Context 'Fail-fast on invalid path segments' {
         It 'fails when provider alias contains a dot (invalid path segment)' {
             $wfPath = Join-Path $script:FixturesPath 'resolver-invalid-provider-alias.psd1'

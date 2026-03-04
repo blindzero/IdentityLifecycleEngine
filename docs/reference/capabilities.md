@@ -158,7 +158,7 @@ Examples:
 
 ### Views (engine-defined aggregations)
 
-For `IdLE.Entitlement.List`, the engine additionally builds:
+For `IdLE.Entitlement.List`, the engine additionally builds (list merge — all entries preserved):
 
 | View | Path |
 |---|---|
@@ -172,6 +172,19 @@ For `IdLE.Entitlement.List`, the engine additionally builds:
 > plus source metadata: `SourceProvider` (string) and `SourceAuthSessionName` (string).
 > To reference entitlement Ids in Conditions, use the `.Id` member-access pattern.
 > See [Conditions - Member-Access Enumeration](../use/workflows/conditions.md#member-access-enumeration).
+
+For `IdLE.Identity.Read`, the engine additionally builds (single object — last writer wins, sorted by provider alias asc then auth key asc):
+
+| View | Path |
+|---|---|
+| All providers, all sessions | `Request.Context.Views.Identity.Profile` |
+| One provider, all sessions | `Request.Context.Views.Providers.<ProviderAlias>.Identity.Profile` |
+| All providers, one session | `Request.Context.Views.Sessions.<AuthSessionKey>.Identity.Profile` |
+| One provider, one session | `Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Profile` |
+
+> **Note**: `IdLE.Identity.Read` writes a single profile object, annotated with `SourceProvider` and `SourceAuthSessionName`.
+> When multiple providers or sessions contribute to a view scope, the profile from the last entry
+> in sort order (provider alias ascending, then auth key ascending) is used.
 
 ### Example
 
