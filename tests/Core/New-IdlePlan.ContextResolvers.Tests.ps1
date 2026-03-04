@@ -61,12 +61,17 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan | Should -Not -BeNullOrEmpty
             $plan.Steps[0].Status | Should -Be 'Planned'
 
-            # Snapshot captures resolved context (predefined path: Identity.Entitlements)
+            # Results written to scoped path: Providers.<ProviderAlias>.Default.<CapabilitySubPath>
             $plan.Request.Context | Should -Not -BeNullOrEmpty
-            $plan.Request.Context.Identity | Should -Not -BeNullOrEmpty
-            $entitlements = @($plan.Request.Context.Identity.Entitlements)
-            $entitlements.Count | Should -Be 1
-            $entitlements[0].Id | Should -Be 'g1'
+            $plan.Request.Context.Providers | Should -Not -BeNullOrEmpty
+            $scopedEntitlements = @($plan.Request.Context.Providers.Identity.Default.Identity.Entitlements)
+            $scopedEntitlements.Count | Should -Be 1
+            $scopedEntitlements[0].Id | Should -Be 'g1'
+
+            # Global view is also populated: Views.<CapabilitySubPath>
+            $viewEntitlements = @($plan.Request.Context.Views.Identity.Entitlements)
+            $viewEntitlements.Count | Should -Be 1
+            $viewEntitlements[0].Id | Should -Be 'g1'
         }
 
         It 'step is NotApplicable when resolver returns empty entitlements and condition requires them' {
@@ -97,7 +102,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan.Steps[0].Status | Should -Be 'NotApplicable'
         }
 
-        It 'IdLE.Identity.Read resolver populates Request.Context.Identity.Profile' {
+        It 'IdLE.Identity.Read resolver populates scoped path Providers.Identity.Default.Identity.Profile' {
             $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
@@ -119,10 +124,10 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
             $plan | Should -Not -BeNullOrEmpty
-            # Predefined path for IdLE.Identity.Read is Identity.Profile
+            # Scoped path for IdLE.Identity.Read: Providers.<Provider>.Default.Identity.Profile
             $plan.Steps[0].Status | Should -Be 'Planned'
-            $plan.Request.Context.Identity.Profile | Should -Not -BeNullOrEmpty
-            $plan.Request.Context.Identity.Profile.IdentityKey | Should -Be 'user1'
+            $plan.Request.Context.Providers.Identity.Default.Identity.Profile | Should -Not -BeNullOrEmpty
+            $plan.Request.Context.Providers.Identity.Default.Identity.Profile.IdentityKey | Should -Be 'user1'
         }
     }
 
@@ -149,7 +154,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
     }
 
     Context 'Resolver output captured in plan snapshot' {
-        It 'plan.Request.Context contains the resolved value after planning' {
+        It 'plan.Request.Context contains the resolved value after planning (scoped path and view)' {
             $wfPath = Join-Path $script:FixturesPath 'resolver-snapshot.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
@@ -174,11 +179,18 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $plan.Request | Should -Not -BeNullOrEmpty
             $plan.Request.Context | Should -Not -BeNullOrEmpty
-            # IdLE.Entitlement.List always writes to predefined path: Identity.Entitlements
-            $snap = @($plan.Request.Context.Identity.Entitlements)
-            $snap.Count | Should -Be 1
-            $snap[0].Kind | Should -Be 'Role'
-            $snap[0].Id | Should -Be 'admin'
+
+            # Scoped path: Providers.<Provider>.Default.Identity.Entitlements
+            $scoped = @($plan.Request.Context.Providers.Identity.Default.Identity.Entitlements)
+            $scoped.Count | Should -Be 1
+            $scoped[0].Kind | Should -Be 'Role'
+            $scoped[0].Id | Should -Be 'admin'
+
+            # Global view: Views.Identity.Entitlements
+            $view = @($plan.Request.Context.Views.Identity.Entitlements)
+            $view.Count | Should -Be 1
+            $view[0].Kind | Should -Be 'Role'
+            $view[0].Id | Should -Be 'admin'
         }
     }
 
@@ -208,9 +220,15 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
             $plan | Should -Not -BeNullOrEmpty
-            $entitlements = @($plan.Request.Context.Identity.Entitlements)
+            # Auto-selected provider alias is 'IdentityProvider'
+            $entitlements = @($plan.Request.Context.Providers.IdentityProvider.Default.Identity.Entitlements)
             $entitlements.Count | Should -Be 1
             $entitlements[0].Id | Should -Be 'grp-auto'
+
+            # Global view is also populated
+            $viewEntitlements = @($plan.Request.Context.Views.Identity.Entitlements)
+            $viewEntitlements.Count | Should -Be 1
+            $viewEntitlements[0].Id | Should -Be 'grp-auto'
         }
 
         It 'fails when no provider supports the capability and Provider is not specified' {
@@ -276,7 +294,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
-            $entitlements = @($plan.Request.Context.Identity.Entitlements)
+            $entitlements = @($plan.Request.Context.Providers.Identity.Default.Identity.Entitlements)
             $entitlements.Count | Should -Be 1
             $entitlements[0].Id | Should -Be 'tmpl-grp'
         }
@@ -312,9 +330,16 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan | Should -Not -BeNullOrEmpty
             # Auth session was passed through to the provider
             $provider.CapturedSession | Should -Not -BeNullOrEmpty
-            $entitlements = @($plan.Request.Context.Identity.Entitlements)
+
+            # Results written to scoped path using the AuthSessionName as key: Providers.Identity.TestSession.Identity.Entitlements
+            $entitlements = @($plan.Request.Context.Providers.Identity.TestSession.Identity.Entitlements)
             $entitlements.Count | Should -Be 1
             $entitlements[0].Id | Should -Be 'auth-grp'
+
+            # Global view also populated
+            $viewEntitlements = @($plan.Request.Context.Views.Identity.Entitlements)
+            $viewEntitlements.Count | Should -Be 1
+            $viewEntitlements[0].Id | Should -Be 'auth-grp'
         }
     }
 
@@ -347,8 +372,8 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $wfPath = Join-Path $script:FixturesPath 'resolver-context-type-conflict.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{
-                # Pre-populate Identity as a scalar string, conflicting with the predefined path
-                Identity = 'some-scalar-value'
+                # Pre-populate Providers as a scalar string, conflicting with the new scoped path
+                Providers = 'some-scalar-value'
             }
 
             $provider = New-IdleMockIdentityProvider -InitialStore @{
@@ -366,7 +391,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
-                Should -Throw -ExpectedMessage "*intermediate node*Identity*"
+                Should -Throw -ExpectedMessage "*intermediate node*Providers*"
         }
     }
 
@@ -400,6 +425,285 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $plan | Should -Not -BeNullOrEmpty
             $plan.Request.Context | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context 'Provider/Auth-scoped namespace (source of truth)' {
+        It 'two providers writing the same capability produce independent scoped paths without collision' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-two-providers.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $makeProvider = {
+                param([string]$GroupId)
+                # Store GroupId on the object so the ScriptMethod can access it via $this
+                $p = [pscustomobject]@{ FixtureGroupId = $GroupId }
+                $p | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+                $p | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                    param([string]$IdentityKey)
+                    return @(@{ Kind = 'Group'; Id = $this.FixtureGroupId })
+                }
+                return $p
+            }
+
+            $providers = @{
+                Entra        = & $makeProvider -GroupId 'entra-grp'
+                AD           = & $makeProvider -GroupId 'ad-grp'
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+
+            # Each provider writes to its own scoped path without overwriting the other
+            $entraEntitlements = @($plan.Request.Context.Providers.Entra.Default.Identity.Entitlements)
+            $entraEntitlements.Count | Should -Be 1
+            $entraEntitlements[0].Id | Should -Be 'entra-grp'
+
+            $adEntitlements = @($plan.Request.Context.Providers.AD.Default.Identity.Entitlements)
+            $adEntitlements.Count | Should -Be 1
+            $adEntitlements[0].Id | Should -Be 'ad-grp'
+        }
+
+        It 'multiple auth sessions for same provider produce independent scoped paths' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-two-auth-sessions.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = [pscustomobject]@{}
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+            $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param([string]$IdentityKey, [object]$AuthSession)
+                return @(@{ Kind = 'Group'; Id = "grp-from-$AuthSession" })
+            }
+
+            $broker = New-IdleAuthSessionBroker -AuthSessionType 'OAuth' -DefaultAuthSession 'token-corp'
+            $broker | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
+                param([string]$Name, $Options)
+                if ($Name -eq 'Corp') { return 'token-corp' }
+                if ($Name -eq 'Tier0') { return 'token-tier0' }
+                return 'token-default'
+            } -Force
+
+            $providers = @{
+                Identity          = $provider
+                AuthSessionBroker = $broker
+                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+
+            # Each auth session writes to its own scoped path
+            $corpEntitlements = @($plan.Request.Context.Providers.Identity.Corp.Identity.Entitlements)
+            $corpEntitlements.Count | Should -Be 1
+            $corpEntitlements[0].Id | Should -Be 'grp-from-token-corp'
+
+            $tier0Entitlements = @($plan.Request.Context.Providers.Identity.Tier0.Identity.Entitlements)
+            $tier0Entitlements.Count | Should -Be 1
+            $tier0Entitlements[0].Id | Should -Be 'grp-from-token-tier0'
+        }
+    }
+
+    Context 'Deterministic Views for IdLE.Entitlement.List' {
+        It 'global view merges entitlements from all providers sorted by provider alias then auth session key' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-two-providers.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $makeProvider = {
+                param([string]$GroupId)
+                $p = [pscustomobject]@{ FixtureGroupId = $GroupId }
+                $p | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+                $p | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                    param([string]$IdentityKey)
+                    return @(@{ Kind = 'Group'; Id = $this.FixtureGroupId })
+                }
+                return $p
+            }
+
+            $providers = @{
+                Entra        = & $makeProvider -GroupId 'entra-grp'
+                AD           = & $makeProvider -GroupId 'ad-grp'
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            # Global view contains both providers' entitlements (sorted: AD before Entra alphabetically)
+            $globalView = @($plan.Request.Context.Views.Identity.Entitlements)
+            $globalView.Count | Should -Be 2
+            $ids = $globalView | ForEach-Object { $_.Id }
+            $ids | Should -Contain 'entra-grp'
+            $ids | Should -Contain 'ad-grp'
+        }
+
+        It 'provider view contains only entitlements for that provider' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-two-providers.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $makeProvider = {
+                param([string]$GroupId)
+                $p = [pscustomobject]@{ FixtureGroupId = $GroupId }
+                $p | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+                $p | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                    param([string]$IdentityKey)
+                    return @(@{ Kind = 'Group'; Id = $this.FixtureGroupId })
+                }
+                return $p
+            }
+
+            $providers = @{
+                Entra        = & $makeProvider -GroupId 'entra-grp'
+                AD           = & $makeProvider -GroupId 'ad-grp'
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            # Provider view for Entra contains only Entra entitlements
+            $entraView = @($plan.Request.Context.Views.Providers.Entra.Identity.Entitlements)
+            $entraView.Count | Should -Be 1
+            $entraView[0].Id | Should -Be 'entra-grp'
+
+            # Provider view for AD contains only AD entitlements
+            $adView = @($plan.Request.Context.Views.Providers.AD.Identity.Entitlements)
+            $adView.Count | Should -Be 1
+            $adView[0].Id | Should -Be 'ad-grp'
+        }
+
+        It 'entitlement entries include SourceProvider and SourceAuthSessionName metadata' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-with-auth-session.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = [pscustomobject]@{}
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+            $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param([string]$IdentityKey, [object]$AuthSession)
+                return @(@{ Kind = 'Group'; Id = 'src-grp' })
+            }
+
+            $broker = New-IdleAuthSessionBroker -AuthSessionType 'OAuth' -DefaultAuthSession 'test-token'
+
+            $providers = @{
+                Identity          = $provider
+                AuthSessionBroker = $broker
+                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $entitlements = @($plan.Request.Context.Providers.Identity.TestSession.Identity.Entitlements)
+            $entitlements.Count | Should -Be 1
+            $entitlements[0].SourceProvider | Should -Be 'Identity'
+            $entitlements[0].SourceAuthSessionName | Should -Be 'TestSession'
+        }
+
+        It 'entitlement entries without explicit auth session have SourceAuthSessionName Default' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-snapshot.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'snap-user' = @{
+                    IdentityKey  = 'snap-user'
+                    Enabled      = $true
+                    Attributes   = @{}
+                    Entitlements = @(@{ Kind = 'Role'; Id = 'admin' })
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $entitlements = @($plan.Request.Context.Providers.Identity.Default.Identity.Entitlements)
+            $entitlements.Count | Should -Be 1
+            $entitlements[0].SourceProvider | Should -Be 'Identity'
+            $entitlements[0].SourceAuthSessionName | Should -Be 'Default'
+        }
+    }
+
+    Context 'Fail-fast on invalid path segments' {
+        It 'fails when provider alias contains a dot (invalid path segment)' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-invalid-provider-alias.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            # Provider with a dot in its alias - not a valid path segment
+            $p = [pscustomobject]@{}
+            $p | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+            $p | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value { param([string]$IdentityKey) return @() }
+
+            $providers = @{
+                'Invalid.Alias' = $p
+                StepRegistry    = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage "*not a valid context path segment*"
+        }
+
+        It 'fails when AuthSessionName contains a dot (invalid path segment)' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-invalid-auth-session.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = [pscustomobject]@{}
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+            $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param([string]$IdentityKey, [object]$AuthSession)
+                return @()
+            }
+
+            $broker = New-IdleAuthSessionBroker -AuthSessionType 'OAuth' -DefaultAuthSession 'test-token'
+
+            $providers = @{
+                Identity          = $provider
+                AuthSessionBroker = $broker
+                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage "*not a valid context path segment*"
+        }
+    }
+
+    Context 'Request.Context.Current alias (execution-time preconditions)' {
+        It 'Current resolves to the step provider/auth scoped context during precondition evaluation' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-current-precondition.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{}
+                    Entitlements = @(@{ Kind = 'Group'; Id = 'g1' })
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+            $result | Should -Not -BeNullOrEmpty
+            # Step should have executed (precondition passed via Current path)
+            $stepResult = $result.Steps | Where-Object { $_.Name -eq 'CurrentPreconditionStep' }
+            $stepResult | Should -Not -BeNullOrEmpty
+            $stepResult.Status | Should -Be 'Completed'
         }
     }
 }
