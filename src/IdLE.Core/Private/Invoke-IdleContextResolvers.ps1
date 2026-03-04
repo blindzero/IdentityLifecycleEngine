@@ -212,7 +212,7 @@ function Assert-IdleContextPathSegment {
 
     if ($Value -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$') {
         throw [System.ArgumentException]::new(
-            ('{0}: {1} ''{2}'' is not a valid context path segment. Must match pattern ''^[A-Za-z0-9][A-Za-z0-9_-]{{0,63}}$'' (no dots, start with alphanumeric, max 64 chars).' -f $ResolverPath, $Label, $Value),
+            ('{0}: {1} ''{2}'' is not a valid context path segment. Must start with alphanumeric, followed by alphanumeric, hyphens, or underscores (max 64 chars total, no dots allowed).' -f $ResolverPath, $Label, $Value),
             'Workflow'
         )
     }
@@ -263,7 +263,7 @@ function Add-IdleEntitlementSourceMetadata {
     $result = [System.Collections.Generic.List[object]]::new()
     foreach ($item in $Entitlements) {
         if ($null -eq $item) {
-            $result.Add($null)
+            # Skip null entries; provider implementations must not return null items in an entitlement list.
             continue
         }
 
