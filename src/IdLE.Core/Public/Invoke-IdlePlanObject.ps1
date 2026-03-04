@@ -330,38 +330,43 @@ function Invoke-IdlePlanObject {
         # Scoped to the precondition evaluation; cleaned up immediately after.
         $currentContextSet = $false
         if ($null -ne $stepPrecondition -and $null -ne $request -and $null -ne $request.Context -and $request.Context -is [System.Collections.IDictionary]) {
-            $currentProviderAlias = $null
-            $currentAuthKey = 'Default'
-            if ($null -ne $stepWith) {
-                if ($stepWith -is [System.Collections.IDictionary]) {
-                    if ($stepWith.Contains('Provider') -and -not [string]::IsNullOrWhiteSpace([string]$stepWith['Provider'])) {
-                        $currentProviderAlias = [string]$stepWith['Provider']
-                    }
-                    if ($stepWith.Contains('AuthSessionName') -and -not [string]::IsNullOrWhiteSpace([string]$stepWith['AuthSessionName'])) {
-                        $currentAuthKey = [string]$stepWith['AuthSessionName']
-                    }
-                }
-                elseif ($stepWith.PSObject.Properties.Name -contains 'Provider') {
-                    $pVal = $stepWith.Provider
-                    if (-not [string]::IsNullOrWhiteSpace([string]$pVal)) { $currentProviderAlias = [string]$pVal }
-                    $aVal = if ($stepWith.PSObject.Properties.Name -contains 'AuthSessionName') { $stepWith.AuthSessionName } else { $null }
-                    if (-not [string]::IsNullOrWhiteSpace([string]$aVal)) { $currentAuthKey = [string]$aVal }
-                }
-            }
+            # If the caller has already provided a Context['Current'], do not overwrite it.
+            $currentAlreadyPresent = $request.Context.Contains('Current')
 
-            $currentContextValue = $null
-            if (-not [string]::IsNullOrWhiteSpace($currentProviderAlias)) {
-                $providersNode = if ($request.Context.Contains('Providers')) { $request.Context['Providers'] } else { $null }
-                if ($null -ne $providersNode -and $providersNode -is [System.Collections.IDictionary] -and $providersNode.Contains($currentProviderAlias)) {
-                    $providerNode = $providersNode[$currentProviderAlias]
-                    if ($null -ne $providerNode -and $providerNode -is [System.Collections.IDictionary] -and $providerNode.Contains($currentAuthKey)) {
-                        $currentContextValue = $providerNode[$currentAuthKey]
+            if (-not $currentAlreadyPresent) {
+                $currentProviderAlias = $null
+                $currentAuthKey = 'Default'
+                if ($null -ne $stepWith) {
+                    if ($stepWith -is [System.Collections.IDictionary]) {
+                        if ($stepWith.Contains('Provider') -and -not [string]::IsNullOrWhiteSpace([string]$stepWith['Provider'])) {
+                            $currentProviderAlias = [string]$stepWith['Provider']
+                        }
+                        if ($stepWith.Contains('AuthSessionName') -and -not [string]::IsNullOrWhiteSpace([string]$stepWith['AuthSessionName'])) {
+                            $currentAuthKey = [string]$stepWith['AuthSessionName']
+                        }
+                    }
+                    elseif ($stepWith.PSObject.Properties.Name -contains 'Provider') {
+                        $pVal = $stepWith.Provider
+                        if (-not [string]::IsNullOrWhiteSpace([string]$pVal)) { $currentProviderAlias = [string]$pVal }
+                        $aVal = if ($stepWith.PSObject.Properties.Name -contains 'AuthSessionName') { $stepWith.AuthSessionName } else { $null }
+                        if (-not [string]::IsNullOrWhiteSpace([string]$aVal)) { $currentAuthKey = [string]$aVal }
                     }
                 }
-            }
 
-            $request.Context['Current'] = $currentContextValue
-            $currentContextSet = $true
+                $currentContextValue = $null
+                if (-not [string]::IsNullOrWhiteSpace($currentProviderAlias)) {
+                    $providersNode = if ($request.Context.Contains('Providers')) { $request.Context['Providers'] } else { $null }
+                    if ($null -ne $providersNode -and $providersNode -is [System.Collections.IDictionary] -and $providersNode.Contains($currentProviderAlias)) {
+                        $providerNode = $providersNode[$currentProviderAlias]
+                        if ($null -ne $providerNode -and $providerNode -is [System.Collections.IDictionary] -and $providerNode.Contains($currentAuthKey)) {
+                            $currentContextValue = $providerNode[$currentAuthKey]
+                        }
+                    }
+                }
+
+                $request.Context['Current'] = $currentContextValue
+                $currentContextSet = $true
+            }
         }
 
         if ($null -ne $stepPrecondition) {
