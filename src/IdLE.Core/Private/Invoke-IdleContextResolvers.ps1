@@ -155,13 +155,25 @@ function Invoke-IdleContextResolvers {
         }
 
         # --- Dispatch ---
-        $result = Invoke-IdleResolverCapabilityDispatch `
-            -Capability $capability `
-            -ProviderAlias $resolvedProviderAlias `
-            -Providers $Providers `
-            -With $with `
-            -AuthSession $authSession `
-            -ResolverPath $resolverPath
+        # Wrap in try/catch to ensure provider exceptions are always terminating and include
+        # resolver context in the error message, rather than silently continuing with a null
+        # result that later causes confusing template resolution failures.
+        $result = $null
+        try {
+            $result = Invoke-IdleResolverCapabilityDispatch `
+                -Capability $capability `
+                -ProviderAlias $resolvedProviderAlias `
+                -Providers $Providers `
+                -With $with `
+                -AuthSession $authSession `
+                -ResolverPath $resolverPath
+        }
+        catch {
+            throw [System.InvalidOperationException]::new(
+                "${resolverPath}: Provider '$resolvedProviderAlias' failed while resolving capability '$capability'. $($_.Exception.Message)",
+                $_.Exception
+            )
+        }
 
         # --- Annotate entitlement results with source metadata ---
         if ($capability -eq 'IdLE.Entitlement.List') {

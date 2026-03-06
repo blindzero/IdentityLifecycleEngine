@@ -919,6 +919,29 @@ Describe 'New-IdlePlan - ContextResolvers' {
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
                 Should -Throw -ExpectedMessage "*not a valid context path segment*"
         }
+
+        It 'fails with a clear terminating error when provider throws during capability dispatch' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-empty-entitlements.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            # Provider whose ListEntitlements throws (simulates a real API failure)
+            $provider = [pscustomobject]@{}
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+            $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param([string]$IdentityKey)
+                throw [System.InvalidOperationException]::new('Simulated provider API failure')
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            # Should fail immediately with a clear message (not silently continue with null context)
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage "*ContextResolvers*failed while resolving capability*"
+        }
     }
 
     Context 'View stale-data regression (empty and null results)' {
