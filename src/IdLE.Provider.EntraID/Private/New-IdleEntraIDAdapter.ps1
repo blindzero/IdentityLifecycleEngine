@@ -134,10 +134,12 @@ function New-IdleEntraIDAdapter {
         while ($null -ne $nextLink) {
             $response = $this.InvokeGraphRequest('GET', $nextLink, $AccessToken, $null)
 
-            if ($response.value) {
+            # Guard .value access: some endpoints do not wrap results in a value array
+            if ($null -ne $response -and $response.PSObject.Properties['value'] -and $null -ne $response.value) {
                 $allItems += $response.value
             }
 
+            # Guard @odata.nextLink access: absent on last page and non-paginated endpoints
             $nextLink = if ($null -ne $response -and $response.PSObject.Properties['@odata.nextLink']) {
                 $response.'@odata.nextLink'
             }
