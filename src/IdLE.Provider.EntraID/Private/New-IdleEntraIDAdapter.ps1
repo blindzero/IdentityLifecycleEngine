@@ -134,16 +134,36 @@ function New-IdleEntraIDAdapter {
         while ($null -ne $nextLink) {
             $response = $this.InvokeGraphRequest('GET', $nextLink, $AccessToken, $null)
 
-            # Guard .value access: some endpoints do not wrap results in a value array
-            if ($null -ne $response -and $response.PSObject.Properties['value'] -and $null -ne $response.value) {
-                $allItems += $response.value
-            }
+            # Default next link to null before reading it from the response;
+            # any error reading the response fields terminates pagination safely
+            $nextLink = $null
 
-            # Guard @odata.nextLink access: absent on last page and non-paginated endpoints
-            $nextLink = if ($null -ne $response -and $response.PSObject.Properties['@odata.nextLink']) {
-                $response.'@odata.nextLink'
+            if ($null -ne $response) {
+                # Collect items: some endpoints do not wrap results in a value array
+                $items = try {
+                    if ($response.PSObject.Properties.Name -contains 'value') { $response.value } else { $null }
+                }
+                catch {
+                    Write-Verbose "GetAllPages: could not read 'value' from response: $_"
+                    $null
+                }
+                if ($null -ne $items) {
+                    $allItems += $items
+                }
+
+                # Advance to next page if the response includes @odata.nextLink
+                $nextLink = try {
+                    if ($response.PSObject.Properties.Name -contains '@odata.nextLink') {
+                        $candidate = [string]$response.'@odata.nextLink'
+                        if (-not [string]::IsNullOrWhiteSpace($candidate)) { $candidate } else { $null }
+                    }
+                    else { $null }
+                }
+                catch {
+                    Write-Verbose "GetAllPages: could not read '@odata.nextLink' from response: $_"
+                    $null
+                }
             }
-            else { $null }
         }
 
         return $allItems
