@@ -138,7 +138,10 @@ function New-IdleEntraIDAdapter {
                 $allItems += $response.value
             }
 
-            $nextLink = $response.'@odata.nextLink'
+            $nextLink = if ($null -ne $response -and $response.PSObject.Properties['@odata.nextLink']) {
+                $response.'@odata.nextLink'
+            }
+            else { $null }
         }
 
         return $allItems
