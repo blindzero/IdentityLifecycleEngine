@@ -134,34 +134,20 @@ function New-IdleEntraIDAdapter {
         while ($null -ne $nextLink) {
             $response = $this.InvokeGraphRequest('GET', $nextLink, $AccessToken, $null)
 
-            # Default next link to null before reading it from the response;
-            # any error reading the response fields terminates pagination safely
+            # Reset before reading — ensures pagination always terminates
             $nextLink = $null
 
             if ($null -ne $response) {
                 # Collect items: some endpoints do not wrap results in a value array
-                $items = try {
-                    if ($response.PSObject.Properties.Name -contains 'value') { $response.value } else { $null }
-                }
-                catch {
-                    Write-Verbose "GetAllPages: could not read 'value' from response: $_"
-                    $null
-                }
+                $items = Get-IdleEntraIDGraphResponseProperty -InputObject $response -PropertyName 'value'
                 if ($null -ne $items) {
                     $allItems += $items
                 }
 
-                # Advance to next page if the response includes @odata.nextLink
-                $nextLink = try {
-                    if ($response.PSObject.Properties.Name -contains '@odata.nextLink') {
-                        $candidate = [string]$response.'@odata.nextLink'
-                        if (-not [string]::IsNullOrWhiteSpace($candidate)) { $candidate } else { $null }
-                    }
-                    else { $null }
-                }
-                catch {
-                    Write-Verbose "GetAllPages: could not read '@odata.nextLink' from response: $_"
-                    $null
+                # Advance to next page when @odata.nextLink is present and non-empty
+                $candidate = Get-IdleEntraIDGraphResponseProperty -InputObject $response -PropertyName '@odata.nextLink'
+                if (-not [string]::IsNullOrWhiteSpace([string]$candidate)) {
+                    $nextLink = [string]$candidate
                 }
             }
         }
