@@ -538,6 +538,9 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $ids = $globalView | ForEach-Object { $_.Id }
             $ids | Should -Contain 'entra-grp'
             $ids | Should -Contain 'ad-grp'
+            # Verify deterministic ordering: AD entitlements before Entra entitlements
+            $ids[0] | Should -Be 'ad-grp'
+            $ids[1] | Should -Be 'entra-grp'
         }
 
         It 'provider view contains only entitlements for that provider' {
