@@ -92,7 +92,8 @@ This provider supports Context Resolvers for the allowlisted, read-only capabili
 
 ### Capability: `IdLE.Identity.Read`
 
-Writes to: `Request.Context.Identity.Profile`  
+Writes to scoped path: `Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.Identity.Profile`  
+Engine-defined View: `Request.Context.Views.Identity.Profile`  
 Type: `PSCustomObject` (`PSTypeName = 'IdLE.Identity'`)
 
 Top-level properties:
@@ -119,9 +120,12 @@ Top-level properties:
 | `sAMAccountName` | `string` |
 | `DistinguishedName` | `string` |
 
+> **Attribute access**: Profile attributes are nested under the `Attributes` key. Use `...Identity.Profile.Attributes.DisplayName` in Conditions, **not** `...Identity.Profile.DisplayName`.
+
 ### Capability: `IdLE.Entitlement.List`
 
-Writes to: `Request.Context.Identity.Entitlements`  
+Writes to scoped path: `Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.Identity.Entitlements`  
+Engine-defined View: `Request.Context.Views.Identity.Entitlements`  
 Type: `object[]` (array of `PSCustomObject`, `PSTypeName = 'IdLE.Entitlement'`)
 
 Each element represents one AD group membership:
@@ -135,7 +139,9 @@ Each element represents one AD group membership:
 
 Notes:
 - The output paths are fixed by the engine and cannot be changed.
-- Use these values in **Conditions**, **Preconditions**, and **Templates** (resolved during planning).
+- Each entry is automatically annotated with `SourceProvider` and `SourceAuthSessionName` metadata.
+- Use the global View (`Request.Context.Views.Identity.Entitlements`) in **Conditions** when you don't need to filter by provider. Use the scoped path when you need results from a specific provider only.
+- See [Context Resolvers](../../use/workflows/context-resolver.md) for the full path reference.
 
 ## Configuration
 
