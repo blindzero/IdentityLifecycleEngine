@@ -119,16 +119,16 @@ This section is the authoritative DSL reference.
 - Throws an error if `Path` resolves to a scalar
 
 ```powershell
-# Check if a specific group DN is in the entitlements
+# Check if a specific group DN is in the entitlements (using the global View populated by ContextResolvers)
 @{
   Contains = @{
-    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Path  = 'Request.Context.Views.Identity.Entitlements.Id'
     Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
   }
 }
 ```
 
-> **Note**: When `Request.Context.Identity.Entitlements` contains objects (e.g., `@{ Kind = 'Group'; Id = '...'; DisplayName = '...' }`), use `.Id` or `.DisplayName` to extract the property values: `Entitlements.Id` returns an array of all Id values.
+> **Note**: When `Request.Context.Views.Identity.Entitlements` contains objects (e.g., `@{ Kind = 'Group'; Id = '...'; DisplayName = '...' }`), use `.Id` or `.DisplayName` to extract the property values: `Entitlements.Id` returns an array of all Id values.
 
 #### NotContains
 
@@ -139,10 +139,10 @@ This section is the authoritative DSL reference.
 - Throws an error if `Path` resolves to a scalar
 
 ```powershell
-# Prevent execution if identity has a specific group
+# Prevent execution if identity has a specific group (using the global View populated by ContextResolvers)
 @{
   NotContains = @{
-    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Path  = 'Request.Context.Views.Identity.Entitlements.Id'
     Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
   }
 }
@@ -157,18 +157,18 @@ This section is the authoritative DSL reference.
 - Uses PowerShell's `-like` operator (supports `*` and `?` wildcards)
 
 ```powershell
-# Scalar example: check if DisplayName contains "Contractor"
+# Scalar example: check if DisplayName matches a pattern (attributes are nested under Attributes key)
 @{
   Like = @{
-    Path    = 'Request.Context.Identity.Profile.DisplayName'
+    Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
     Pattern = '* (Contractor)'
   }
 }
 
-# List example: check if any entitlement Id matches the pattern
+# List example: check if any entitlement Id matches the pattern (using the global View)
 @{
   Like = @{
-    Path    = 'Request.Context.Identity.Entitlements.Id'
+    Path    = 'Request.Context.Views.Identity.Entitlements.Id'
     Pattern = 'CN=HR-*'
   }
 }
@@ -185,18 +185,18 @@ This section is the authoritative DSL reference.
 - Uses PowerShell's `-notlike` operator (supports `*` and `?` wildcards)
 
 ```powershell
-# Scalar example
+# Scalar example (attributes are nested under Attributes key)
 @{
   NotLike = @{
-    Path    = 'Request.Context.Identity.Profile.DisplayName'
+    Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
     Pattern = '* (Contractor)'
   }
 }
 
-# List example: ensure no HR groups in entitlements
+# List example: ensure no HR groups in entitlements (using the global View)
 @{
   NotLike = @{
-    Path    = 'Request.Context.Identity.Entitlements.Id'
+    Path    = 'Request.Context.Views.Identity.Entitlements.Id'
     Pattern = 'CN=HR-*'
   }
 }
@@ -216,9 +216,12 @@ This section is the authoritative DSL reference.
 
 When a `Path` points to a list of objects, you can access properties of those objects using dot notation:
 
-- `Request.Context.Identity.Entitlements` → returns array of entitlement objects
-- `Request.Context.Identity.Entitlements.Id` → returns array of all `Id` values
-- `Request.Context.Identity.Entitlements.DisplayName` → returns array of all `DisplayName` values
+- `Request.Context.Views.Identity.Entitlements` → returns array of entitlement objects
+- `Request.Context.Views.Identity.Entitlements.Id` → returns array of all `Id` values
+- `Request.Context.Views.Identity.Entitlements.DisplayName` → returns array of all `DisplayName` values
+
+> **Note**: These paths reference the **global View** populated by a `ContextResolvers` entry with `IdLE.Entitlement.List`. See [Context Resolvers](./context-resolver.md) for details.  
+> For provider-specific entitlements, use the scoped path: `Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.Identity.Entitlements.Id` (where `<AuthSessionKey>` is the auth session key; `Default` is used when no `With.AuthSessionName` is specified).
 
 **Example**:
 ```powershell
@@ -230,7 +233,7 @@ When a `Path` points to a list of objects, you can access properties of those ob
 # Check if any entitlement Id matches a pattern
 @{
   Like = @{
-    Path    = 'Request.Context.Identity.Entitlements.Id'
+    Path    = 'Request.Context.Views.Identity.Entitlements.Id'
     Pattern = 'CN=HR-*'
   }
 }
@@ -299,7 +302,7 @@ Condition = @{
 ```powershell
 Condition = @{
   NotContains = @{
-    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Path  = 'Request.Context.Views.Identity.Entitlements.Id'
     Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
   }
 }
@@ -310,7 +313,7 @@ Condition = @{
 ```powershell
 Condition = @{
   NotLike = @{
-    Path    = 'Request.Context.Identity.Entitlements.Id'
+    Path    = 'Request.Context.Views.Identity.Entitlements.Id'
     Pattern = 'CN=HR-*'
   }
 }
@@ -321,7 +324,7 @@ Condition = @{
 ```powershell
 Condition = @{
   Like = @{
-    Path    = 'Request.Context.Identity.Profile.DisplayName'
+    Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
     Pattern = '* (Contractor)'
   }
 }
@@ -335,7 +338,7 @@ Condition = @{
     @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Leaver' } }
     @{
       NotContains = @{
-        Path  = 'Request.Context.Identity.Entitlements.Id'
+        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
         Value = 'CN=Protected-Accounts,OU=Groups,DC=example,DC=com'
       }
     }

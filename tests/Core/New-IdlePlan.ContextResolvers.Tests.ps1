@@ -1061,6 +1061,117 @@ Describe 'New-IdlePlan - ContextResolvers' {
         }
     }
 
+    Context 'Profile attribute access via conditions (post-#259 model)' {
+        It 'condition using Views profile attribute path (Attributes.Department) marks step Planned when attribute matches' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-profile-attribute-condition.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{ Department = 'Contractors' }
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+
+            # Verify attributes are nested under Attributes key in the resolver output
+            $profile = $plan.Request.Context.Providers.Identity.Default.Identity.Profile
+            $profile | Should -Not -BeNullOrEmpty
+            $profile.Attributes | Should -Not -BeNullOrEmpty
+            $profile.Attributes.Department | Should -Be 'Contractors'
+
+            # View also populated and has nested attributes
+            $viewProfile = $plan.Request.Context.Views.Identity.Profile
+            $viewProfile | Should -Not -BeNullOrEmpty
+            $viewProfile.Attributes.Department | Should -Be 'Contractors'
+
+            # ContractorStep: condition matches because Department attribute matches the 'Contractors' pattern
+            $contractorStep = $plan.Steps | Where-Object { $_.Name -eq 'ContractorStep' }
+            $contractorStep | Should -Not -BeNullOrEmpty
+            $contractorStep.Status | Should -Be 'Planned'
+
+            # ScopedProfileStep: condition checks that Attributes exists on the scoped path
+            $scopedStep = $plan.Steps | Where-Object { $_.Name -eq 'ScopedProfileStep' }
+            $scopedStep | Should -Not -BeNullOrEmpty
+            $scopedStep.Status | Should -Be 'Planned'
+        }
+
+        It 'condition using Views profile attribute path marks step NotApplicable when attribute does not match' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-profile-attribute-condition.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    # Department does not match the 'Contractors' pattern
+                    Attributes   = @{ Department = 'Engineering' }
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+
+            # ContractorStep: condition does not match — Department 'Engineering' does not match the 'Contractors' pattern
+            $contractorStep = $plan.Steps | Where-Object { $_.Name -eq 'ContractorStep' }
+            $contractorStep | Should -Not -BeNullOrEmpty
+            $contractorStep.Status | Should -Be 'NotApplicable'
+        }
+
+        It 'profile attributes are nested under Attributes key, not promoted to top-level' {
+            $wfPath = Join-Path $script:FixturesPath 'resolver-identity-read.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+            $provider = New-IdleMockIdentityProvider -InitialStore @{
+                'user1' = @{
+                    IdentityKey  = 'user1'
+                    Enabled      = $true
+                    Attributes   = @{ DisplayName = 'John Doe'; Department = 'IT' }
+                    Entitlements = @()
+                }
+            }
+
+            $providers = @{
+                Identity     = $provider
+                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+            }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $profile = $plan.Request.Context.Providers.Identity.Default.Identity.Profile
+
+            # Attributes are under the Attributes hashtable, not promoted to top-level
+            $profile.Attributes | Should -Not -BeNullOrEmpty
+            $profile.Attributes.DisplayName | Should -Be 'John Doe'
+            $profile.Attributes.Department | Should -Be 'IT'
+
+            # Attributes are NOT promoted to the top level of the profile object
+            # (DisplayName is not a direct property of the profile PSCustomObject)
+            $profile.PSObject.Properties.Name | Should -Not -Contain 'DisplayName'
+            $profile.PSObject.Properties.Name | Should -Not -Contain 'Department'
+        }
+    }
+
     Context 'Request.Context.Current alias (execution-time preconditions)' {
         It 'Current resolves to the step provider/auth scoped context during precondition evaluation' {
             $wfPath = Join-Path $script:FixturesPath 'resolver-current-precondition.psd1'
