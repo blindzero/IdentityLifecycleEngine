@@ -14,7 +14,7 @@
     @{
       Name      = 'NeedsEntitlements'
       Type      = 'IdLE.Step.EmitEvent'
-      Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
+      Condition = @{ Exists = 'Request.Context.Views.Identity.Entitlements' }
     }
   )
 }

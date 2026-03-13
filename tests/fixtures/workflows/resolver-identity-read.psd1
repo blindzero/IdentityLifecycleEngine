@@ -14,7 +14,7 @@
     @{
       Name      = 'ConditionalStep'
       Type      = 'IdLE.Step.EmitEvent'
-      Condition = @{ Exists = 'Request.Context.Identity.Profile' }
+      Condition = @{ Exists = 'Request.Context.Providers.Identity.Default.Identity.Profile' }
     }
   )
 }
