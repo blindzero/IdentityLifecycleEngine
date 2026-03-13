@@ -4,15 +4,17 @@
   ContextResolvers = @(
     @{
       Capability = 'IdLE.Identity.Read'
-      Provider   = 'Identity'
-      With       = @{ IdentityKey = 'user1' }
+      With       = @{
+        IdentityKey = 'user1'
+        Provider    = 'Identity'
+      }
     }
   )
   Steps = @(
     @{
       Name      = 'ConditionalStep'
       Type      = 'IdLE.Step.EmitEvent'
-      Condition = @{ Exists = 'Request.Context.Identity.Profile' }
+      Condition = @{ Exists = 'Request.Context.Providers.Identity.Default.Identity.Profile' }
     }
   )
 }

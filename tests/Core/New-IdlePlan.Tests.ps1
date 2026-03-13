@@ -202,5 +202,34 @@ Describe 'New-IdlePlan' {
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw -ExpectedMessage '*does not match request LifecycleEvent*'
         }
+
+        It 'fails plan building when PruneEntitlementsEnsureKeep step contains unsupported With.KeepPattern key (not in AllowedWithKeys)' {
+            $wfPath = New-IdleTestWorkflowFile -FileName 'leaver-bad.psd1' -Content @'
+@{
+  Name           = 'Leaver - Bad KeepPattern'
+  LifecycleEvent = 'Leaver'
+  Steps          = @(
+    @{
+      Name = 'Prune with forbidden KeepPattern'
+      Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+      With = @{
+        IdentityKey = 'user1'
+        Kind        = 'Group'
+        Provider    = 'AD'
+        KeepPattern = @('CN=*')
+      }
+    }
+  )
+}
+'@
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Leaver'
+            $adProvider = [pscustomobject]@{}
+            $adProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { @('IdLE.Entitlement.Prune','IdLE.Entitlement.List','IdLE.Entitlement.Revoke','IdLE.Entitlement.Grant') }
+            $providers = @{ AD = $adProvider }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
+                Should -Throw -ExpectedMessage '*KeepPattern*'
+        }
     }
 }

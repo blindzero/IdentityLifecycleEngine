@@ -119,6 +119,87 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
                 $errors.Count | Should -BeGreaterThan 0
             }
+
+            It 'accepts Contains operator with Path + Value' {
+                $condition = @{
+                    Contains = @{
+                        Path  = 'Request.Context.Identity.Entitlements'
+                        Value = 'CN=Group,OU=Groups,DC=example,DC=com'
+                    }
+                }
+
+                $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
+                $errors.Count | Should -Be 0
+            }
+
+            It 'rejects Contains with missing Path' {
+                $condition = @{
+                    Contains = @{
+                        Value = 'Test'
+                    }
+                }
+
+                $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
+                $errors.Count | Should -BeGreaterThan 0
+            }
+
+            It 'rejects Contains with missing Value' {
+                $condition = @{
+                    Contains = @{
+                        Path = 'Request.Context.Identity.Entitlements'
+                    }
+                }
+
+                $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
+                $errors.Count | Should -BeGreaterThan 0
+            }
+
+            It 'accepts NotContains operator with Path + Value' {
+                $condition = @{
+                    NotContains = @{
+                        Path  = 'Request.Context.Identity.Entitlements'
+                        Value = 'CN=Group,OU=Groups,DC=example,DC=com'
+                    }
+                }
+
+                $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
+                $errors.Count | Should -Be 0
+            }
+
+            It 'accepts Like operator with Path + Pattern' {
+                $condition = @{
+                    Like = @{
+                        Path    = 'Request.Context.Identity.Profile.DisplayName'
+                        Pattern = '* (Contractor)'
+                    }
+                }
+
+                $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
+                $errors.Count | Should -Be 0
+            }
+
+            It 'rejects Like with missing Pattern' {
+                $condition = @{
+                    Like = @{
+                        Path = 'Request.Context.Identity.Profile.DisplayName'
+                    }
+                }
+
+                $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
+                $errors.Count | Should -BeGreaterThan 0
+            }
+
+            It 'accepts NotLike operator with Path + Pattern' {
+                $condition = @{
+                    NotLike = @{
+                        Path    = 'Request.Context.Identity.Entitlements'
+                        Pattern = 'CN=HR-*'
+                    }
+                }
+
+                $errors = Test-IdleConditionSchema -Condition $condition -StepName 'Demo'
+                $errors.Count | Should -Be 0
+            }
         }
 
         Context 'Evaluation' {
@@ -289,6 +370,484 @@ Describe 'Condition DSL (schema + evaluator)' {
                 }
 
                 { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw
+            }
+
+            It 'returns true when Contains finds value in list' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Entitlements = @(
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'; DisplayName = 'BreakGlass Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Contains = @{
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
+                        Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeTrue
+            }
+
+            It 'returns false when Contains does not find value in list' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Entitlements = @(
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Contains = @{
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
+                        Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeFalse
+            }
+
+            It 'throws when Contains is used on scalar value' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Identity = [pscustomobject]@{
+                                Name = 'John Doe'
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Contains = @{
+                        Path  = 'Request.Context.Identity.Name'
+                        Value = 'John'
+                    }
+                }
+
+                { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw
+            }
+
+            It 'throws when Contains is used on hashtable' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Identity = [pscustomobject]@{
+                                Metadata = @{
+                                    Department = 'Engineering'
+                                    Location   = 'Seattle'
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Contains = @{
+                        Path  = 'Request.Context.Identity.Metadata'
+                        Value = 'Engineering'
+                    }
+                }
+
+                { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw -ExpectedMessage '*hashtable/dictionary*'
+            }
+
+            It 'throws when NotContains is used on hashtable' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Identity = [pscustomobject]@{
+                                Metadata = @{
+                                    Department = 'Engineering'
+                                    Location   = 'Seattle'
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotContains = @{
+                        Path  = 'Request.Context.Identity.Metadata'
+                        Value = 'HR'
+                    }
+                }
+
+                { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw -ExpectedMessage '*hashtable/dictionary*'
+            }
+
+            It 'throws when Like is used on hashtable' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Identity = [pscustomobject]@{
+                                Metadata = @{
+                                    Department = 'Engineering'
+                                    Location   = 'Seattle'
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Like = @{
+                        Path    = 'Request.Context.Identity.Metadata'
+                        Pattern = 'Eng*'
+                    }
+                }
+
+                { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw -ExpectedMessage '*hashtable/dictionary*'
+            }
+
+            It 'throws when NotLike is used on hashtable' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Identity = [pscustomobject]@{
+                                Metadata = @{
+                                    Department = 'Engineering'
+                                    Location   = 'Seattle'
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotLike = @{
+                        Path    = 'Request.Context.Identity.Metadata'
+                        Pattern = 'HR*'
+                    }
+                }
+
+                { Test-IdleCondition -Condition $condition -Context $context } | Should -Throw -ExpectedMessage '*hashtable/dictionary*'
+            }
+
+            It 'returns true when NotContains does not find value in list' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Entitlements = @(
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotContains = @{
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
+                        Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeTrue
+            }
+
+            It 'returns false when NotContains finds value in list' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Entitlements = @(
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'; DisplayName = 'BreakGlass Users' }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotContains = @{
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
+                        Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeFalse
+            }
+
+            It 'returns true when Like matches scalar value' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Profile = [pscustomobject]@{
+                                        Attributes = @{ DisplayName = 'John Doe (Contractor)' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Like = @{
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
+                        Pattern = '* (Contractor)'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeTrue
+            }
+
+            It 'returns false when Like does not match scalar value' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Profile = [pscustomobject]@{
+                                        Attributes = @{ DisplayName = 'John Doe' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Like = @{
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
+                        Pattern = '* (Contractor)'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeFalse
+            }
+
+            It 'returns true when Like matches any element in list' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Entitlements = @(
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=HR-Employees,OU=Groups,DC=example,DC=com'; DisplayName = 'HR Employees' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Like = @{
+                        Path    = 'Request.Context.Views.Identity.Entitlements.Id'
+                        Pattern = 'CN=HR-*'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeTrue
+            }
+
+            It 'returns false when Like does not match any element in list' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Entitlements = @(
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Like = @{
+                        Path    = 'Request.Context.Views.Identity.Entitlements.Id'
+                        Pattern = 'CN=HR-*'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeFalse
+            }
+
+            It 'returns true when NotLike does not match scalar value' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Profile = [pscustomobject]@{
+                                        Attributes = @{ DisplayName = 'John Doe' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotLike = @{
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
+                        Pattern = '* (Contractor)'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeTrue
+            }
+
+            It 'returns false when NotLike matches scalar value' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Profile = [pscustomobject]@{
+                                        Attributes = @{ DisplayName = 'John Doe (Contractor)' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotLike = @{
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
+                        Pattern = '* (Contractor)'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeFalse
+            }
+
+            It 'returns true when NotLike does not match any element in list' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Entitlements = @(
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotLike = @{
+                        Path    = 'Request.Context.Views.Identity.Entitlements.Id'
+                        Pattern = 'CN=HR-*'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeTrue
+            }
+
+            It 'returns false when NotLike matches any element in list' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Entitlements = @(
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=HR-Employees,OU=Groups,DC=example,DC=com'; DisplayName = 'HR Employees' }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    NotLike = @{
+                        Path    = 'Request.Context.Views.Identity.Entitlements.Id'
+                        Pattern = 'CN=HR-*'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeFalse
+            }
+
+            It 'Contains is case-insensitive' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Entitlements = @(
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Contains = @{
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
+                        Value = 'CN=USERS,OU=Groups,DC=example,DC=com'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeTrue
+            }
+
+            It 'Like is case-insensitive' {
+                $context = [pscustomobject]@{
+                    Request = [pscustomobject]@{
+                        Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
+                                Identity = [pscustomobject]@{
+                                    Profile = [pscustomobject]@{
+                                        Attributes = @{ DisplayName = 'john doe (contractor)' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $condition = @{
+                    Like = @{
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
+                        Pattern = '* (CONTRACTOR)'
+                    }
+                }
+
+                (Test-IdleCondition -Condition $condition -Context $context) | Should -BeTrue
             }
         }
     }

@@ -170,6 +170,20 @@ function Get-IdleStepRegistry {
         }
     }
 
+    if (-not $registry.ContainsKey('IdLE.Step.PruneEntitlements')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepPruneEntitlements' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.PruneEntitlements'] = $handler
+        }
+    }
+
+    if (-not $registry.ContainsKey('IdLE.Step.PruneEntitlementsEnsureKeep')) {
+        $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepPruneEntitlementsEnsureKeep' -ModuleName 'IdLE.Steps.Common'
+        if (-not [string]::IsNullOrWhiteSpace($handler)) {
+            $registry['IdLE.Step.PruneEntitlementsEnsureKeep'] = $handler
+        }
+    }
+
     if (-not $registry.ContainsKey('IdLE.Step.TriggerDirectorySync')) {
         $handler = Resolve-IdleStepHandlerName -CommandName 'Invoke-IdleStepTriggerDirectorySync' -ModuleName 'IdLE.Steps.DirectorySync'
         if (-not [string]::IsNullOrWhiteSpace($handler)) {

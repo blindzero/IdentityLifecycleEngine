@@ -175,7 +175,6 @@ Describe 'EntraID identity provider - Contract tests' {
                 $this.Store[$key] = @()
             }
             
-            # Check if already a member (idempotency)
             $alreadyMember = $false
             foreach ($existingGroup in $this.Store[$key]) {
                 if ($existingGroup.id -eq $GroupObjectId) {
@@ -191,15 +190,40 @@ Describe 'EntraID identity provider - Contract tests' {
                     mail        = "group-$GroupObjectId@test.local"
                 }
                 $this.Store[$key] += $group
+                return $true
             }
+            return $false
         }
 
         $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
             param($GroupObjectId, $UserObjectId, $AccessToken)
             $key = "groups:$UserObjectId"
             if ($this.Store.ContainsKey($key)) {
-                $this.Store[$key] = $this.Store[$key] | Where-Object { $_.id -ne $GroupObjectId }
+                $wasMember = $null -ne ($this.Store[$key] | Where-Object { $_.id -eq $GroupObjectId })
+                $this.Store[$key] = @($this.Store[$key] | Where-Object { $_.id -ne $GroupObjectId })
+                return $wasMember
             }
+            return $false
+        }
+
+        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name BatchMembershipChanges -Value {
+            param($Operations, $AccessToken)
+            $results = @()
+            foreach ($op in $Operations) {
+                if ($op.Action -eq 'remove') {
+                    $changed = [bool]$this.RemoveGroupMember($op.GroupObjectId, $op.UserObjectId, $AccessToken)
+                } else {
+                    $changed = [bool]$this.AddGroupMember($op.GroupObjectId, $op.UserObjectId, $AccessToken)
+                }
+                $results += [pscustomobject]@{
+                    RequestId     = $op.RequestId
+                    GroupObjectId = $op.GroupObjectId
+                    Action        = $op.Action
+                    Changed       = $changed
+                    Error         = $null
+                }
+            }
+            return $results
         }
 
         $script:FakeAdapter = $fakeAdapter
@@ -237,6 +261,7 @@ Describe 'EntraID identity provider - Capabilities' {
             $caps | Should -Contain 'IdLE.Entitlement.List'
             $caps | Should -Contain 'IdLE.Entitlement.Grant'
             $caps | Should -Contain 'IdLE.Entitlement.Revoke'
+            $caps | Should -Contain 'IdLE.Entitlement.Prune'
             $caps | Should -Not -Contain 'IdLE.Identity.Delete'
         }
 
@@ -630,7 +655,7 @@ Describe 'EntraID identity provider - Group resolution' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
             $groupGuid = [guid]::NewGuid().ToString()
-            $resolvedId = $provider.NormalizeGroupId($groupGuid, 'fake-token')
+            $resolvedId = $provider.ResolveGroup($groupGuid, 'fake-token')
 
             $resolvedId | Should -Be $groupGuid
         }
@@ -638,14 +663,14 @@ Describe 'EntraID identity provider - Group resolution' {
         It 'Resolves group by displayName' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-            $resolvedId = $provider.NormalizeGroupId('UniqueGroup', 'fake-token')
+            $resolvedId = $provider.ResolveGroup('UniqueGroup', 'fake-token')
             $resolvedId | Should -Be 'resolved-UniqueGroup'
         }
 
         It 'Throws when multiple groups match displayName' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-            { $provider.NormalizeGroupId('AmbiguousGroup', 'fake-token') } | Should -Throw '*Multiple groups found*'
+            { $provider.ResolveGroup('AmbiguousGroup', 'fake-token') } | Should -Throw '*Multiple groups found*'
         }
     }
 }
@@ -714,15 +739,40 @@ Describe 'EntraID identity provider - Entitlement operations' {
                         mail        = "group-$GroupObjectId@test.local"
                     }
                     $this.Store[$key] += $group
+                    return $true
                 }
+                return $false
             }
 
             $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
                 param($GroupObjectId, $UserObjectId, $AccessToken)
                 $key = "groups:$UserObjectId"
                 if ($this.Store.ContainsKey($key)) {
+                    $wasMember = $null -ne ($this.Store[$key] | Where-Object { $_.id -eq $GroupObjectId })
                     $this.Store[$key] = @($this.Store[$key] | Where-Object { $_.id -ne $GroupObjectId })
+                    return $wasMember
                 }
+                return $false
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name BatchMembershipChanges -Value {
+                param($Operations, $AccessToken)
+                $results = @()
+                foreach ($op in $Operations) {
+                    if ($op.Action -eq 'remove') {
+                        $changed = [bool]$this.RemoveGroupMember($op.GroupObjectId, $op.UserObjectId, $AccessToken)
+                    } else {
+                        $changed = [bool]$this.AddGroupMember($op.GroupObjectId, $op.UserObjectId, $AccessToken)
+                    }
+                    $results += [pscustomobject]@{
+                        RequestId     = $op.RequestId
+                        GroupObjectId = $op.GroupObjectId
+                        Action        = $op.Action
+                        Changed       = $changed
+                        Error         = $null
+                    }
+                }
+                return $results
             }
 
             return $adapter
@@ -737,6 +787,8 @@ Describe 'EntraID identity provider - Entitlement operations' {
             $script:EntProvider.PSObject.Methods.Name | Should -Contain 'ListEntitlements'
             $script:EntProvider.PSObject.Methods.Name | Should -Contain 'GrantEntitlement'
             $script:EntProvider.PSObject.Methods.Name | Should -Contain 'RevokeEntitlement'
+            $script:EntProvider.PSObject.Methods.Name | Should -Contain 'BulkRevokeEntitlements'
+            $script:EntProvider.PSObject.Methods.Name | Should -Contain 'BulkGrantEntitlements'
         }
 
         It 'GrantEntitlement returns stable result shape with Kind=Group' {
@@ -810,6 +862,79 @@ Describe 'EntraID identity provider - Entitlement operations' {
 
             @($afterGrant | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 1
             @($afterRevoke | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $entitlement.Id }).Count | Should -Be 0
+        }
+
+        It 'BulkRevokeEntitlements removes multiple groups and returns per-item Changed' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            $g1 = [guid]::NewGuid().ToString()
+            $g2 = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $g1 })
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $g2 })
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'Group'; Id = $g1 },
+                @{ Kind = 'Group'; Id = $g2 }
+            ))
+
+            @($results).Count | Should -Be 2
+            ($results | Where-Object { $_.Changed -eq $true }).Count | Should -Be 2
+            @($results | Where-Object { $null -ne $_.Error }).Count | Should -Be 0
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g1 }).Count | Should -Be 0
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g2 }).Count | Should -Be 0
+        }
+
+        It 'BulkRevokeEntitlements is idempotent (not a member → Changed=$false)' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            $g1 = [guid]::NewGuid().ToString()
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'Group'; Id = $g1 }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $false
+            $results[0].Error | Should -BeNullOrEmpty
+        }
+
+        It 'BulkGrantEntitlements adds multiple groups and returns per-item Changed' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            $g1 = [guid]::NewGuid().ToString()
+            $g2 = [guid]::NewGuid().ToString()
+
+            $results = $script:EntProvider.BulkGrantEntitlements($userId, @(
+                @{ Kind = 'Group'; Id = $g1 },
+                @{ Kind = 'Group'; Id = $g2 }
+            ))
+
+            @($results).Count | Should -Be 2
+            ($results | Where-Object { $_.Changed -eq $true }).Count | Should -Be 2
+            @($results | Where-Object { $null -ne $_.Error }).Count | Should -Be 0
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g1 }).Count | Should -Be 1
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $g2 }).Count | Should -Be 1
+        }
+
+        It 'BulkGrantEntitlements is idempotent (already a member → Changed=$false)' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            $g1 = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $g1 })
+
+            $results = $script:EntProvider.BulkGrantEntitlements($userId, @(
+                @{ Kind = 'Group'; Id = $g1 }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $false
+            $results[0].Error | Should -BeNullOrEmpty
         }
     }
 }
@@ -1118,6 +1243,214 @@ Describe 'EntraID identity provider - Password generation' {
             # Verify the generated password is a valid GUID
             $plainPwd = $result.GeneratedAccountPasswordPlainText
             { [guid]::Parse($plainPwd) } | Should -Not -Throw
+        }
+    }
+}
+
+Describe 'EntraID identity provider - ResolveEntitlement' {
+    BeforeAll {
+        . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
+        Import-IdleTestModule
+    }
+
+    Context 'Exposes ResolveEntitlement' {
+        It 'Provider exposes ResolveEntitlement as a ScriptMethod' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter ([pscustomobject]@{})
+            $provider.PSObject.Methods.Name | Should -Contain 'ResolveEntitlement'
+        }
+    }
+
+    Context 'ResolveEntitlement behavior' {
+        BeforeAll {
+            # Fake adapter that returns canonical objectId for groups (mimics real Graph lookup)
+            $fakeAdapter = [pscustomobject]@{ PSTypeName = 'IdLE.EntraIDAdapter.Fake'; Store = @{} }
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
+                param($GroupId, $AccessToken)
+                return @{ id = $GroupId; displayName = "Group $GroupId" }
+            }
+            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
+                param($DisplayName, $AccessToken)
+                return @{ id = "resolved-$DisplayName"; displayName = $DisplayName }
+            }
+            $script:NormProvider = New-IdleEntraIDIdentityProvider -Adapter $fakeAdapter
+        }
+
+        It 'Normalizes a Group entitlement with a GUID Id to canonical objectId' {
+            $groupGuid = [guid]::NewGuid().ToString()
+            $ent = @{ Kind = 'Group'; Id = $groupGuid }
+            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'fake-token')
+            $result.Kind | Should -Be 'Group'
+            $result.Id   | Should -Be $groupGuid
+        }
+
+        It 'Normalizes a Group entitlement with a displayName to canonical objectId' {
+            $ent = @{ Kind = 'Group'; Id = 'HR Team' }
+            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'fake-token')
+            $result.Kind | Should -Be 'Group'
+            $result.Id   | Should -Be 'resolved-HR Team'
+        }
+
+        It 'Returns entitlement unchanged when Kind is not Group' {
+            $ent = [pscustomobject]@{ Kind = 'License'; Id = 'Some-License-Id' }
+            $result = $script:NormProvider.ResolveEntitlement('License', $ent, 'fake-token')
+            $result.Kind | Should -Be 'License'
+            $result.Id   | Should -Be 'Some-License-Id'
+        }
+    }
+}
+
+Describe 'EntraID adapter - GetAllPages paging regression' {
+    BeforeAll {
+        . (Join-Path -Path $PSScriptRoot -ChildPath '..\_testHelpers.ps1')
+        Import-IdleTestModule
+
+        $repoRoot    = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
+        $privatePath = Join-Path -Path $repoRoot -ChildPath 'src' 'IdLE.Provider.EntraID' 'Private'
+
+        # Source private helpers so they are accessible in this test scope.
+        # Get-IdleEntraIDGraphResponseProperty must be sourced before New-IdleEntraIDAdapter
+        # so the script-method closures created inside New-IdleEntraIDAdapter can resolve it.
+        . (Join-Path -Path $privatePath -ChildPath 'Get-IdleEntraIDGraphResponseProperty.ps1')
+        . (Join-Path -Path $privatePath -ChildPath 'New-IdleEntraIDAdapter.ps1')
+    }
+
+    # Build an adapter whose InvokeGraphRequest returns a configurable sequence of pages.
+    function script:New-EntraIDPagingTestAdapter {
+        param([object[]] $PageSequence)
+
+        $adapter = New-IdleEntraIDAdapter
+
+        $script:EntraIDTestPages     = $PageSequence
+        $script:EntraIDTestCallIndex = 0
+
+        $adapter | Add-Member -MemberType ScriptMethod -Name InvokeGraphRequest -Value {
+            param($Method, $Uri, $AccessToken, $Body)
+            $result = $script:EntraIDTestPages[$script:EntraIDTestCallIndex]
+            $script:EntraIDTestCallIndex++
+            return $result
+        } -Force
+
+        return $adapter
+    }
+
+    Context 'Single-page response (PSCustomObject, no @odata.nextLink)' {
+        It 'Returns all items and does not throw (the paging bug scenario)' {
+            $page = [pscustomobject]@{
+                value = @(
+                    [pscustomobject]@{ id = 'g1'; displayName = 'Group 1' }
+                    [pscustomobject]@{ id = 'g2'; displayName = 'Group 2' }
+                )
+                # @odata.nextLink intentionally absent — last page scenario that previously threw
+            }
+
+            $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page)
+            # Direct call; any thrown exception will fail this test automatically
+            $result = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'fake-token')
+            $result | Should -HaveCount 2
+            $result[0].id | Should -Be 'g1'
+            $result[1].id | Should -Be 'g2'
+        }
+    }
+
+    Context 'Multi-page response (PSCustomObject, @odata.nextLink present on page 1)' {
+        It 'Collects items from all pages' {
+            $page1 = [pscustomobject]@{
+                value              = @([pscustomobject]@{ id = 'g1' })
+                '@odata.nextLink'  = 'https://graph.microsoft.com/v1.0/groups?$skiptoken=abc'
+            }
+            $page2 = [pscustomobject]@{
+                value = @([pscustomobject]@{ id = 'g2' })
+                # no @odata.nextLink on last page
+            }
+
+            $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page1, $page2)
+            $result  = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'fake-token')
+            $result | Should -HaveCount 2
+            ($result | Select-Object -ExpandProperty id) | Should -Contain 'g1'
+            ($result | Select-Object -ExpandProperty id) | Should -Contain 'g2'
+        }
+    }
+
+    Context 'Hashtable/IDictionary response' {
+        It 'Returns items when response is a hashtable without @odata.nextLink' {
+            $page = @{
+                value = @(
+                    @{ id = 'g1'; displayName = 'Group 1' }
+                )
+                # @odata.nextLink absent
+            }
+
+            $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page)
+            $result  = $null
+            { $result = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'fake-token') } | Should -Not -Throw
+            $result | Should -HaveCount 1
+        }
+
+        It 'Follows pagination when response is a hashtable with @odata.nextLink' {
+            $page1 = @{
+                value             = @(@{ id = 'g1' })
+                '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/groups?$skiptoken=ht'
+            }
+            $page2 = @{
+                value = @(@{ id = 'g2' })
+            }
+
+            $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page1, $page2)
+            $result  = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'fake-token')
+            $result | Should -HaveCount 2
+        }
+    }
+
+    Context 'Response without a value wrapper (non-collection endpoint)' {
+        It 'Returns empty array when response has no value property' {
+            $page = [pscustomobject]@{ id = 'single-object'; displayName = 'Something' }
+
+            $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page)
+            $result  = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/something', 'fake-token')
+            $result | Should -HaveCount 0
+        }
+    }
+
+    Context 'Get-IdleEntraIDGraphResponseProperty helper' {
+        It 'Returns property value from a PSCustomObject' {
+            $obj    = [pscustomobject]@{ foo = 'bar' }
+            $result = Get-IdleEntraIDGraphResponseProperty -InputObject $obj -PropertyName 'foo'
+            $result | Should -Be 'bar'
+        }
+
+        It 'Returns $null for a missing property on PSCustomObject' {
+            $obj    = [pscustomobject]@{ foo = 'bar' }
+            $result = Get-IdleEntraIDGraphResponseProperty -InputObject $obj -PropertyName 'missing'
+            $result | Should -BeNullOrEmpty
+        }
+
+        It 'Returns property value from a hashtable' {
+            $ht     = @{ foo = 'baz' }
+            $result = Get-IdleEntraIDGraphResponseProperty -InputObject $ht -PropertyName 'foo'
+            $result | Should -Be 'baz'
+        }
+
+        It 'Returns $null for a missing key in a hashtable' {
+            $ht     = @{ foo = 'baz' }
+            $result = Get-IdleEntraIDGraphResponseProperty -InputObject $ht -PropertyName 'missing'
+            $result | Should -BeNullOrEmpty
+        }
+
+        It 'Returns $null when InputObject is $null' {
+            $result = Get-IdleEntraIDGraphResponseProperty -InputObject $null -PropertyName 'foo'
+            $result | Should -BeNullOrEmpty
+        }
+
+        It 'Reads @odata.nextLink from PSCustomObject (the paging bug scenario)' {
+            $obj    = [pscustomobject]@{ '@odata.nextLink' = 'https://next.page' ; value = @() }
+            $result = Get-IdleEntraIDGraphResponseProperty -InputObject $obj -PropertyName '@odata.nextLink'
+            $result | Should -Be 'https://next.page'
+        }
+
+        It 'Returns $null for @odata.nextLink when property is absent (last page scenario)' {
+            $obj    = [pscustomobject]@{ value = @() }
+            $result = Get-IdleEntraIDGraphResponseProperty -InputObject $obj -PropertyName '@odata.nextLink'
+            $result | Should -BeNullOrEmpty
         }
     }
 }

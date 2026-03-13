@@ -230,7 +230,7 @@ function New-IdleADIdentityProvider {
         throw "Identity with sAMAccountName '$IdentityKey' not found."
     }
 
-    $normalizeGroupId = {
+    $resolveGroup = {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
@@ -243,12 +243,25 @@ function New-IdleADIdentityProvider {
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
-        $group = $adapter.GetGroupById($GroupId)
-        if ($null -eq $group) {
-            throw "Group '$GroupId' not found."
+        # Try as GUID first (most deterministic)
+        $guid = [System.Guid]::Empty
+        if ([System.Guid]::TryParse($GroupId, [ref]$guid)) {
+            $group = $adapter.GetGroupById($guid.ToString())
+            if ($null -ne $group) { return $group.DistinguishedName }
+            throw "Group with GUID '$GroupId' not found."
         }
 
-        return $group.DistinguishedName
+        # Looks like a DN (contains = and ,) — use direct lookup
+        if ($GroupId -match '=' -and $GroupId -match ',') {
+            $group = $adapter.GetGroupById($GroupId)
+            if ($null -ne $group) { return $group.DistinguishedName }
+            throw "Group with DN '$GroupId' not found."
+        }
+
+        # Fallback: treat as sAMAccountName (Get-ADGroup -Identity accepts sAMAccountName)
+        $group = $adapter.GetGroupById($GroupId)
+        if ($null -ne $group) { return $group.DistinguishedName }
+        throw "Group with sAMAccountName '$GroupId' not found."
     }
 
     $provider = [pscustomobject]@{
@@ -277,7 +290,7 @@ function New-IdleADIdentityProvider {
         # Check TypeNames collection (PSTypeName in hashtable adds to TypeNames, not as a property)
         if ($null -eq $AuthSession) {
             $isRealAdapter = ($this.Adapter.PSObject.TypeNames -contains 'IdLE.ADAdapter')
-            
+
             if ($isRealAdapter) {
                 $prereqCheck = Test-IdleADPrerequisites
                 if (-not $prereqCheck.IsHealthy) {
@@ -327,7 +340,7 @@ function New-IdleADIdentityProvider {
     $provider | Add-Member -MemberType ScriptMethod -Name ConvertToEntitlement -Value $convertToEntitlement -Force
     $provider | Add-Member -MemberType ScriptMethod -Name TestEntitlementEquals -Value $testEntitlementEquals -Force
     $provider | Add-Member -MemberType ScriptMethod -Name ResolveIdentity -Value $resolveIdentity -Force
-    $provider | Add-Member -MemberType ScriptMethod -Name NormalizeGroupId -Value $normalizeGroupId -Force
+    $provider | Add-Member -MemberType ScriptMethod -Name ResolveGroup -Value $resolveGroup -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
         $caps = @(
@@ -341,6 +354,7 @@ function New-IdleADIdentityProvider {
             'IdLE.Entitlement.List'
             'IdLE.Entitlement.Grant'
             'IdLE.Entitlement.Revoke'
+            'IdLE.Entitlement.Prune'
         )
 
         if ($this.AllowDelete) {
@@ -758,8 +772,15 @@ function New-IdleADIdentityProvider {
 
         $groups = $adapter.GetUserGroups($user.DistinguishedName)
 
+        # Exclude the user's primary group — AD does not allow removing it via
+        # group membership revocation; filtering here avoids spurious Skipped events.
+        $primaryGroupDN = $adapter.GetPrimaryGroupDN($user.DistinguishedName)
+
         $result = @()
         foreach ($group in $groups) {
+            if ($null -ne $primaryGroupDN -and $group.DistinguishedName -eq $primaryGroupDN) {
+                continue
+            }
             $result += [pscustomobject]@{
                 PSTypeName  = 'IdLE.Entitlement'
                 Kind        = 'Group'
@@ -791,16 +812,9 @@ function New-IdleADIdentityProvider {
         $normalized = $this.ConvertToEntitlement($Entitlement)
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
-        $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+        $groupDn = $this.ResolveGroup($normalized.Id, $AuthSession)
 
-        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
-        $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
-
-        $changed = $false
-        if (@($existing).Count -eq 0) {
-            $adapter.AddGroupMember($groupDn, $user.DistinguishedName)
-            $changed = $true
-        }
+        $changed = [bool]$adapter.AddGroupMember($groupDn, $user.DistinguishedName)
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
@@ -831,16 +845,9 @@ function New-IdleADIdentityProvider {
         $normalized = $this.ConvertToEntitlement($Entitlement)
 
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
-        $groupDn = $this.NormalizeGroupId($normalized.Id, $AuthSession)
+        $groupDn = $this.ResolveGroup($normalized.Id, $AuthSession)
 
-        $currentGroups = $this.ListEntitlements($IdentityKey, $AuthSession)
-        $existing = $currentGroups | Where-Object { $this.TestEntitlementEquals($_, $normalized) }
-
-        $changed = $false
-        if (@($existing).Count -gt 0) {
-            $adapter.RemoveGroupMember($groupDn, $user.DistinguishedName)
-            $changed = $true
-        }
+        $changed = [bool]$adapter.RemoveGroupMember($groupDn, $user.DistinguishedName)
 
         return [pscustomobject]@{
             PSTypeName  = 'IdLE.ProviderResult'
@@ -849,6 +856,38 @@ function New-IdleADIdentityProvider {
             Changed     = $changed
             Entitlement = $normalized
         }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name ResolveEntitlement -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Kind', Justification = 'Contract parameter; Kind is validated against the entitlement object and reserved for future multi-Kind support.')]
+            [string] $Kind,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNull()]
+            [object] $Entitlement,
+
+            [Parameter()]
+            [AllowNull()]
+            [object] $AuthSession
+        )
+
+        $converted = $this.ConvertToEntitlement($Entitlement)
+
+        # AD only supports Group entitlements; normalize to canonical DN
+        if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
+            $canonicalId = $this.ResolveGroup($converted.Id, $AuthSession)
+            return [pscustomobject]@{
+                PSTypeName  = 'IdLE.Entitlement'
+                Kind        = $converted.Kind
+                Id          = $canonicalId
+                DisplayName = $converted.PSObject.Properties.Name -contains 'DisplayName' ? $converted.DisplayName : $null
+            }
+        }
+
+        return $converted
     } -Force
 
     return $provider

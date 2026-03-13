@@ -4,15 +4,17 @@
   ContextResolvers = @(
     @{
       Capability = 'IdLE.Entitlement.List'
-      Provider   = 'Identity'
-      With       = @{ IdentityKey = 'user2' }
+      With       = @{
+        IdentityKey = 'user2'
+        Provider    = 'Identity'
+      }
     }
   )
   Steps = @(
     @{
       Name      = 'NeedsEntitlements'
       Type      = 'IdLE.Step.EmitEvent'
-      Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
+      Condition = @{ Exists = 'Request.Context.Views.Identity.Entitlements' }
     }
   )
 }

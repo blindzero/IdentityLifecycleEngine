@@ -34,4 +34,23 @@ Describe 'Mock identity provider' {
         Invoke-IdleProviderCapabilitiesContractTests -ProviderFactory { New-IdleMockIdentityProvider }
         Invoke-IdleEntitlementProviderContractTests -NewProvider { New-IdleMockIdentityProvider }
     }
+
+    Context 'Capabilities' {
+        It 'Advertises IdLE.Entitlement.Prune capability' {
+            $provider = New-IdleMockIdentityProvider
+
+            $caps = $provider.GetCapabilities()
+            $caps | Should -Contain 'IdLE.Entitlement.Prune'
+        }
+
+        It 'Advertises all expected entitlement capabilities' {
+            $provider = New-IdleMockIdentityProvider
+
+            $caps = $provider.GetCapabilities()
+            $caps | Should -Contain 'IdLE.Entitlement.List'
+            $caps | Should -Contain 'IdLE.Entitlement.Grant'
+            $caps | Should -Contain 'IdLE.Entitlement.Revoke'
+            $caps | Should -Contain 'IdLE.Entitlement.Prune'
+        }
+    }
 }

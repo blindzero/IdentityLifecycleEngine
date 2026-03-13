@@ -68,5 +68,19 @@ function Get-IdleStepMetadataCatalog {
         RequiredCapabilities = @('IdLE.Identity.RevokeSessions')
     }
 
+    # IdLE.Step.PruneEntitlements - remove-only: requires explicit prune opt-in capability plus list/revoke
+    $catalog['IdLE.Step.PruneEntitlements'] = @{
+        RequiredCapabilities = @('IdLE.Entitlement.Prune', 'IdLE.Entitlement.List', 'IdLE.Entitlement.Revoke')
+        AllowedWithKeys      = @('IdentityKey', 'Kind', 'Provider', 'Keep', 'KeepPattern', 'AuthSessionName', 'AuthSessionOptions')
+    }
+
+    # IdLE.Step.PruneEntitlementsEnsureKeep - remove + ensure keep present: requires prune + list/revoke/grant
+    # KeepPattern is NOT in AllowedWithKeys because patterns cannot be "ensured" (granted); plan-time
+    # validation rejects any With key that is not in this list.
+    $catalog['IdLE.Step.PruneEntitlementsEnsureKeep'] = @{
+        RequiredCapabilities = @('IdLE.Entitlement.Prune', 'IdLE.Entitlement.List', 'IdLE.Entitlement.Revoke', 'IdLE.Entitlement.Grant')
+        AllowedWithKeys      = @('IdentityKey', 'Kind', 'Provider', 'Keep', 'AuthSessionName', 'AuthSessionOptions')
+    }
+
     return $catalog
 }

@@ -4,10 +4,10 @@
   ContextResolvers = @(
     @{
       Capability = 'IdLE.Entitlement.List'
-      Provider   = 'Identity'
       With       = @{
-        IdentityKey       = 'user1'
-        AuthSessionName   = 'TestSession'
+        IdentityKey     = 'user1'
+        Provider        = 'Identity'
+        AuthSessionName = 'TestSession'
       }
     }
   )

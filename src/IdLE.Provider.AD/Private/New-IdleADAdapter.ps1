@@ -667,6 +667,41 @@ function New-IdleADAdapter {
         }
     } -Force
 
+    # Helper method to check if a user is a member of a group
+    # Returns $true if member, $false if not a member, $null if check fails
+    $adapter | Add-Member -MemberType ScriptMethod -Name TestGroupMembership -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $GroupIdentity,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $MemberIdentity
+        )
+
+        $getMembersParams = @{
+            Identity    = $GroupIdentity
+            ErrorAction = 'Stop'
+        }
+        if ($null -ne $this.Credential) {
+            $getMembersParams['Credential'] = $this.Credential
+        }
+
+        try {
+            # For large groups, short-circuit after finding the first match
+            $existingMember = Get-ADGroupMember @getMembersParams |
+                Where-Object { $_.DistinguishedName -eq $MemberIdentity } |
+                Select-Object -First 1
+            return ($null -ne $existingMember)
+        }
+        catch {
+            # Return null to signal check failure (let calling method proceed to authoritative operation)
+            Write-Verbose "TestGroupMembership: Get-ADGroupMember failed for group '$GroupIdentity' and member '$MemberIdentity': $($_.Exception.Message)"
+            return $null
+        }
+    } -Force
+
     $adapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {
         param(
             [Parameter(Mandatory)]
@@ -678,6 +713,15 @@ function New-IdleADAdapter {
             [string] $MemberIdentity
         )
 
+        # Check if already a member (idempotency + reliable change detection)
+        $isMember = $this.TestGroupMembership($GroupIdentity, $MemberIdentity)
+        
+        if ($isMember -eq $true) {
+            # Already a member - no change needed
+            return $false
+        }
+        # If $isMember is $null (check failed), proceed to Add-ADGroupMember for authoritative error
+
         $params = @{
             Identity    = $GroupIdentity
             Members     = $MemberIdentity
@@ -688,6 +732,7 @@ function New-IdleADAdapter {
         }
 
         Add-ADGroupMember @params
+        return $true
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
@@ -701,6 +746,15 @@ function New-IdleADAdapter {
             [string] $MemberIdentity
         )
 
+        # Check if actually a member (idempotency + reliable change detection)
+        $isMember = $this.TestGroupMembership($GroupIdentity, $MemberIdentity)
+        
+        if ($isMember -eq $false) {
+            # Not a member - no change needed
+            return $false
+        }
+        # If $isMember is $null (check failed), proceed to Remove-ADGroupMember for authoritative error
+
         $params = @{
             Identity    = $GroupIdentity
             Members     = $MemberIdentity
@@ -712,13 +766,17 @@ function New-IdleADAdapter {
         }
 
         Remove-ADGroupMember @params
+        return $true
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name GetUserGroups -Value {
         param(
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
-            [string] $Identity
+            [string] $Identity,
+
+            [Parameter()]
+            [bool] $ExcludePrimaryGroup = $false
         )
 
         $params = @{
@@ -731,11 +789,67 @@ function New-IdleADAdapter {
 
         try {
             $groups = Get-ADPrincipalGroupMembership @params
+            if ($ExcludePrimaryGroup) {
+                $primaryGroupDN = $this.GetPrimaryGroupDN($Identity)
+                if ($null -ne $primaryGroupDN) {
+                    $groups = @($groups | Where-Object { $_.DistinguishedName -ne $primaryGroupDN })
+                }
+            }
             return $groups
         }
         catch {
             return @()
         }
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name GetPrimaryGroupDN -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $UserIdentity
+        )
+
+        # Strategy: the 'MemberOf' attribute on user objects is a direct (non-constructed) LDAP
+        # attribute that lists every group the user belongs to EXCEPT the primary group — by
+        # Active Directory design, the primary group is never included in MemberOf.
+        # Get-ADPrincipalGroupMembership returns ALL groups including the primary group.
+        # Therefore: PrimaryGroup DN = (AllGroups − MemberOf).
+        # This approach works on all AD DC versions and does not rely on any computed/constructed
+        # attribute (primaryGroup, primaryGroupToken) or SID string operations.
+
+        $userParams = @{
+            Identity    = $UserIdentity
+            Properties  = @('MemberOf')
+            ErrorAction = 'Stop'
+        }
+        if ($null -ne $this.Credential) { $userParams['Credential'] = $this.Credential }
+
+        $allGroupsParams = @{
+            Identity    = $UserIdentity
+            ErrorAction = 'Stop'
+        }
+        if ($null -ne $this.Credential) { $allGroupsParams['Credential'] = $this.Credential }
+
+        try {
+            $user        = Get-ADUser @userParams
+            $memberOfSet = [System.Collections.Generic.HashSet[string]]::new(
+                [string[]]@($user.MemberOf),
+                [System.StringComparer]::OrdinalIgnoreCase
+            )
+
+            $allGroups = Get-ADPrincipalGroupMembership @allGroupsParams
+            foreach ($g in $allGroups) {
+                if (-not $memberOfSet.Contains($g.DistinguishedName)) {
+                    return $g.DistinguishedName
+                }
+            }
+        }
+        catch {
+            # Fail-open: cannot determine primary group → do not filter anything
+            Write-Verbose "GetPrimaryGroupDN: could not determine primary group for '$UserIdentity': $_"
+        }
+
+        return $null
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {

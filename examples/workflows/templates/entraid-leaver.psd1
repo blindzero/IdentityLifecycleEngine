@@ -67,6 +67,38 @@
             }
         }
 
+        # Optional & potentially disruptive:
+        # PruneEntitlementsEnsureKeep removes all groups except the keep set AND ensures
+        # explicit Keep items are present. Use PruneEntitlements if you only need removal.
+        @{
+            Name      = 'PruneGroupMemberships_Optional'
+            Type      = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+            Condition = @{
+                All = @(
+                    @{
+                        Equals = @{
+                            Path  = 'Request.Intent.PruneGroupMemberships'
+                            Value = $true
+                        }
+                    }
+                )
+            }
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                Kind               = 'Group'
+
+                # Retain this specific leaver group and ensure it is present.
+                Keep               = @(
+                    @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupId}}'; DisplayName = 'Leaver Retain' }
+                )
+                # Pattern-based retention is not supported by PruneEntitlementsEnsureKeep. Use a
+                # separate IdLE.Step.PruneEntitlements step earlier if you must protect wildcard
+                # matches without granting them.
+            }
+        }
+
         # Optional delete (requires provider to be created with -AllowDelete)
         @{
             Name      = 'DeleteAccount_Optional'

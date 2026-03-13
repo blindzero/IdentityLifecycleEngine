@@ -41,7 +41,7 @@ jobs:
 
       - name: Upload Pester artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: pester-artifacts-${{ matrix.os }}
           if-no-files-found: warn
@@ -139,7 +139,7 @@ jobs:
 
       - name: Upload PSScriptAnalyzer artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: psscriptanalyzer-artifacts
           if-no-files-found: warn
