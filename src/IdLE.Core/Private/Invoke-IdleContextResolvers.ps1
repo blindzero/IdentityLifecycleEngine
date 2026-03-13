@@ -7,13 +7,26 @@ function Invoke-IdleContextResolvers {
 
     .DESCRIPTION
     Runs each configured resolver in declared order, invoking the appropriate
-    provider capability and writing the result under Request.Context at the
-    predefined path for that capability (see Get-IdleCapabilityContextPath).
+    provider capability and writing the result under Request.Context using a
+    provider/auth-scoped namespace as the source of truth, with engine-defined
+    Views for common aggregation patterns.
 
     Rules enforced:
     - Only capabilities in the read-only allow-list (Get-IdleReadOnlyCapabilities) may be used.
-    - Each capability writes to a fixed, predefined path under Request.Context.
-      The output path is not user-configurable.
+    - Results are written to the provider/auth-scoped path:
+        Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.<CapabilitySubPath>
+      where AuthSessionKey is 'Default' when With.AuthSessionName is not specified.
+    - Engine-defined Views are (re)built deterministically after each resolver:
+        Request.Context.Views.<CapabilitySubPath>               (global: all providers/sessions)
+        Request.Context.Views.Providers.<ProviderAlias>.<...>   (provider: all sessions)
+        Request.Context.Views.Sessions.<AuthSessionKey>.<...>   (session: all providers)
+        Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.<...> (exact)
+      View semantics are capability-specific; both IdLE.Entitlement.List and IdLE.Identity.Read have views.
+    - For IdLE.Entitlement.List, each entry is annotated with SourceProvider and
+      SourceAuthSessionName to enable auditing and source-specific filtering.
+    - For IdLE.Identity.Read, the profile object is annotated with SourceProvider and
+      SourceAuthSessionName; multi-source views use last-write-wins with deterministic sort order.
+    - Provider alias and AuthSessionKey must be valid context path segments.
     - Provider is selected by alias when 'With.Provider' is specified. When 'With.Provider'
       is omitted, auto-selection only succeeds if exactly one provider advertises the
       capability; zero matches or multiple matches both cause a fail-fast error.
@@ -21,7 +34,7 @@ function Invoke-IdleContextResolvers {
       using the AuthSessionBroker in Providers (same pattern as step execution).
 
     This function mutates Request.Context in place so that subsequent condition evaluation
-    can reference the resolved data via 'Request.Context.*' paths.
+    can reference the resolved data via scoped paths or Views.
 
     .PARAMETER Resolvers
     Array of resolver hashtables from the workflow definition. May be null or empty.
@@ -102,17 +115,25 @@ function Invoke-IdleContextResolvers {
 
         $resolvedProviderAlias = Select-IdleResolverProviderAlias -Capability $capability -ProviderAlias $providerAlias -Providers $Providers -ResolverPath $resolverPath
 
+        # --- Validate provider alias as a context path segment ---
+        Assert-IdleContextPathSegment -Value $resolvedProviderAlias -Label 'Provider alias' -ResolverPath $resolverPath
+
         # --- Auth session (optional) ---
         # Supports With.AuthSessionName + With.AuthSessionOptions using the same pattern as steps.
         $authSession = $null
         $authBroker = Get-IdleAuthSessionBroker -Providers $Providers
+        $authSessionKey = 'Default'
 
-        if ($with -is [System.Collections.IDictionary] -and $with.Contains('AuthSessionName')) {
+        if ($with -is [System.Collections.IDictionary] -and $with.Contains('AuthSessionName') -and -not [string]::IsNullOrWhiteSpace([string]$with.AuthSessionName)) {
             $sessionName = [string]$with.AuthSessionName
+            $authSessionKey = $sessionName
             $sessionOptions = if ($with.Contains('AuthSessionOptions')) { $with.AuthSessionOptions } else { $null }
             if ($null -ne $sessionOptions -and $sessionOptions -isnot [hashtable]) {
                 throw [System.ArgumentException]::new("$resolverPath 'With.AuthSessionOptions' must be a hashtable.", 'Workflow')
             }
+
+            # --- Validate auth session key as a context path segment ---
+            Assert-IdleContextPathSegment -Value $authSessionKey -Label 'AuthSessionName' -ResolverPath $resolverPath
 
             if ($null -eq $authBroker) {
                 throw [System.ArgumentException]::new(
@@ -134,19 +155,407 @@ function Invoke-IdleContextResolvers {
         }
 
         # --- Dispatch ---
-        $result = Invoke-IdleResolverCapabilityDispatch `
-            -Capability $capability `
-            -ProviderAlias $resolvedProviderAlias `
-            -Providers $Providers `
-            -With $with `
-            -AuthSession $authSession `
-            -ResolverPath $resolverPath
+        # Wrap in try/catch to ensure provider exceptions are always terminating and include
+        # resolver context in the error message, rather than silently continuing with a null
+        # result that later causes confusing template resolution failures.
+        $result = $null
+        try {
+            $result = Invoke-IdleResolverCapabilityDispatch `
+                -Capability $capability `
+                -ProviderAlias $resolvedProviderAlias `
+                -Providers $Providers `
+                -With $with `
+                -AuthSession $authSession `
+                -ResolverPath $resolverPath
+        }
+        catch {
+            throw [System.InvalidOperationException]::new(
+                "${resolverPath}: Provider '$resolvedProviderAlias' failed while resolving capability '$capability'. $($_.Exception.Message)",
+                $_.Exception
+            )
+        }
 
-        # --- Write to predefined Request.Context path ---
+        # --- Annotate entitlement results with source metadata ---
+        if ($capability -eq 'IdLE.Entitlement.List') {
+            $result = @(Add-IdleEntitlementSourceMetadata -Entitlements @($result) -SourceProvider $resolvedProviderAlias -SourceAuthSessionName $authSessionKey)
+        }
+
+        # --- Annotate profile result with source metadata ---
+        if ($capability -eq 'IdLE.Identity.Read') {
+            $result = Add-IdleProfileSourceMetadata -Profile $result -SourceProvider $resolvedProviderAlias -SourceAuthSessionName $authSessionKey
+        }
+
+        # --- Write to provider/auth-scoped path (source of truth) ---
+        # Path: Providers.<ProviderAlias>.<AuthSessionKey>.<CapabilitySubPath>
         $contextSubPath = Get-IdleCapabilityContextPath -Capability $capability
-        Set-IdleContextValue -Context $Request.Context -Path $contextSubPath -Value $result
+        $scopedPath = "Providers.$resolvedProviderAlias.$authSessionKey.$contextSubPath"
+        Set-IdleContextValue -Context $Request.Context -Path $scopedPath -Value $result
+
+        # --- Rebuild deterministic Views for capabilities with defined view semantics ---
+        Build-IdleContextResolverViews -Context $Request.Context -Capability $capability -CapabilitySubPath $contextSubPath
 
         $i++
+    }
+}
+
+function Assert-IdleContextPathSegment {
+    <#
+    .SYNOPSIS
+    Validates that a value is a valid context path segment (no dots, valid identifier characters).
+
+    .DESCRIPTION
+    Context path segments are used to build hierarchical paths in Request.Context.
+    They must not contain dots (path separators) and must match a safe identifier pattern.
+
+    .PARAMETER Value
+    The value to validate.
+
+    .PARAMETER Label
+    Human-readable label for error messages (e.g., 'Provider alias', 'AuthSessionName').
+
+    .PARAMETER ResolverPath
+    The resolver path (e.g., 'ContextResolvers[0]') for error context.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Value,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Label,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $ResolverPath
+    )
+
+    if ($Value -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$') {
+        throw [System.ArgumentException]::new(
+            ('{0}: {1} ''{2}'' is not a valid context path segment. Must start with alphanumeric, followed by alphanumeric, hyphens, or underscores (max 64 chars total, no dots allowed).' -f $ResolverPath, $Label, $Value),
+            'Workflow'
+        )
+    }
+}
+
+function Add-IdleEntitlementSourceMetadata {
+    <#
+    .SYNOPSIS
+    Annotates each entitlement entry with SourceProvider and SourceAuthSessionName metadata.
+
+    .DESCRIPTION
+    Ensures every entitlement returned by IdLE.Entitlement.List resolvers carries source
+    information to support auditing, per-provider filtering, and merged view semantics.
+
+    .PARAMETER Entitlements
+    Array of entitlement objects (hashtables or PSCustomObjects).
+
+    .PARAMETER SourceProvider
+    The provider alias that produced these entitlements.
+
+    .PARAMETER SourceAuthSessionName
+    The auth session key used ('Default' if no explicit session was specified).
+
+    .OUTPUTS
+    Object[]
+    #>
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [object[]] $Entitlements,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $SourceProvider,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $SourceAuthSessionName
+    )
+
+    if ($null -eq $Entitlements -or $Entitlements.Count -eq 0) {
+        return @()
+    }
+
+    $result = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $Entitlements) {
+        if ($null -eq $item) {
+            # Skip null entries; provider implementations must not return null items in an entitlement list.
+            continue
+        }
+
+        if ($item -is [System.Collections.IDictionary]) {
+            $enriched = @{}
+            foreach ($key in $item.Keys) { $enriched[$key] = $item[$key] }
+            $enriched['SourceProvider'] = $SourceProvider
+            $enriched['SourceAuthSessionName'] = $SourceAuthSessionName
+            $result.Add($enriched)
+        }
+        else {
+            # PSCustomObject or other reference type — add properties non-destructively
+            $item | Add-Member -MemberType NoteProperty -Name 'SourceProvider' -Value $SourceProvider -Force
+            $item | Add-Member -MemberType NoteProperty -Name 'SourceAuthSessionName' -Value $SourceAuthSessionName -Force
+            $result.Add($item)
+        }
+    }
+
+    return @($result)
+}
+
+function Add-IdleProfileSourceMetadata {
+    <#
+    .SYNOPSIS
+    Annotates a profile object with SourceProvider and SourceAuthSessionName metadata.
+
+    .DESCRIPTION
+    Ensures every profile returned by IdLE.Identity.Read resolvers carries source
+    information to support auditing and view semantics (including identifying which
+    provider/session a profile came from in aggregated views).
+
+    .PARAMETER Profile
+    The profile object (hashtable or PSCustomObject) to annotate.
+
+    .PARAMETER SourceProvider
+    The provider alias that produced the profile.
+
+    .PARAMETER SourceAuthSessionName
+    The auth session key used ('Default' if no explicit session was specified).
+
+    .OUTPUTS
+    Object
+    #>
+    [CmdletBinding()]
+    [OutputType([object])]
+    param(
+        [Parameter()]
+        [AllowNull()]
+        [object] $Profile,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $SourceProvider,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $SourceAuthSessionName
+    )
+
+    if ($null -eq $Profile) {
+        return $null
+    }
+
+    if ($Profile -is [System.Collections.IDictionary]) {
+        $enriched = @{}
+        foreach ($key in $Profile.Keys) { $enriched[$key] = $Profile[$key] }
+        $enriched['SourceProvider'] = $SourceProvider
+        $enriched['SourceAuthSessionName'] = $SourceAuthSessionName
+        return $enriched
+    }
+    else {
+        # PSCustomObject or other reference type — add properties non-destructively
+        $Profile | Add-Member -MemberType NoteProperty -Name 'SourceProvider' -Value $SourceProvider -Force
+        $Profile | Add-Member -MemberType NoteProperty -Name 'SourceAuthSessionName' -Value $SourceAuthSessionName -Force
+        return $Profile
+    }
+}
+
+function Build-IdleContextResolverViews {
+    <#
+    .SYNOPSIS
+    Rebuilds engine-defined Views in Request.Context for capabilities with defined view semantics.
+
+    .DESCRIPTION
+    Views are deterministic, engine-defined aggregations of scoped resolver outputs.
+    Called after each resolver execution to keep views current.
+
+    IdLE.Entitlement.List view semantics (list merge, all entries are preserved):
+      - Global view (all providers, all sessions):
+          Request.Context.Views.Identity.Entitlements
+      - Provider view (one provider, all sessions):
+          Request.Context.Views.Providers.<ProviderAlias>.Identity.Entitlements
+      - Session view (all providers, one session):
+          Request.Context.Views.Sessions.<AuthSessionKey>.Identity.Entitlements
+      - Provider+Session view (one provider, one session):
+          Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Entitlements
+
+    IdLE.Identity.Read view semantics (single object, last writer wins, deterministic sort order):
+      - Global view (all providers, all sessions):
+          Request.Context.Views.Identity.Profile
+      - Provider view (one provider, all sessions):
+          Request.Context.Views.Providers.<ProviderAlias>.Identity.Profile
+      - Session view (all providers, one session):
+          Request.Context.Views.Sessions.<AuthSessionKey>.Identity.Profile
+      - Provider+Session view (one provider, one session):
+          Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Profile
+
+    All views use stable ordering (sorted by ProviderAlias then AuthSessionKey).
+    For IdLE.Identity.Read, views where multiple profiles could contribute use last-write-wins
+    with deterministic sort order (last provider or session alphabetically wins).
+
+    .PARAMETER Context
+    The Request.Context hashtable to update.
+
+    .PARAMETER Capability
+    The capability identifier (e.g., 'IdLE.Entitlement.List').
+
+    .PARAMETER CapabilitySubPath
+    The capability sub-path (e.g., 'Identity.Entitlements').
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [System.Collections.IDictionary] $Context,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Capability,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $CapabilitySubPath
+    )
+
+    # Only capabilities with defined view semantics are processed.
+    if ($Capability -notin @('IdLE.Entitlement.List', 'IdLE.Identity.Read')) {
+        return
+    }
+
+    $providersNode = if ($Context.Contains('Providers')) { $Context['Providers'] } else { $null }
+    if ($null -eq $providersNode -or -not ($providersNode -is [System.Collections.IDictionary])) {
+        return
+    }
+
+    if ($Capability -eq 'IdLE.Entitlement.List') {
+        $globalList = [System.Collections.Generic.List[object]]::new()
+        $perProviderLists = @{}
+        $perSessionLists = @{}
+        $perProviderSessionLists = @{}
+
+        # Stable ordering: sorted by ProviderAlias, then AuthSessionKey
+        $sortedProviders = @($providersNode.Keys | Sort-Object)
+        foreach ($providerAlias in $sortedProviders) {
+            $providerNode = $providersNode[$providerAlias]
+            if ($null -eq $providerNode -or -not ($providerNode -is [System.Collections.IDictionary])) { continue }
+
+            # Always initialize tracking for this provider so stale views are overwritten even when empty.
+            if (-not $perProviderLists.Contains($providerAlias)) {
+                $perProviderLists[$providerAlias] = [System.Collections.Generic.List[object]]::new()
+            }
+            if (-not $perProviderSessionLists.Contains($providerAlias)) {
+                $perProviderSessionLists[$providerAlias] = @{}
+            }
+
+            $sortedAuthKeys = @($providerNode.Keys | Sort-Object)
+            foreach ($authKey in $sortedAuthKeys) {
+                $authNode = $providerNode[$authKey]
+                if ($null -eq $authNode -or -not ($authNode -is [System.Collections.IDictionary])) { continue }
+
+                # Always initialize tracking for this session so stale views are overwritten even when empty.
+                if (-not $perSessionLists.Contains($authKey)) {
+                    $perSessionLists[$authKey] = [System.Collections.Generic.List[object]]::new()
+                }
+                if (-not $perProviderSessionLists[$providerAlias].Contains($authKey)) {
+                    $perProviderSessionLists[$providerAlias][$authKey] = [System.Collections.Generic.List[object]]::new()
+                }
+
+                # Navigate the CapabilitySubPath within the auth node; null means not yet populated.
+                $items = Get-IdleValueByPath -Object $authNode -Path $CapabilitySubPath
+                if ($null -eq $items) { continue }
+
+                foreach ($item in @($items)) {
+                    $globalList.Add($item)
+                    $perProviderLists[$providerAlias].Add($item)
+                    $perSessionLists[$authKey].Add($item)
+                    $perProviderSessionLists[$providerAlias][$authKey].Add($item)
+                }
+            }
+        }
+
+        # Always write all views (including empty arrays) to ensure stale data from prior runs is cleared.
+        Set-IdleContextValue -Context $Context -Path "Views.$CapabilitySubPath" -Value @($globalList)
+
+        foreach ($providerAlias in ($perProviderLists.Keys | Sort-Object)) {
+            Set-IdleContextValue -Context $Context -Path "Views.Providers.$providerAlias.$CapabilitySubPath" -Value @($perProviderLists[$providerAlias])
+        }
+
+        foreach ($authKey in ($perSessionLists.Keys | Sort-Object)) {
+            Set-IdleContextValue -Context $Context -Path "Views.Sessions.$authKey.$CapabilitySubPath" -Value @($perSessionLists[$authKey])
+        }
+
+        foreach ($pAlias in ($perProviderSessionLists.Keys | Sort-Object)) {
+            foreach ($aKey in ($perProviderSessionLists[$pAlias].Keys | Sort-Object)) {
+                Set-IdleContextValue -Context $Context -Path "Views.Providers.$pAlias.Sessions.$aKey.$CapabilitySubPath" -Value @($perProviderSessionLists[$pAlias][$aKey])
+            }
+        }
+        return
+    }
+
+    if ($Capability -eq 'IdLE.Identity.Read') {
+        # Profile views use last-non-null-wins with deterministic (sorted) ordering.
+        # When multiple profiles exist for a view scope, the last non-null profile in sort order wins.
+        # All views (including null) are always written to clear stale data from prior runs.
+        $globalProfile = $null
+        $perProviderProfiles = @{}
+        $perSessionProfiles = @{}
+        $perProviderSessionProfiles = @{}
+
+        # Stable ordering: sorted by ProviderAlias, then AuthSessionKey
+        $sortedProviders = @($providersNode.Keys | Sort-Object)
+        foreach ($providerAlias in $sortedProviders) {
+            $providerNode = $providersNode[$providerAlias]
+            if ($null -eq $providerNode -or -not ($providerNode -is [System.Collections.IDictionary])) { continue }
+
+            # Always initialize tracking for this provider so stale views are overwritten even when null.
+            if (-not $perProviderProfiles.Contains($providerAlias)) {
+                $perProviderProfiles[$providerAlias] = $null
+            }
+            if (-not $perProviderSessionProfiles.Contains($providerAlias)) {
+                $perProviderSessionProfiles[$providerAlias] = @{}
+            }
+
+            $sortedAuthKeys = @($providerNode.Keys | Sort-Object)
+            foreach ($authKey in $sortedAuthKeys) {
+                $authNode = $providerNode[$authKey]
+                if ($null -eq $authNode -or -not ($authNode -is [System.Collections.IDictionary])) { continue }
+
+                # Always initialize tracking for this session so stale views are overwritten even when null.
+                if (-not $perSessionProfiles.Contains($authKey)) {
+                    $perSessionProfiles[$authKey] = $null
+                }
+
+                $profile = Get-IdleValueByPath -Object $authNode -Path $CapabilitySubPath
+
+                # Aggregated views use last-non-null-wins semantics.
+                if ($null -ne $profile) { $globalProfile = $profile }
+                if ($null -ne $profile) { $perProviderProfiles[$providerAlias] = $profile }
+                if ($null -ne $profile) { $perSessionProfiles[$authKey] = $profile }
+
+                # Per-provider+session view: always write exact value (even null).
+                $perProviderSessionProfiles[$providerAlias][$authKey] = $profile
+            }
+        }
+
+        # Always write all views (including null) to ensure stale data from prior runs is cleared.
+        Set-IdleContextValue -Context $Context -Path "Views.$CapabilitySubPath" -Value $globalProfile
+
+        foreach ($pAlias in ($perProviderProfiles.Keys | Sort-Object)) {
+            Set-IdleContextValue -Context $Context -Path "Views.Providers.$pAlias.$CapabilitySubPath" -Value $perProviderProfiles[$pAlias]
+        }
+
+        foreach ($aKey in ($perSessionProfiles.Keys | Sort-Object)) {
+            Set-IdleContextValue -Context $Context -Path "Views.Sessions.$aKey.$CapabilitySubPath" -Value $perSessionProfiles[$aKey]
+        }
+
+        foreach ($pAlias in ($perProviderSessionProfiles.Keys | Sort-Object)) {
+            foreach ($aKey in ($perProviderSessionProfiles[$pAlias].Keys | Sort-Object)) {
+                Set-IdleContextValue -Context $Context -Path "Views.Providers.$pAlias.Sessions.$aKey.$CapabilitySubPath" -Value $perProviderSessionProfiles[$pAlias][$aKey]
+            }
+        }
     }
 }
 
