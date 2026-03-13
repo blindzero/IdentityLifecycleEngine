@@ -84,7 +84,7 @@ Mock-specific behavior:
 - Missing identities are created **on-demand** on first `GetIdentity` call (planning-time resolvers may therefore “create” a record in the in-memory store).
 - `Attributes` is whatever your tests/demos put into the store (commonly `string` values).
 
-> **Attribute access**: Profile attributes are nested under the `Attributes` key. Use `...Identity.Profile.Attributes.DisplayName` in Conditions, **not** `...Identity.Profile.DisplayName`.
+> **Attribute access**: Profile attributes are nested under the `Attributes` key. In Conditions, use the full path including `Attributes`, for example: `Request.Context.Views.Identity.Profile.Attributes.DisplayName` (or the scoped `Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.Identity.Profile.Attributes.DisplayName`), **not** `Request.Context.Views.Identity.Profile.DisplayName`.
 
 ### Capability: `IdLE.Entitlement.List`
 

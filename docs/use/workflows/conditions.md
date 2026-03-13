@@ -221,7 +221,7 @@ When a `Path` points to a list of objects, you can access properties of those ob
 - `Request.Context.Views.Identity.Entitlements.DisplayName` → returns array of all `DisplayName` values
 
 > **Note**: These paths reference the **global View** populated by a `ContextResolvers` entry with `IdLE.Entitlement.List`. See [Context Resolvers](./context-resolver.md) for details.  
-> For provider-specific entitlements, use the scoped path: `Request.Context.Providers.<ProviderAlias>.Default.Identity.Entitlements.Id`.
+> For provider-specific entitlements, use the scoped path: `Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.Identity.Entitlements.Id` (where `<AuthSessionKey>` is the auth session key; `Default` is used when no `With.AuthSessionName` is specified).
 
 **Example**:
 ```powershell

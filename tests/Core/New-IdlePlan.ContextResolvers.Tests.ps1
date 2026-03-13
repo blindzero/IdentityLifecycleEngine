@@ -1096,7 +1096,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $viewProfile | Should -Not -BeNullOrEmpty
             $viewProfile.Attributes.Department | Should -Be 'Contractors'
 
-            # ContractorStep: condition matches because Department attribute equals 'Contractors'
+            # ContractorStep: condition matches because Department attribute matches the 'Contractors' pattern
             $contractorStep = $plan.Steps | Where-Object { $_.Name -eq 'ContractorStep' }
             $contractorStep | Should -Not -BeNullOrEmpty
             $contractorStep.Status | Should -Be 'Planned'
@@ -1131,7 +1131,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $plan | Should -Not -BeNullOrEmpty
 
-            # ContractorStep: condition does not match — Department is 'Engineering', not 'Contractors'
+            # ContractorStep: condition does not match — Department 'Engineering' does not match the 'Contractors' pattern
             $contractorStep = $plan.Steps | Where-Object { $_.Name -eq 'ContractorStep' }
             $contractorStep | Should -Not -BeNullOrEmpty
             $contractorStep.Status | Should -Be 'NotApplicable'

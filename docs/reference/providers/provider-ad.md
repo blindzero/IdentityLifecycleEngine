@@ -120,7 +120,7 @@ Top-level properties:
 | `sAMAccountName` | `string` |
 | `DistinguishedName` | `string` |
 
-> **Attribute access**: Profile attributes are nested under the `Attributes` key. Use `...Identity.Profile.Attributes.DisplayName` in Conditions, **not** `...Identity.Profile.DisplayName`.
+> **Attribute access**: Profile attributes are nested under the `Attributes` key. Use `Request.Context.Views.Identity.Profile.Attributes.DisplayName` in Conditions (or the scoped `Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.Identity.Profile.Attributes.DisplayName`), **not** `Request.Context.Views.Identity.Profile.DisplayName`.
 
 ### Capability: `IdLE.Entitlement.List`
 
