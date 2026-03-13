@@ -77,6 +77,18 @@ For capabilities with defined view semantics, the engine builds deterministic Vi
 
 All profile and entitlement entries include `SourceProvider` and `SourceAuthSessionName` metadata for auditing.
 
+:::info Profile Views are convenience views, not mirrors
+Profile Views are **deterministic convenience aggregations**, not direct copies of a specific provider result.  
+When multiple `IdLE.Identity.Read` resolvers run (different providers or auth sessions), the aggregated Views reflect the last profile after a stable alphabetical sort (first by provider alias ascending, then by auth session key ascending).
+
+This means `Request.Context.Views.Identity.Profile` may differ from (or be a different object than)
+`Request.Context.Providers.<ProviderAlias>.<AuthKey>.Identity.Profile` — that is by design.
+
+**When to use which path:**
+- Use `Request.Context.Views.*` when you do not care which provider returned the profile (e.g., "does any profile exist").
+- Use `Request.Context.Providers.<ProviderAlias>.<AuthKey>.Identity.Profile` when you need the exact result from a specific provider and session.
+:::
+
 ### Step-relative Current alias (execution-time only)
 
 During **precondition** evaluation (execution time), you may use `Request.Context.Current.*` to refer
@@ -139,7 +151,7 @@ Resolved from `Step.With.Provider` + `Step.With.AuthSessionName` (or `Default`).
       Type = 'IdLE.Step.EmitEvent'
 
       With = @{
-        Message = 'Disabled identity {{Request.Context.Providers.Identity.Tier0.Identity.Profile.DisplayName}}'
+        Message = 'Disabled identity {{Request.Context.Providers.Identity.Tier0.Identity.Profile.Attributes.DisplayName}}'
       }
     }
   )
@@ -272,7 +284,33 @@ This enables auditing and per-source filtering when working with merged views.
 - Verify required `With` parameters.
 - Ensure template placeholders resolve correctly.
 - Remember: scoped path uses `Providers.<Alias>.<AuthKey>.<SubPath>`.
-  Views are only available for `IdLE.Entitlement.List`.
+  Views are only available for `IdLE.Entitlement.List` and `IdLE.Identity.Read`.
+
+### Profile path not found in Condition
+
+- Profile attributes are nested under the `Attributes` key, not promoted to top-level.
+  Use `...Identity.Profile.Attributes.DisplayName` not `...Identity.Profile.DisplayName`.
+- Check the actual structure at plan time: `$plan.Request.Context.Providers.<Alias>.<AuthKey>.Identity.Profile | ConvertTo-Json -Depth 4`
+
+### View differs from source-of-truth path
+
+For `IdLE.Identity.Read`, profile Views are built by **last-writer-wins** with a deterministic sort order (provider alias ascending, then auth session key ascending). This means:
+
+- `Request.Context.Views.Identity.Profile` may contain a profile from a **different** provider/session than a specific scoped path.
+- This is expected and intentional — Views are convenience aggregations, not direct copies.
+
+If the View contains an unexpected profile, check `SourceProvider` and `SourceAuthSessionName` on the profile object to identify its origin:
+
+```powershell
+$plan.Request.Context.Views.Identity.Profile.SourceProvider
+$plan.Request.Context.Views.Identity.Profile.SourceAuthSessionName
+```
+
+To get the profile from a specific provider, use the scoped source-of-truth path instead:
+
+```powershell
+$plan.Request.Context.Providers.Entra.Default.Identity.Profile
+```
 
 ### Type conflict in context path
 
@@ -286,45 +324,72 @@ This enables auditing and per-source filtering when working with merged views.
 
 ### Inspecting resolved context data
 
-When working with complex objects (like entitlements), you may need to inspect the structure to determine the correct path syntax for Conditions or to understand what properties are available.
+When working with complex resolver outputs (entitlements, profiles), inspect the plan object directly after calling `New-IdlePlan`. This is the recommended approach during authoring and debugging. **Do not rely on template substitution for this purpose** — template substitution only resolves scalar values and cannot serialize whole objects or lists.
 
-**Method 1: Inspect the plan object after planning**
+**Inspect the complete context tree:**
 
 ```powershell
 $plan = New-IdlePlan -WorkflowPath ./workflow.psd1 -Request $req -Providers $providers
 
-# View the entire context structure
-$plan.Request.Context | ConvertTo-Json -Depth 5
+# Full context structure (use Depth 8 for deeply nested Views)
+$plan.Request.Context | ConvertTo-Json -Depth 8
 
-# View scoped entitlements for a specific provider
+# Scoped source-of-truth namespace only
+$plan.Request.Context.Providers | ConvertTo-Json -Depth 8
+
+# Engine-defined Views only
+$plan.Request.Context.Views | ConvertTo-Json -Depth 8
+```
+
+**Inspect a specific scoped path:**
+
+```powershell
+# Entitlements from one provider
 $plan.Request.Context.Providers.Identity.Default.Identity.Entitlements | ConvertTo-Json -Depth 2
 
-# View the global merged view
+# Profile from one provider
+$plan.Request.Context.Providers.Identity.Default.Identity.Profile | ConvertTo-Json -Depth 4
+
+# Global merged View
 $plan.Request.Context.Views.Identity.Entitlements | ConvertTo-Json -Depth 2
 ```
 
-**Method 2: Use Format-Table for quick inspection**
+**Quick tabular view:**
 
 ```powershell
-# After planning, inspect entitlements structure (global view)
 $plan.Request.Context.Views.Identity.Entitlements | Format-Table -AutoSize
 ```
 
-**Method 3: Access individual properties**
+**Inspect individual properties to understand the path structure:**
 
 ```powershell
-# Check if entitlements are objects with properties
+# Check available properties on the profile object
+$plan.Request.Context.Providers.Identity.Default.Identity.Profile | Get-Member
+
+# Access profile attributes — attributes are nested under the Attributes key
+$plan.Request.Context.Providers.Identity.Default.Identity.Profile.Attributes
+
+# Check a specific attribute
+$plan.Request.Context.Providers.Identity.Default.Identity.Profile.Attributes.DisplayName
+
+# Check an entitlement entry and its source metadata
 $plan.Request.Context.Views.Identity.Entitlements[0] | Get-Member
 $plan.Request.Context.Views.Identity.Entitlements[0].Id
 $plan.Request.Context.Views.Identity.Entitlements[0].SourceProvider
 ```
 
-**Using discovered structure in Conditions**
-
-Once you know the structure, use member-access enumeration in your condition paths:
+**Translating discovered structure to Condition paths:**
 
 ```powershell
-# Extract Id values from all entitlement objects (global view)
+# Profile attribute — path must include Attributes
+Condition = @{
+  Like = @{
+    Path    = 'Request.Context.Providers.Identity.Default.Identity.Profile.Attributes.DisplayName'
+    Pattern = '* (Contractor)'
+  }
+}
+
+# Entitlement IDs — member-access enumeration extracts all Id values from the list
 Condition = @{
   NotContains = @{
     Path  = 'Request.Context.Views.Identity.Entitlements.Id'
