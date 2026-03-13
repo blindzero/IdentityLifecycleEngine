@@ -324,6 +324,51 @@ function Invoke-IdlePlanObject {
         # Continue = emits events but skips the step and continues to the next step.
         # Non-IDictionary precondition nodes are treated as precondition failures (fail closed).
         $stepPrecondition = Get-IdlePropertyValue -Object $step -Name 'Precondition'
+
+        # Set Request.Context.Current alias for step-relative path resolution in preconditions.
+        # Resolved from Step.With.Provider + Step.With.AuthSessionName (or 'Default').
+        # Scoped to the precondition evaluation; cleaned up immediately after.
+        $currentContextSet = $false
+        if ($null -ne $stepPrecondition -and $null -ne $request -and $null -ne $request.Context -and $request.Context -is [System.Collections.IDictionary]) {
+            # If the caller has already provided a Context['Current'], do not overwrite it.
+            $currentAlreadyPresent = $request.Context.Contains('Current')
+
+            if (-not $currentAlreadyPresent) {
+                $currentProviderAlias = $null
+                $currentAuthKey = 'Default'
+                if ($null -ne $stepWith) {
+                    if ($stepWith -is [System.Collections.IDictionary]) {
+                        if ($stepWith.Contains('Provider') -and -not [string]::IsNullOrWhiteSpace([string]$stepWith['Provider'])) {
+                            $currentProviderAlias = [string]$stepWith['Provider']
+                        }
+                        if ($stepWith.Contains('AuthSessionName') -and -not [string]::IsNullOrWhiteSpace([string]$stepWith['AuthSessionName'])) {
+                            $currentAuthKey = [string]$stepWith['AuthSessionName']
+                        }
+                    }
+                    elseif ($stepWith.PSObject.Properties.Name -contains 'Provider') {
+                        $pVal = $stepWith.Provider
+                        if (-not [string]::IsNullOrWhiteSpace([string]$pVal)) { $currentProviderAlias = [string]$pVal }
+                        $aVal = if ($stepWith.PSObject.Properties.Name -contains 'AuthSessionName') { $stepWith.AuthSessionName } else { $null }
+                        if (-not [string]::IsNullOrWhiteSpace([string]$aVal)) { $currentAuthKey = [string]$aVal }
+                    }
+                }
+
+                $currentContextValue = $null
+                if (-not [string]::IsNullOrWhiteSpace($currentProviderAlias)) {
+                    $providersNode = if ($request.Context.Contains('Providers')) { $request.Context['Providers'] } else { $null }
+                    if ($null -ne $providersNode -and $providersNode -is [System.Collections.IDictionary] -and $providersNode.Contains($currentProviderAlias)) {
+                        $providerNode = $providersNode[$currentProviderAlias]
+                        if ($null -ne $providerNode -and $providerNode -is [System.Collections.IDictionary] -and $providerNode.Contains($currentAuthKey)) {
+                            $currentContextValue = $providerNode[$currentAuthKey]
+                        }
+                    }
+                }
+
+                $request.Context['Current'] = $currentContextValue
+                $currentContextSet = $true
+            }
+        }
+
         if ($null -ne $stepPrecondition) {
             $preconditionPassed = $true
             if ($stepPrecondition -isnot [System.Collections.IDictionary]) {
@@ -398,6 +443,10 @@ function Invoke-IdlePlanObject {
                         Attempts   = 0
                     }
                     $i++
+                    # Clean up the Current alias before continuing to the next step.
+                    if ($currentContextSet -and $null -ne $request -and $null -ne $request.Context -and $request.Context -is [System.Collections.IDictionary]) {
+                        $null = $request.Context.Remove('Current')
+                    }
                     continue
                 }
                 else {
@@ -421,12 +470,22 @@ function Invoke-IdlePlanObject {
                     )
                 }
 
+                # Clean up the Current alias before exiting the step loop.
+                if ($currentContextSet -and $null -ne $request -and $null -ne $request.Context -and $request.Context -is [System.Collections.IDictionary]) {
+                    $null = $request.Context.Remove('Current')
+                }
+
                 break
             }
         }
 
         # Stop processing if a precondition failure was handled above.
         if ($failed -or $blocked) { break }
+
+        # Clean up the Current alias after precondition evaluation.
+        if ($currentContextSet -and $null -ne $request -and $null -ne $request.Context -and $request.Context -is [System.Collections.IDictionary]) {
+            $null = $request.Context.Remove('Current')
+        }
 
         $context.EventSink.WriteEvent(
             'StepStarted',

@@ -393,5 +393,65 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 { Invoke-IdlePlan -Plan $plan -Providers $providers } | Should -Throw '*unresolved condition path*'
             }
         }
+
+        Context 'Request.Context.Current alias cleanup on Fail/Blocked' {
+            It 'removes Context.Current after precondition failure with OnPreconditionFalse=Blocked' {
+                $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'current-cleanup-blocked.psd1'
+
+                $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+                $provider = New-IdleMockIdentityProvider -InitialStore @{
+                    'user1' = @{
+                        IdentityKey  = 'user1'
+                        Enabled      = $true
+                        Attributes   = @{}
+                        Entitlements = @(@{ Kind = 'Group'; Id = 'g1' })
+                    }
+                }
+
+                $providers = @{
+                    Identity     = $provider
+                    StepRegistry = @{ 'IdLE.Step.CurrentCleanupTest' = 'Invoke-IdlePreconditionTestNoopStep' }
+                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.CurrentCleanupTest')
+                }
+
+                $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+                $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+                $result.Status | Should -Be 'Blocked'
+                # Current alias must be cleaned up even when precondition blocks the step.
+                $plan.Request.Context.Contains('Current') | Should -BeFalse
+            }
+
+            It 'removes Context.Current after precondition failure with OnPreconditionFalse=Fail' {
+                $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'current-cleanup-fail.psd1'
+
+                $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ Id = 'user1' }
+
+                $provider = New-IdleMockIdentityProvider -InitialStore @{
+                    'user1' = @{
+                        IdentityKey  = 'user1'
+                        Enabled      = $true
+                        Attributes   = @{}
+                        Entitlements = @(@{ Kind = 'Group'; Id = 'g1' })
+                    }
+                }
+
+                $providers = @{
+                    Identity     = $provider
+                    StepRegistry = @{ 'IdLE.Step.CurrentCleanupTest' = 'Invoke-IdlePreconditionTestNoopStep' }
+                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.CurrentCleanupTest')
+                }
+
+                $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+                $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+                $result.Status | Should -Be 'Failed'
+                # Current alias must be cleaned up even when precondition causes a failure.
+                $plan.Request.Context.Contains('Current') | Should -BeFalse
+            }
+        }
 }
 
