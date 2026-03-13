@@ -123,7 +123,7 @@ Describe 'Condition DSL (schema + evaluator)' {
             It 'accepts Contains operator with Path + Value' {
                 $condition = @{
                     Contains = @{
-                        Path  = 'Request.Context.Identity.Entitlements'
+                        Path  = 'Request.Context.Views.Identity.Entitlements'
                         Value = 'CN=Group,OU=Groups,DC=example,DC=com'
                     }
                 }
@@ -146,7 +146,7 @@ Describe 'Condition DSL (schema + evaluator)' {
             It 'rejects Contains with missing Value' {
                 $condition = @{
                     Contains = @{
-                        Path = 'Request.Context.Identity.Entitlements'
+                        Path = 'Request.Context.Views.Identity.Entitlements'
                     }
                 }
 
@@ -157,7 +157,7 @@ Describe 'Condition DSL (schema + evaluator)' {
             It 'accepts NotContains operator with Path + Value' {
                 $condition = @{
                     NotContains = @{
-                        Path  = 'Request.Context.Identity.Entitlements'
+                        Path  = 'Request.Context.Views.Identity.Entitlements'
                         Value = 'CN=Group,OU=Groups,DC=example,DC=com'
                     }
                 }
@@ -169,7 +169,7 @@ Describe 'Condition DSL (schema + evaluator)' {
             It 'accepts Like operator with Path + Pattern' {
                 $condition = @{
                     Like = @{
-                        Path    = 'Request.Context.Identity.Profile.DisplayName'
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
                         Pattern = '* (Contractor)'
                     }
                 }
@@ -181,7 +181,7 @@ Describe 'Condition DSL (schema + evaluator)' {
             It 'rejects Like with missing Pattern' {
                 $condition = @{
                     Like = @{
-                        Path = 'Request.Context.Identity.Profile.DisplayName'
+                        Path = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
                     }
                 }
 
@@ -192,7 +192,7 @@ Describe 'Condition DSL (schema + evaluator)' {
             It 'accepts NotLike operator with Path + Pattern' {
                 $condition = @{
                     NotLike = @{
-                        Path    = 'Request.Context.Identity.Entitlements'
+                        Path    = 'Request.Context.Views.Identity.Entitlements'
                         Pattern = 'CN=HR-*'
                     }
                 }
@@ -376,6 +376,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Entitlements = @(
                                     [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
@@ -389,7 +390,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     Contains = @{
-                        Path  = 'Request.Context.Identity.Entitlements.Id'
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
                         Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
                     }
                 }
@@ -401,6 +402,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Entitlements = @(
                                     [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
@@ -413,7 +415,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     Contains = @{
-                        Path  = 'Request.Context.Identity.Entitlements.Id'
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
                         Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
                     }
                 }
@@ -425,6 +427,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Name = 'John Doe'
                             }
@@ -446,6 +449,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Metadata = @{
                                     Department = 'Engineering'
@@ -470,6 +474,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Metadata = @{
                                     Department = 'Engineering'
@@ -494,6 +499,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Metadata = @{
                                     Department = 'Engineering'
@@ -518,6 +524,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Metadata = @{
                                     Department = 'Engineering'
@@ -542,6 +549,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Entitlements = @(
                                     [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
@@ -554,7 +562,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     NotContains = @{
-                        Path  = 'Request.Context.Identity.Entitlements.Id'
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
                         Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
                     }
                 }
@@ -566,6 +574,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Entitlements = @(
                                     [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
@@ -578,7 +587,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     NotContains = @{
-                        Path  = 'Request.Context.Identity.Entitlements.Id'
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
                         Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
                     }
                 }
@@ -590,6 +599,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Profile = [pscustomobject]@{
                                     DisplayName = 'John Doe (Contractor)'
@@ -601,7 +611,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     Like = @{
-                        Path    = 'Request.Context.Identity.Profile.DisplayName'
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
                         Pattern = '* (Contractor)'
                     }
                 }
@@ -613,6 +623,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Profile = [pscustomobject]@{
                                     DisplayName = 'John Doe'
@@ -624,7 +635,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     Like = @{
-                        Path    = 'Request.Context.Identity.Profile.DisplayName'
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
                         Pattern = '* (Contractor)'
                     }
                 }
@@ -636,6 +647,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Entitlements = @(
                                     [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
@@ -649,7 +661,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     Like = @{
-                        Path    = 'Request.Context.Identity.Entitlements.Id'
+                        Path    = 'Request.Context.Views.Identity.Entitlements.Id'
                         Pattern = 'CN=HR-*'
                     }
                 }
@@ -661,6 +673,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Entitlements = @(
                                     [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
@@ -673,7 +686,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     Like = @{
-                        Path    = 'Request.Context.Identity.Entitlements.Id'
+                        Path    = 'Request.Context.Views.Identity.Entitlements.Id'
                         Pattern = 'CN=HR-*'
                     }
                 }
@@ -685,6 +698,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Profile = [pscustomobject]@{
                                     DisplayName = 'John Doe'
@@ -696,7 +710,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     NotLike = @{
-                        Path    = 'Request.Context.Identity.Profile.DisplayName'
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
                         Pattern = '* (Contractor)'
                     }
                 }
@@ -708,6 +722,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Profile = [pscustomobject]@{
                                     DisplayName = 'John Doe (Contractor)'
@@ -719,7 +734,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     NotLike = @{
-                        Path    = 'Request.Context.Identity.Profile.DisplayName'
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
                         Pattern = '* (Contractor)'
                     }
                 }
@@ -731,6 +746,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Entitlements = @(
                                     [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
@@ -743,7 +759,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     NotLike = @{
-                        Path    = 'Request.Context.Identity.Entitlements.Id'
+                        Path    = 'Request.Context.Views.Identity.Entitlements.Id'
                         Pattern = 'CN=HR-*'
                     }
                 }
@@ -755,6 +771,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Entitlements = @(
                                     [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
@@ -767,7 +784,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     NotLike = @{
-                        Path    = 'Request.Context.Identity.Entitlements.Id'
+                        Path    = 'Request.Context.Views.Identity.Entitlements.Id'
                         Pattern = 'CN=HR-*'
                     }
                 }
@@ -779,6 +796,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Entitlements = @(
                                     [pscustomobject]@{ Kind = 'Group'; Id = 'CN=admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
@@ -791,7 +809,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     Contains = @{
-                        Path  = 'Request.Context.Identity.Entitlements.Id'
+                        Path  = 'Request.Context.Views.Identity.Entitlements.Id'
                         Value = 'CN=USERS,OU=Groups,DC=example,DC=com'
                     }
                 }
@@ -803,6 +821,7 @@ Describe 'Condition DSL (schema + evaluator)' {
                 $context = [pscustomobject]@{
                     Request = [pscustomobject]@{
                         Context = [pscustomobject]@{
+                            Views = [pscustomobject]@{
                             Identity = [pscustomobject]@{
                                 Profile = [pscustomobject]@{
                                     DisplayName = 'john doe (contractor)'
@@ -814,7 +833,7 @@ Describe 'Condition DSL (schema + evaluator)' {
 
                 $condition = @{
                     Like = @{
-                        Path    = 'Request.Context.Identity.Profile.DisplayName'
+                        Path    = 'Request.Context.Views.Identity.Profile.Attributes.DisplayName'
                         Pattern = '* (CONTRACTOR)'
                     }
                 }

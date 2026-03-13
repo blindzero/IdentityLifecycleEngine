@@ -157,20 +157,19 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
             $plan | Should -Not -BeNullOrEmpty
-            $profile = $plan.Request.Context.Identity.Profile
+            # Profile is written to scoped path: Providers.<ProviderAlias>.<AuthKey>.Identity.Profile
+            $profile = $plan.Request.Context.Providers.Identity.Default.Identity.Profile
 
             # Core properties should be present
             $profile.IdentityKey | Should -Be 'user1'
             $profile.Enabled | Should -Be $true
 
-            # Attributes should be flattened to top level for direct access
-            $profile.DisplayName | Should -Be 'User One'
-            $profile.Department | Should -Be 'IT'
-            $profile.EmailAddress | Should -Be 'user1@example.com'
-            $profile.UserPrincipalName | Should -Be 'user1@example.com'
-            
-            # Attributes hashtable should be removed after flattening
-            $profile.PSObject.Properties.Name | Should -Not -Contain 'Attributes'
+            # Attributes should be nested under Profile.Attributes (not flattened)
+            $profile.Attributes | Should -Not -BeNullOrEmpty
+            $profile.Attributes.DisplayName | Should -Be 'User One'
+            $profile.Attributes.Department | Should -Be 'IT'
+            $profile.Attributes.EmailAddress | Should -Be 'user1@example.com'
+            $profile.Attributes.UserPrincipalName | Should -Be 'user1@example.com'
             
             # PSTypeName should be preserved from the original identity object
             $profile.PSObject.TypeNames | Should -Contain 'IdLE.Identity'
@@ -198,14 +197,15 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
             $plan | Should -Not -BeNullOrEmpty
-            $profile = $plan.Request.Context.Identity.Profile
+            # Profile is written to scoped path: Providers.<ProviderAlias>.<AuthKey>.Identity.Profile
+            $profile = $plan.Request.Context.Providers.Identity.Default.Identity.Profile
 
             # Core properties should be present
             $profile.IdentityKey | Should -Be 'user1'
             $profile.Enabled | Should -Be $true
 
-            # Attributes should be removed (was null, so after flattening there's no Attributes property)
-            $profile.PSObject.Properties.Name | Should -Not -Contain 'Attributes'
+            # Attributes should remain null (not flattened, kept as-is)
+            $profile.Attributes | Should -BeNullOrEmpty
         }
 
         It 'IdLE.Identity.Read resolver handles empty Attributes hashtable' {
@@ -230,14 +230,18 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
             $plan | Should -Not -BeNullOrEmpty
-            $profile = $plan.Request.Context.Identity.Profile
+            # Profile is written to scoped path: Providers.<ProviderAlias>.<AuthKey>.Identity.Profile
+            $profile = $plan.Request.Context.Providers.Identity.Default.Identity.Profile
 
             # Core properties should be present
             $profile.IdentityKey | Should -Be 'user1'
             $profile.Enabled | Should -Be $true
 
-            # Attributes should be removed after flattening (was empty, so nothing to flatten)
-            $profile.PSObject.Properties.Name | Should -Not -Contain 'Attributes'
+            # Attributes should be empty hashtable (not flattened, kept as-is)
+            $profile.PSObject.Properties.Name | Should -Contain 'Attributes'
+            if ($null -ne $profile.Attributes) {
+                $profile.Attributes.Count | Should -Be 0
+            }
         }
 
         It 'IdLE.Identity.Read resolver does not overwrite core properties with conflicting attributes' {
@@ -266,19 +270,20 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
             $plan | Should -Not -BeNullOrEmpty
-            $profile = $plan.Request.Context.Identity.Profile
+            # Profile is written to scoped path: Providers.<ProviderAlias>.<AuthKey>.Identity.Profile
+            $profile = $plan.Request.Context.Providers.Identity.Default.Identity.Profile
 
-            # Core IdentityKey should NOT be overwritten by conflicting attribute
+            # Core IdentityKey should NOT be overwritten by attributes (attributes stay nested)
             $profile.IdentityKey | Should -Be 'user1'
 
-            # Core Enabled should NOT be overwritten by conflicting attribute
+            # Core Enabled should NOT be overwritten by attributes (attributes stay nested)
             $profile.Enabled | Should -Be $true
 
-            # DisplayName should be flattened (no conflict)
-            $profile.DisplayName | Should -Be 'User One'
-
-            # Attributes hashtable should be removed after flattening
-            $profile.PSObject.Properties.Name | Should -Not -Contain 'Attributes'
+            # Attributes should remain nested with all keys intact (no flattening)
+            $profile.Attributes | Should -Not -BeNullOrEmpty
+            $profile.Attributes.IdentityKey | Should -Be 'conflicting-value'
+            $profile.Attributes.Enabled | Should -Be $false
+            $profile.Attributes.DisplayName | Should -Be 'User One'
         }
     }
 
@@ -450,8 +455,8 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $entitlements[0].Id | Should -Be 'tmpl-grp'
         }
 
-        It 'resolves templates using flattened Identity.Profile attributes' {
-            # Create a workflow with a step that uses template substitution with Identity.Profile attributes
+        It 'resolves templates using nested Identity.Profile.Attributes paths' {
+            # Create a workflow with a step that uses template substitution with Identity.Profile.Attributes
             $wfContent = @'
 @{
     Name = 'Identity Profile Template Test'
@@ -470,8 +475,8 @@ Describe 'New-IdlePlan - ContextResolvers' {
             Name = 'TestStep'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'User: {{Request.Context.Identity.Profile.DisplayName}}, Email: {{Request.Context.Identity.Profile.EmailAddress}}'
-                Department = '{{Request.Context.Identity.Profile.Department}}'
+                Message = 'User: {{Request.Context.Providers.Identity.Default.Identity.Profile.Attributes.DisplayName}}, Email: {{Request.Context.Providers.Identity.Default.Identity.Profile.Attributes.EmailAddress}}'
+                Department = '{{Request.Context.Providers.Identity.Default.Identity.Profile.Attributes.Department}}'
             }
         }
     )
@@ -504,7 +509,7 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $plan | Should -Not -BeNullOrEmpty
             $plan.Steps[0].Status | Should -Be 'Planned'
-            # Verify templates were resolved using flattened attributes
+            # Verify templates were resolved using nested Attributes paths
             $plan.Steps[0].With.Message | Should -Be 'User: John Doe, Email: john.doe@example.com'
             $plan.Steps[0].With.Department | Should -Be 'Engineering'
         }
