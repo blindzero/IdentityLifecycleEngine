@@ -132,18 +132,59 @@ Recommended provider documentation pattern:
 
 ---
 
-## ContextResolvers: read-only capabilities and predefined Context paths
+## ContextResolvers: read-only capabilities and Context namespace
 
 Workflows may declare a `ContextResolvers` section to populate `Request.Context.*` at planning time using read-only provider capabilities. Only the capabilities listed below are permitted in `ContextResolvers`.
 
-Each capability writes to a **predefined, fixed path** under `Request.Context`. This path is not user-configurable, which prevents accidental overwrites and ensures a consistent context shape across all workflows.
+Each resolver writes to a **provider/auth-scoped source-of-truth path** under `Request.Context.Providers.*` and engine-defined **Views** for capabilities with aggregation semantics. The paths are not user-configurable.
 
-| Capability | Predefined `Request.Context` path | Required `With` keys |
+### Source-of-truth paths
+
+```
+Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.<CapabilitySubPath>
+```
+
+| Capability | CapabilitySubPath | Required `With` keys |
 |---|---|---|
-| `IdLE.Entitlement.List` | `Request.Context.Identity.Entitlements` | `IdentityKey` (string) |
-| `IdLE.Identity.Read` | `Request.Context.Identity.Profile` | `IdentityKey` (string) |
+| `IdLE.Entitlement.List` | `Identity.Entitlements` | `IdentityKey` (string) |
+| `IdLE.Identity.Read` | `Identity.Profile` | `IdentityKey` (string) |
 
-> **Note**: `IdLE.Entitlement.List` writes an array of entitlement objects, each with properties: `Kind` (string), `Id` (string), and optionally `DisplayName` (string). To reference entitlement Ids in Conditions, use `Request.Context.Identity.Entitlements.Id`. See [Conditions - Member-Access Enumeration](../use/workflows/conditions.md#member-access-enumeration).
+Where `<AuthSessionKey>` is `Default` when `With.AuthSessionName` is not specified.
+
+Examples:
+- `Request.Context.Providers.Entra.Default.Identity.Entitlements`
+- `Request.Context.Providers.AD.CorpAdmin.Identity.Entitlements`
+- `Request.Context.Providers.Identity.Default.Identity.Profile`
+
+### Views (engine-defined aggregations)
+
+For `IdLE.Entitlement.List`, the engine additionally builds (list merge — all entries preserved):
+
+| View | Path |
+|---|---|
+| All providers, all sessions | `Request.Context.Views.Identity.Entitlements` |
+| One provider, all sessions | `Request.Context.Views.Providers.<ProviderAlias>.Identity.Entitlements` |
+| All providers, one session | `Request.Context.Views.Sessions.<AuthSessionKey>.Identity.Entitlements` |
+| One provider, one session | `Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Entitlements` |
+
+> **Note**: `IdLE.Entitlement.List` writes an array of entitlement objects. Each entry includes:
+> `Kind` (string), `Id` (string), and optionally `DisplayName` (string),
+> plus source metadata: `SourceProvider` (string) and `SourceAuthSessionName` (string).
+> To reference entitlement Ids in Conditions, use the `.Id` member-access pattern.
+> See [Conditions - Member-Access Enumeration](../use/workflows/conditions.md#member-access-enumeration).
+
+For `IdLE.Identity.Read`, the engine additionally builds (single object — last writer wins, sorted by provider alias asc then auth key asc):
+
+| View | Path |
+|---|---|
+| All providers, all sessions | `Request.Context.Views.Identity.Profile` |
+| One provider, all sessions | `Request.Context.Views.Providers.<ProviderAlias>.Identity.Profile` |
+| All providers, one session | `Request.Context.Views.Sessions.<AuthSessionKey>.Identity.Profile` |
+| One provider, one session | `Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Profile` |
+
+> **Note**: `IdLE.Identity.Read` writes a single profile object, annotated with `SourceProvider` and `SourceAuthSessionName`.
+> When multiple providers or sessions contribute to a view scope, the profile from the last entry
+> in sort order (provider alias ascending, then auth key ascending) is used.
 
 > **Note**: `IdLE.Identity.Read` automatically flattens identity attributes to the top level of `Request.Context.Identity.Profile`. You can access attributes directly (e.g., `Request.Context.Identity.Profile.DisplayName`) instead of via the nested path (e.g., `Request.Context.Identity.Profile.Attributes.DisplayName`). The `Attributes` hashtable is preserved for backwards compatibility. See [Context Resolvers - Identity Profile Attribute Flattening](../use/workflows/context-resolver.md#identity-profile-attribute-flattening) for details.
 
@@ -157,29 +198,33 @@ ContextResolvers = @(
             IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
             Provider    = 'Identity'   # optional; auto-selected if omitted
         }
-        # Writes to Request.Context.Identity.Entitlements (predefined, not configurable)
+        # Writes to: Request.Context.Providers.Identity.Default.Identity.Entitlements
+        # View:      Request.Context.Views.Identity.Entitlements
     }
     @{
         Capability = 'IdLE.Identity.Read'
         With       = @{ IdentityKey = '{{Request.IdentityKeys.EmployeeId}}' }
-        # Writes to Request.Context.Identity.Profile (predefined, not configurable)
+        # Writes to: Request.Context.Providers.Identity.Default.Identity.Profile
     }
 )
 ```
 
-Steps can then reference the resolved data in their `Condition`:
+Steps can then reference the resolved data in their `Condition` using the global view (most common) or scoped paths:
 
 ```powershell
-# Check if entitlements exist
-Condition = @{ Exists = 'Request.Context.Identity.Entitlements' }
+# Global view: check if entitlements exist from any provider
+Condition = @{ Exists = 'Request.Context.Views.Identity.Entitlements' }
 
-# Check if a specific group Id is present
+# Global view: check if a specific group Id is present across all providers
 Condition = @{
   Contains = @{
-    Path  = 'Request.Context.Identity.Entitlements.Id'
+    Path  = 'Request.Context.Views.Identity.Entitlements.Id'
     Value = 'CN=Admins,OU=Groups,DC=example,DC=com'
   }
 }
+
+# Scoped path: check entitlements from a specific provider only
+Condition = @{ Exists = 'Request.Context.Providers.Identity.Default.Identity.Entitlements' }
 ```
 
-> **Tip**: Use `$plan.Request.Context.Identity.Entitlements | Format-Table` to inspect the structure of resolved entitlements. See [Context Resolvers - Inspecting resolved context data](../use/workflows/context-resolver.md#inspecting-resolved-context-data).
+> **Tip**: Use `$plan.Request.Context.Views.Identity.Entitlements | Format-Table` to inspect resolved entitlements. See [Context Resolvers - Inspecting resolved context data](../use/workflows/context-resolver.md#inspecting-resolved-context-data).

@@ -134,11 +134,22 @@ function New-IdleEntraIDAdapter {
         while ($null -ne $nextLink) {
             $response = $this.InvokeGraphRequest('GET', $nextLink, $AccessToken, $null)
 
-            if ($response.value) {
-                $allItems += $response.value
-            }
+            # Reset before reading — ensures pagination always terminates
+            $nextLink = $null
 
-            $nextLink = $response.'@odata.nextLink'
+            if ($null -ne $response) {
+                # Collect items: some endpoints do not wrap results in a value array
+                $items = Get-IdleEntraIDGraphResponseProperty -InputObject $response -PropertyName 'value'
+                if ($null -ne $items) {
+                    $allItems += $items
+                }
+
+                # Advance to next page when @odata.nextLink is present and non-empty
+                $candidate = Get-IdleEntraIDGraphResponseProperty -InputObject $response -PropertyName '@odata.nextLink'
+                if (-not [string]::IsNullOrWhiteSpace([string]$candidate)) {
+                    $nextLink = [string]$candidate
+                }
+            }
         }
 
         return $allItems
