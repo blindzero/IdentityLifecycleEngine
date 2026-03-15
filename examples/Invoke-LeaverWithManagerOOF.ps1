@@ -151,13 +151,13 @@ $exoProvider = New-IdleMockProvider -Name 'ExchangeOnline' -Capabilities @(
     'IdLE.Mailbox.OutOfOffice.Ensure'
 )
 
-$authBroker = New-IdleAuthSessionBroker `
+$authSessionBroker = New-IdleAuthSession `
     -AuthSessionType 'OAuth' `
     -DefaultAuthSession ([pscustomobject]@{ Token = 'mock-token' })
 
 $providers = @{
     ExchangeOnline    = $exoProvider
-    AuthSessionBroker = $authBroker
+    AuthSessionBroker = $authSessionBroker
 }
 
 # 4. Build plan (templates are resolved here)

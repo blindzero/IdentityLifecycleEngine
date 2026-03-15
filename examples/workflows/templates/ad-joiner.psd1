@@ -10,7 +10,7 @@
             Name     = 'Create identity (if missing)'
             With     = @{
                 # Required by the provider: which auth session to use
-                AuthSessionName = '{{Request.Auth.Directory}}'
+                AuthSessionName = 'Directory'
 
                 # Provider-specific: identify the target identity
                 # The exact key names depend on provider contracts; keep it consistent with your provider docs.
@@ -29,7 +29,7 @@
             Type = 'IdLE.Step.EnsureAttributes'
             Name     = 'Ensure core attributes'
             With     = @{
-                AuthSessionName = '{{Request.Auth.Directory}}'
+                AuthSessionName = 'Directory'
                 IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 Attributes = @{
@@ -48,7 +48,7 @@
             Type = 'IdLE.Step.EnsureEntitlement'
             Name = 'Ensure baseline group membership (1)'
             With = @{
-                AuthSessionName = '{{Request.Auth.Directory}}'
+                AuthSessionName = 'Directory'
                 IdentityKey     = '{{Request.Intent.SamAccountName}}'
                 Entitlement     = @{
                     Kind = 'Group';
@@ -62,7 +62,7 @@
             Type = 'IdLE.Step.EnsureEntitlement'
             Name = 'Ensure baseline group membership (2)'
             With = @{
-                AuthSessionName = '{{Request.Auth.Directory}}'
+                AuthSessionName = 'Directory'
                 IdentityKey     = '{{Request.Intent.SamAccountName}}'
                 Entitlement     = @{
                     Kind = 'Group';
@@ -84,7 +84,7 @@
             With     = @{
                 # Guard by convention: only run when request indicates mover
                 Condition       = '{{Request.Intent.IsMover}}'
-                AuthSessionName = '{{Request.Auth.Directory}}'
+                AuthSessionName = 'Directory'
                 IdentityKey         = '{{Request.Intent.SamAccountName}}'
                 Attributes      = @{
                     Department  = '{{Request.Intent.NewDepartment}}'
@@ -101,7 +101,7 @@
             Name     = 'Mover: adjust group memberships (optional, baseline 1)'
             With     = @{
                 Condition       = '{{Request.Intent.IsMover}}'
-                AuthSessionName = '{{Request.Auth.Directory}}'
+                AuthSessionName = 'Directory'
                 IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 # Optional: baseline + department-specific groups.
@@ -114,7 +114,7 @@
             Name     = 'Mover: adjust group memberships (optional, baseline 2)'
             With     = @{
                 Condition       = '{{Request.Intent.IsMover}}'
-                AuthSessionName = '{{Request.Auth.Directory}}'
+                AuthSessionName = 'Directory'
                 IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 # Optional: baseline + department-specific groups.
@@ -127,7 +127,7 @@
             Name     = 'Mover: adjust group memberships (optional, department 1)'
             With     = @{
                 Condition       = '{{Request.Intent.IsMover}}'
-                AuthSessionName = '{{Request.Auth.Directory}}'
+                AuthSessionName = 'Directory'
                 IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 # Optional: baseline + department-specific groups.
@@ -140,7 +140,7 @@
             Name     = 'Mover: adjust group memberships (optional, department 2)'
             With     = @{
                 Condition       = '{{Request.Intent.IsMover}}'
-                AuthSessionName = '{{Request.Auth.Directory}}'
+                AuthSessionName = 'Directory'
                 IdentityKey         = '{{Request.Intent.SamAccountName}}'
 
                 # Optional: baseline + department-specific groups.
