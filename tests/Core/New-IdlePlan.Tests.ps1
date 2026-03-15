@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
+    $script:FixturesPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows'
 
     function global:Invoke-IdleTestNoopStep {
         [CmdletBinding()]
@@ -33,16 +34,7 @@ AfterAll {
 Describe 'New-IdlePlan' {
     Context 'Plan normalization' {
         It 'creates a plan with normalized steps' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner.psd1' -Content @'
-@{
-  Name           = 'Joiner - Standard'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
-    @{ Name = 'ProcessUser'; Type = 'IdLE.Step.ProcessUser'; With = @{ Mode = 'Minimal' } }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'joiner-normalized.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
@@ -55,10 +47,10 @@ Describe 'New-IdlePlan' {
                 Dummy        = $true
                 Identity     = $dummyProvider
                 StepRegistry = @{
-                    'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
-                    'IdLE.Step.ProcessUser'     = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity', 'IdLE.Step.ProcessUser')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

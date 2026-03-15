@@ -10,12 +10,14 @@
 #     OptionalKeys         - keys that MAY be present in With
 #
 @{
-    # IdLE.Step.EmitEvent - writes a structured event to the event sink; no provider capabilities required
+    # IdLE.Step.EmitEvent - writes a structured event to the event sink; no provider capabilities required.
+    # Provider/AuthSessionName/AuthSessionOptions are accepted as optional routing hints:
+    # the execution engine reads these from any step's With to resolve Request.Context.Current.*.
     'IdLE.Step.EmitEvent'                   = @{
         RequiredCapabilities = @()
         WithSchema           = @{
             RequiredKeys = @()
-            OptionalKeys = @('Message')
+            OptionalKeys = @('Message', 'Provider', 'AuthSessionName', 'AuthSessionOptions')
         }
     }
 

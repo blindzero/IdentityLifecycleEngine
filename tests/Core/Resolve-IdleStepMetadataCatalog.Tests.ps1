@@ -252,19 +252,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack WithSchema' {
 
             $providers = @{ IdentityProvider = $provider }
 
-            $wfPath = New-IdleTestWorkflowFile -FileName 'disable-unknown-key.psd1' -Content @'
-@{
-  Name           = 'Test - Unknown Key'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'DisableStep'
-      Type = 'IdLE.Step.DisableIdentity'
-      With = @{ IdentityKey = 'user1'; UnknownParam = 'bad' }
-    }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'withschema-disable-unknown-key.psd1'
             try {
                 New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers | Out-Null
                 throw 'Expected an exception but none was thrown.'
@@ -286,18 +274,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack WithSchema' {
 
             $providers = @{ IdentityProvider = $provider }
 
-            $wfPath = New-IdleTestWorkflowFile -FileName 'disable-missing-key.psd1' -Content @'
-@{
-  Name           = 'Test - Missing Required Key'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'DisableStep'
-      Type = 'IdLE.Step.DisableIdentity'
-    }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'withschema-disable-missing-key.psd1'
             try {
                 New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers | Out-Null
                 throw 'Expected an exception but none was thrown.'
@@ -319,19 +296,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack WithSchema' {
 
             $providers = @{ IdentityProvider = $provider }
 
-            $wfPath = New-IdleTestWorkflowFile -FileName 'disable-case-insensitive.psd1' -Content @'
-@{
-  Name           = 'Test - Case Insensitive Keys'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name = 'DisableStep'
-      Type = 'IdLE.Step.DisableIdentity'
-      With = @{ identitykey = 'user1' }
-    }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'withschema-disable-case-insensitive.psd1'
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Not -Throw
         }
     }
