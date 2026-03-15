@@ -18,9 +18,9 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
         # Seed the identity with some entitlements
         $null = $script:Provider.EnsureAttribute('user1', 'Seed', 'Value')
         $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-All,DC=contoso,DC=com' })
-        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-HR,DC=contoso,DC=com'; DisplayName = 'HR Group' })
-        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com'; DisplayName = 'Leaver Retain' })
-        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-EXTRA,DC=contoso,DC=com'; DisplayName = 'Leaver Extra' })
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-HR,DC=contoso,DC=com' })
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' })
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-EXTRA,DC=contoso,DC=com' })
 
         $script:StepTemplate = [pscustomobject]@{
             Name = 'Prune group memberships'
@@ -185,7 +185,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             # Add a Keep item that does NOT exist in current entitlements
             $step.With.Keep = @(
                 @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' }
-                @{ Kind = 'Group'; Id = 'CN=LEAVER-NEW,DC=contoso,DC=com'; DisplayName = 'Leaver New' }
+                @{ Kind = 'Group'; Id = 'CN=LEAVER-NEW,DC=contoso,DC=com' }
             )
             $step.With.EnsureKeepEntitlements = $true
 
@@ -535,9 +535,9 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
         # Seed the identity with some entitlements
         $null = $script:Provider.EnsureAttribute('user1', 'Seed', 'Value')
         $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-All,DC=contoso,DC=com' })
-        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-HR,DC=contoso,DC=com'; DisplayName = 'HR Group' })
-        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com'; DisplayName = 'Leaver Retain' })
-        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-EXTRA,DC=contoso,DC=com'; DisplayName = 'Leaver Extra' })
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-HR,DC=contoso,DC=com' })
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' })
+        $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-EXTRA,DC=contoso,DC=com' })
 
         $script:Handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlementsEnsureKeep'
         $script:StepTemplate = [pscustomobject]@{
@@ -587,7 +587,7 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
             $step = $script:StepTemplate
             $step.With.Keep = @(
                 @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' }
-                @{ Kind = 'Group'; Id = 'CN=LEAVER-NEW,DC=contoso,DC=com'; DisplayName = 'Leaver New' }
+                @{ Kind = 'Group'; Id = 'CN=LEAVER-NEW,DC=contoso,DC=com' }
             )
 
             $result = & $script:Handler -Context $script:Context -Step $step

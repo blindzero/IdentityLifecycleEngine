@@ -41,7 +41,7 @@
 
                 # Explicitly retain this group and ensure it is present after pruning.
                 Keep            = @(
-                    @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupDn}}'; DisplayName = 'Leaver Retain' }
+                    @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupDn}}' }
                 )
                 # Pattern-based retention is not supported by PruneEntitlementsEnsureKeep. Use a
                 # separate IdLE.Step.PruneEntitlements step earlier in the workflow if you need to

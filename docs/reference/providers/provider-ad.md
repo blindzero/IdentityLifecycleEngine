@@ -135,7 +135,6 @@ Each element represents one AD group membership:
 | `PSTypeName` | `string` | Always `IdLE.Entitlement`. |
 | `Kind` | `string` | Always `Group`. |
 | `Id` | `string` | AD group `DistinguishedName`. |
-| `DisplayName` | `string` | AD group `Name`. |
 
 Notes:
 - The output paths are fixed by the engine and cannot be changed.

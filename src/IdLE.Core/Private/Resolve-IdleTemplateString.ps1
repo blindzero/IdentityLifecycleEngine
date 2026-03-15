@@ -39,6 +39,7 @@ function Resolve-IdleTemplateString {
     For pure placeholders (single placeholder with no surrounding text), returns the resolved value with its original type preserved (string, bool, int, datetime, guid, etc.).
     For mixed strings (string interpolation with multiple placeholders or surrounding text), returns a string with placeholders replaced.
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Request', Justification = 'Used inside nested scriptblock $resolvePath; PSSA does not track parameter usage across nested scriptblock boundaries.')]
     [CmdletBinding()]
     param(
         [Parameter()]

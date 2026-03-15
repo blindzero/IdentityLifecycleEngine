@@ -43,9 +43,8 @@ function Invoke-IdleEntitlementProviderContractTests {
             [void]$script:Provider.GetIdentity($id)
 
             $entitlement = [pscustomobject]@{
-                Kind        = 'Contract'
-                Id          = "entitlement-$([guid]::NewGuid().ToString('N'))"
-                DisplayName = 'Contract Entitlement'
+                Kind = 'Contract'
+                Id   = "entitlement-$([guid]::NewGuid().ToString('N'))"
             }
 
             $result = $script:Provider.GrantEntitlement($id, $entitlement)

@@ -57,7 +57,7 @@ The following keys are required in the step's ``With`` configuration:
   Name = 'IdLE.Step.EnsureEntitlement Example'
   Type = 'IdLE.Step.EnsureEntitlement'
   With = @{
-    Entitlement          = @{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }
+    Entitlement          = @{ Kind = 'Group'; Id = 'GroupId' }
     IdentityKey          = 'user.name'
     State                = 'Present'
   }

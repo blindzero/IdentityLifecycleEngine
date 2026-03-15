@@ -128,7 +128,7 @@ This section is the authoritative DSL reference.
 }
 ```
 
-> **Note**: When `Request.Context.Views.Identity.Entitlements` contains objects (e.g., `@{ Kind = 'Group'; Id = '...'; DisplayName = '...' }`), use `.Id` or `.DisplayName` to extract the property values: `Entitlements.Id` returns an array of all Id values.
+> **Note**: When `Request.Context.Views.Identity.Entitlements` contains objects (e.g., `@{ Kind = 'Group'; Id = '...' }`), use `.Id` to extract Id values: `Entitlements.Id` returns an array of all Id values.
 
 #### NotContains
 
@@ -174,7 +174,7 @@ This section is the authoritative DSL reference.
 }
 ```
 
-> **Note**: When checking entitlement Ids or DisplayNames, use `.Id` or `.DisplayName` to extract property values from entitlement objects. The path `Entitlements.Id` uses member-access enumeration to return an array of all Id values.
+> **Note**: When checking entitlement Ids, use `.Id` to extract property values from entitlement objects. The path `Entitlements.Id` uses member-access enumeration to return an array of all Id values.
 
 #### NotLike
 
@@ -218,7 +218,6 @@ When a `Path` points to a list of objects, you can access properties of those ob
 
 - `Request.Context.Views.Identity.Entitlements` → returns array of entitlement objects
 - `Request.Context.Views.Identity.Entitlements.Id` → returns array of all `Id` values
-- `Request.Context.Views.Identity.Entitlements.DisplayName` → returns array of all `DisplayName` values
 
 > **Note**: These paths reference the **global View** populated by a `ContextResolvers` entry with `IdLE.Entitlement.List`. See [Context Resolvers](./context-resolver.md) for details.  
 > For provider-specific entitlements, use the scoped path: `Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.Identity.Entitlements.Id` (where `<AuthSessionKey>` is the auth session key; `Default` is used when no `With.AuthSessionName` is specified).
@@ -226,8 +225,8 @@ When a `Path` points to a list of objects, you can access properties of those ob
 **Example**:
 ```powershell
 # Entitlements contains: @(
-#   @{ Kind = 'Group'; Id = 'CN=Users,...'; DisplayName = 'Users' }
-#   @{ Kind = 'Group'; Id = 'CN=Admins,...'; DisplayName = 'Admins' }
+#   @{ Kind = 'Group'; Id = 'CN=Users,...' }
+#   @{ Kind = 'Group'; Id = 'CN=Admins,...' }
 # )
 
 # Check if any entitlement Id matches a pattern

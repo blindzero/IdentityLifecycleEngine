@@ -50,7 +50,7 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     | -------------------- | -------- | ------------ | ----------- |
     | IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
     | Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
-    | Keep                 | No       | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind and DisplayName are optional. **These entries are GRANTED if missing after the prune.** If omitted, all entitlements of the given Kind are removed and no grants are made. |
+    | Keep                 | No       | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind is optional. **These entries are GRANTED if missing after the prune.** If omitted, all entitlements of the given Kind are removed and no grants are made. |
     | Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
     | AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |
     | AuthSessionOptions   | No       | hashtable    | Options passed to AcquireAuthSession for session selection (e.g. role-scoped sessions). |

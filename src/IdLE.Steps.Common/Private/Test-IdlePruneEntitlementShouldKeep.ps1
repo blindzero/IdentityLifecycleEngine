@@ -25,12 +25,9 @@ function Test-IdlePruneEntitlementShouldKeep {
         }
     }
 
-    # Check KeepPattern (wildcard -like against Id and DisplayName)
+    # Check KeepPattern (wildcard -like against Id)
     foreach ($pattern in $KeepPatterns) {
         if ([string]$Ent.Id -like $pattern) { return $true }
-        if ($Ent.PSObject.Properties.Name -contains 'DisplayName' -and
-            $null -ne $Ent.DisplayName -and
-            [string]$Ent.DisplayName -like $pattern) { return $true }
     }
 
     return $false

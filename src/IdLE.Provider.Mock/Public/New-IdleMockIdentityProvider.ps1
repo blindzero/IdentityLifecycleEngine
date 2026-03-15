@@ -29,7 +29,7 @@ function New-IdleMockIdentityProvider {
                 Department = 'IT'
             }
             Entitlements = @(
-                @{ Kind = 'Group'; Id = 'demo-group'; DisplayName = 'Demo Group' }
+                @{ Kind = 'Group'; Id = 'demo-group' }
             )
         }
     }
@@ -58,18 +58,15 @@ function New-IdleMockIdentityProvider {
 
         $kind = $null
         $id = $null
-        $displayName = $null
 
         if ($Value -is [System.Collections.IDictionary]) {
             $kind = $Value['Kind']
             $id = $Value['Id']
-            if ($Value.Contains('DisplayName')) { $displayName = $Value['DisplayName'] }
         }
         else {
             $props = $Value.PSObject.Properties
             if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
             if ($props.Name -contains 'Id') { $id = $Value.Id }
-            if ($props.Name -contains 'DisplayName') { $displayName = $Value.DisplayName }
         }
 
         if ([string]::IsNullOrWhiteSpace([string]$kind)) {
@@ -80,15 +77,9 @@ function New-IdleMockIdentityProvider {
         }
 
         return [pscustomobject]@{
-            PSTypeName  = 'IdLE.Entitlement'
-            Kind        = [string]$kind
-            Id          = [string]$id
-            DisplayName = if ($null -eq $displayName -or [string]::IsNullOrWhiteSpace([string]$displayName)) {
-                $null
-            }
-            else {
-                [string]$displayName
-            }
+            PSTypeName = 'IdLE.Entitlement'
+            Kind       = [string]$kind
+            Id         = [string]$id
         }
     }
 

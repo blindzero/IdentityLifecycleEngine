@@ -35,7 +35,7 @@ function Invoke-IdleStepEnsureEntitlement {
         Type = 'IdLE.Step.EnsureEntitlement'
         With = @{
             IdentityKey = 'user1'
-            Entitlement = @{ Kind = 'Group'; Id = 'example-group'; DisplayName = 'Example Group' }
+            Entitlement = @{ Kind = 'Group'; Id = 'example-group' }
             State       = 'Present'
             Provider    = 'Identity'
         }
@@ -65,18 +65,15 @@ function Invoke-IdleStepEnsureEntitlement {
 
         $kind = $null
         $id = $null
-        $displayName = $null
 
         if ($Value -is [System.Collections.IDictionary]) {
             $kind = $Value['Kind']
             $id = $Value['Id']
-            if ($Value.Contains('DisplayName')) { $displayName = $Value['DisplayName'] }
         }
         else {
             $props = $Value.PSObject.Properties
             if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
             if ($props.Name -contains 'Id') { $id = $Value.Id }
-            if ($props.Name -contains 'DisplayName') { $displayName = $Value.DisplayName }
         }
 
         if ([string]::IsNullOrWhiteSpace([string]$kind)) {
@@ -86,16 +83,10 @@ function Invoke-IdleStepEnsureEntitlement {
             throw "EnsureEntitlement requires Entitlement.Id."
         }
 
-        $normalized = [ordered]@{
+        return [pscustomobject]@{
             Kind = [string]$kind
             Id   = [string]$id
         }
-
-        if ($null -ne $displayName -and -not [string]::IsNullOrWhiteSpace([string]$displayName)) {
-            $normalized['DisplayName'] = [string]$displayName
-        }
-
-        return [pscustomobject]$normalized
     }
 
     function Test-IdleStepEntitlementEquals {
