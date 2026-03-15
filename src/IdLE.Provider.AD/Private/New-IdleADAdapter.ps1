@@ -27,14 +27,15 @@ function New-IdleADAdapter {
 
     .PARAMETER PasswordGenerationSpecialCharSet
     Set of special characters to use in generated passwords. Default is '!@#$%&*+-_=?'.
-    
+
     .NOTES
     PSScriptAnalyzer suppression: This function intentionally uses ConvertTo-SecureString -AsPlainText
     as an explicit escape hatch for AccountPasswordAsPlainText. This is a documented design decision
     with automatic redaction via Copy-IdleRedactedObject.
     #>
-    [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '', Justification = 'Intentional escape hatch for AccountPasswordAsPlainText with explicit opt-in and automatic redaction')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'PasswordGenerationSpecialCharSet', Justification = 'This parameter specifies the set of allowed special characters for password generation — it is not a password value. Renaming or changing the type would break the API contract.')]
+    [CmdletBinding()]
     param(
         [Parameter()]
         [AllowNull()]
@@ -296,7 +297,7 @@ function New-IdleADAdapter {
 
         # 1. Derive SamAccountName from IdentityKey if missing
         $hasSamAccountName = $effectiveAttributes.ContainsKey('SamAccountName') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['SamAccountName'])
-        
+
         if (-not $hasSamAccountName) {
             if ($isSamAccountNameLike) {
                 $effectiveAttributes['SamAccountName'] = $IdentityKey
@@ -312,7 +313,7 @@ function New-IdleADAdapter {
 
         # 2. Auto-set UserPrincipalName when IdentityKey is a UPN
         $hasUpn = $effectiveAttributes.ContainsKey('UserPrincipalName') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['UserPrincipalName'])
-        
+
         if (-not $hasUpn -and $isUpn) {
             $effectiveAttributes['UserPrincipalName'] = $IdentityKey
             Write-Verbose "AD Provider: Derived UserPrincipalName='$IdentityKey' from IdentityKey (UPN format)"
@@ -321,7 +322,7 @@ function New-IdleADAdapter {
         # 3. Derive CN/RDN Name with priority: Name > DisplayName > GivenName+Surname > IdentityKey
         $derivedName = $null
         $hasExplicitName = $effectiveAttributes.ContainsKey('Name') -and -not [string]::IsNullOrWhiteSpace($effectiveAttributes['Name'])
-        
+
         if ($hasExplicitName) {
             $derivedName = $effectiveAttributes['Name']
             Write-Verbose "AD Provider: Using explicit Name='$derivedName' for CN/RDN"
@@ -450,7 +451,7 @@ function New-IdleADAdapter {
             # Mode 4: Auto-generate password when enabled and no password provided
             # Generate a policy-compliant password
             Write-Verbose "AD Provider: No password provided for enabled account. Generating policy-compliant password..."
-            
+
             $passwordGenParams = @{
                 FallbackMinLength = $this.PasswordGenerationFallbackMinLength
                 FallbackRequireUpper = $this.PasswordGenerationRequireUpper
@@ -459,14 +460,14 @@ function New-IdleADAdapter {
                 FallbackRequireSpecial = $this.PasswordGenerationRequireSpecial
                 FallbackSpecialCharSet = $this.PasswordGenerationSpecialCharSet
             }
-            
+
             if ($null -ne $this.Credential) {
                 $passwordGenParams['Credential'] = $this.Credential
             }
-            
+
             $generatedPasswordInfo = New-IdleADPassword @passwordGenParams
             $params['AccountPassword'] = $generatedPasswordInfo.SecureString
-            
+
             Write-Verbose "AD Provider: Generated password using $($generatedPasswordInfo.UsedPolicy) policy (MinLength=$($generatedPasswordInfo.MinLength))"
         }
 
@@ -495,13 +496,13 @@ function New-IdleADAdapter {
         }
 
         $user = New-ADUser @params -PassThru
-        
+
         # Return user with optional password generation info
         if ($null -ne $generatedPasswordInfo) {
             # Attach password generation info to user object for caller to access
             $user | Add-Member -MemberType NoteProperty -Name '_GeneratedPasswordInfo' -Value $generatedPasswordInfo -Force
         }
-        
+
         return $user
     } -Force
 
@@ -523,6 +524,8 @@ function New-IdleADAdapter {
             [AllowNull()]
             [object] $CurrentValue
         )
+
+        $null = $CurrentValue  # Contract parameter; reserved for future change-detection optimization
 
         $params = @{
             Identity    = $Identity
@@ -690,9 +693,7 @@ function New-IdleADAdapter {
 
         try {
             # For large groups, short-circuit after finding the first match
-            $existingMember = Get-ADGroupMember @getMembersParams |
-                Where-Object { $_.DistinguishedName -eq $MemberIdentity } |
-                Select-Object -First 1
+            $existingMember = Get-ADGroupMember @getMembersParams | Where-Object { $_.DistinguishedName -eq $MemberIdentity } | Select-Object -First 1
             return ($null -ne $existingMember)
         }
         catch {
@@ -715,7 +716,7 @@ function New-IdleADAdapter {
 
         # Check if already a member (idempotency + reliable change detection)
         $isMember = $this.TestGroupMembership($GroupIdentity, $MemberIdentity)
-        
+
         if ($isMember -eq $true) {
             # Already a member - no change needed
             return $false
@@ -748,7 +749,7 @@ function New-IdleADAdapter {
 
         # Check if actually a member (idempotency + reliable change detection)
         $isMember = $this.TestGroupMembership($GroupIdentity, $MemberIdentity)
-        
+
         if ($isMember -eq $false) {
             # Not a member - no change needed
             return $false
@@ -831,7 +832,7 @@ function New-IdleADAdapter {
         if ($null -ne $this.Credential) { $allGroupsParams['Credential'] = $this.Credential }
 
         try {
-            $user        = Get-ADUser @userParams
+            $user = Get-ADUser @userParams
             $memberOfSet = [System.Collections.Generic.HashSet[string]]::new(
                 [string[]]@($user.MemberOf),
                 [System.StringComparer]::OrdinalIgnoreCase

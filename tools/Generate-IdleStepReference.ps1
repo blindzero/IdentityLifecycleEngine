@@ -446,7 +446,8 @@ function Get-IdleStepRequiredCapabilities {
         }
     }
     catch {
-        # Metadata catalog not available or error loading it
+        # Metadata catalog not available or error loading it — return empty list
+        Write-Verbose "Get-IdleStepRequiredCapabilities: could not load metadata catalog for '$ModuleName': $_"
     }
 
     return @()
@@ -684,7 +685,7 @@ function New-IdleStepDetailPageContent {
                     'Message' { '''Custom event message''' }
                     'EntitlementType' { '''Group''' }
                     'EntitlementValue' { '''CN=GroupName,OU=Groups,DC=domain,DC=com''' }
-                    'Entitlement' { "@{ Kind = 'Group'; Id = 'GroupId'; DisplayName = 'Example Group' }" }
+                    'Entitlement' { "@{ Kind = 'Group'; Id = 'GroupId' }" }
                     'State' { '''Present''' }
                     'Ensure' { '''Present''' }
                     'Provider' { '''Identity''' }

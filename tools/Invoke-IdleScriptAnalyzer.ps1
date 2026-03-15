@@ -251,6 +251,7 @@ function Write-PssaSummary {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
         [object[]] $Findings,
 
         [Parameter(Mandatory)]
