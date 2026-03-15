@@ -68,7 +68,39 @@ If any condition evaluates to false, the step is marked as `NotApplicable` durin
 
 ---
 
-## Condition DSL
+## Conditions as a guard against plan-time validation
+
+When a step's `Condition` evaluates to `false`, IdLE marks it `NotApplicable` and **skips all remaining plan-time processing** for that step, including:
+
+- `With` template resolution
+- `WithSchema` validation
+
+This means a condition-guarded step will **not** cause a planning failure even if its `With` block references data that is absent or if required schema keys are missing. The step is simply excluded from the executable plan.
+
+:::info Example: Guard a step with an existence check
+A step that provisions an EU-region user can be safely guarded by a condition that checks for the `Region` attribute.
+If the attribute is absent, the step is `NotApplicable` and its `With` block — which may reference `{{Request.Context.Views.Identity.Profile.Attributes.Region}}` — is never processed.
+
+```powershell
+@{
+  Name      = 'Provision EU User'
+  Type      = 'IdLE.Step.EnsureAttributes'
+  Condition = @{ Exists = 'Request.Context.Views.Identity.Profile.Attributes.Region' }
+  With      = @{
+    IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+    Attributes  = @{ Region = '{{Request.Context.Views.Identity.Profile.Attributes.Region}}' }
+  }
+}
+```
+
+If `Region` is absent, the condition evaluates to `false`, the step is `NotApplicable`, and no template errors are raised.
+:::
+
+**Applicable steps** still undergo full template resolution and schema validation — this behaviour is unchanged.
+
+---
+
+
 
 Preconditions use the **same DSL** as Conditions.  
 This section is the authoritative DSL reference.
