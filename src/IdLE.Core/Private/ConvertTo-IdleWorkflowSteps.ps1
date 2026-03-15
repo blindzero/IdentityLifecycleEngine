@@ -138,16 +138,13 @@ function ConvertTo-IdleWorkflowSteps {
                         $optionalKeys = @($schema['OptionalKeys'])
                     }
 
-                    # Build allowed set from all keys
+                    # Build allowed set from all keys (required and optional combined)
                     $allAllowedKeysList = [System.Collections.Generic.List[string]]::new()
-                    foreach ($k in $requiredKeys) {
-                        if ($null -ne $k -and -not [string]::IsNullOrWhiteSpace([string]$k)) {
-                            $null = $allAllowedKeysList.Add([string]$k)
-                        }
-                    }
-                    foreach ($k in $optionalKeys) {
-                        if ($null -ne $k -and -not [string]::IsNullOrWhiteSpace([string]$k)) {
-                            $null = $allAllowedKeysList.Add([string]$k)
+                    foreach ($keyList in @($requiredKeys, $optionalKeys)) {
+                        foreach ($k in $keyList) {
+                            if ($null -ne $k -and -not [string]::IsNullOrWhiteSpace([string]$k)) {
+                                $null = $allAllowedKeysList.Add([string]$k)
+                            }
                         }
                     }
                     $allowedSet = [System.Collections.Generic.HashSet[string]]::new(
