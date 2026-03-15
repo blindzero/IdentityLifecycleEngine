@@ -20,7 +20,7 @@ Describe 'Invoke-IdleStepEnsureEntitlement (built-in step)' {
             Type = 'IdLE.Step.EnsureEntitlement'
             With = @{
                 IdentityKey = 'user1'
-                Entitlement = @{ Kind = 'Group'; Id = 'demo-group'; DisplayName = 'Demo Group' }
+                Entitlement = @{ Kind = 'Group'; Id = 'demo-group' }
                 State       = 'Present'
                 Provider    = 'Identity'
             }

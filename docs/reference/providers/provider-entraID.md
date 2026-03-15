@@ -134,7 +134,6 @@ Each element represents one Entra ID group membership:
 | `PSTypeName` | `string` | Always `IdLE.Entitlement`. |
 | `Kind` | `string` | Always `Group`. |
 | `Id` | `string` | Entra group `id`. |
-| `DisplayName` | `string` or `$null` | Group `displayName` (if returned by the adapter). |
 | `Mail` | `string` or `$null` | Group `mail` (if returned by the adapter). |
 
 Notes:

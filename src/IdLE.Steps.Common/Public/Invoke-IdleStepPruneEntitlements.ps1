@@ -46,7 +46,7 @@ function Invoke-IdleStepPruneEntitlements {
     | -------------------- | -------- | ------------ | ----------- |
     | IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
     | Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
-    | Keep                 | No       | array        | Explicit entitlement objects to retain (kept, never removed). Each entry must have an Id property; Kind and DisplayName are optional. These entries are NOT granted — use PruneEntitlementsEnsureKeep for that. |
+    | Keep                 | No       | array        | Explicit entitlement objects to retain (kept, never removed). Each entry must have an Id property; Kind is optional. These entries are NOT granted — use PruneEntitlementsEnsureKeep for that. |
     | KeepPattern          | No       | string array | Wildcard strings (PowerShell -like semantics). Current entitlements whose Id matches any pattern are kept. Patterns are NEVER granted. |
     | Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
     | AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |

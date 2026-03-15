@@ -782,10 +782,9 @@ function New-IdleADIdentityProvider {
                 continue
             }
             $result += [pscustomobject]@{
-                PSTypeName  = 'IdLE.Entitlement'
-                Kind        = 'Group'
-                Id          = $group.DistinguishedName
-                DisplayName = $group.Name
+                PSTypeName = 'IdLE.Entitlement'
+                Kind       = 'Group'
+                Id         = $group.DistinguishedName
             }
         }
 
@@ -880,10 +879,9 @@ function New-IdleADIdentityProvider {
         if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
             $canonicalId = $this.ResolveGroup($converted.Id, $AuthSession)
             return [pscustomobject]@{
-                PSTypeName  = 'IdLE.Entitlement'
-                Kind        = $converted.Kind
-                Id          = $canonicalId
-                DisplayName = $converted.PSObject.Properties.Name -contains 'DisplayName' ? $converted.DisplayName : $null
+                PSTypeName = 'IdLE.Entitlement'
+                Kind       = $converted.Kind
+                Id         = $canonicalId
             }
         }
 

@@ -10,18 +10,17 @@ function ConvertTo-IdleEntraIDEntitlement {
     (hashtable, PSCustomObject) into a standard IdLE.Entitlement object.
 
     The function validates that required fields (Kind, Id) are present and not empty.
-    Supports optional fields: DisplayName, Mail.
+    Supports optional field: Mail.
 
     .PARAMETER Value
     The input value to convert. Can be a hashtable or PSCustomObject with
-    Kind, Id, and optionally DisplayName and Mail properties.
+    Kind, Id, and optionally Mail properties.
 
     .OUTPUTS
     PSCustomObject with PSTypeName 'IdLE.Entitlement'
     - PSTypeName: 'IdLE.Entitlement'
     - Kind: Entitlement kind (e.g., 'Group')
     - Id: Entitlement identifier (e.g., Group objectId)
-    - DisplayName: Optional display name (null if not provided or empty)
     - Mail: Optional mail address (null if not provided or empty)
 
     .EXAMPLE
@@ -36,20 +35,17 @@ function ConvertTo-IdleEntraIDEntitlement {
 
     $kind = $null
     $id = $null
-    $displayName = $null
     $mail = $null
 
     if ($Value -is [System.Collections.IDictionary]) {
         $kind = $Value['Kind']
         $id = $Value['Id']
-        if ($Value.Contains('DisplayName')) { $displayName = $Value['DisplayName'] }
         if ($Value.Contains('Mail')) { $mail = $Value['Mail'] }
     }
     else {
         $props = $Value.PSObject.Properties
         if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
         if ($props.Name -contains 'Id') { $id = $Value.Id }
-        if ($props.Name -contains 'DisplayName') { $displayName = $Value.DisplayName }
         if ($props.Name -contains 'Mail') { $mail = $Value.Mail }
     }
 
@@ -61,16 +57,10 @@ function ConvertTo-IdleEntraIDEntitlement {
     }
 
     return [pscustomobject]@{
-        PSTypeName  = 'IdLE.Entitlement'
-        Kind        = [string]$kind
-        Id          = [string]$id
-        DisplayName = if ($null -eq $displayName -or [string]::IsNullOrWhiteSpace([string]$displayName)) {
-            $null
-        }
-        else {
-            [string]$displayName
-        }
-        Mail        = if ($null -eq $mail -or [string]::IsNullOrWhiteSpace([string]$mail)) {
+        PSTypeName = 'IdLE.Entitlement'
+        Kind       = [string]$kind
+        Id         = [string]$id
+        Mail       = if ($null -eq $mail -or [string]::IsNullOrWhiteSpace([string]$mail)) {
             $null
         }
         else {

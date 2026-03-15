@@ -99,7 +99,6 @@ Each element is normalized via `ConvertToEntitlement`:
 | `PSTypeName` | `string` | Always `IdLE.Entitlement`. |
 | `Kind` | `string` | Required; non-empty. |
 | `Id` | `string` | Required; non-empty. |
-| `DisplayName` | `string` or `$null` | Optional. |
 
 Notes:
 - The output paths are fixed by the engine and cannot be changed.

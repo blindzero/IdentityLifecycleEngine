@@ -379,9 +379,9 @@ Describe 'Condition DSL (schema + evaluator)' {
                             Views = [pscustomobject]@{
                                 Identity = [pscustomobject]@{
                                     Entitlements = @(
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'; DisplayName = 'BreakGlass Users' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com' }
                                     )
                                 }
                             }
@@ -406,8 +406,8 @@ Describe 'Condition DSL (schema + evaluator)' {
                             Views = [pscustomobject]@{
                                 Identity = [pscustomobject]@{
                                     Entitlements = @(
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com' }
                                     )
                                 }
                             }
@@ -549,8 +549,8 @@ Describe 'Condition DSL (schema + evaluator)' {
                             Views = [pscustomobject]@{
                                 Identity = [pscustomobject]@{
                                     Entitlements = @(
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com' }
                                     )
                                 }
                             }
@@ -575,8 +575,8 @@ Describe 'Condition DSL (schema + evaluator)' {
                             Views = [pscustomobject]@{
                                 Identity = [pscustomobject]@{
                                     Entitlements = @(
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'; DisplayName = 'BreakGlass Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com' }
                                     )
                                 }
                             }
@@ -651,9 +651,9 @@ Describe 'Condition DSL (schema + evaluator)' {
                             Views = [pscustomobject]@{
                                 Identity = [pscustomobject]@{
                                     Entitlements = @(
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=HR-Employees,OU=Groups,DC=example,DC=com'; DisplayName = 'HR Employees' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=HR-Employees,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com' }
                                     )
                                 }
                             }
@@ -678,8 +678,8 @@ Describe 'Condition DSL (schema + evaluator)' {
                             Views = [pscustomobject]@{
                                 Identity = [pscustomobject]@{
                                     Entitlements = @(
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com' }
                                     )
                                 }
                             }
@@ -754,8 +754,8 @@ Describe 'Condition DSL (schema + evaluator)' {
                             Views = [pscustomobject]@{
                                 Identity = [pscustomobject]@{
                                     Entitlements = @(
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,OU=Groups,DC=example,DC=com' }
                                     )
                                 }
                             }
@@ -780,8 +780,8 @@ Describe 'Condition DSL (schema + evaluator)' {
                             Views = [pscustomobject]@{
                                 Identity = [pscustomobject]@{
                                     Entitlements = @(
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=HR-Employees,OU=Groups,DC=example,DC=com'; DisplayName = 'HR Employees' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=HR-Employees,OU=Groups,DC=example,DC=com' }
                                     )
                                 }
                             }
@@ -806,8 +806,8 @@ Describe 'Condition DSL (schema + evaluator)' {
                             Views = [pscustomobject]@{
                                 Identity = [pscustomobject]@{
                                     Entitlements = @(
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=admins,OU=Groups,DC=example,DC=com'; DisplayName = 'Admins' }
-                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=users,OU=Groups,DC=example,DC=com'; DisplayName = 'Users' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=admins,OU=Groups,DC=example,DC=com' }
+                                        [pscustomobject]@{ Kind = 'Group'; Id = 'CN=users,OU=Groups,DC=example,DC=com' }
                                     )
                                 }
                             }

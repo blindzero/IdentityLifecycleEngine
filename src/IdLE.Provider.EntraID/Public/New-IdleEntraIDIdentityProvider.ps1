@@ -814,25 +814,18 @@ function New-IdleEntraIDIdentityProvider {
             } else {
                 $group.id
             }
-            
-            $displayName = if ($group -is [System.Collections.IDictionary]) {
-                if ($group.ContainsKey('displayName')) { $group['displayName'] } else { $null }
-            } else {
-                if ($group.PSObject.Properties.Name -contains 'displayName') { $group.displayName } else { $null }
-            }
-            
+
             $mail = if ($group -is [System.Collections.IDictionary]) {
                 if ($group.ContainsKey('mail')) { $group['mail'] } else { $null }
             } else {
                 if ($group.PSObject.Properties.Name -contains 'mail') { $group.mail } else { $null }
             }
-            
+
             $result += [pscustomobject]@{
-                PSTypeName  = 'IdLE.Entitlement'
-                Kind        = 'Group'
-                Id          = $groupId
-                DisplayName = $displayName
-                Mail        = $mail
+                PSTypeName = 'IdLE.Entitlement'
+                Kind       = 'Group'
+                Id         = $groupId
+                Mail       = $mail
             }
         }
 
@@ -1078,10 +1071,9 @@ function New-IdleEntraIDIdentityProvider {
         if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
             $canonicalId = $this.ResolveGroup($converted.Id, $AuthSession)
             return [pscustomobject]@{
-                PSTypeName  = 'IdLE.Entitlement'
-                Kind        = $converted.Kind
-                Id          = $canonicalId
-                DisplayName = $converted.PSObject.Properties.Name -contains 'DisplayName' ? $converted.DisplayName : $null
+                PSTypeName = 'IdLE.Entitlement'
+                Kind       = $converted.Kind
+                Id         = $canonicalId
             }
         }
 

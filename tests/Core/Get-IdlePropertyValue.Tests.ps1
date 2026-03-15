@@ -43,9 +43,9 @@ Describe 'Get-IdlePropertyValue' {
     Context 'Member-access enumeration (array property access)' {
         It 'extracts property from all array items' {
             $list = @(
-                [pscustomobject]@{ Kind = 'Group'; Id = 'g1'; DisplayName = 'Group 1' }
-                [pscustomobject]@{ Kind = 'Group'; Id = 'g2'; DisplayName = 'Group 2' }
-                [pscustomobject]@{ Kind = 'Group'; Id = 'g3'; DisplayName = 'Group 3' }
+                [pscustomobject]@{ Kind = 'Group'; Id = 'g1' }
+                [pscustomobject]@{ Kind = 'Group'; Id = 'g2' }
+                [pscustomobject]@{ Kind = 'Group'; Id = 'g3' }
             )
 
             $result = Get-IdlePropertyValue -Object $list -Name 'Id'
@@ -57,18 +57,18 @@ Describe 'Get-IdlePropertyValue' {
             $result[2] | Should -Be 'g3'
         }
 
-        It 'extracts DisplayName from entitlement objects' {
+        It 'extracts Kind from entitlement objects' {
             $list = @(
-                [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,DC=example,DC=com'; DisplayName = 'Users' }
-                [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,DC=example,DC=com'; DisplayName = 'Admins' }
+                [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,DC=example,DC=com' }
+                [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,DC=example,DC=com' }
             )
 
-            $result = Get-IdlePropertyValue -Object $list -Name 'DisplayName'
+            $result = Get-IdlePropertyValue -Object $list -Name 'Kind'
 
             $result | Should -Not -BeNullOrEmpty
             $result.Count | Should -Be 2
-            $result[0] | Should -Be 'Users'
-            $result[1] | Should -Be 'Admins'
+            $result[0] | Should -Be 'Group'
+            $result[1] | Should -Be 'Group'
         }
 
         It 'returns null when array items do not have the property' {

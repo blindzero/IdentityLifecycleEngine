@@ -91,7 +91,7 @@
 
                 # Retain this specific leaver group and ensure it is present.
                 Keep               = @(
-                    @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupId}}'; DisplayName = 'Leaver Retain' }
+                    @{ Kind = 'Group'; Id = '{{Request.Intent.LeaverRetainGroupId}}' }
                 )
                 # Pattern-based retention is not supported by PruneEntitlementsEnsureKeep. Use a
                 # separate IdLE.Step.PruneEntitlements step earlier if you must protect wildcard
