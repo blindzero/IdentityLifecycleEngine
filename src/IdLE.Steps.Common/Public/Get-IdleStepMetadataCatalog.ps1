@@ -30,22 +30,7 @@ function Get-IdleStepMetadataCatalog {
 
     $catalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($key in $rawData.Keys) {
-        $entry = $rawData[$key]
-        $ht = @{}
-        foreach ($metaKey in $entry.Keys) {
-            $metaValue = $entry[$metaKey]
-            if ($metaValue -is [System.Collections.IDictionary]) {
-                $nested = @{}
-                foreach ($nestedKey in $metaValue.Keys) {
-                    $nested[$nestedKey] = $metaValue[$nestedKey]
-                }
-                $ht[$metaKey] = $nested
-            }
-            else {
-                $ht[$metaKey] = $metaValue
-            }
-        }
-        $catalog[$key] = $ht
+        $catalog[$key] = $rawData[$key]
     }
 
     return $catalog

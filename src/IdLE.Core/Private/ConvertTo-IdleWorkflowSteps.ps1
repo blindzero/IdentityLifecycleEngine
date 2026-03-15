@@ -156,14 +156,8 @@ function ConvertTo-IdleWorkflowSteps {
                     # Validate required keys are present
                     foreach ($rk in $requiredKeys) {
                         if ([string]::IsNullOrWhiteSpace([string]$rk) -or [string]$rk -eq '*') { continue }
-                        $keyPresent = $false
-                        foreach ($wk in @($with.Keys)) {
-                            if ([string]::Equals([string]$wk, [string]$rk, [System.StringComparison]::OrdinalIgnoreCase)) {
-                                $keyPresent = $true
-                                break
-                            }
-                        }
-                        if (-not $keyPresent) {
+
+                        if (-not $with.ContainsKey($rk)) {
                             $requiredList = [string]::Join(', ', ($requiredKeys | Where-Object { $_ -ne '*' -and -not [string]::IsNullOrWhiteSpace([string]$_) } | Sort-Object))
                             throw [System.ArgumentException]::new(
                                 ("Step '{0}' (type '{1}') is missing required With.{2}. Required With keys: {3}." -f $stepName, $stepType, $rk, $requiredList),

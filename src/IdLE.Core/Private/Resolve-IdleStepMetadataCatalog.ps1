@@ -36,9 +36,17 @@ function Resolve-IdleStepMetadataCatalog {
             [string] $SourceName
         )
 
-        if ($null -eq $Value -or $Value -isnot [hashtable]) {
+        if ($null -eq $Value) {
             throw [System.ArgumentException]::new(
                 "$SourceName entry for step type '$StepType' is missing 'WithSchema'. Every step type must declare its With key contract as WithSchema = @{ RequiredKeys = @(...); OptionalKeys = @(...) }.",
+                'Providers'
+            )
+        }
+
+        if ($Value -isnot [hashtable]) {
+            $valueType = $Value.GetType().FullName
+            throw [System.ArgumentException]::new(
+                "$SourceName entry for step type '$StepType' has an invalid 'WithSchema' type '$valueType'. WithSchema must be a hashtable: @{ RequiredKeys = @(...); OptionalKeys = @(...) }.",
                 'Providers'
             )
         }
