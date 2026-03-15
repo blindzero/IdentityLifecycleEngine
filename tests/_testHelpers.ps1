@@ -63,10 +63,11 @@ function Get-ModuleManifestPaths {
     $repoRoot = Get-RepoRootPath
     $srcRoot = Join-Path -Path $repoRoot -ChildPath 'src'
 
-    # module manifests only (one level deep)
+    # module manifests only (one level deep, filename must match the module directory name)
     return Get-ChildItem -Path $srcRoot -Filter '*.psd1' -File -Recurse |
         Where-Object { $_.FullName -match [regex]::Escape([IO.Path]::Combine('src', '')) } |
         Where-Object { $_.Directory.Parent -and $_.Directory.Parent.Name -eq 'src' } |
+        Where-Object { [IO.Path]::GetFileNameWithoutExtension($_.Name) -eq $_.Directory.Name } |
         Select-Object -ExpandProperty FullName
 }
 

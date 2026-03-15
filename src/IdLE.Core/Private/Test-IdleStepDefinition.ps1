@@ -45,11 +45,6 @@ function Test-IdleStepDefinition {
         if (-not ($Step['Condition'] -is [hashtable])) {
             $errors.Add("Step[$Index] ($name): 'Condition' must be a hashtable when provided.")
         }
-        else {
-            foreach ($e in (Test-IdleConditionSchema -Condition $Step['Condition'] -StepName $name)) {
-                $errors.Add($e)
-            }
-        }
     }
 
     return $errors

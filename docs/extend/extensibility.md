@@ -13,10 +13,12 @@ IdLE is designed for change through modules instead of forks.
 
 A new step typically involves:
 
-1. A metadata definition (what inputs and outputs are allowed)
+1. A metadata definition declaring required capabilities and `WithSchema` (allowed `With.*` keys)
 2. A planning function (test) that produces data-only actions
 3. An execution function (invoke) that performs actions via providers
 4. Unit tests (Pester)
+
+See [Steps and Metadata](steps.md#step-metadata-contract) for the required metadata shape.
 
 Steps can emit structured events using the execution context contract:
 

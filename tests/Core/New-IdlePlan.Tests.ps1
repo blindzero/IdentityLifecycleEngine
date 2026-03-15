@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
+    $script:FixturesPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows'
 
     function global:Invoke-IdleTestNoopStep {
         [CmdletBinding()]
@@ -33,16 +34,7 @@ AfterAll {
 Describe 'New-IdlePlan' {
     Context 'Plan normalization' {
         It 'creates a plan with normalized steps' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner.psd1' -Content @'
-@{
-  Name           = 'Joiner - Standard'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
-    @{ Name = 'EnsureAttributes'; Type = 'IdLE.Step.EnsureAttributes'; With = @{ Mode = 'Minimal' } }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'joiner-normalized.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
@@ -203,7 +195,7 @@ Describe 'New-IdlePlan' {
             { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw -ExpectedMessage '*does not match request LifecycleEvent*'
         }
 
-        It 'fails plan building when PruneEntitlementsEnsureKeep step contains unsupported With.KeepPattern key (not in AllowedWithKeys)' {
+        It 'fails plan building when PruneEntitlementsEnsureKeep step contains unsupported With.KeepPattern key (not in WithSchema.OptionalKeys)' {
             $wfPath = New-IdleTestWorkflowFile -FileName 'leaver-bad.psd1' -Content @'
 @{
   Name           = 'Leaver - Bad KeepPattern'

@@ -72,6 +72,10 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
                 StepMetadata = @{
                     'Custom.Step.Unknown' = @{
                         RequiredCapabilities = @('Custom.Capability.Test')
+                        WithSchema           = @{
+                            RequiredKeys = @()
+                            OptionalKeys = @()
+                        }
                     }
                 }
                 CustomProvider = $provider
@@ -134,6 +138,166 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
             catch {
                 $_.Exception.Message | Should -Match 'ScriptBlock'
             }
+        }
+
+        It 'rejects host metadata missing WithSchema' {
+            $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'joiner-no-metadata.psd1'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $providers = @{
+                StepRegistry = @{
+                    'Custom.Step.NoSchema' = 'Invoke-CustomStep'
+                }
+                StepMetadata = @{
+                    'Custom.Step.NoSchema' = @{
+                        RequiredCapabilities = @()
+                    }
+                }
+            }
+
+            try {
+                New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers | Out-Null
+                throw 'Expected an exception but none was thrown.'
+            }
+            catch {
+                $_.Exception.Message | Should -Match 'WithSchema'
+                $_.Exception.Message | Should -Match 'Custom.Step.NoSchema'
+            }
+        }
+
+        It 'rejects host metadata WithSchema missing RequiredKeys' {
+            $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'joiner-no-metadata.psd1'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $providers = @{
+                StepRegistry = @{
+                    'Custom.Step.BadSchema' = 'Invoke-CustomStep'
+                }
+                StepMetadata = @{
+                    'Custom.Step.BadSchema' = @{
+                        RequiredCapabilities = @()
+                        WithSchema           = @{
+                            OptionalKeys = @('Message')
+                        }
+                    }
+                }
+            }
+
+            try {
+                New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers | Out-Null
+                throw 'Expected an exception but none was thrown.'
+            }
+            catch {
+                $_.Exception.Message | Should -Match 'RequiredKeys'
+                $_.Exception.Message | Should -Match 'Custom.Step.BadSchema'
+            }
+        }
+
+        It 'rejects host metadata WithSchema with duplicate key across RequiredKeys and OptionalKeys' {
+            $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'joiner-no-metadata.psd1'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $providers = @{
+                StepRegistry = @{
+                    'Custom.Step.DupSchema' = 'Invoke-CustomStep'
+                }
+                StepMetadata = @{
+                    'Custom.Step.DupSchema' = @{
+                        RequiredCapabilities = @()
+                        WithSchema           = @{
+                            RequiredKeys = @('IdentityKey')
+                            OptionalKeys = @('IdentityKey', 'Provider')
+                        }
+                    }
+                }
+            }
+
+            try {
+                New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers | Out-Null
+                throw 'Expected an exception but none was thrown.'
+            }
+            catch {
+                $_.Exception.Message | Should -Match 'IdentityKey'
+                $_.Exception.Message | Should -Match 'RequiredKeys.*OptionalKeys|OptionalKeys.*RequiredKeys'
+            }
+        }
+    }
+}
+
+Describe 'Resolve-IdleStepMetadataCatalog - step pack WithSchema' {
+    Context 'Step pack WithSchema' {
+        It 'exposes WithSchema from step pack metadata for DisableIdentity' {
+            $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'joiner-builtin.psd1'
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+                return @('IdLE.Identity.Disable')
+            } -Force
+
+            $providers = @{ IdentityProvider = $provider }
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+            $plan | Should -Not -BeNullOrEmpty
+            $plan.Steps[0].RequiresCapabilities | Should -Contain 'IdLE.Identity.Disable'
+        }
+
+        It 'fails plan creation when step has unknown With key for DisableIdentity' {
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+                return @('IdLE.Identity.Disable')
+            } -Force
+
+            $providers = @{ IdentityProvider = $provider }
+
+            $wfPath = Join-Path $script:FixturesPath 'withschema-disable-unknown-key.psd1'
+            try {
+                New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers | Out-Null
+                throw 'Expected an exception but none was thrown.'
+            }
+            catch {
+                $_.Exception.Message | Should -Match 'UnknownParam'
+                $_.Exception.Message | Should -Match 'IdLE.Step.DisableIdentity'
+                $_.Exception.Message | Should -Match 'DisableStep'
+            }
+        }
+
+        It 'fails plan creation when step is missing required With key for DisableIdentity' {
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+                return @('IdLE.Identity.Disable')
+            } -Force
+
+            $providers = @{ IdentityProvider = $provider }
+
+            $wfPath = Join-Path $script:FixturesPath 'withschema-disable-missing-key.psd1'
+            try {
+                New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers | Out-Null
+                throw 'Expected an exception but none was thrown.'
+            }
+            catch {
+                $_.Exception.Message | Should -Match 'IdentityKey'
+                $_.Exception.Message | Should -Match 'IdLE.Step.DisableIdentity'
+                $_.Exception.Message | Should -Match 'DisableStep'
+            }
+        }
+
+        It 'validates With key schema case-insensitively' {
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+
+            $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+                return @('IdLE.Identity.Disable')
+            } -Force
+
+            $providers = @{ IdentityProvider = $provider }
+
+            $wfPath = Join-Path $script:FixturesPath 'withschema-disable-case-insensitive.psd1'
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Not -Throw
         }
     }
 }

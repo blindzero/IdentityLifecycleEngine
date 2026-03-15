@@ -12,6 +12,7 @@
     @{
       Name = 'Containment'
       Type = 'IdLE.Step.DisableIdentity'
+      With = @{ IdentityKey = 'test-user' }
     }
   )
 }

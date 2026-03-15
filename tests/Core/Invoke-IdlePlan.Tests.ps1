@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 BeforeAll {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
+    $script:FixturesPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows'
 
     # The engine invokes step handlers by function name (string) inside module scope.
     # Therefore, test handler functions must be visible to the module (global scope).
@@ -152,34 +153,14 @@ AfterAll {
 Describe 'Invoke-IdlePlan' {
     Context 'Execution results' {
         It 'returns an execution result with events in deterministic order' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'joiner.psd1' -Content @'
-@{
-  Name           = 'Joiner - Standard'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
-    @{ Name = 'EnsureAttributes'; Type = 'IdLE.Step.EnsureAttributes' }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'invoke-two-emitevent-steps.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
-            # Create a dummy provider with the required capability for EnsureAttributes
-            $dummyProvider = [pscustomobject]@{
-                PSTypeName = 'IdLE.Provider.TestDummy'
-            }
-            $dummyProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-                return @('IdLE.Identity.Attribute.Ensure')
-            }
-
             $providers = @{
-                Identity     = $dummyProvider
                 StepRegistry = @{
-                    'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
-                    'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.EmitEvent' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

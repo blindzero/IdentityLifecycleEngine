@@ -67,6 +67,38 @@ Typical conceptual metadata includes:
 - **Side effects**
   - External systems affected by the step
 
+### Step metadata contract
+
+Every step type registered with the engine **must** declare a data-only metadata entry containing:
+
+- `RequiredCapabilities` — capability identifiers the step requires from providers
+- `WithSchema` — declares the `With.*` key contract used for plan-time validation
+
+```powershell
+'IdLE.Step.Example' = @{
+    RequiredCapabilities = @('Some.Capability')
+    WithSchema           = @{
+        RequiredKeys = @('IdentityKey')
+        OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+    }
+}
+```
+
+**`WithSchema`** (mandatory):
+
+- `RequiredKeys` — keys that **must** be present in `With` (plan creation fails if any are missing).
+- `OptionalKeys` — keys that **may** be present in `With`. Any key not in `RequiredKeys` or `OptionalKeys` causes a plan-creation error (fail-fast, with step name, type, and offending key in the message).
+
+**Rules:**
+
+- Both `RequiredKeys` and `OptionalKeys` must be non-null string arrays (may be empty: `@()`).
+- A key must not appear in both sets.
+- Metadata must be data-only — ScriptBlocks are rejected.
+
+Step pack modules expose their catalog via `Get-IdleStepMetadataCatalog`, which loads from a
+`StepMetadataCatalog.psd1` data file. Host-supplied step types may supplement (but not override)
+the catalog via `Providers.StepMetadata`.
+
 Metadata exists to make steps:
 
 - understandable
