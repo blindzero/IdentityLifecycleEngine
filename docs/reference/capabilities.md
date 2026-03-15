@@ -168,8 +168,8 @@ For `IdLE.Entitlement.List`, the engine additionally builds (list merge — all 
 | One provider, one session | `Request.Context.Views.Providers.<ProviderAlias>.Sessions.<AuthSessionKey>.Identity.Entitlements` |
 
 > **Note**: `IdLE.Entitlement.List` writes an array of entitlement objects. Each entry includes:
-> `Kind` (string) and `Id` (string),
-> plus source metadata: `SourceProvider` (string) and `SourceAuthSessionName` (string).
+> `Kind` (string) and `Id` (string).
+> It also includes source metadata: `SourceProvider` (string) and `SourceAuthSessionName` (string).
 > Provider implementations may include additional provider-specific fields (e.g., `Mail` for Entra ID).
 > To reference entitlement Ids in Conditions, use the `.Id` member-access pattern.
 > See [Conditions - Member-Access Enumeration](../use/workflows/conditions.md#member-access-enumeration).
