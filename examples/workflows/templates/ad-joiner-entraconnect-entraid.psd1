@@ -9,7 +9,7 @@
             Type = 'IdLE.Step.CreateIdentity'
             With = @{
                 Provider         = 'Directory'
-                AuthSessionName  = '{{Request.Intent.Auth.Directory}}'
+                AuthSessionName  = 'Directory'
 
                 IdentityKey      = '{{Request.Intent.SamAccountName}}'
 
