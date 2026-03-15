@@ -60,7 +60,7 @@ Describe 'Get-IdlePropertyValue' {
         It 'extracts Kind from entitlement objects' {
             $list = @(
                 [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Users,DC=example,DC=com' }
-                [pscustomobject]@{ Kind = 'Group'; Id = 'CN=Admins,DC=example,DC=com' }
+                [pscustomobject]@{ Kind = 'Role'; Id = 'CN=Admins,DC=example,DC=com' }
             )
 
             $result = Get-IdlePropertyValue -Object $list -Name 'Kind'
@@ -68,7 +68,7 @@ Describe 'Get-IdlePropertyValue' {
             $result | Should -Not -BeNullOrEmpty
             $result.Count | Should -Be 2
             $result[0] | Should -Be 'Group'
-            $result[1] | Should -Be 'Group'
+            $result[1] | Should -Be 'Role'
         }
 
         It 'returns null when array items do not have the property' {
