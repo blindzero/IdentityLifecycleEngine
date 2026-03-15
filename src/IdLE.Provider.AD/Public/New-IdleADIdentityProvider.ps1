@@ -102,6 +102,7 @@ function New-IdleADIdentityProvider {
         AuthSessionBroker = $authSessionBroker
     }
     #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'PasswordGenerationSpecialCharSet', Justification = 'This parameter specifies allowed special characters for password generation, not a password value.')]
     [CmdletBinding()]
     param(
         [Parameter()]
@@ -579,7 +580,7 @@ function New-IdleADIdentityProvider {
         )
 
         # Validate attribute against contract (strict mode - will throw on unsupported attributes)
-        $validationResult = Test-IdleADAttributeContract -Operation 'EnsureAttributes' -AttributeName $Name
+        $null = Test-IdleADAttributeContract -Operation 'EnsureAttributes' -AttributeName $Name
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
@@ -874,8 +875,7 @@ function New-IdleADIdentityProvider {
         )
 
         $converted = $this.ConvertToEntitlement($Entitlement)
-
-        # AD only supports Group entitlements; normalize to canonical DN
+        $null = $Kind  # Contract parameter — reserved for future multi-Kind dispatch
         if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
             $canonicalId = $this.ResolveGroup($converted.Id, $AuthSession)
             return [pscustomobject]@{

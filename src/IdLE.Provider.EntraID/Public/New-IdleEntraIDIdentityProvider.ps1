@@ -1066,8 +1066,7 @@ function New-IdleEntraIDIdentityProvider {
         )
 
         $converted = $this.ConvertToEntitlement($Entitlement)
-
-        # Entra ID only supports Group entitlements; normalize to canonical objectId
+        $null = $Kind  # Contract parameter — reserved for future multi-Kind dispatch
         if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
             $canonicalId = $this.ResolveGroup($converted.Id, $AuthSession)
             return [pscustomobject]@{

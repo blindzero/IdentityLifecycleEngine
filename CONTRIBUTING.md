@@ -174,6 +174,18 @@ The runner pins tool versions for deterministic CI results; update pins intentio
 
 > Note: `artifacts/` is a build output folder and should not be committed.
 
+### PSSA guidance: avoiding common warnings
+
+PRs must not introduce new PSSA warnings. Common patterns and how to handle them:
+
+| Rule | Recommended fix |
+|---|---|
+| `PSUseDeclaredVarsMoreThanAssignments` | Replace `$result = Verb-Noun ...` with `$null = Verb-Noun ...` when the return value is intentionally discarded. |
+| `PSReviewUnusedParameter` | For **intentionally unused** contract/interface parameters, add `$null = $ParamName` at the top of the function body. You may also apply `[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'ParamName', Justification = '...')]` on the parameter declaration, but note that PSSA may not honor this attribute inside `ScriptMethod` scriptblocks — use `$null = $ParamName` as the reliable fix. |
+| `PSAvoidUsingEmptyCatchBlock` | Add at minimum a `Write-Verbose` or `Write-Debug` statement inside the `catch` block. |
+
+If you encounter a warning that cannot be fixed without changing observable behavior, raise it in the PR for discussion before suppressing.
+
 ---
 
 ## Generated cmdlet reference (platyPS)
