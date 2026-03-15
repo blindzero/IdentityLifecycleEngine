@@ -4,14 +4,15 @@ function Get-IdleStepMetadataCatalog {
     Returns metadata for mailbox step types.
 
     .DESCRIPTION
-    This function provides a metadata catalog mapping Step.Type to metadata objects.
-    Each metadata object contains RequiredCapabilities (array of capability identifiers).
+    This function loads and returns the step metadata catalog for mailbox step types.
+    The catalog is defined in StepMetadataCatalog.psd1 (data-only, no ScriptBlocks).
+
+    Each metadata object contains:
+      RequiredCapabilities - capability identifiers the step requires from providers
+      WithSchema           - the With key contract used for plan-time validation
 
     The metadata is used during plan building to derive required provider capabilities
-    for each step, removing the need to declare RequiresCapabilities in workflow definitions.
-
-    This catalog declares mailbox-specific step types that work with any provider
-    implementing the mailbox provider contract.
+    for each step and to validate With parameters.
 
     .OUTPUTS
     Hashtable (case-insensitive) mapping Step.Type (string) to metadata (hashtable).
@@ -24,26 +25,27 @@ function Get-IdleStepMetadataCatalog {
     [CmdletBinding()]
     param()
 
+    $catalogPath = Join-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -ChildPath 'StepMetadataCatalog.psd1'
+    $rawData = Import-PowerShellDataFile -Path $catalogPath
+
     $catalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
-
-    # IdLE.Step.Mailbox.GetInfo - read mailbox details
-    $catalog['IdLE.Step.Mailbox.GetInfo'] = @{
-        RequiredCapabilities = @('IdLE.Mailbox.Info.Read')
-    }
-
-    # IdLE.Step.Mailbox.EnsureType - idempotent mailbox type conversion
-    $catalog['IdLE.Step.Mailbox.EnsureType'] = @{
-        RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.Type.Ensure')
-    }
-
-    # IdLE.Step.Mailbox.EnsureOutOfOffice - idempotent Out of Office configuration
-    $catalog['IdLE.Step.Mailbox.EnsureOutOfOffice'] = @{
-        RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.OutOfOffice.Ensure')
-    }
-
-    # IdLE.Step.Mailbox.EnsurePermissions - idempotent mailbox delegate permissions
-    $catalog['IdLE.Step.Mailbox.EnsurePermissions'] = @{
-        RequiredCapabilities = @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.Permissions.Ensure')
+    foreach ($key in $rawData.Keys) {
+        $entry = $rawData[$key]
+        $ht = @{}
+        foreach ($metaKey in $entry.Keys) {
+            $metaValue = $entry[$metaKey]
+            if ($metaValue -is [System.Collections.IDictionary]) {
+                $nested = @{}
+                foreach ($nestedKey in $metaValue.Keys) {
+                    $nested[$nestedKey] = $metaValue[$nestedKey]
+                }
+                $ht[$metaKey] = $nested
+            }
+            else {
+                $ht[$metaKey] = $metaValue
+            }
+        }
+        $catalog[$key] = $ht
     }
 
     return $catalog

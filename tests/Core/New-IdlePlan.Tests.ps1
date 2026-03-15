@@ -39,7 +39,7 @@ Describe 'New-IdlePlan' {
   LifecycleEvent = 'Joiner'
   Steps          = @(
     @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
-    @{ Name = 'EnsureAttributes'; Type = 'IdLE.Step.EnsureAttributes'; With = @{ Mode = 'Minimal' } }
+    @{ Name = 'ProcessUser'; Type = 'IdLE.Step.ProcessUser'; With = @{ Mode = 'Minimal' } }
   )
 }
 '@
@@ -55,10 +55,10 @@ Describe 'New-IdlePlan' {
                 Dummy        = $true
                 Identity     = $dummyProvider
                 StepRegistry = @{
-                    'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
-                    'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.ProcessUser'     = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity', 'IdLE.Step.ProcessUser')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -203,7 +203,7 @@ Describe 'New-IdlePlan' {
             { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw -ExpectedMessage '*does not match request LifecycleEvent*'
         }
 
-        It 'fails plan building when PruneEntitlementsEnsureKeep step contains unsupported With.KeepPattern key (not in AllowedWithKeys)' {
+        It 'fails plan building when PruneEntitlementsEnsureKeep step contains unsupported With.KeepPattern key (not in WithSchema.OptionalKeys)' {
             $wfPath = New-IdleTestWorkflowFile -FileName 'leaver-bad.psd1' -Content @'
 @{
   Name           = 'Leaver - Bad KeepPattern'

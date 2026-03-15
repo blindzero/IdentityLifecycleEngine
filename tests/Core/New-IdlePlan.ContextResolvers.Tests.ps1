@@ -1189,7 +1189,8 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
+                StepRegistry = @{ 'IdLE.Step.CurrentTest' = 'Invoke-IdleContextResolverTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.CurrentTest')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

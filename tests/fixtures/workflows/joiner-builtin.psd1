@@ -5,6 +5,7 @@
     @{
       Name = 'Disable identity'
       Type = 'IdLE.Step.DisableIdentity'
+      With = @{ IdentityKey = 'test-user' }
     }
   )
 }

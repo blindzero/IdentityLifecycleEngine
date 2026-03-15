@@ -13,7 +13,7 @@
   Steps = @(
     @{
       Name         = 'CurrentPreconditionStep'
-      Type         = 'IdLE.Step.EmitEvent'
+      Type         = 'IdLE.Step.CurrentTest'
       With         = @{
         Provider = 'Identity'
       }

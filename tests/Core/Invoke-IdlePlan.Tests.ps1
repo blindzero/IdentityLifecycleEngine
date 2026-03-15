@@ -158,7 +158,7 @@ Describe 'Invoke-IdlePlan' {
   LifecycleEvent = 'Joiner'
   Steps          = @(
     @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
-    @{ Name = 'EnsureAttributes'; Type = 'IdLE.Step.EnsureAttributes' }
+    @{ Name = 'ProcessUser'; Type = 'IdLE.Step.ProcessUser' }
   )
 }
 '@
@@ -176,10 +176,10 @@ Describe 'Invoke-IdlePlan' {
             $providers = @{
                 Identity     = $dummyProvider
                 StepRegistry = @{
-                    'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
-                    'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
+                    'IdLE.Step.ProcessUser'     = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity', 'IdLE.Step.ProcessUser')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

@@ -4,13 +4,15 @@ function Get-IdleStepMetadataCatalog {
     Returns metadata for DirectorySync step types.
 
     .DESCRIPTION
-    This function provides a metadata catalog mapping Step.Type to metadata objects
-    for directory sync step types owned by this step pack.
+    This function loads and returns the step metadata catalog for directory sync step types.
+    The catalog is defined in StepMetadataCatalog.psd1 (data-only, no ScriptBlocks).
 
-    Each metadata object contains RequiredCapabilities (array of capability identifiers).
+    Each metadata object contains:
+      RequiredCapabilities - capability identifiers the step requires from providers
+      WithSchema           - the With key contract used for plan-time validation
 
     The metadata is used during plan building to derive required provider capabilities
-    for each step, removing the need to declare RequiresCapabilities in workflow definitions.
+    for each step and to validate With parameters.
 
     .OUTPUTS
     Hashtable (case-insensitive) mapping Step.Type (string) to metadata (hashtable).
@@ -23,12 +25,27 @@ function Get-IdleStepMetadataCatalog {
     [CmdletBinding()]
     param()
 
-    $catalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $catalogPath = Join-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -ChildPath 'StepMetadataCatalog.psd1'
+    $rawData = Import-PowerShellDataFile -Path $catalogPath
 
-    # IdLE.Step.TriggerDirectorySync - requires trigger and status capabilities
-    # Note: Even when With.Wait = $false, we advertise Status capability to keep planning deterministic
-    $catalog['IdLE.Step.TriggerDirectorySync'] = @{
-        RequiredCapabilities = @('IdLE.DirectorySync.Trigger', 'IdLE.DirectorySync.Status')
+    $catalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($key in $rawData.Keys) {
+        $entry = $rawData[$key]
+        $ht = @{}
+        foreach ($metaKey in $entry.Keys) {
+            $metaValue = $entry[$metaKey]
+            if ($metaValue -is [System.Collections.IDictionary]) {
+                $nested = @{}
+                foreach ($nestedKey in $metaValue.Keys) {
+                    $nested[$nestedKey] = $metaValue[$nestedKey]
+                }
+                $ht[$metaKey] = $nested
+            }
+            else {
+                $ht[$metaKey] = $metaValue
+            }
+        }
+        $catalog[$key] = $ht
     }
 
     return $catalog
