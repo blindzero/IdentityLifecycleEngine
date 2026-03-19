@@ -180,22 +180,7 @@ Describe 'New-IdlePlan' {
 
     Context 'Condition skips With processing' {
         It 'does not fail planning when condition is false and With references missing data (template resolution skipped)' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'condition-skip-template.psd1' -Content @'
-@{
-  Name           = 'Condition Skip Template'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name      = 'ConditionalStep'
-      Type      = 'IdLE.Step.ConditionalSkipTest'
-      Condition = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Leaver' } }
-      With      = @{
-        Value = '{{Request.Intent.MissingKey}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'condition-skip-template.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $providers = @{
@@ -212,19 +197,7 @@ Describe 'New-IdlePlan' {
         }
 
         It 'does not fail planning when condition is false and With is missing a required schema key' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'condition-skip-schema.psd1' -Content @'
-@{
-  Name           = 'Condition Skip Schema'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name      = 'StrictStep'
-      Type      = 'IdLE.Step.StrictSchemaTest'
-      Condition = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Leaver' } }
-    }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'condition-skip-schema.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $providers = @{
@@ -243,19 +216,7 @@ Describe 'New-IdlePlan' {
         }
 
         It 'still enforces With template resolution and WithSchema validation when condition is true' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'condition-applicable-schema.psd1' -Content @'
-@{
-  Name           = 'Condition Applicable Schema'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{
-      Name      = 'StrictStep'
-      Type      = 'IdLE.Step.StrictApplicableTest'
-      Condition = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
-    }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'condition-applicable-schema.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $providers = @{
@@ -271,25 +232,7 @@ Describe 'New-IdlePlan' {
         }
 
         It 'does not fail planning when condition is false for an OnFailureStep referencing missing template data' {
-            $wfPath = New-IdleTestWorkflowFile -FileName 'condition-skip-onfailure.psd1' -Content @'
-@{
-  Name           = 'Condition Skip OnFailureStep'
-  LifecycleEvent = 'Joiner'
-  Steps          = @(
-    @{ Name = 'Primary'; Type = 'IdLE.Step.PrimarySkipTest' }
-  )
-  OnFailureSteps = @(
-    @{
-      Name      = 'SkippedOnFailure'
-      Type      = 'IdLE.Step.OnFailureSkipTest'
-      Condition = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Leaver' } }
-      With      = @{
-        Value = '{{Request.Intent.MissingKey}}'
-      }
-    }
-  )
-}
-'@
+            $wfPath = Join-Path $script:FixturesPath 'condition-skip-onfailure.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $providers = @{

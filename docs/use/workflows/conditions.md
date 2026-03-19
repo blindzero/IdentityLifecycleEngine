@@ -100,7 +100,7 @@ If `Region` is absent, the condition evaluates to `false`, the step is `NotAppli
 
 ---
 
-
+## Conditions DSL
 
 Preconditions use the **same DSL** as Conditions.  
 This section is the authoritative DSL reference.
