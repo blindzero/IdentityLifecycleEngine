@@ -14,6 +14,10 @@ function ConvertTo-IdleWorkflowSteps {
     planning failures caused by missing data referenced in With blocks that are intentionally
     guarded by a Condition.
 
+    Condition path validation uses -ExcludeExistsOperatorPaths so that steps using the Exists
+    operator to guard optional context attributes are not rejected at plan time merely because
+    the attribute is absent — that is the intended use of the Exists operator.
+
     IMPORTANT:
     WorkflowSteps is optional and may be null or empty. A workflow is allowed to omit
     OnFailureSteps entirely. Therefore we must not mark this parameter as Mandatory.
@@ -86,7 +90,7 @@ function ConvertTo-IdleWorkflowSteps {
                 )
             }
 
-            Assert-IdleConditionPathsResolvable -Condition $condition -Context $PlanningContext -StepName $stepName -Source 'Condition'
+            Assert-IdleConditionPathsResolvable -Condition $condition -Context $PlanningContext -StepName $stepName -Source 'Condition' -ExcludeExistsOperatorPaths
 
             $isApplicable = Test-IdleCondition -Condition $condition -Context $PlanningContext
             if (-not $isApplicable) {

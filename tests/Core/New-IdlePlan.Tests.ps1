@@ -179,6 +179,23 @@ Describe 'New-IdlePlan' {
     }
 
     Context 'Condition skips With processing' {
+        It 'does not fail planning when condition uses Exists operator on an absent context path' {
+            $wfPath = Join-Path $script:FixturesPath 'condition-exists-absent.psd1'
+
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
+            $providers = @{
+                StepRegistry = @{ 'IdLE.Step.ExistsConditionTest' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ExistsConditionTest')
+            }
+
+            # Must not throw: Exists on absent path evaluates to false without a path-resolvability error
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
+
+            $plan | Should -Not -BeNullOrEmpty
+            @($plan.Steps).Count | Should -Be 1
+            $plan.Steps[0].Status | Should -Be 'NotApplicable'
+        }
+
         It 'does not fail planning when condition is false and With references missing data (template resolution skipped)' {
             $wfPath = Join-Path $script:FixturesPath 'condition-skip-template.psd1'
 

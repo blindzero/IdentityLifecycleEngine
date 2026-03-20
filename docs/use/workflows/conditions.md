@@ -77,9 +77,11 @@ When a step's `Condition` evaluates to `false`, IdLE marks it `NotApplicable` an
 
 This means a condition-guarded step will **not** cause a planning failure even if its `With` block references data that is absent or if required schema keys are missing. The step is simply excluded from the executable plan.
 
+The `Exists` operator is specifically designed for this pattern: using `Exists` in a `Condition` does **not** require the referenced path to exist at plan time. If the path is absent, `Exists` evaluates to `false` and the step becomes `NotApplicable`.
+
 :::info Example: Guard a step with an existence check
 A step that provisions an EU-region user can be safely guarded by a condition that checks for the `Region` attribute.
-If the attribute is absent, the step is `NotApplicable` and its `With` block — which may reference `{{Request.Context.Views.Identity.Profile.Attributes.Region}}` — is never processed.
+If the attribute is absent, `Exists` evaluates to `false`, the step is `NotApplicable`, and neither the condition path nor the `With` block causes a planning error.
 
 ```powershell
 @{
