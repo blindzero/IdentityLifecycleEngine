@@ -8,6 +8,16 @@ function ConvertTo-IdleWorkflowSteps {
     .DESCRIPTION
     Evaluates Condition during planning and sets Status = Planned / NotApplicable.
 
+    When a step's Condition evaluates to false, the step is marked NotApplicable and all
+    subsequent plan-time processing that only makes sense for executable steps (With template
+    resolution and WithSchema validation) is skipped for that step. This prevents false-positive
+    planning failures caused by missing data referenced in With blocks that are intentionally
+    guarded by a Condition.
+
+    Condition path validation uses -ExcludeExistsOperatorPaths so that steps using the Exists
+    operator to guard optional context attributes are not rejected at plan time merely because
+    the attribute is absent — that is the intended use of the Exists operator.
+
     IMPORTANT:
     WorkflowSteps is optional and may be null or empty. A workflow is allowed to omit
     OnFailureSteps entirely. Therefore we must not mark this parameter as Mandatory.
@@ -80,7 +90,7 @@ function ConvertTo-IdleWorkflowSteps {
                 )
             }
 
-            Assert-IdleConditionPathsResolvable -Condition $condition -Context $PlanningContext -StepName $stepName -Source 'Condition'
+            Assert-IdleConditionPathsResolvable -Condition $condition -Context $PlanningContext -StepName $stepName -Source 'Condition' -ExcludeExistsOperatorPaths
 
             $isApplicable = Test-IdleCondition -Condition $condition -Context $PlanningContext
             if (-not $isApplicable) {
@@ -118,63 +128,68 @@ function ConvertTo-IdleWorkflowSteps {
             @{}
         }
 
-        # Resolve template placeholders in With (planning-time resolution)
-        $with = Resolve-IdleWorkflowTemplates -Value $with -Request $PlanningContext.Request -StepName $stepName
+        # Skip With template resolution and WithSchema validation for NotApplicable steps.
+        # A step whose Condition evaluated to false will never be executed, so further plan-time
+        # validation that assumes the step is eligible would produce false-positive failures.
+        if ($status -ne 'NotApplicable') {
+            # Resolve template placeholders in With (planning-time resolution)
+            $with = Resolve-IdleWorkflowTemplates -Value $with -Request $PlanningContext.Request -StepName $stepName
 
-        # Validate WithSchema declared by step metadata (fail-fast plan-time schema check).
-        # Every step type must declare WithSchema. Required keys must be present; unknown keys are rejected.
-        # If OptionalKeys contains '*', any additional key is accepted (permissive schema for test/internal use).
-        if ($StepMetadataCatalog.ContainsKey($stepType)) {
-            $md = $StepMetadataCatalog[$stepType]
-            if ($null -ne $md -and $md -is [hashtable] -and $md.ContainsKey('WithSchema')) {
-                $schema = $md['WithSchema']
-                if ($null -ne $schema -and $schema -is [hashtable]) {
-                    $requiredKeys = @()
-                    if ($schema.ContainsKey('RequiredKeys') -and $null -ne $schema['RequiredKeys']) {
-                        $requiredKeys = @($schema['RequiredKeys'])
-                    }
-                    $optionalKeys = @()
-                    if ($schema.ContainsKey('OptionalKeys') -and $null -ne $schema['OptionalKeys']) {
-                        $optionalKeys = @($schema['OptionalKeys'])
-                    }
+            # Validate WithSchema declared by step metadata (fail-fast plan-time schema check).
+            # Every step type must declare WithSchema. Required keys must be present; unknown keys are rejected.
+            # If OptionalKeys contains '*', any additional key is accepted (permissive schema for test/internal use).
+            if ($StepMetadataCatalog.ContainsKey($stepType)) {
+                $md = $StepMetadataCatalog[$stepType]
+                if ($null -ne $md -and $md -is [hashtable] -and $md.ContainsKey('WithSchema')) {
+                    $schema = $md['WithSchema']
+                    if ($null -ne $schema -and $schema -is [hashtable]) {
+                        $requiredKeys = @()
+                        if ($schema.ContainsKey('RequiredKeys') -and $null -ne $schema['RequiredKeys']) {
+                            $requiredKeys = @($schema['RequiredKeys'])
+                        }
+                        $optionalKeys = @()
+                        if ($schema.ContainsKey('OptionalKeys') -and $null -ne $schema['OptionalKeys']) {
+                            $optionalKeys = @($schema['OptionalKeys'])
+                        }
 
-                    # Build allowed set from all keys (required and optional combined)
-                    $allAllowedKeysList = [System.Collections.Generic.List[string]]::new()
-                    foreach ($keyList in @($requiredKeys, $optionalKeys)) {
-                        foreach ($k in $keyList) {
-                            if ($null -ne $k -and -not [string]::IsNullOrWhiteSpace([string]$k)) {
-                                $null = $allAllowedKeysList.Add([string]$k)
+                        # Build allowed set from all keys (required and optional combined)
+                        $allAllowedKeysList = [System.Collections.Generic.List[string]]::new()
+                        foreach ($keyList in @($requiredKeys, $optionalKeys)) {
+                            foreach ($k in $keyList) {
+                                if ($null -ne $k -and -not [string]::IsNullOrWhiteSpace([string]$k)) {
+                                    $null = $allAllowedKeysList.Add([string]$k)
+                                }
                             }
                         }
-                    }
-                    $allowedSet = [System.Collections.Generic.HashSet[string]]::new(
-                        $allAllowedKeysList,
-                        [System.StringComparer]::OrdinalIgnoreCase
-                    )
-                    $permissive = $allowedSet.Contains('*')
+                        $allowedSet = [System.Collections.Generic.HashSet[string]]::new(
+                            $allAllowedKeysList,
+                            [System.StringComparer]::OrdinalIgnoreCase
+                        )
+                        $permissive = $allowedSet.Contains('*')
 
-                    # Validate required keys are present
-                    foreach ($rk in $requiredKeys) {
-                        if ([string]::IsNullOrWhiteSpace([string]$rk) -or [string]$rk -eq '*') { continue }
+                        # Validate required keys are present
+                        foreach ($rk in $requiredKeys) {
+                            if ([string]::IsNullOrWhiteSpace([string]$rk) -or [string]$rk -eq '*') { continue }
 
-                        if (-not $with.ContainsKey($rk)) {
-                            $requiredList = [string]::Join(', ', ($requiredKeys | Where-Object { $_ -ne '*' -and -not [string]::IsNullOrWhiteSpace([string]$_) } | Sort-Object))
-                            throw [System.ArgumentException]::new(
-                                ("Step '{0}' (type '{1}') is missing required With.{2}. Required With keys: {3}." -f $stepName, $stepType, $rk, $requiredList),
-                                'Workflow'
-                            )
-                        }
-                    }
-
-                    # Validate no unknown keys (skip if permissive wildcard)
-                    if (-not $permissive) {
-                        foreach ($wk in @($with.Keys)) {
-                            if (-not $allowedSet.Contains([string]$wk)) {
-                                $supportedList = [string]::Join(', ', ($allAllowedKeysList | Sort-Object))
+                            if (-not $with.ContainsKey($rk)) {
+                                $requiredList = [string]::Join(', ', ($requiredKeys | Where-Object { $_ -ne '*' -and -not [string]::IsNullOrWhiteSpace([string]$_) } | Sort-Object))
                                 throw [System.ArgumentException]::new(
-                                    ("Step '{0}' (type '{1}') does not support With.{2}. Supported With keys: {3}." -f $stepName, $stepType, [string]$wk, $supportedList),
+                                    ("Step '{0}' (type '{1}') is missing required With.{2}. Required With keys: {3}." -f $stepName, $stepType, $rk, $requiredList),
                                     'Workflow'
                                 )
+                            }
+                        }
+
+                        # Validate no unknown keys (skip if permissive wildcard)
+                        if (-not $permissive) {
+                            foreach ($wk in @($with.Keys)) {
+                                if (-not $allowedSet.Contains([string]$wk)) {
+                                    $supportedList = [string]::Join(', ', ($allAllowedKeysList | Sort-Object))
+                                    throw [System.ArgumentException]::new(
+                                        ("Step '{0}' (type '{1}') does not support With.{2}. Supported With keys: {3}." -f $stepName, $stepType, [string]$wk, $supportedList),
+                                        'Workflow'
+                                    )
+                                }
                             }
                         }
                     }
