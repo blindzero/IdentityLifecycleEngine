@@ -96,7 +96,7 @@ If the attribute is absent, the step is `NotApplicable` and its `With` block —
 If `Region` is absent, the condition evaluates to `false`, the step is `NotApplicable`, and no template errors are raised.
 :::
 
-**Applicable steps** still undergo full template resolution and schema validation — this behaviour is unchanged.
+**Applicable steps** still undergo full template resolution and schema validation — this behavior is unchanged.
 
 ---
 

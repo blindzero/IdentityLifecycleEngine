@@ -8,9 +8,9 @@ function ConvertTo-IdleWorkflowSteps {
     .DESCRIPTION
     Evaluates Condition during planning and sets Status = Planned / NotApplicable.
 
-    When a step's Condition evaluates to false the step is marked NotApplicable and all
+    When a step's Condition evaluates to false, the step is marked NotApplicable and all
     subsequent plan-time processing that only makes sense for executable steps (With template
-    resolution and WithSchema validation) is skipped for that step.  This prevents false-positive
+    resolution and WithSchema validation) is skipped for that step. This prevents false-positive
     planning failures caused by missing data referenced in With blocks that are intentionally
     guarded by a Condition.
 
