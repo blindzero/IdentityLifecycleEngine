@@ -15,17 +15,20 @@
     "sync-assets": "node ./scripts/sync-assets.js"
   },
   "dependencies": {
-    "@docusaurus/core": "3.9.2",
+    "@docusaurus/core": "^3.9.2",
     "@docusaurus/plugin-client-redirects": "^3.9.2",
-    "@docusaurus/preset-classic": "3.9.2",
+    "@docusaurus/preset-classic": "^3.9.2",
     "@easyops-cn/docusaurus-search-local": "^0.52.2",
     "@mdx-js/react": "^3.0.0",
     "@saucelabs/theme-github-codeblock": "^0.3.0",
     "clsx": "^2.0.0",
     "docusaurus-plugin-image-zoom": "^3.0.1",
     "prism-react-renderer": "^2.3.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.3"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.9.2",
