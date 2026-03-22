@@ -31,8 +31,8 @@
     "serialize-javascript": "^7.0.3"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "3.9.2",
-    "@docusaurus/types": "3.9.2"
+    "@docusaurus/module-type-aliases": "^3.9.2",
+    "@docusaurus/types": "^3.9.2"
   },
   "browserslist": {
     "production": [
