@@ -58,7 +58,6 @@ Install-Module -Name IdLE.Steps.Mailbox -Scope CurrentUser
 Install-Module -Name IdLE.Provider.Mock -Scope CurrentUser
 ```
 
-Import only what you need:
 
 :::tip
 If a workflow references a StepType from an optional steps module, that steps module must be installed and imported in the host session.
@@ -69,7 +68,7 @@ If a workflow references a StepType from an optional steps module, that steps mo
 ## Install from repository source
 
 :::info
-This installation method is primarily for fetching full example files or testing and contributors.
+This installation method is primarily for fetching full example files, testing, and contributing.
 :::
 
 This path is intended for development and contribution scenarios.
@@ -98,7 +97,7 @@ Import-Module IdLE.Steps.Mailbox -Force
 
 ```powershell
 Get-Module IdLE* -ListAvailable | Select-Object Name, Version, Path
-# Public facing main user Commands
+# Public-facing user commands
 Get-Command -Module IdLE | Sort-Object Name
 # Public interface functions from modules
 Get-Command -Module IdLE.* | Sort-Object Name

@@ -192,5 +192,5 @@ You now have the full end-to-end flow:
 
 ## Next
 
-- consider using **[Plan Export](../plan-export.md)** for review/approval and CI artifacts.
-- look at details of **[Workflows](../workflows.md)**
+- Consider using **[Plan Export](../plan-export.md)** for review/approval and CI artifacts.
+- Look at details of **[Workflows](../workflows.md)**

@@ -21,7 +21,7 @@ Plan export is useful to:
 ## Export a plan
 
 ```powershell
-$request = New-IdleRequest -LifecycleEvent 'Joiner' -CorrelationId (New-Guid) -IdentityKeys @{
+$request = New-IdleRequest -LifecycleEvent 'Joiner' -CorrelationId (New-Guid) -Actor 'HR-System' -IdentityKeys @{
     EmployeeId = '12345'
 } -Intent @{
     Department = 'IT'
@@ -66,48 +66,49 @@ Providers and authentication are always supplied by the host at execution time.
         "actor": "HR-System",
         "input": {
             "identityKeys": {
-                "userId": "jdoe"
+                "EmployeeId": "12345"
             },
             "intent": {
-                "department": "IT"
+                "Department": "IT"
             },
-            "context": {
-                "Identity": {
-                    "ObjectId": "abc-123"
-                }
-            }
+            "context": {}
         }
     },
     "plan": {
-        "id": "plan-001",
-        "mode": "PlanOnly",
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "mode": null,
         "steps": [
             {
                 "id": "step-01",
                 "name": "Ensure Mailbox",
-                "stepType": "EnsureMailbox",
+                "stepType": "IdLE.Step.Mailbox.EnsureMailbox",
                 "provider": "ExchangeOnline",
                 "condition": {
-                    "type": "when",
-                    "expression": "request.type == 'Joiner'"
+                    "type": "always",
+                    "expression": null
                 },
                 "inputs": {
                     "mailboxType": "User"
                 },
-                "expectedState": {
-                    "MailboxExists": true
-                }
+                "expectedState": null,
+                "warnings": []
             }
-        ]
+        ],
+        "warnings": []
     },
     "metadata": {
-        "generatedBy": "Invoke-IdlePlan",
-        "environment": "CI",
-        "labels": ["preview", "dry-run"]
+        "generatedBy": "Export-IdlePlanObject",
+        "environment": null,
+        "labels": []
     }
 }
 ```
 
+In this example, `metadata.environment` is `null` and `metadata.labels` is an empty array because
+`Export-IdlePlanObject` does not infer or populate these fields automatically. They are part of the
+exported contract so that your host or automation (for example, a CI pipeline or runbook) can add
+environment information and labels (such as change ticket IDs, deployment rings, or business tags)
+as needed before storing or executing the plan.
 See the full JSON contract in [plan-export reference](../reference/specs/plan-export.md).
 
 ---

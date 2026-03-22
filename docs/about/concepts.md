@@ -93,8 +93,7 @@ A **workflow is a data-only definition** (`.psd1`) that describes **what** shoul
 A **workflow consists of ordered steps**. Each step references a **StepType** by name and provides configuration under `With`.
 
 - Hands-on: [Walkthrough 1: Workflow definition](../use/walkthrough/01-workflow-definition.md).
-- Specification: [Use → Workflows](../use/workflows.md) and
-- [Reference section](../reference/steps.md).
+- Specification: [Use → Workflows](../use/workflows.md) and [Reference section](../reference/steps.md).
 
 ### Providers
 

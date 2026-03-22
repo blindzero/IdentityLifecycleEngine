@@ -272,7 +272,10 @@ When working with complex resolver outputs (entitlements, profiles), inspect the
 **Inspect the complete context tree:**
 
 ```powershell
-$plan = New-IdlePlan -WorkflowPath ./workflow.psd1 -Request $req -Providers $providers
+# Assume you have already built a plan:
+# $request   = ...     # build a valid IdLE request
+# $providers = @{ ... } # configured provider map
+# $plan = New-IdlePlan -WorkflowPath ./workflow.psd1 -Request $request -Providers $providers
 
 # Full context structure (use Depth 8 for deeply nested Views)
 $plan.Request.Context | ConvertTo-Json -Depth 8
