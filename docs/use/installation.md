@@ -68,7 +68,7 @@ If a workflow references a StepType from an optional steps module, that steps mo
 ## Install from repository source
 
 :::info
-This installation method is primarily for fetching full example files or testing and contributors.
+This installation method is primarily for fetching full example files, testing, and contributing.
 :::
 
 This path is intended for development and contribution scenarios.
