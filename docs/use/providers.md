@@ -154,5 +154,5 @@ Provider-specific authentication variants and required options are documented in
 ## Next steps
 
 - If you have not done so yet, start with the [Quick Start](quickstart.md).
-- For the full end-to-end flow, follow the [Walkthrough](walkthrough/01-workflow-definition.md):
+- For the full end-to-end flow, follow the [Walkthrough](walkthrough/01-workflow-definition.md).
 - For full specifications and examples, use the [Reference](../reference/intro-reference.md) section.

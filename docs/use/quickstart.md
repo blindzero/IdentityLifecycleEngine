@@ -42,7 +42,7 @@ If you are running in CI, consider `-Scope AllUsers` or a dedicated PowerShellGe
 
 ## 2) Create a minimal workflow file
 
-Workflows are **data-only definition of what to do**, defined in a PowerShell hashtables stored as `.psd1` files.
+Workflows are **data-only definitions of what to do**, represented as PowerShell hashtables stored in `.psd1` files.
 
 Create a temporary workflow file with two steps:
 
@@ -134,7 +134,7 @@ $plan = New-IdlePlan -WorkflowPath $workflowPath -Request $request -Providers $p
 
 ## 6) Invoke the plan
 
-The plan is executed by IdLE invocation engine.
+The plan is executed by the IdLE invocation engine.
 
 ```powershell
 $result = Invoke-IdlePlan -Plan $plan

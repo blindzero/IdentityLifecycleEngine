@@ -9,7 +9,7 @@ A workflow is a **data-only** PowerShell hashtable stored in a `.psd1` file. It 
 
 Workflows are designed for **admins and workflow authors**:
 
-- You define **what should happen*** (steps and their configuration).
+- You define **what should happen** (steps and their configuration).
 - IdLE builds a **plan** and then **executes** it.
 - **Providers implement** the system-specific operations.
 

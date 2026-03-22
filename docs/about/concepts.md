@@ -98,7 +98,7 @@ A **workflow consists of ordered steps**. Each step references a **StepType** by
 
 ### Providers
 
-**Workflows reference providers** by alias (for example: `With.Provider = 'Identity'`), but the actual provider instances are supplied by the host. Providers implement step capabilities in specificly for the endpoint system.
+**Workflows reference providers** by alias (for example: `With.Provider = 'Identity'`), but the actual provider instances are supplied by the host. Providers implement step capabilities specifically for each endpoint system.
 
 Hands-on: [Walkthrough 5: Providers and authentication](../use/walkthrough/05-providers-authentication.md).
 
@@ -117,7 +117,7 @@ Hands-on: [Walkthrough 3: Plan build](../use/walkthrough/03-plan-creation.md).
 
 ### Provider Capabilities (Planning-time Validation)
 
-**IdLE validates required capabilities** at plan-build time (fail-fast) agains supplied providers.
+**IdLE validates required capabilities** at plan-build time (fail-fast) against supplied providers.
 This prevents discovering missing requirements only at execution time.
 
 ### Plan export
