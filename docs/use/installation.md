@@ -58,7 +58,6 @@ Install-Module -Name IdLE.Steps.Mailbox -Scope CurrentUser
 Install-Module -Name IdLE.Provider.Mock -Scope CurrentUser
 ```
 
-Import only what you need:
 
 :::tip
 If a workflow references a StepType from an optional steps module, that steps module must be installed and imported in the host session.
