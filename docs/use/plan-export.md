@@ -18,6 +18,23 @@ Plan export is useful to:
 
 ---
 
+## Export a plan
+
+```powershell
+$request = New-IdleRequest -LifecycleEvent 'Joiner' -CorrelationId (New-Guid) -Actor 'HR-System' -IdentityKeys @{
+    EmployeeId = '12345'
+} -Intent @{
+    Department = 'IT'
+}
+
+$plan = New-IdlePlan -WorkflowPath ./workflows/joiner.psd1 -Request $request
+
+# Create the output directory if it does not already exist
+New-Item -ItemType Directory -Force -Path ./artifacts | Out-Null
+
+Export-IdlePlan -Plan $plan -Path ./artifacts/plan.json
+```
+
 ## What a plan export contains
 
 A plan export typically includes:
@@ -32,6 +49,67 @@ A plan export typically includes:
 A plan export is an **execution contract**. It is designed to be reviewed and approved before it runs.
 Providers and authentication are always supplied by the host at execution time.
 :::
+
+---
+
+## Example export
+
+```json
+{
+    "schemaVersion": "1.0",
+    "engine": {
+        "name": "IdLE"
+    },
+    "request": {
+        "type": "Joiner",
+        "correlationId": "123e4567-e89b-12d3-a456-426614174000",
+        "actor": "HR-System",
+        "input": {
+            "identityKeys": {
+                "EmployeeId": "12345"
+            },
+            "intent": {
+                "Department": "IT"
+            },
+            "context": {}
+        }
+    },
+    "plan": {
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "mode": null,
+        "steps": [
+            {
+                "id": "step-01",
+                "name": "Ensure Mailbox",
+                "stepType": "IdLE.Step.Mailbox.EnsureMailbox",
+                "provider": "ExchangeOnline",
+                "condition": {
+                    "type": "always",
+                    "expression": null
+                },
+                "inputs": {
+                    "mailboxType": "User"
+                },
+                "expectedState": null,
+                "warnings": []
+            }
+        ],
+        "warnings": []
+    },
+    "metadata": {
+        "generatedBy": "Export-IdlePlanObject",
+        "environment": null,
+        "labels": []
+    }
+}
+```
+
+In this example, `metadata.environment` is `null` and `metadata.labels` is an empty array because
+`Export-IdlePlanObject` does not infer or populate these fields automatically. They are part of the
+exported contract so that your host or automation (for example, a CI pipeline or runbook) can add
+environment information and labels (such as change ticket IDs, deployment rings, or business tags)
+as needed before storing or executing the plan.
+See the full JSON contract in [plan-export reference](../reference/specs/plan-export.md).
 
 ---
 

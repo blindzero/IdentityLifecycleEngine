@@ -18,7 +18,7 @@ Providers and authentication are supplied by your host.
 
 ## Goal
 
-Create a minimal workflow file that IdLE can validate and turn into a plan.
+**Create a minimal workflow** file that IdLE can validate and turn into a plan.
 
 ## You will have
 

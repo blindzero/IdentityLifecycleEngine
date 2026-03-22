@@ -15,9 +15,9 @@ Providers and authentication are **host responsibilities**. Workflows and reques
 
 ## Goal
 
-- Understand how workflow steps reference providers by alias (`With.Provider`)
-- Understand how steps acquire authentication sessions at runtime (optional)
-- Build a provider registry that works for both plan build and execution
+- **Understand how workflow steps reference** providers by alias (`With.Provider`)
+- Understand how steps **acquire authentication sessions** at runtime (optional)
+- **Build a provider registry** that works for both plan build and execution
 
 ## You will have
 
@@ -88,7 +88,7 @@ $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
 ## 3) Authentication is optional, but always host-owned
 
-IdLE workflows **must not** contain secrets.
+IdLE workflows ***must not* contain secrets**.
 
 If a step needs credentials at runtime, it can request an auth session via:
 
@@ -104,7 +104,7 @@ Example (step requests a named session):
   With = @{
     Provider           = 'Identity'
     AuthSessionName    = 'AD'
-    AuthSessionOptions = @{ Role = 'Tier0' }
+    AuthSessionOptions = @{ Role = 'Tier0' } # optional
 
     IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
     Attributes  = @{
@@ -190,4 +190,7 @@ You now have the full end-to-end flow:
 4. Invoke and inspect results/events
 5. Providers & (optional) authentication
 
-Next, consider using **[Plan Export](../plan-export.md)** for review/approval and CI artifacts.
+## Next
+
+- Consider using **[Plan Export](../plan-export.md)** for review/approval and CI artifacts.
+- Look at details of **[Workflows](../workflows.md)**

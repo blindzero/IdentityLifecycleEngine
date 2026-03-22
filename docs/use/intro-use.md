@@ -42,5 +42,5 @@ Reference pages are the single source of truth for schemas and cmdlet details.
 ## When to use other sections
 
 - If you want the **big picture** (responsibilities, trust boundaries, architecture): see [Concepts](../about/concepts.md)
-- If you want to **extend IdLE** (write steps, providers, host integrations): see [Extend](../extend/intro-extend.md)
 - If you need **specification-level details**: see [Reference](../reference/intro-reference.md)
+- If you want to **extend IdLE** (write steps, providers, host integrations): see [Extend](../extend/intro-extend.md)

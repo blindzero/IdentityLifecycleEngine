@@ -7,13 +7,13 @@ This page covers the second artifact in the IdLE lifecycle:
 
 **Workflow → Request → Plan → Invoke → Providers/Auth**
 
-A **request** represents business intent (Joiner/Mover/Leaver) plus the input data used by workflows (identity keys, desired state, and optional context).
+A **request represents business intent** (Joiner/Mover/Leaver) plus the input data used by workflows (identity keys, desired state, and optional context).
 
 ---
 
 ## Goal
 
-Create a minimal request that matches the workflow from [Walkthrough 1](01-workflow-definition.md).
+**Create a minimal request** that matches the workflow from [Walkthrough 1 - Workflow definition](01-workflow-definition.md).
 
 ## You will have
 
@@ -48,7 +48,8 @@ This request provides the values referenced in the workflow templates:
 ## 2) What belongs into a request
 
 ### IdentityKeys
-Identity keys uniquely identify the identity you are acting on (for example: EmployeeId, SamAccountName, UPN).
+
+**Identity keys uniquely identify** the identity you are acting on (for example: EmployeeId, SamAccountName, UPN).
 
 Identity keys are typically:
 
@@ -57,7 +58,8 @@ Identity keys are typically:
 - provided by the upstream system (HR, IAM, ticket)
 
 ### Intent
-Intent contains the caller-provided action inputs (attributes, entitlements, mailbox settings, …) that the workflow should act on.
+
+**Intent contains the caller-provided action inputs** (attributes, entitlements, mailbox settings, …) that the workflow should act on.
 
 For this walkthrough we keep it minimal and only set two attributes.
 

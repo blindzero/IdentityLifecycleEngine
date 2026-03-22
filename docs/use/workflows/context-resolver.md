@@ -265,15 +265,84 @@ This enables auditing and per-source filtering when working with merged views.
 
 ## Troubleshooting
 
-### Resolver not executed
+### Inspecting resolved context data
 
-- Ensure `ContextResolvers` is defined at workflow root.
-- Verify correct property name (`ContextResolvers`).
+When working with complex resolver outputs (entitlements, profiles), inspect the plan object directly after calling `New-IdlePlan`. This is the recommended approach during authoring and debugging. **Do not rely on template substitution for this purpose** — template substitution only resolves scalar values and cannot serialize whole objects or lists.
 
-### Capability not permitted
+**Inspect the complete context tree:**
 
-- Only allowlisted read-only capabilities can be used.
-- Validation happens during plan build.
+```powershell
+# Assume you have already built a plan:
+# $request   = ...     # build a valid IdLE request
+# $providers = @{ ... } # configured provider map
+# $plan = New-IdlePlan -WorkflowPath ./workflow.psd1 -Request $request -Providers $providers
+
+# Full context structure (use Depth 8 for deeply nested Views)
+$plan.Request.Context | ConvertTo-Json -Depth 8
+
+# Scoped source-of-truth namespace only
+$plan.Request.Context.Providers | ConvertTo-Json -Depth 8
+
+# Engine-defined Views only
+$plan.Request.Context.Views | ConvertTo-Json -Depth 8
+```
+
+**Inspect a specific scoped path:**
+
+```powershell
+# Entitlements from one provider
+$plan.Request.Context.Providers.Identity.Default.Identity.Entitlements | ConvertTo-Json -Depth 2
+
+# Profile from one provider
+$plan.Request.Context.Providers.Identity.Default.Identity.Profile | ConvertTo-Json -Depth 4
+
+# Global merged View
+$plan.Request.Context.Views.Identity.Entitlements | ConvertTo-Json -Depth 2
+```
+
+**Quick tabular view:**
+
+```powershell
+$plan.Request.Context.Views.Identity.Entitlements | Format-Table -AutoSize
+```
+
+**Inspect individual properties to understand the path structure:**
+
+```powershell
+# Check available properties on the profile object
+$plan.Request.Context.Providers.Identity.Default.Identity.Profile | Get-Member
+
+# Access profile attributes — attributes are nested under the Attributes key
+$plan.Request.Context.Providers.Identity.Default.Identity.Profile.Attributes
+
+# Check a specific attribute
+$plan.Request.Context.Providers.Identity.Default.Identity.Profile.Attributes.DisplayName
+
+# Check an entitlement entry and its source metadata
+$plan.Request.Context.Views.Identity.Entitlements[0] | Get-Member
+$plan.Request.Context.Views.Identity.Entitlements[0].Id
+$plan.Request.Context.Views.Identity.Entitlements[0].SourceProvider
+```
+
+**Translating discovered structure to Condition paths:**
+
+```powershell
+# Profile attribute — path must include Attributes
+Condition = @{
+  Like = @{
+    Path    = 'Request.Context.Providers.Identity.Default.Identity.Profile.Attributes.DisplayName'
+    Pattern = '* (Contractor)'
+  }
+}
+
+# Entitlement IDs — member-access enumeration extracts all Id values from the list
+Condition = @{
+  NotContains = @{
+    Path  = 'Request.Context.Views.Identity.Entitlements.Id'
+    Value = 'CN=BreakGlass-Users,OU=Groups,DC=example,DC=com'
+  }
+}
+```
 
 ### Ambiguous provider
 
@@ -397,6 +466,3 @@ Condition = @{
   }
 }
 ```
-
-See [Conditions - Member-Access Enumeration](./conditions.md#member-access-enumeration) for details.
-
