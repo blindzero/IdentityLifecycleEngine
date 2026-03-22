@@ -58,7 +58,6 @@ Install-Module -Name IdLE.Steps.Mailbox -Scope CurrentUser
 Install-Module -Name IdLE.Provider.Mock -Scope CurrentUser
 ```
 
-Import only what you need:
 
 :::tip
 If a workflow references a StepType from an optional steps module, that steps module must be installed and imported in the host session.
@@ -83,7 +82,7 @@ Import-Module ./src/IdLE/IdLE.psd1 -Force
 ```
 
 :::info
-The meta module bootstraps module discovery repo layout. Be aware of using this in parallel to IdLE installed as a module. \
+The meta module bootstraps module discovery for the repository layout. Avoid using this in parallel with an IdLE installation from the PowerShell Gallery.
 After importing from source, you can import additional modules by name.
 :::
 
@@ -98,7 +97,7 @@ Import-Module IdLE.Steps.Mailbox -Force
 
 ```powershell
 Get-Module IdLE* -ListAvailable | Select-Object Name, Version, Path
-# Public facing main user Commands
+# Public-facing user commands
 Get-Command -Module IdLE | Sort-Object Name
 # Public interface functions from modules
 Get-Command -Module IdLE.* | Sort-Object Name

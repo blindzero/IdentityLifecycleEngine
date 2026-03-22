@@ -98,7 +98,7 @@ Providers and authentication are always supplied by the host at execution time.
         ]
     },
     "metadata": {
-        "generatedBy": "Invoke-IdlePlan",
+        "generatedBy": "Export-IdlePlanObject",
         "environment": "CI",
         "labels": ["preview", "dry-run"]
     }
