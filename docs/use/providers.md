@@ -135,7 +135,7 @@ $providers = @{
 }
 
 # In a real host, $request would typically be created earlier from your JML/event payload.
-$request = New-IdleRequest -WorkflowName 'joiner' -IdentityKeys @{ EmployeeId = '12345' } -Intent @{ Department = 'IT' }
+$request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ EmployeeId = '12345' } -Intent @{ Department = 'IT' }
 $plan = New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $request -Providers $providers
 Invoke-IdlePlan -Plan $plan
 ```
