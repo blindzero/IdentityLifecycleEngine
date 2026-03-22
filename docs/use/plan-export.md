@@ -78,7 +78,7 @@ Providers and authentication are always supplied by the host at execution time.
             {
                 "id": "step-01",
                 "name": "Ensure Mailbox",
-                "stepType": "EnsureMailbox",
+                "stepType": "IdLE.Step.Mailbox.EnsureMailbox",
                 "provider": "ExchangeOnline",
                 "condition": {
                     "type": "always",
