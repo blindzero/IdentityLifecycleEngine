@@ -97,12 +97,55 @@ IdLE workflows **shall not** contain secrets.
 
 Authentication is provided by your host, typically via an **AuthSessionBroker** (or another host-managed mechanism), and then used by providers and/or steps.
 
+At a high level, the host is responsible for:
+
+- choosing the auth mechanism (token, certificate, managed identity, workload identity, etc.)
+- acquiring and caching sessions as needed
+- injecting the broker or session factory into provider instances
+
+Generic example (host-managed auth, provider-agnostic):
+
+```powershell
+# A step can request an auth session by name and optional options.
+$workflowStep = @{
+  Name = 'Ensure attributes (example)'
+  Type = 'IdLE.Step.EnsureAttributes'
+  With = @{
+    Provider           = 'Identity'
+    AuthSessionName    = 'AD'
+    AuthSessionOptions = @{ Role = 'Tier0' }
+
+    IdentityKey = '{{Request.IdentityKeys.EmployeeId}}'
+    Attributes  = @{ Department = '{{Request.Intent.Department}}' }
+  }
+}
+
+# Host configures a broker and supplies it alongside providers.
+$adCred   = Get-Credential
+$exoToken = '<token-or-object-from-your-exo-login-flow>'
+
+$authSessionBroker = New-IdleAuthSession -SessionMap @{
+  @{ AuthSessionName = 'AD' }  = @{ AuthSessionType = 'Credential'; Credential = $adCred }
+  @{ AuthSessionName = 'EXO' } = @{ AuthSessionType = 'OAuth';       Credential = $exoToken }
+}
+
+$providers = @{
+  Identity          = New-IdleMockIdentityProvider
+  AuthSessionBroker = $authSessionBroker
+}
+
+$plan = New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $request -Providers $providers
+Invoke-IdlePlan -Plan $plan
+```
+
+During execution, the step will call `Context.AcquireAuthSession(AuthSessionName, AuthSessionOptions)` and pass the returned `AuthSession` to the provider method (if the provider supports an `AuthSession` parameter).
+
 :::warning
 Do not store credentials, tokens, or executable ScriptBlocks in workflow files.
 Keep workflows and requests **data-only**.
 :::
 
-For authentication patterns and provider contracts, see:
+Provider-specific authentication variants and required options are documented in the provider reference. For authentication patterns and provider contracts, see:
 
 - [Reference: Providers](../reference/providers.md)
 
@@ -112,5 +155,4 @@ For authentication patterns and provider contracts, see:
 
 - If you have not done so yet, start with the [Quick Start](quickstart.md).
 - For the full end-to-end flow, follow the [Walkthrough](walkthrough/01-workflow-definition.md):
-  - workflow definition → request → plan → invoke → providers & auth
 - For full specifications and examples, use the [Reference](../reference/intro-reference.md) section.

@@ -7,14 +7,14 @@ This page covers the third artifact in the IdLE lifecycle:
 
 **Workflow → Request → Plan → Invoke → Providers/Auth**
 
-A **plan** is the validated, resolved execution contract created from a workflow and a request.
+A **plan is the validated, resolved execution contract** created from a workflow and a request.
 Plan building is designed to be **fail-fast**.
 
 ---
 
 ## Goal
 
-Build a plan from your workflow and request, while supplying providers (recommended).
+**Build a plan** from your workflow and request, while supplying providers (recommended).
 
 ## You will have
 

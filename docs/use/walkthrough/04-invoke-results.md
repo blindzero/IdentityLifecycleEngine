@@ -7,13 +7,13 @@ This page covers the fourth stage in the IdLE lifecycle:
 
 **Workflow → Request → Plan → Invoke → Providers/Auth**
 
-When you invoke a plan, IdLE executes the steps in order and emits structured events.
+When you invoke a plan, **IdLE executes the planned steps** in order and emits structured events.
 
 ---
 
 ## Goal
 
-Execute the plan and inspect result data (status, step outcomes, events).
+**Execute the plan** and inspect result data (status, step outcomes, events).
 
 ## You will have
 
@@ -28,12 +28,6 @@ If you supplied providers during plan build, invocation is simple:
 
 ```powershell
 $result = Invoke-IdlePlan -Plan $plan
-```
-
-If you did **not** supply providers during plan build, you can supply them at execution time:
-
-```powershell
-$result = Invoke-IdlePlan -Plan $plan -Providers $providers
 ```
 
 ---

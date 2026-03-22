@@ -3,8 +3,6 @@ title: Quick Start
 sidebar_label: Quick Start
 ---
 
-# Quick Start
-
 This Quick Start gets you from **zero** to a first successful run of the IdLE lifecycle:
 
 1. Define a **workflow** (data-only `.psd1`)
@@ -14,7 +12,7 @@ This Quick Start gets you from **zero** to a first successful run of the IdLE li
 
 :::info
 IdLE does not ship a “live system host”.
-Your **host** (script, CI job, service) supplies provider instances and (if needed) authentication.
+**Your host** (script, CI job, service) **must supply provider instances** and (if needed) authentication.
 :::
 
 ---
@@ -29,12 +27,10 @@ Your **host** (script, CI job, service) supplies provider instances and (if need
 ## 1) Install and import modules
 
 ```powershell
-# IdLE meta module (Core + Steps)
-Install-Module -Name IdLE -Scope CurrentUser
+# IdLE meta module (incl. IdLE.Core + IdLE.Steps.Common)
 Import-Module -Name IdLE
 
 # Mock provider (safe, no real systems touched)
-Install-Module -Name IdLE.Provider.Mock -Scope CurrentUser
 Import-Module -Name IdLE.Provider.Mock
 ```
 
@@ -46,7 +42,7 @@ If you are running in CI, consider `-Scope AllUsers` or a dedicated PowerShellGe
 
 ## 2) Create a minimal workflow file
 
-Workflows are **data-only** PowerShell hashtables stored as `.psd1` files.
+Workflows are **data-only definition of what to do**, defined in a PowerShell hashtables stored as `.psd1` files.
 
 Create a temporary workflow file with two steps:
 
@@ -93,14 +89,14 @@ $workflowPath
 
 :::warning
 Workflow definitions are **data-only**. Do not embed executable code (ScriptBlocks).
-This is a core security boundary in IdLE.
+This is a [core security boundary](../about/security.md) in IdLE.
 :::
 
 ---
 
 ## 3) Create a request
 
-A request represents business intent (Joiner/Mover/Leaver) plus input data.
+A request represents **business intent** (here a joiner) plus input data.
 
 ```powershell
 $request = New-IdleRequest -LifecycleEvent 'Joiner' -IdentityKeys @{
@@ -127,7 +123,7 @@ $providers = @{
 
 ## 5) Build the plan (validation + template resolution)
 
-Plan building is a **fail-fast** step. IdLE validates the workflow and resolves templates like
+Plan building is a **fail-fast** step. IdLE **validates the workflow** against provider capabilities and resolves templates like
 `{{Request.Intent.GivenName}}`.
 
 ```powershell
@@ -137,6 +133,8 @@ $plan = New-IdlePlan -WorkflowPath $workflowPath -Request $request -Providers $p
 ---
 
 ## 6) Invoke the plan
+
+The plan is executed by IdLE invocation engine.
 
 ```powershell
 $result = Invoke-IdlePlan -Plan $plan
@@ -160,19 +158,10 @@ $result.Events | Select-Object StepName, Message, Type, TimestampUtc
 
 ## What to do next
 
-- Learn workflow structure, templates, and conditions: [Workflows & Steps](workflows.md)
-- Understand provider mapping and authentication patterns: [Providers](providers.md)
-- Export a plan for review / CI artifacts: [Plan Export](plan-export.md)
+- Full **walkthrough** with [1. Workflow definition](./walkthrough/01-workflow-definition.md)
+- **Details of workflow** structure, templates, and conditions: [Workflows & Steps](workflows.md)
 
-If you want to look up details in the reference:
-
-- [Cmdlets](../reference/cmdlets.md)
-- [Steps](../reference/steps.md)
-- [Providers](../reference/providers.md)
-
----
-
-## Explore repository examples (optional)
+### Explore repository examples (optional)
 
 The IdLE repository contains an example runner and additional workflow samples.
 This is useful to browse patterns and larger examples, but it is **not required** for normal IdLE usage.

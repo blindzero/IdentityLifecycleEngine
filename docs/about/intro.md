@@ -9,34 +9,35 @@ sidebar_label: Introduction
 
 ## Introduction
 
-IdLE (Identity Lifecycle Engine) is a **generic, configurable orchestration framework** for identity lifecycle processes
+IdLE (Identity Lifecycle Engine) is a **generic, configurable orchestration framework for identity lifecycle processes**
 (Joiner / Mover / Leaver and similar cases), built for **PowerShell 7+**.
 
 ---
 
 ## Why IdLE exists
 
-JML (joiner/mover/leavers) processes are
+**JML (joiner/mover/leavers) processes** are
 
-- error prone, especially if performed manually
-- time consuming and therefore
-- quite annoying for operators
+- **error prone**, especially if performed manually
+- **time consuming** and therefore
+- quite **annoying for operators**
 
-Self-made identity lifecycle automation often turns into long scripts that are:
+**Self-made identity lifecycle automation** often turns into long scripts that are:
 
-- tightly coupled to one environment
-- hard to test
-- hard to change safely
+- **tightly coupled to one environment**
+- **hard to test**
+- **hard to change** safely
+- **hard to maintain**
 
-Identity Management Systems (IdMS) on the other side are either complex or expensive (or both of it) and then often do not care about supplementary systems that also need to be covered within the workflows.
+**Identity Management Systems (IdMS)** on the other side are **either complex or expensive** (or both of it) and then often do not care about supplementary systems that also need to be covered within the workflows.
 
 ---
 
 ## Start using IdLE
 
-- If you want to run IdLE now: start with [Quick Start](../use/quickstart).
-- If you want a guided path: follow the [Walkthrough](../use/walkthrough/01-workflow-definition).
-- If you want the architecture and responsibility model: read [Concepts](./concepts).
+- If you want to **run IdLE now**: start with [Quick Start](../use/quickstart).
+- If you want a **guided path**: follow the [Walkthrough](../use/walkthrough/01-workflow-definition).
+- If you want the **architecture and responsibility model**: read [Concepts](./concepts).
 
 ---
 
@@ -68,4 +69,6 @@ Workflows and requests remain data-only.
   - [Installation](../use/installation.md)
   - [QuickStart](../use/quickstart.md)
   - [Walkthrough - Step 1: Workflow Definition](../use/walkthrough/01-workflow-definition.md)
-- [Reference](../reference/intro-reference.md)
+- More details on
+  - [Concepts](./concepts)
+  - [Security](./security.md)

@@ -35,6 +35,7 @@ Get-InstalledModule IdLE, IdLE.Core, IdLE.Steps.Common -ErrorAction SilentlyCont
 Install-Module -Name IdLE -Scope CurrentUser -Force
 Import-Module -Name IdLE
 ```
+
 :::
 
 ---
@@ -42,6 +43,7 @@ Import-Module -Name IdLE
 ## Install optional modules
 
 Providers and additional step modules are published as separate modules and can be installed independently.
+See the [reference](../reference/intro-reference.md) for further details on [Steps](../reference/steps.md) and [Providers](../reference/providers.md).
 
 ```powershell
 # Provider modules (examples)
@@ -58,18 +60,17 @@ Install-Module -Name IdLE.Provider.Mock -Scope CurrentUser
 
 Import only what you need:
 
-```powershell
-Import-Module -Name IdLE.Provider.Mock
-Import-Module -Name IdLE.Provider.AD
-```
-
 :::tip
 If a workflow references a StepType from an optional steps module, that steps module must be installed and imported in the host session.
 :::
 
 ---
 
-## Install from repository source (contributors)
+## Install from repository source
+
+:::info
+This installation method is primarily for fetching full example files or testing and contributors.
+:::
 
 This path is intended for development and contribution scenarios.
 
@@ -77,11 +78,14 @@ This path is intended for development and contribution scenarios.
 git clone https://github.com/blindzero/IdentityLifecycleEngine
 cd IdentityLifecycleEngine
 
-# Import meta module (bootstraps module discovery for repo layout)
+# Import meta module
 Import-Module ./src/IdLE/IdLE.psd1 -Force
 ```
 
-After importing from source, you can import additional modules by name:
+:::info
+The meta module bootstraps module discovery repo layout. Be aware of using this in parallel to IdLE installed as a module. \
+After importing from source, you can import additional modules by name.
+:::
 
 ```powershell
 Import-Module IdLE.Provider.Mock -Force
@@ -93,8 +97,11 @@ Import-Module IdLE.Steps.Mailbox -Force
 ## Verify installation
 
 ```powershell
-Get-Module IdLE -ListAvailable | Select-Object Name, Version, Path
+Get-Module IdLE* -ListAvailable | Select-Object Name, Version, Path
+# Public facing main user Commands
 Get-Command -Module IdLE | Sort-Object Name
+# Public interface functions from modules
+Get-Command -Module IdLE.* | Sort-Object Name
 ```
 
 ---

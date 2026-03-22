@@ -18,6 +18,20 @@ Plan export is useful to:
 
 ---
 
+## Export a plan
+
+```powershell
+$request = New-IdleRequest -LifecycleEvent 'Joiner' -CorrelationId (New-Guid) -IdentityKeys @{
+	EmployeeId = '12345'
+} -Intent @{
+	Department = 'IT'
+}
+
+$plan = New-IdlePlan -WorkflowPath ./workflows/joiner.psd1 -Request $request
+
+Export-IdlePlan -Plan $plan -Path ./artifacts/plan.json
+```
+
 ## What a plan export contains
 
 A plan export typically includes:
@@ -32,6 +46,66 @@ A plan export typically includes:
 A plan export is an **execution contract**. It is designed to be reviewed and approved before it runs.
 Providers and authentication are always supplied by the host at execution time.
 :::
+
+---
+
+## Example export
+
+```json
+{
+	"schemaVersion": "1.0",
+	"engine": {
+		"name": "IdLE"
+	},
+	"request": {
+		"type": "Joiner",
+		"correlationId": "123e4567-e89b-12d3-a456-426614174000",
+		"actor": "HR-System",
+		"input": {
+			"identityKeys": {
+				"userId": "jdoe"
+			},
+			"intent": {
+				"department": "IT"
+			},
+			"context": {
+				"Identity": {
+					"ObjectId": "abc-123"
+				}
+			}
+		}
+	},
+	"plan": {
+		"id": "plan-001",
+		"mode": "PlanOnly",
+		"steps": [
+			{
+				"id": "step-01",
+				"name": "Ensure Mailbox",
+				"stepType": "EnsureMailbox",
+				"provider": "ExchangeOnline",
+				"condition": {
+					"type": "when",
+					"expression": "request.type == 'Joiner'"
+				},
+				"inputs": {
+					"mailboxType": "User"
+				},
+				"expectedState": {
+					"MailboxExists": true
+				}
+			}
+		]
+	},
+	"metadata": {
+		"generatedBy": "Invoke-IdlePlan",
+		"environment": "CI",
+		"labels": ["preview", "dry-run"]
+	}
+}
+```
+
+See the full JSON contract in [docs/reference/specs/plan-export.md](docs/reference/specs/plan-export.md).
 
 ---
 
