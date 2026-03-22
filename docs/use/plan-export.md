@@ -29,6 +29,9 @@ $request = New-IdleRequest -LifecycleEvent 'Joiner' -CorrelationId (New-Guid) -A
 
 $plan = New-IdlePlan -WorkflowPath ./workflows/joiner.psd1 -Request $request
 
+# Create the output directory if it does not already exist
+New-Item -ItemType Directory -Force -Path ./artifacts | Out-Null
+
 Export-IdlePlan -Plan $plan -Path ./artifacts/plan.json
 ```
 
