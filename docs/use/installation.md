@@ -97,7 +97,7 @@ Import-Module IdLE.Steps.Mailbox -Force
 
 ```powershell
 Get-Module IdLE* -ListAvailable | Select-Object Name, Version, Path
-# Public facing main user Commands
+# Public-facing user commands
 Get-Command -Module IdLE | Sort-Object Name
 # Public interface functions from modules
 Get-Command -Module IdLE.* | Sort-Object Name
