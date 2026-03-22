@@ -22,9 +22,9 @@ Plan export is useful to:
 
 ```powershell
 $request = New-IdleRequest -LifecycleEvent 'Joiner' -CorrelationId (New-Guid) -IdentityKeys @{
-	EmployeeId = '12345'
+    EmployeeId = '12345'
 } -Intent @{
-	Department = 'IT'
+    Department = 'IT'
 }
 
 $plan = New-IdlePlan -WorkflowPath ./workflows/joiner.psd1 -Request $request
@@ -53,59 +53,59 @@ Providers and authentication are always supplied by the host at execution time.
 
 ```json
 {
-	"schemaVersion": "1.0",
-	"engine": {
-		"name": "IdLE"
-	},
-	"request": {
-		"type": "Joiner",
-		"correlationId": "123e4567-e89b-12d3-a456-426614174000",
-		"actor": "HR-System",
-		"input": {
-			"identityKeys": {
-				"userId": "jdoe"
-			},
-			"intent": {
-				"department": "IT"
-			},
-			"context": {
-				"Identity": {
-					"ObjectId": "abc-123"
-				}
-			}
-		}
-	},
-	"plan": {
-		"id": "plan-001",
-		"mode": "PlanOnly",
-		"steps": [
-			{
-				"id": "step-01",
-				"name": "Ensure Mailbox",
-				"stepType": "EnsureMailbox",
-				"provider": "ExchangeOnline",
-				"condition": {
-					"type": "when",
-					"expression": "request.type == 'Joiner'"
-				},
-				"inputs": {
-					"mailboxType": "User"
-				},
-				"expectedState": {
-					"MailboxExists": true
-				}
-			}
-		]
-	},
-	"metadata": {
-		"generatedBy": "Invoke-IdlePlan",
-		"environment": "CI",
-		"labels": ["preview", "dry-run"]
-	}
+    "schemaVersion": "1.0",
+    "engine": {
+        "name": "IdLE"
+    },
+    "request": {
+        "type": "Joiner",
+        "correlationId": "123e4567-e89b-12d3-a456-426614174000",
+        "actor": "HR-System",
+        "input": {
+            "identityKeys": {
+                "userId": "jdoe"
+            },
+            "intent": {
+                "department": "IT"
+            },
+            "context": {
+                "Identity": {
+                    "ObjectId": "abc-123"
+                }
+            }
+        }
+    },
+    "plan": {
+        "id": "plan-001",
+        "mode": "PlanOnly",
+        "steps": [
+            {
+                "id": "step-01",
+                "name": "Ensure Mailbox",
+                "stepType": "EnsureMailbox",
+                "provider": "ExchangeOnline",
+                "condition": {
+                    "type": "when",
+                    "expression": "request.type == 'Joiner'"
+                },
+                "inputs": {
+                    "mailboxType": "User"
+                },
+                "expectedState": {
+                    "MailboxExists": true
+                }
+            }
+        ]
+    },
+    "metadata": {
+        "generatedBy": "Invoke-IdlePlan",
+        "environment": "CI",
+        "labels": ["preview", "dry-run"]
+    }
 }
 ```
 
-See the full JSON contract in [docs/reference/specs/plan-export.md](docs/reference/specs/plan-export.md).
+See the full JSON contract in [plan-export reference](../reference/specs/plan-export.md).
 
 ---
 
