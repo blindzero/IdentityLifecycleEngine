@@ -101,6 +101,11 @@ Providers and authentication are always supplied by the host at execution time.
 }
 ```
 
+In this example, `metadata.environment` is `null` and `metadata.labels` is an empty array because
+`Export-IdlePlanObject` does not infer or populate these fields automatically. They are part of the
+exported contract so that your host or automation (for example, a CI pipeline or runbook) can add
+environment information and labels (such as change ticket IDs, deployment rings, or business tags)
+as needed before storing or executing the plan.
 See the full JSON contract in [plan-export reference](../reference/specs/plan-export.md).
 
 ---
