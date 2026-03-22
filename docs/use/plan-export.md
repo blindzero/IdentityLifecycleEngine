@@ -63,21 +63,17 @@ Providers and authentication are always supplied by the host at execution time.
         "actor": "HR-System",
         "input": {
             "identityKeys": {
-                "userId": "jdoe"
+                "EmployeeId": "12345"
             },
             "intent": {
-                "department": "IT"
+                "Department": "IT"
             },
-            "context": {
-                "Identity": {
-                    "ObjectId": "abc-123"
-                }
-            }
+            "context": {}
         }
     },
     "plan": {
-        "id": "plan-001",
-        "mode": "PlanOnly",
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "mode": null,
         "steps": [
             {
                 "id": "step-01",
@@ -85,22 +81,22 @@ Providers and authentication are always supplied by the host at execution time.
                 "stepType": "EnsureMailbox",
                 "provider": "ExchangeOnline",
                 "condition": {
-                    "type": "when",
-                    "expression": "request.type == 'Joiner'"
+                    "type": "always",
+                    "expression": null
                 },
                 "inputs": {
                     "mailboxType": "User"
                 },
-                "expectedState": {
-                    "MailboxExists": true
-                }
+                "expectedState": null,
+                "warnings": []
             }
-        ]
+        ],
+        "warnings": []
     },
     "metadata": {
         "generatedBy": "Export-IdlePlanObject",
-        "environment": "CI",
-        "labels": ["preview", "dry-run"]
+        "environment": null,
+        "labels": []
     }
 }
 ```
