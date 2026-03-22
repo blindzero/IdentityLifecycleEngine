@@ -21,7 +21,7 @@ Plan export is useful to:
 ## Export a plan
 
 ```powershell
-$request = New-IdleRequest -LifecycleEvent 'Joiner' -CorrelationId (New-Guid) -IdentityKeys @{
+$request = New-IdleRequest -LifecycleEvent 'Joiner' -CorrelationId (New-Guid) -Actor 'HR-System' -IdentityKeys @{
     EmployeeId = '12345'
 } -Intent @{
     Department = 'IT'

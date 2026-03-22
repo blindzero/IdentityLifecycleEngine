@@ -166,7 +166,7 @@ This bound prevents unbounded snapshot artifacts while keeping the marker audita
 ```json
 "plan": {
   "id": "plan-001",
-  "mode": "PlanOnly",
+  "mode": null,
   "steps": []
 }
 ```
@@ -177,7 +177,7 @@ This bound prevents unbounded snapshot artifacts while keeping the marker audita
 | ------ | ------------ |
 | id | Unique identifier of the plan |
 | createdAt | (Optional) ISO-8601 UTC timestamp |
-| mode | Plan lifecycle state |
+| mode | Plan lifecycle state (`null` when not explicitly set on the plan object) |
 | steps | Ordered list of step objects |
 
 ---
