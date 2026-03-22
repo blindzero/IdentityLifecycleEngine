@@ -68,7 +68,7 @@ Providers and authentication are always supplied by the host at execution time.
             "intent": {
                 "Department": "IT"
             },
-            "context": null
+            "context": {}
         }
     },
     "plan": {
