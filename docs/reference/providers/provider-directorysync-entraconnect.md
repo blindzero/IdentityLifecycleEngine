@@ -66,46 +66,44 @@ $providers = @{
 }
 ```
 
-## Authentication (important)
+## Authentication
 
 This provider requires an AuthSession credential ([PSCredential]) and **must be elevated**.
 The provider creates and cleans up PSRemoting sessions internally.
 
-Your host/runtime should provide this credential via the AuthSessionBroker and you reference it in the step via:
+By default, the AD provider uses the run-as identity (integrated authentication).
+For explicit runtime credential selection, use the AuthSessionBroker and pass an AuthSession via step configuration:
 
-- `Provider = 'DirectorySync'`
-- `AuthSessionName = 'EntraConnect'`
-- `AuthSessionOptions = @{ Role = 'Admin' }` (optional, recommended for role-scoped session routing)
-- `ComputerName = 'ad-sync1.corp.local'`
-- `PolicyType = 'Delta'`
+- With.AuthSessionName
+- With.AuthSessionOptions (optional)
 
-> No interactive prompts are made. If the credential does not have elevated rights on the target server, triggering a sync cycle will fail with a privilege/elevation error.
+> Keep credentials/secrets out of workflow files. Use the broker/host to resolve them at runtime.
 
-## Supported operations
+## Supported Step Types
 
-This provider advertises these capabilities:
+The Directory Sync (Entra Connect) provider supports the common identity lifecycle and entitlement operations used by these step types:
 
-- `IdLE.DirectorySync.Trigger`
-- `IdLE.DirectorySync.Status`
-
-Those are typically used by step types like:
-
-- `IdLE.Step.TriggerDirectorySync` (trigger + optional wait/poll)
+| Step type | Typical use | Notes |
+| --- | --- | --- |
+| `IdLE.Step.TriggerDirectorySync` | Trigger Directory Sync | Initiated by PSRemote session execution, with optional wait/poll |
 
 ## Context Resolvers
 
 This provider does **not** support any of the allowlisted Context Resolver capabilities.
 
-Context Resolvers can only use read-only capabilities like `IdLE.Identity.Read` and `IdLE.Entitlement.List`.
-This provider does not advertise these capabilities, so it cannot be used in the workflow `ContextResolvers` section.
-
 ## Configuration
 
-This provider has no admin-facing option bag. Configuration is done through:
-- step inputs (`ComputerName`, `PolicyType`, `Wait`, `TimeoutSeconds`, `PollIntervalSeconds`)
-- host configuration (credential broker)
+### Options reference
 
-## Examples (canonical template)
+| Option | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `ComputerName` | `string` | `` | ComputerName for PSSession connection |
+| `PolicyType` | `string` | `Delta` | `Delta` or `Full` sync policy |
+| `Wait` | `bool` | `true` | Poll sync status and wait for result (or timeout) |
+| `PollIntervalSeconds` | `int` | `10` | Interval in seconds to poll for sync status |
+| `TimeoutSeconds` | `int` | `600` | Timeout for poll wait in seconds. Will result in `StepFailed` |
+
+## Examples
 
 <CodeBlock language="powershell" title="examples/workflows/templates/directorysync-entraconnect-trigger-sync.psd1">{EntraConnectTriggerSync}</CodeBlock>
 
