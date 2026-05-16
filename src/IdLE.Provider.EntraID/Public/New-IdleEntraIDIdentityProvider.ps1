@@ -996,49 +996,83 @@ function New-IdleEntraIDIdentityProvider {
         $accessToken = $this.ExtractAccessToken($AuthSession)
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
-        $operations = @()
+        # Split entitlements by kind: Groups use the Graph $batch path; AUs are processed per-item
+        # (no Graph batch API exists for Administrative Unit membership changes).
+        $groupOperations            = @()
+        $administrativeUnitResults  = @()
+
         foreach ($ent in $Entitlements) {
             $normalized = $this.ConvertToEntitlement($ent)
-            if ($null -ne $normalized.Kind -and $normalized.Kind -ne 'Group') {
+            if (-not $normalized.Kind) { $normalized.Kind = 'Group' }
+
+            if ($normalized.Kind -eq 'Group') {
+                $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
+                $normalized.Id = $groupObjectId
+                $groupOperations += @{
+                    RequestId     = [guid]::NewGuid().ToString('N').Substring(0, 8)
+                    GroupObjectId = $groupObjectId
+                    UserObjectId  = $user.id
+                    Action        = 'remove'
+                    Entitlement   = $normalized
+                }
+            }
+            elseif ($normalized.Kind -eq 'AdministrativeUnit') {
+                $auObjectId = $this.ResolveAdministrativeUnit($normalized.Id, $AuthSession)
+                $normalized.Id = $auObjectId
+                try {
+                    $changed = [bool]$this.Adapter.RemoveAdministrativeUnitMember($auObjectId, $user.id, $accessToken)
+                    $administrativeUnitResults += [pscustomobject]@{
+                        PSTypeName  = 'IdLE.BulkProviderResult'
+                        Operation   = 'RevokeEntitlement'
+                        IdentityKey = $IdentityKey
+                        Changed     = $changed
+                        Error       = $null
+                        Entitlement = $normalized
+                    }
+                }
+                catch {
+                    $administrativeUnitResults += [pscustomobject]@{
+                        PSTypeName  = 'IdLE.BulkProviderResult'
+                        Operation   = 'RevokeEntitlement'
+                        IdentityKey = $IdentityKey
+                        Changed     = $false
+                        Error       = $_.Exception.Message
+                        Entitlement = $normalized
+                    }
+                }
+            }
+            else {
                 throw [System.ArgumentException]::new(
-                    "BulkRevokeEntitlements only supports entitlements with Kind 'Group'. Received Kind '$($normalized.Kind)'."
+                    "BulkRevokeEntitlements only supports entitlements with Kind 'Group' or 'AdministrativeUnit'. Received Kind '$($normalized.Kind)'."
                 )
             }
-            $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
-            $normalized.Id = $groupObjectId
-            $operations += @{
-                RequestId     = [guid]::NewGuid().ToString('N').Substring(0, 8)
-                GroupObjectId = $groupObjectId
-                UserObjectId  = $user.id
-                Action        = 'remove'
-                Entitlement   = $normalized
-            }
-        }
-
-        if ($operations.Count -eq 0) {
-            return @()
-        }
-
-        $batchResults = $this.Adapter.BatchMembershipChanges($operations, $accessToken)
-
-        # Build lookup table for operations by RequestId to avoid O(n²) Where-Object scans
-        $operationByRequestId = @{}
-        foreach ($op in $operations) {
-            $operationByRequestId[$op.RequestId] = $op
         }
 
         $results = @()
-        foreach ($br in $batchResults) {
-            $op = $operationByRequestId[$br.RequestId]
-            $results += [pscustomobject]@{
-                PSTypeName  = 'IdLE.BulkProviderResult'
-                Operation   = 'RevokeEntitlement'
-                IdentityKey = $IdentityKey
-                Changed     = $br.Changed
-                Error       = $br.Error
-                Entitlement = $op.Entitlement
+
+        if ($groupOperations.Count -gt 0) {
+            $batchResults = $this.Adapter.BatchMembershipChanges($groupOperations, $accessToken)
+
+            # Build lookup table by RequestId to avoid O(n²) Where-Object scans
+            $operationByRequestId = @{}
+            foreach ($op in $groupOperations) {
+                $operationByRequestId[$op.RequestId] = $op
+            }
+
+            foreach ($br in $batchResults) {
+                $op = $operationByRequestId[$br.RequestId]
+                $results += [pscustomobject]@{
+                    PSTypeName  = 'IdLE.BulkProviderResult'
+                    Operation   = 'RevokeEntitlement'
+                    IdentityKey = $IdentityKey
+                    Changed     = $br.Changed
+                    Error       = $br.Error
+                    Entitlement = $op.Entitlement
+                }
             }
         }
+
+        $results += $administrativeUnitResults
         return $results
     } -Force
 

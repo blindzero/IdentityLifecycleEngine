@@ -199,7 +199,8 @@ Administrative Units (AUs) are modelled as `Kind = 'AdministrativeUnit'` entitle
 
 - Administrative Units must be **pre-created in Entra** before being referenced in a workflow. The provider validates AU existence and throws a clear, actionable error if the AU is not found.
 - AUs can be referenced by **object ID (GUID)** or by **displayName**. Display-name lookup is supported for convenience, but AU display names are not guaranteed to be unique within a tenant — if multiple AUs share the same name, the provider throws an error and requires the object ID to be used instead.
-- Bulk operations (`BulkGrantEntitlements` / `BulkRevokeEntitlements`) are Group-only and do not support `Kind = 'AdministrativeUnit'`. Use individual `GrantEntitlement` / `RevokeEntitlement` calls for AU membership changes.
+- `BulkGrantEntitlements` is Group-only and does not support `Kind = 'AdministrativeUnit'` (the Graph batch API uses group-specific URLs). Use individual `GrantEntitlement` calls for AU membership changes.
+- `BulkRevokeEntitlements` supports both `Kind = 'Group'` (batch path) and `Kind = 'AdministrativeUnit'` (per-item path, no batch API exists for AUs). Mixed-kind batches are accepted.
 
 ### Graph endpoints used
 

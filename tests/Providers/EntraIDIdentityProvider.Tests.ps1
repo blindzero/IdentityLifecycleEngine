@@ -1094,6 +1094,58 @@ Describe 'EntraID identity provider - Entitlement operations' {
             $results[0].Error | Should -BeNullOrEmpty
         }
 
+        It 'BulkRevokeEntitlements removes an AdministrativeUnit membership and returns Changed=$true' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'AdministrativeUnit'; Id = $auId }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $true
+            $results[0].Error | Should -BeNullOrEmpty
+            $results[0].Entitlement.Kind | Should -Be 'AdministrativeUnit'
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 0
+        }
+
+        It 'BulkRevokeEntitlements is idempotent for AdministrativeUnit (not a member → Changed=$false)' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'AdministrativeUnit'; Id = $auId }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $false
+            $results[0].Error | Should -BeNullOrEmpty
+        }
+
+        It 'BulkRevokeEntitlements handles mixed Group and AdministrativeUnit in a single call' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $groupId = [guid]::NewGuid().ToString()
+            $auId    = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group';               Id = $groupId })
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId    })
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'Group';               Id = $groupId },
+                @{ Kind = 'AdministrativeUnit'; Id = $auId    }
+            ))
+
+            @($results).Count | Should -Be 2
+            ($results | Where-Object { $_.Changed -eq $true }).Count | Should -Be 2
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $groupId }).Count | Should -Be 0
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 0
+        }
+
         It 'GrantEntitlement returns stable result shape with Kind=AdministrativeUnit' {
             $userId = [guid]::NewGuid().ToString()
             [void]$script:EntProvider.GetIdentity($userId)

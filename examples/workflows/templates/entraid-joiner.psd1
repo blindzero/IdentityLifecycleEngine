@@ -45,9 +45,8 @@
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
                 Entitlement        = @{
-                    Kind        = 'Group'
-                    Id          = '{{Request.Intent.AllEmployeesGroupId}}'
-                    DisplayName = '{{Request.Intent.AllEmployeesGroupName}}'
+                    Kind = 'Group'
+                    Id   = '{{Request.Intent.AllEmployeesGroupId}}'
                 }
                 State              = 'Present'
             }
@@ -61,9 +60,8 @@
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
                 Entitlement        = @{
-                    Kind        = 'Group'
-                    Id          = '{{Request.Intent.DepartmentGroupId}}'
-                    DisplayName = '{{Request.Intent.DepartmentGroupName}}'
+                    Kind = 'Group'
+                    Id   = '{{Request.Intent.DepartmentGroupId}}'
                 }
                 State              = 'Present'
             }
@@ -148,9 +146,8 @@
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
                 Entitlement        = @{
-                    Kind        = 'Group'
-                    Id          = '{{Request.Intent.DepartmentGroupId}}'
-                    DisplayName = '{{Request.Intent.DepartmentGroupName}}'
+                    Kind = 'Group'
+                    Id   = '{{Request.Intent.DepartmentGroupId}}'
                 }
                 State              = 'Present'
             }
@@ -174,9 +171,8 @@
                 AuthSessionOptions = @{ Role = 'Admin' }
                 IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
                 Entitlement        = @{
-                    Kind        = 'Group'
-                    Id          = '{{Request.Intent.ProjectGroupId}}'
-                    DisplayName = '{{Request.Intent.ProjectGroupName}}'
+                    Kind = 'Group'
+                    Id   = '{{Request.Intent.ProjectGroupId}}'
                 }
                 State              = 'Present'
             }
