@@ -30,10 +30,6 @@ Describe 'Entra Connect directory sync provider contracts' {
         BeforeEach {
             $script:Provider = New-IdleEntraConnectDirectorySyncProvider
             $script:ComputerName = 'ad-sync1.corp.local'
-            $script:ProviderInput = @{
-                ComputerName = $script:ComputerName
-                PolicyType = 'Delta'
-            }
             $script:MockCredential = [PSCredential]::new(
                 'contoso\syncadmin',
                 (ConvertTo-SecureString -String 'P@ssw0rd!' -AsPlainText -Force)
@@ -69,8 +65,8 @@ Describe 'Entra Connect directory sync provider contracts' {
             $script:Provider.PSObject.Methods.Name | Should -Contain 'StartSyncCycle'
         }
 
-        It 'StartSyncCycle accepts ProviderInput and AuthSession parameters' {
-            $result = $script:Provider.StartSyncCycle($script:ProviderInput, $script:MockCredential)
+        It 'StartSyncCycle accepts PolicyType, ComputerName, and AuthSession parameters' {
+            $result = $script:Provider.StartSyncCycle('Delta', $script:ComputerName, $script:MockCredential)
 
             $result | Should -Not -BeNullOrEmpty
             $result.PSObject.Properties.Name | Should -Contain 'Started'
@@ -80,25 +76,17 @@ Describe 'Entra Connect directory sync provider contracts' {
             $script:Provider.RemovedSession | Should -Be $script:MockSession
         }
 
-        It 'StartSyncCycle validates ProviderInput.PolicyType' {
-            $providerInput = @{
-                ComputerName = $script:ComputerName
-                PolicyType = 'Invalid'
-            }
-            { $script:Provider.StartSyncCycle($providerInput, $script:MockCredential) } | Should -Throw -ErrorId * -ExpectedMessage '*PolicyType*'
+        It 'StartSyncCycle validates PolicyType' {
+            { $script:Provider.StartSyncCycle('Invalid', $script:ComputerName, $script:MockCredential) } | Should -Throw
         }
 
-        It 'StartSyncCycle validates ProviderInput.ComputerName' {
-            $providerInput = @{
-                ComputerName = ''
-                PolicyType = 'Delta'
-            }
-            { $script:Provider.StartSyncCycle($providerInput, $script:MockCredential) } | Should -Throw -ErrorId * -ExpectedMessage '*ComputerName*'
+        It 'StartSyncCycle validates ComputerName' {
+            { $script:Provider.StartSyncCycle('Delta', '', $script:MockCredential) } | Should -Throw -ErrorId * -ExpectedMessage '*ComputerName*'
         }
 
         It 'StartSyncCycle validates AuthSession is PSCredential' {
             $badSession = [pscustomobject]@{ Name = 'BadSession' }
-            { $script:Provider.StartSyncCycle($script:ProviderInput, $badSession) } | Should -Throw -ErrorId * -ExpectedMessage '*PSCredential*'
+            { $script:Provider.StartSyncCycle('Delta', $script:ComputerName, $badSession) } | Should -Throw -ErrorId * -ExpectedMessage '*PSCredential*'
         }
 
         It 'StartSyncCycle always closes remoting session' {
@@ -107,7 +95,7 @@ Describe 'Entra Connect directory sync provider contracts' {
                 throw 'remote failure'
             } -Force
 
-            { $script:Provider.StartSyncCycle($script:ProviderInput, $script:MockCredential) } | Should -Throw
+            { $script:Provider.StartSyncCycle('Delta', $script:ComputerName, $script:MockCredential) } | Should -Throw
             $script:Provider.RemovedSession | Should -Be $script:MockSession
         }
 
@@ -115,8 +103,8 @@ Describe 'Entra Connect directory sync provider contracts' {
             $script:Provider.PSObject.Methods.Name | Should -Contain 'GetSyncCycleState'
         }
 
-        It 'GetSyncCycleState accepts ProviderInput and AuthSession parameters' {
-            $result = $script:Provider.GetSyncCycleState($script:ProviderInput, $script:MockCredential)
+        It 'GetSyncCycleState accepts ComputerName and AuthSession parameters' {
+            $result = $script:Provider.GetSyncCycleState($script:ComputerName, $script:MockCredential)
 
             $result | Should -Not -BeNullOrEmpty
             $result.PSObject.Properties.Name | Should -Contain 'InProgress'
@@ -128,22 +116,18 @@ Describe 'Entra Connect directory sync provider contracts' {
         }
 
         It 'GetSyncCycleState returns correct InProgress value' {
-            $result = $script:Provider.GetSyncCycleState($script:ProviderInput, $script:MockCredential)
+            $result = $script:Provider.GetSyncCycleState($script:ComputerName, $script:MockCredential)
 
             $result.InProgress | Should -BeOfType [bool]
         }
 
-        It 'GetSyncCycleState validates ProviderInput.ComputerName' {
-            $providerInput = @{
-                ComputerName = ''
-                PolicyType = 'Delta'
-            }
-            { $script:Provider.GetSyncCycleState($providerInput, $script:MockCredential) } | Should -Throw -ErrorId * -ExpectedMessage '*ComputerName*'
+        It 'GetSyncCycleState validates ComputerName' {
+            { $script:Provider.GetSyncCycleState('', $script:MockCredential) } | Should -Throw -ErrorId * -ExpectedMessage '*ComputerName*'
         }
 
         It 'GetSyncCycleState validates AuthSession is PSCredential' {
             $badSession = [pscustomobject]@{ Name = 'BadSession' }
-            { $script:Provider.GetSyncCycleState($script:ProviderInput, $badSession) } | Should -Throw -ErrorId * -ExpectedMessage '*PSCredential*'
+            { $script:Provider.GetSyncCycleState($script:ComputerName, $badSession) } | Should -Throw -ErrorId * -ExpectedMessage '*PSCredential*'
         }
 
         It 'GetSyncCycleState always closes remoting session' {
@@ -152,7 +136,7 @@ Describe 'Entra Connect directory sync provider contracts' {
                 throw 'remote failure'
             } -Force
 
-            { $script:Provider.GetSyncCycleState($script:ProviderInput, $script:MockCredential) } | Should -Throw
+            { $script:Provider.GetSyncCycleState($script:ComputerName, $script:MockCredential) } | Should -Throw
             $script:Provider.RemovedSession | Should -Be $script:MockSession
         }
     }

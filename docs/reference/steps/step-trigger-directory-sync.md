@@ -19,9 +19,9 @@ Triggers a directory sync cycle and optionally waits for completion.
 The host must supply a provider instance via
 Context.Providers[&lt;ProviderAlias&gt;] that implements:
 
-- StartSyncCycle(ProviderInput, AuthSession)
+- StartSyncCycle(PolicyType, ComputerName, AuthSession)
 
-- GetSyncCycleState(ProviderInput, AuthSession)
+- GetSyncCycleState(ComputerName, AuthSession)
 
 The step is designed for remote execution and requires an elevated auth session
 provided by the host's AuthSessionBroker.
@@ -41,7 +41,8 @@ The following keys are required in the step's ``With`` configuration:
 | Key | Required | Description |
 | --- | --- | --- |
 | `AuthSessionName` | Yes | Name of auth session to use (optional) |
-| `ProviderInput` | Yes | See step description for details |
+| `ComputerName` | Yes | See step description for details |
+| `PolicyType` | Yes | Type of policy (e.g., Delta, Initial) |
 
 ## Example
 
@@ -51,10 +52,8 @@ $step = @{
     Type = 'IdLE.Step.TriggerDirectorySync'
     With = @{
         AuthSessionName = 'DirectorySync'
-        ProviderInput = @{
-            ComputerName = 'ad-sync1.corp.local'
-            PolicyType = 'Delta'
-        }
+        ComputerName = 'ad-sync1.corp.local'
+        PolicyType = 'Delta'
         Wait = $true
     }
 }

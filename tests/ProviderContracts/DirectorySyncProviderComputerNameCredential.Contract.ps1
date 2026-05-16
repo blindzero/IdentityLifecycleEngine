@@ -62,12 +62,8 @@ function Invoke-IdleDirectorySyncProviderComputerNameCredentialContractTests {
             } -Force
         }
 
-        It 'StartSyncCycle accepts ProviderInput and Credential' {
-            $providerInput = @{
-                ComputerName = 'ad-sync1.corp.local'
-                PolicyType = 'Delta'
-            }
-            $result = $script:Provider.StartSyncCycle($providerInput, $script:Credential)
+        It 'StartSyncCycle accepts ComputerName and Credential auth session' {
+            $result = $script:Provider.StartSyncCycle('Delta', 'ad-sync1.corp.local', $script:Credential)
 
             $result.Started | Should -BeTrue
             $script:Provider.LastComputerName | Should -Be 'ad-sync1.corp.local'
@@ -75,11 +71,8 @@ function Invoke-IdleDirectorySyncProviderComputerNameCredentialContractTests {
             $script:Provider.RemovedSession | Should -Be $script:MockSession
         }
 
-        It 'GetSyncCycleState accepts ProviderInput and Credential' {
-            $providerInput = @{
-                ComputerName = 'ad-sync1.corp.local'
-            }
-            $result = $script:Provider.GetSyncCycleState($providerInput, $script:Credential)
+        It 'GetSyncCycleState accepts ComputerName and Credential auth session' {
+            $result = $script:Provider.GetSyncCycleState('ad-sync1.corp.local', $script:Credential)
 
             $result.InProgress | Should -BeFalse
             $script:Provider.LastComputerName | Should -Be 'ad-sync1.corp.local'
