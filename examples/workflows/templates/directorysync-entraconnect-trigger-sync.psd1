@@ -10,7 +10,7 @@
             With = @{
                 Provider            = 'DirectorySync'
 
-                # Auth session is provided by the host (credential).
+                # Auth session is provided by the host (credential), with an optional routing key.
                 AuthSessionName     = 'EntraConnect'
                 AuthSessionOptions  = @{
                     Role = 'EntraConnectAdmin'
