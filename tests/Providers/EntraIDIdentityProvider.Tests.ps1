@@ -173,6 +173,11 @@ Describe 'EntraID identity provider - Contract tests' {
             return @{ id = $AuId; displayName = "AU $AuId" }
         }
 
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+            param($DisplayName, $AccessToken)
+            return @{ id = "resolved-au-$DisplayName"; displayName = $DisplayName }
+        }
+
         $mockAdapter | Add-Member -MemberType ScriptMethod -Name ListUserAdministrativeUnits -Value {
             param($ObjectId, $AccessToken)
             $key = "aus:$ObjectId"
@@ -712,6 +717,79 @@ Describe 'EntraID identity provider - Group resolution' {
     }
 }
 
+Describe 'EntraID identity provider - Administrative Unit resolution' {
+    BeforeEach {
+        $mockAdapter = [pscustomobject]@{
+            PSTypeName = 'IdLE.EntraIDAdapter.Mock'
+        }
+
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+            param($AuId, $AccessToken)
+            $guid = [System.Guid]::Empty
+            if ([System.Guid]::TryParse($AuId, [ref]$guid)) {
+                return @{ id = $AuId; displayName = "AU $AuId" }
+            }
+            return $null
+        }
+
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+            param($DisplayName, $AccessToken)
+            if ($DisplayName -eq 'AmbiguousAU') {
+                throw "Multiple Administrative Units found with displayName '$DisplayName'. Use objectId for deterministic lookup."
+            }
+            if ($DisplayName -eq 'MissingAU') {
+                return $null
+            }
+            return @{ id = "resolved-au-$DisplayName"; displayName = $DisplayName }
+        }
+
+        $script:AuTestAdapter = $mockAdapter
+    }
+
+    Context 'Lookups' {
+        It 'Resolves Administrative Unit by objectId' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            $auGuid = [guid]::NewGuid().ToString()
+            $resolvedId = $provider.ResolveAdministrativeUnit($auGuid, 'mock-token')
+
+            $resolvedId | Should -Be $auGuid
+        }
+
+        It 'Resolves Administrative Unit by displayName' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            $resolvedId = $provider.ResolveAdministrativeUnit('EU Region Admins', 'mock-token')
+            $resolvedId | Should -Be 'resolved-au-EU Region Admins'
+        }
+
+        It 'Throws when GUID objectId is not found' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            $missingGuid = [guid]::NewGuid().ToString()
+            # Override GetAdministrativeUnitById to return null for this GUID
+            $script:AuTestAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+                param($AuId, $AccessToken)
+                return $null
+            } -Force
+
+            { $provider.ResolveAdministrativeUnit($missingGuid, 'mock-token') } | Should -Throw '*not found*'
+        }
+
+        It 'Throws when displayName is not found' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            { $provider.ResolveAdministrativeUnit('MissingAU', 'mock-token') } | Should -Throw '*not found*'
+        }
+
+        It 'Throws when multiple Administrative Units match displayName' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            { $provider.ResolveAdministrativeUnit('AmbiguousAU', 'mock-token') } | Should -Throw '*Multiple Administrative Units found*'
+        }
+    }
+}
+
 Describe 'EntraID identity provider - Entitlement operations' {
     BeforeAll {
         function New-MockEntraIDAdapterForEntitlements {
@@ -757,6 +835,11 @@ Describe 'EntraID identity provider - Entitlement operations' {
             $adapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
                 param($AuId, $AccessToken)
                 return @{ id = $AuId; displayName = "AU $AuId" }
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+                param($DisplayName, $AccessToken)
+                return @{ id = "resolved-au-$DisplayName"; displayName = $DisplayName }
             }
 
             $adapter | Add-Member -MemberType ScriptMethod -Name ListUserAdministrativeUnits -Value {
@@ -1423,7 +1506,7 @@ Describe 'EntraID identity provider - ResolveEntitlement' {
 
     Context 'ResolveEntitlement behavior' {
         BeforeAll {
-            # Mock adapter that returns canonical objectId for groups (mimics real Graph lookup)
+            # Mock adapter that returns canonical objectId for groups and AUs (mimics real Graph lookup)
             $mockAdapter = [pscustomobject]@{ PSTypeName = 'IdLE.EntraIDAdapter.Mock'; Store = @{} }
             $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
                 param($GroupId, $AccessToken)
@@ -1432,6 +1515,14 @@ Describe 'EntraID identity provider - ResolveEntitlement' {
             $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
                 param($DisplayName, $AccessToken)
                 return @{ id = "resolved-$DisplayName"; displayName = $DisplayName }
+            }
+            $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+                param($AuId, $AccessToken)
+                return @{ id = $AuId; displayName = "AU $AuId" }
+            }
+            $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+                param($DisplayName, $AccessToken)
+                return @{ id = "resolved-au-$DisplayName"; displayName = $DisplayName }
             }
             $script:NormProvider = New-IdleEntraIDIdentityProvider -Adapter $mockAdapter
         }
@@ -1449,6 +1540,21 @@ Describe 'EntraID identity provider - ResolveEntitlement' {
             $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'mock-token')
             $result.Kind | Should -Be 'Group'
             $result.Id   | Should -Be 'resolved-HR Team'
+        }
+
+        It 'Normalizes an AdministrativeUnit entitlement with a GUID Id to canonical objectId' {
+            $auGuid = [guid]::NewGuid().ToString()
+            $ent = @{ Kind = 'AdministrativeUnit'; Id = $auGuid }
+            $result = $script:NormProvider.ResolveEntitlement('AdministrativeUnit', $ent, 'mock-token')
+            $result.Kind | Should -Be 'AdministrativeUnit'
+            $result.Id   | Should -Be $auGuid
+        }
+
+        It 'Normalizes an AdministrativeUnit entitlement with a displayName to canonical objectId' {
+            $ent = @{ Kind = 'AdministrativeUnit'; Id = 'EU Region Admins' }
+            $result = $script:NormProvider.ResolveEntitlement('AdministrativeUnit', $ent, 'mock-token')
+            $result.Kind | Should -Be 'AdministrativeUnit'
+            $result.Id   | Should -Be 'resolved-au-EU Region Admins'
         }
 
         It 'Returns entitlement unchanged when Kind is not Group' {

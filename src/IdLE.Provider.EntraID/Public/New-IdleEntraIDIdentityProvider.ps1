@@ -299,6 +299,7 @@ function New-IdleEntraIDIdentityProvider {
 
         $accessToken = $this.ExtractAccessToken($AuthSession)
 
+        # Try as objectId first
         $guid = [System.Guid]::Empty
         if ([System.Guid]::TryParse($AuId, [ref]$guid)) {
             $au = $this.Adapter.GetAdministrativeUnitById($AuId, $accessToken)
@@ -308,7 +309,13 @@ function New-IdleEntraIDIdentityProvider {
             throw "Administrative Unit with objectId '$AuId' not found."
         }
 
-        throw "Administrative Unit '$AuId' is not a valid objectId (GUID). Administrative Units must be referenced by their Entra object ID."
+        # Try as displayName
+        $au = $this.Adapter.GetAdministrativeUnitByDisplayName($AuId, $accessToken)
+        if ($null -ne $au) {
+            return $au.id
+        }
+
+        throw "Administrative Unit '$AuId' not found."
     }
 
     $provider = [pscustomobject]@{

@@ -405,6 +405,34 @@ function New-IdleEntraIDAdapter {
         }
     } -Force
 
+    $adapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $DisplayName,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $encodedName = [System.Net.WebUtility]::UrlEncode($DisplayName)
+        $uri = "$($this.BaseUri)/directory/administrativeUnits?`$filter=displayName eq '$encodedName'"
+        $uri += '&$select=id,displayName'
+
+        $aus = $this.InvokeGraphRequest('GET', $uri, $AccessToken, $null)
+
+        if (-not $aus.value -or $aus.value.Count -eq 0) {
+            return $null
+        }
+
+        if ($aus.value.Count -gt 1) {
+            throw "Multiple Administrative Units found with displayName '$DisplayName'. Use objectId for deterministic lookup."
+        }
+
+        return $aus.value[0]
+    } -Force
+
     $adapter | Add-Member -MemberType ScriptMethod -Name ListUserAdministrativeUnits -Value {
         param(
             [Parameter(Mandatory)]

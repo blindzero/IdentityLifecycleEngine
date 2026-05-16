@@ -197,8 +197,8 @@ Administrative Units (AUs) are modelled as `Kind = 'AdministrativeUnit'` entitle
 
 ### Constraints
 
-- Administrative Units must be **pre-created in Entra** before being referenced in a workflow. The provider validates AU existence and throws a clear, actionable error if the AU ID is not found.
-- AUs are referenced **only by their object ID (GUID)** — display-name lookup is not supported, as AU names are not guaranteed to be unique within a tenant.
+- Administrative Units must be **pre-created in Entra** before being referenced in a workflow. The provider validates AU existence and throws a clear, actionable error if the AU is not found.
+- AUs can be referenced by **object ID (GUID)** or by **displayName**. Display-name lookup is supported for convenience, but AU display names are not guaranteed to be unique within a tenant — if multiple AUs share the same name, the provider throws an error and requires the object ID to be used instead.
 - Bulk operations (`BulkGrantEntitlements` / `BulkRevokeEntitlements`) are Group-only and do not support `Kind = 'AdministrativeUnit'`. Use individual `GrantEntitlement` / `RevokeEntitlement` calls for AU membership changes.
 
 ### Graph endpoints used
@@ -208,7 +208,8 @@ Administrative Units (AUs) are modelled as `Kind = 'AdministrativeUnit'` entitle
 | List | `GET /users/{id}/memberOf/microsoft.graph.administrativeUnit` |
 | Grant | `POST /directory/administrativeUnits/{id}/members/$ref` |
 | Revoke | `DELETE /directory/administrativeUnits/{id}/members/{userId}/$ref` |
-| Validate AU exists | `GET /directory/administrativeUnits/{id}` |
+| Validate AU exists by ID | `GET /directory/administrativeUnits/{id}` |
+| Resolve AU by displayName | `GET /directory/administrativeUnits?$filter=displayName eq '...'` |
 
 ## Configuration
 
@@ -256,4 +257,5 @@ Mover scenarios are integrated as **optional patterns** in the Joiner template.
 - **Auth session not found**: check `AuthSessionName` matches your runtime/broker configuration.
 - **Delete doesn’t work**: deletion is opt-in. Create the provider with `-AllowDelete` and only use delete with a privileged auth role.
 - **Group cleanup is disruptive**: only enable revoke/remove operations when you fully understand the impact (prefer managed allow-lists).
-- **Administrative Unit not found**: the AU object ID must exist in Entra before the workflow runs. The provider throws a descriptive error if the AU is not found — check the GUID and ensure `AdministrativeUnit.Read.All` permission is granted.
+- **Administrative Unit not found**: the AU must exist in Entra before the workflow runs. When referencing by objectId, confirm the GUID is correct. When referencing by displayName, confirm the name matches exactly and `AdministrativeUnit.Read.All` permission is granted.
+- **Multiple AUs match displayName**: AU display names are not unique in Entra. If multiple AUs share the same name, use the objectId (GUID) instead to ensure deterministic lookup.

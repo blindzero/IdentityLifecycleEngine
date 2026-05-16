@@ -10,9 +10,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-
-                # Prefer ObjectId for leaver (stable), but you may also use UPN if your provider supports it.
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
             }
         }
 
@@ -22,7 +20,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
             }
         }
 
@@ -32,7 +30,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
                 Attributes         = @{
                     DisplayName = '{{Request.Intent.DisplayName}} (LEAVER)'
                     Manager     = $null
@@ -40,11 +38,11 @@
             }
         }
 
-        # Optional & potentially disruptive:
-        # Setting Desired = @() will remove *all* group memberships the provider manages.
+        # Optional: remove ALL group memberships — use when no specific groups need to be retained.
+        # PruneEntitlements with an empty Keep list removes every group the provider sees.
         @{
             Name      = 'RevokeAllGroupMemberships_Optional'
-            Type      = 'IdLE.Step.EnsureEntitlement'
+            Type      = 'IdLE.Step.PruneEntitlements'
             Condition = @{
                 All = @(
                     @{
@@ -58,18 +56,15 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
-                Entitlement        = @{
-                    Kind = 'Group';
-                    Id = '*'
-                }
-                State = 'Absent'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
+                Kind               = 'Group'
+                Keep               = @()
             }
         }
 
-        # Optional & potentially disruptive:
+        # Optional: remove all groups EXCEPT a retain set AND ensure retain set is present.
         # PruneEntitlementsEnsureKeep removes all groups except the keep set AND ensures
-        # explicit Keep items are present. Use PruneEntitlements if you only need removal.
+        # explicit Keep items are present. Use PruneEntitlements (above) if you only need removal.
         @{
             Name      = 'PruneGroupMemberships_Optional'
             Type      = 'IdLE.Step.PruneEntitlementsEnsureKeep'
@@ -86,7 +81,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
                 Kind               = 'Group'
 
                 # Retain this specific leaver group and ensure it is present.
@@ -117,9 +112,8 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
                 Kind               = 'AdministrativeUnit'
-                # Keep = @() means remove all AU memberships.
                 Keep               = @()
             }
         }
@@ -141,7 +135,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Tier0' }
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
             }
         }
 
@@ -149,8 +143,9 @@
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'EntraID user {{Request.Intent.UserPrincipalName}} offboarding completed.'
+                Message = 'EntraID user {{Request.IdentityKeys.UserPrincipalName}} offboarding completed.'
             }
         }
     )
 }
+
