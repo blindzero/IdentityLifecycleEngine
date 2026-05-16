@@ -97,12 +97,16 @@ This provider does **not** expose an admin-facing provider option bag.
 Configuration for triggering and monitoring sync is supplied through the
 `IdLE.Step.TriggerDirectorySync` step inputs via `With.*` keys.
 
+The generic step schema does not require any `With.*` keys at schema level for this
+step type. However, this provider requires specific inputs during provider validation
+and execution, as noted below.
+
 ### Step input reference
 
 | Step input | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `With.ComputerName` | `string` | Required | ComputerName for PSSession connection |
-| `With.PolicyType` | `string` | Required | `Delta` or `Initial` sync policy |
+| `With.ComputerName` | `string` | Required by provider | ComputerName for PSSession connection |
+| `With.PolicyType` | `string` | Required by provider | `Delta` or `Initial` sync policy |
 | `With.Wait` | `bool` | `false` | Poll sync status and wait for result (or timeout) |
 | `With.PollIntervalSeconds` | `int` | `10` | Interval in seconds to poll for sync status |
 | `With.TimeoutSeconds` | `int` | `600` | Timeout for poll wait in seconds. Will result in `StepFailed` |
