@@ -13,7 +13,7 @@ function Invoke-IdleStepTriggerDirectorySync {
     provided by the host's AuthSessionBroker.
 
     Authentication:
-    - With.AuthSessionName (required): routing key for AuthSessionBroker
+    - With.AuthSessionName (optional): routing key for AuthSessionBroker
     - With.AuthSessionOptions (optional, hashtable): forwarded to broker for session selection
     - ScriptBlocks in AuthSessionOptions are rejected (security boundary)
 
@@ -22,7 +22,7 @@ function Invoke-IdleStepTriggerDirectorySync {
 
     .PARAMETER Step
     Normalized step object from the plan. Must contain a 'With' hashtable with keys:
-    - AuthSessionName (required, string): auth session name for broker
+    - AuthSessionName (optional, string): auth session name for broker
     - ComputerName (required, string): target Entra Connect server
     - PolicyType (required, string): 'Delta' or 'Initial' (case-insensitive)
     - Provider (optional, string): provider alias, defaults to 'DirectorySync'
@@ -63,10 +63,6 @@ function Invoke-IdleStepTriggerDirectorySync {
     }
 
     # Validate required inputs
-    if (-not $with.ContainsKey('AuthSessionName')) {
-        throw "TriggerDirectorySync requires With.AuthSessionName."
-    }
-
     if (-not $with.ContainsKey('PolicyType')) {
         throw "TriggerDirectorySync requires With.PolicyType."
     }

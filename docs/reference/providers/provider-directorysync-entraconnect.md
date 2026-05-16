@@ -75,6 +75,7 @@ Your host/runtime should provide this credential via the AuthSessionBroker and y
 
 - `Provider = 'DirectorySync'`
 - `AuthSessionName = 'EntraConnect'`
+- `AuthSessionOptions = @{ Role = 'Admin' }` (optional, recommended for role-scoped session routing)
 - `ComputerName = 'ad-sync1.corp.local'`
 - `PolicyType = 'Delta'`
 

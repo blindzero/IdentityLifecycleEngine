@@ -116,12 +116,14 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             { & $handler -Context $script:Context -Step $step } | Should -Throw
         }
 
-        It 'throws when With.AuthSessionName is missing' {
+        It 'allows missing With.AuthSessionName when provider supports default auth session routing' {
             $step = $script:StepTemplate
             $step.With.Remove('AuthSessionName')
 
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*AuthSessionName*'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
         }
 
         It 'throws when With.PolicyType is missing' {
