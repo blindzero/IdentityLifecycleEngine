@@ -372,11 +372,116 @@ function New-IdleEntraIDAdapter {
             [string] $AccessToken
         )
 
-        $uri = "$($this.BaseUri)/users/$ObjectId/memberOf"
+        $uri = "$($this.BaseUri)/users/$ObjectId/memberOf/microsoft.graph.group"
         $uri += '?$select=id,displayName,mail'
 
         $groups = $this.GetAllPages($uri, $AccessToken)
         return $groups
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AuId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $uri = "$($this.BaseUri)/administrativeUnits/$AuId"
+        $uri += '?$select=id,displayName'
+
+        try {
+            $au = $this.InvokeGraphRequest('GET', $uri, $AccessToken, $null)
+            return $au
+        }
+        catch {
+            if ($_.Exception.Message -match '404|not found|does not exist') {
+                return $null
+            }
+            throw
+        }
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name ListUserAdministrativeUnits -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $ObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $uri = "$($this.BaseUri)/users/$ObjectId/memberOf/microsoft.graph.administrativeUnit"
+        $uri += '?$select=id,displayName'
+
+        $aus = $this.GetAllPages($uri, $AccessToken)
+        return $aus
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name AddAdministrativeUnitMember -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AuObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $UserObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $uri = "$($this.BaseUri)/administrativeUnits/$AuObjectId/members/`$ref"
+        $body = @{
+            '@odata.id' = "$($this.BaseUri)/users/$UserObjectId"
+        }
+
+        try {
+            $null = $this.InvokeGraphRequest('POST', $uri, $AccessToken, $body)
+            return $true
+        }
+        catch {
+            if ($_.Exception.Message -match 'already exists|already a member') {
+                return $false
+            }
+            throw
+        }
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name RemoveAdministrativeUnitMember -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AuObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $UserObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $uri = "$($this.BaseUri)/administrativeUnits/$AuObjectId/members/$UserObjectId/`$ref"
+
+        try {
+            $null = $this.InvokeGraphRequest('DELETE', $uri, $AccessToken, $null)
+            return $true
+        }
+        catch {
+            if ($_.Exception.Message -match '404|not found|does not exist') {
+                return $false
+            }
+            throw
+        }
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {
