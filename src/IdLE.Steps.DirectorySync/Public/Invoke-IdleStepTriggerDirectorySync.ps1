@@ -96,7 +96,15 @@ function Invoke-IdleStepTriggerDirectorySync {
 
     try {
         # Trigger sync cycle
-        $Context.EventSink.WriteEvent('DirectorySyncTriggered', "Triggering $policyType sync cycle", $stepName, @{
+        $policyTypeText = [string]$policyType
+        $triggerMessage = if ([string]::IsNullOrWhiteSpace($policyTypeText)) {
+            'Triggering directory sync cycle'
+        }
+        else {
+            "Triggering $policyTypeText sync cycle"
+        }
+
+        $Context.EventSink.WriteEvent('DirectorySyncTriggered', $triggerMessage, $stepName, @{
                 PolicyType = $policyType
                 ComputerName = $computerName
             })

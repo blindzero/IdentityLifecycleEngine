@@ -348,6 +348,25 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $capturedEvents.Type | Should -Contain 'DirectorySyncTriggered'
         }
 
+        It 'emits readable trigger message when With.PolicyType is omitted' {
+            $capturedEvents = [System.Collections.ArrayList]::new()
+            $script:Context.EventSink = [pscustomobject]@{}
+            $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+                param($Type, $Message, $StepName, $Data)
+                $null = $capturedEvents.Add(@{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data })
+            } -Force
+
+            $step = $script:StepTemplate
+            $step.With.Remove('PolicyType')
+            & $script:SetPermissiveStartSyncCycle
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $null = & $handler -Context $script:Context -Step $step
+
+            $triggerEvent = $capturedEvents | Where-Object { $_.Type -eq 'DirectorySyncTriggered' } | Select-Object -First 1
+            $triggerEvent.Message | Should -Be 'Triggering directory sync cycle'
+        }
+
         It 'emits DirectorySyncCompleted event' {
             $capturedEvents = [System.Collections.ArrayList]::new()
             $script:Context.EventSink = [pscustomobject]@{}
