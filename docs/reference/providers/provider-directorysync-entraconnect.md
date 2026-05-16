@@ -81,7 +81,7 @@ To select the runtime credential for this provider, pass the AuthSession via ste
 
 ## Supported Step Types
 
-The Directory Sync (Entra Connect) provider supports the common identity lifecycle and entitlement operations used by these step types:
+The Directory Sync (Entra Connect) provider supports the directory sync step types listed below:
 
 | Step type | Typical use | Notes |
 | --- | --- | --- |
@@ -110,6 +110,6 @@ This provider does **not** support any of the allowlisted Context Resolver capab
 ## Troubleshooting
 
 - **“Missing privileges or elevation”**: ensure the provided credential is elevated on the Entra Connect server.
-- **“AuthSession must be a [PSCredential]”**: configure `New-IdleAuthSession -AuthSessionType Credential`.
+- **“AuthSession must be a [PSCredential]”**: configure the AuthSessionBroker/host runtime to provide a credential-backed AuthSession ([PSCredential]) for this provider.
 - **Get-ADSyncScheduler not found**: ensure ADSync cmdlets are available on the target server.
 - **Timeout waiting for completion**: increase `TimeoutSeconds` or check the scheduler state on the server.
