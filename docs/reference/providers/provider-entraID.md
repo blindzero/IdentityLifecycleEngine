@@ -206,9 +206,9 @@ Administrative Units (AUs) are modelled as `Kind = 'AdministrativeUnit'` entitle
 | Operation | Endpoint |
 | --- | --- |
 | List | `GET /users/{id}/memberOf/microsoft.graph.administrativeUnit` |
-| Grant | `POST /administrativeUnits/{id}/members/$ref` |
-| Revoke | `DELETE /administrativeUnits/{id}/members/{userId}/$ref` |
-| Validate AU exists | `GET /administrativeUnits/{id}` |
+| Grant | `POST /directory/administrativeUnits/{id}/members/$ref` |
+| Revoke | `DELETE /directory/administrativeUnits/{id}/members/{userId}/$ref` |
+| Validate AU exists | `GET /directory/administrativeUnits/{id}` |
 
 ## Configuration
 

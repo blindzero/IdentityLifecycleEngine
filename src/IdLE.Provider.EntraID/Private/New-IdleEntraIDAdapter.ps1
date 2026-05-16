@@ -390,7 +390,7 @@ function New-IdleEntraIDAdapter {
             [string] $AccessToken
         )
 
-        $uri = "$($this.BaseUri)/administrativeUnits/$AuId"
+        $uri = "$($this.BaseUri)/directory/administrativeUnits/$AuId"
         $uri += '?$select=id,displayName'
 
         try {
@@ -438,7 +438,7 @@ function New-IdleEntraIDAdapter {
             [string] $AccessToken
         )
 
-        $uri = "$($this.BaseUri)/administrativeUnits/$AuObjectId/members/`$ref"
+        $uri = "$($this.BaseUri)/directory/administrativeUnits/$AuObjectId/members/`$ref"
         $body = @{
             '@odata.id' = "$($this.BaseUri)/users/$UserObjectId"
         }
@@ -470,7 +470,7 @@ function New-IdleEntraIDAdapter {
             [string] $AccessToken
         )
 
-        $uri = "$($this.BaseUri)/administrativeUnits/$AuObjectId/members/$UserObjectId/`$ref"
+        $uri = "$($this.BaseUri)/directory/administrativeUnits/$AuObjectId/members/$UserObjectId/`$ref"
 
         try {
             $null = $this.InvokeGraphRequest('DELETE', $uri, $AccessToken, $null)
