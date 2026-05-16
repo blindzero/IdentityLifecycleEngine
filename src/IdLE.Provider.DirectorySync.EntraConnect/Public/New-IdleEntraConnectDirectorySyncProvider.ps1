@@ -97,7 +97,12 @@ function New-IdleEntraConnectDirectorySyncProvider {
         )
 
         if ($null -ne $Session) {
-            Remove-PSSession -Session $Session -ErrorAction SilentlyContinue
+            try {
+                Remove-PSSession -Session $Session -ErrorAction Stop
+            }
+            catch {
+                Write-Warning "Failed to remove PSRemoting session: $($_.Exception.Message)"
+            }
         }
     } -Force
 

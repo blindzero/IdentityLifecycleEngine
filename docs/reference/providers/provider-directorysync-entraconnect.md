@@ -71,8 +71,8 @@ $providers = @{
 This provider requires an AuthSession credential ([PSCredential]) and **must be elevated**.
 The provider creates and cleans up PSRemoting sessions internally.
 
-By default, the AD provider uses the run-as identity (integrated authentication).
-For explicit runtime credential selection, use the AuthSessionBroker and pass an AuthSession via step configuration:
+This provider does not document a default integrated/run-as authentication fallback; provide the credential at runtime via the AuthSessionBroker.
+To select the runtime credential for this provider, pass the AuthSession via step configuration:
 
 - With.AuthSessionName
 - With.AuthSessionOptions (optional)
@@ -97,9 +97,9 @@ This provider does **not** support any of the allowlisted Context Resolver capab
 
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `ComputerName` | `string` | `` | ComputerName for PSSession connection |
-| `PolicyType` | `string` | `Delta` | `Delta` or `Full` sync policy |
-| `Wait` | `bool` | `true` | Poll sync status and wait for result (or timeout) |
+| `ComputerName` | `string` | Required | ComputerName for PSSession connection |
+| `PolicyType` | `string` | Required | `Delta` or `Initial` sync policy |
+| `Wait` | `bool` | `false` | Poll sync status and wait for result (or timeout) |
 | `PollIntervalSeconds` | `int` | `10` | Interval in seconds to poll for sync status |
 | `TimeoutSeconds` | `int` | `600` | Timeout for poll wait in seconds. Will result in `StepFailed` |
 
