@@ -64,16 +64,7 @@ function Invoke-IdleStepTriggerDirectorySync {
         throw "TriggerDirectorySync requires 'With' to be a hashtable."
     }
 
-    # Keep lightweight validation here so workflow configuration errors point to With.* keys.
-    if (-not $with.ContainsKey('PolicyType')) {
-        throw "TriggerDirectorySync requires With.PolicyType."
-    }
-
-    $policyType = [string]$with.PolicyType
-    if ($policyType -notin @('Delta', 'Initial')) {
-        throw "TriggerDirectorySync: With.PolicyType must be 'Delta' or 'Initial'. Got: $policyType"
-    }
-
+    $policyType = if ($with.ContainsKey('PolicyType')) { $with.PolicyType } else { $null }
     $computerName = if ($with.ContainsKey('ComputerName')) { $with.ComputerName } else { $null }
 
     # Optional inputs with defaults

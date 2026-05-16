@@ -608,8 +608,8 @@ function New-IdleStepDetailPageContent {
     [void]$sb.AppendLine()
 
     if ($Model.RequiredWithKeys.Count -eq 0) {
-        [void]$sb.AppendLine('The required input keys could not be detected automatically.')
-        [void]$sb.AppendLine('Please refer to the step description and examples for usage details.')
+        [void]$sb.AppendLine('This step has no required ``With.*`` keys at step schema level.')
+        [void]$sb.AppendLine('Inputs may still be provider-specific; refer to the step description and examples for usage details.')
         [void]$sb.AppendLine()
     }
     else {

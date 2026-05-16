@@ -12,6 +12,9 @@
 
                 # Auth session is provided by the host (credential).
                 AuthSessionName     = 'EntraConnect'
+                AuthSessionOptions  = @{
+                    Role = 'EntraConnectAdmin'
+                }
                 ComputerName        = '{{Request.Intent.ComputerName}}'
 
                 # Delta or Initial

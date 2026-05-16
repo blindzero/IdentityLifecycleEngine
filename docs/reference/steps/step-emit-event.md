@@ -22,8 +22,8 @@ to write structured events.
 
 ## Inputs (With.*)
 
-The required input keys could not be detected automatically.
-Please refer to the step description and examples for usage details.
+This step has no required ``With.*`` keys at step schema level.
+Inputs may still be provider-specific; refer to the step description and examples for usage details.
 
 ## Example
 

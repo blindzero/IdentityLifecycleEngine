@@ -123,7 +123,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             { & $handler -Context $script:Context -Step $step } | Should -Throw
         }
 
-        It 'allows missing With.AuthSessionName when provider supports default auth session routing' {
+        It 'does not enforce With.AuthSessionName at step level' {
             $step = $script:StepTemplate
             $step.With.Remove('AuthSessionName')
 
@@ -142,6 +142,36 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $result = & $handler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
+        }
+
+        It 'passes With.PolicyType = Initial through to the provider path' {
+            $step = $script:StepTemplate
+            $step.With.PolicyType = 'Initial'
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+        }
+
+        It 'passes invalid With.PolicyType through to provider validation' {
+            $step = $script:StepTemplate
+            $step.With.PolicyType = 'Invalid'
+            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
+                param(
+                    [Parameter(Mandatory)]
+                    [ValidateSet('Delta', 'Initial')]
+                    [string] $PolicyType,
+                    [Parameter(Mandatory)]
+                    [string] $ComputerName,
+                    [Parameter(Mandatory)]
+                    [object] $AuthSession
+                )
+                return [pscustomobject]@{ Started = $true }
+            } -Force
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*PolicyType*'
         }
 
         It 'does not enforce With.ComputerName at step level' {
