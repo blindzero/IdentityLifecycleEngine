@@ -9,6 +9,7 @@
             Type = 'IdLE.Step.TriggerDirectorySync'
             With = @{
                 AuthSessionName = 'DirSync'
+                ComputerName    = 'ad-sync1.corp.local'
                 PolicyType      = 'Delta'
                 Wait            = $false
                 Provider        = 'DirectorySync'

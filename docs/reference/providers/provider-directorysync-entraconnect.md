@@ -11,7 +11,7 @@ import EntraConnectTriggerSync from '@site/../examples/workflows/templates/direc
 
 - **Module:** `IdLE.Provider.DirectorySync.EntraConnect`
 - **What it’s for:** Triggering and monitoring **Entra Connect (ADSync)** sync cycles on an on-prem server
-- **Execution model:** Remote execution via a host-provided AuthSession (elevated context)
+- **Execution model:** Remote execution via provider-managed PSRemoting using a host-provided credential
 
 ## When to use
 
@@ -35,7 +35,7 @@ Non-goals:
 ### Requirements
 
 - An Entra Connect (Azure AD Connect) server with ADSync installed (ADSync cmdlets available)
-- A host/runtime that can provide an **elevated remote execution handle** to IdLE via AuthSessionBroker
+- A host/runtime that can provide an **elevated credential** to IdLE via AuthSessionBroker
 - Rights to run `Start-ADSyncSyncCycle` and `Get-ADSyncScheduler` in that remote context
 
 ### Install (PowerShell Gallery)
@@ -68,18 +68,15 @@ $providers = @{
 
 ## Authentication (important)
 
-This provider requires an AuthSession that supports remote execution and **must be elevated**.
+This provider requires an AuthSession credential ([PSCredential]) and **must be elevated**.
+The provider creates and cleans up PSRemoting sessions internally.
 
-The AuthSession object must provide a method:
-
-- `InvokeCommand(CommandName, Parameters)`
-
-Your host/runtime should provide this session via the AuthSessionBroker and you reference it in the step via:
+Your host/runtime should provide this credential via the AuthSessionBroker and you reference it in the step via:
 
 - `AuthSessionName = 'EntraConnect'`
-- `AuthSessionOptions = @{ Role = 'EntraConnectAdmin' }` (optional routing key)
+- `ComputerName = 'ad-sync1.corp.local'`
 
-> No interactive prompts are made. If the remote context is not elevated, triggering a sync cycle will fail with a privilege/elevation error.
+> No interactive prompts are made. If the credential does not have elevated rights on the target server, triggering a sync cycle will fail with a privilege/elevation error.
 
 ## Supported operations
 
@@ -102,8 +99,8 @@ This provider does not advertise these capabilities, so it cannot be used in the
 ## Configuration
 
 This provider has no admin-facing option bag. Configuration is done through:
-- step inputs (`PolicyType`, `Wait`, `TimeoutSeconds`, `PollIntervalSeconds`)
-- host configuration (remote connection and elevation)
+- step inputs (`ComputerName`, `PolicyType`, `Wait`, `TimeoutSeconds`, `PollIntervalSeconds`)
+- host configuration (credential broker)
 
 ## Examples (canonical template)
 
@@ -111,7 +108,7 @@ This provider has no admin-facing option bag. Configuration is done through:
 
 ## Troubleshooting
 
-- **“Missing privileges or elevation”**: your AuthSession must run commands in an elevated context on the Entra Connect server.
-- **“AuthSession must implement InvokeCommand”**: your host must provide an AuthSession object with an `InvokeCommand()` method.
-- **Get-ADSyncScheduler not found**: ensure ADSync cmdlets are available in the remote session (module installed/accessible).
+- **“Missing privileges or elevation”**: ensure the provided credential is elevated on the Entra Connect server.
+- **“AuthSession must be a [PSCredential]”**: configure `New-IdleAuthSession -AuthSessionType Credential`.
+- **Get-ADSyncScheduler not found**: ensure ADSync cmdlets are available on the target server.
 - **Timeout waiting for completion**: increase `TimeoutSeconds` or check the scheduler state on the server.
