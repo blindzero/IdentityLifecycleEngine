@@ -125,6 +125,10 @@ Describe 'Entra Connect directory sync provider contracts' {
             { $script:Provider.GetSyncCycleState('', $script:MockCredential) } | Should -Throw -ErrorId * -ExpectedMessage '*ComputerName*'
         }
 
+        It 'GetSyncCycleState validates ComputerName whitespace' {
+            { $script:Provider.GetSyncCycleState('   ', $script:MockCredential) } | Should -Throw -ErrorId * -ExpectedMessage '*ComputerName*'
+        }
+
         It 'GetSyncCycleState validates AuthSession is PSCredential' {
             $badSession = [pscustomobject]@{ Name = 'BadSession' }
             { $script:Provider.GetSyncCycleState($script:ComputerName, $badSession) } | Should -Throw -ErrorId * -ExpectedMessage '*PSCredential*'
