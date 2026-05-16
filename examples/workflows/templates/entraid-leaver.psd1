@@ -99,6 +99,31 @@
             }
         }
 
+        # Optional: remove the user from all Administrative Units.
+        # Use when scoped admin visibility must be revoked as part of offboarding.
+        @{
+            Name      = 'RevokeAdministrativeUnitMemberships_Optional'
+            Type      = 'IdLE.Step.PruneEntitlements'
+            Condition = @{
+                All = @(
+                    @{
+                        Equals = @{
+                            Path  = 'Request.Intent.RevokeAdministrativeUnitMemberships'
+                            Value = $true
+                        }
+                    }
+                )
+            }
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                Kind               = 'AdministrativeUnit'
+                # Keep = @() means remove all AU memberships.
+                Keep               = @()
+            }
+        }
+
         # Optional delete (requires provider to be created with -AllowDelete)
         @{
             Name      = 'DeleteAccount_Optional'

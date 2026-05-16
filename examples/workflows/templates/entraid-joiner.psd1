@@ -64,6 +64,26 @@
         }
 
         @{
+            Name = 'AddToBaselineAdministrativeUnits'
+            Type = 'IdLE.Step.EnsureEntitlement'
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+
+                # Baseline Administrative Units control which scoped admins can manage this user.
+                # Reference AUs by their Entra object ID (GUID). AUs must exist in Entra before use.
+                Desired            = @(
+                    @{
+                        Kind = 'AdministrativeUnit'
+                        Id   = '{{Request.Intent.DepartmentAdministrativeUnitId}}'
+                    }
+                )
+            }
+        }
+
+        @{
             Name = 'EnableAccount'
             Type = 'IdLE.Step.EnableIdentity'
             With = @{
@@ -135,6 +155,35 @@
                         Kind        = 'Group'
                         Id          = '{{Request.Intent.ProjectGroupId}}'
                         DisplayName = '{{Request.Intent.ProjectGroupName}}'
+                    }
+                )
+            }
+        }
+
+        @{
+            Name      = 'Mover_AdjustAdministrativeUnitMemberships'
+            Type      = 'IdLE.Step.EnsureEntitlement'
+            Condition = @{
+                All = @(
+                    @{
+                        Equals = @{
+                            Path  = 'Request.Intent.IsMover'
+                            Value = $true
+                        }
+                    }
+                )
+            }
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+
+                # Reassign to the new department's Administrative Unit on a move.
+                # AUs are referenced by Entra object ID (GUID) and must exist before use.
+                Desired            = @(
+                    @{
+                        Kind = 'AdministrativeUnit'
+                        Id   = '{{Request.Intent.NewDepartmentAdministrativeUnitId}}'
                     }
                 )
             }
