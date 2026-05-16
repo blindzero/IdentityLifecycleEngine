@@ -73,6 +73,7 @@ The provider creates and cleans up PSRemoting sessions internally.
 
 Your host/runtime should provide this credential via the AuthSessionBroker and you reference it in the step via:
 
+- `Provider = 'DirectorySync'`
 - `AuthSessionName = 'EntraConnect'`
 - `ComputerName = 'ad-sync1.corp.local'`
 - `PolicyType = 'Delta'`
