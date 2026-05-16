@@ -103,6 +103,13 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
                 Provider        = 'DirectorySync'
             }
         }
+
+        $script:SetPermissiveStartSyncCycle = {
+            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
+                param([AllowNull()][object] $PolicyType, [AllowNull()][object] $ComputerName, [object] $AuthSession)
+                return [pscustomobject]@{ Started = $true }
+            } -Force
+        }
     }
 
     Context 'Input validation' {
@@ -129,10 +136,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
         It 'does not enforce With.PolicyType at step level' {
             $step = $script:StepTemplate
             $step.With.Remove('PolicyType')
-            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
-                param([AllowNull()][object] $PolicyType, [AllowNull()][object] $ComputerName, [object] $AuthSession)
-                return [pscustomobject]@{ Started = $true }
-            } -Force
+            & $script:SetPermissiveStartSyncCycle
 
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
@@ -143,10 +147,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
         It 'does not enforce With.ComputerName at step level' {
             $step = $script:StepTemplate
             $step.With.Remove('ComputerName')
-            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
-                param([AllowNull()][object] $PolicyType, [AllowNull()][object] $ComputerName, [object] $AuthSession)
-                return [pscustomobject]@{ Started = $true }
-            } -Force
+            & $script:SetPermissiveStartSyncCycle
 
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
@@ -157,10 +158,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
         It 'does not enforce With.ComputerName whitespace validation at step level' {
             $step = $script:StepTemplate
             $step.With.ComputerName = '   '
-            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
-                param([AllowNull()][object] $PolicyType, [AllowNull()][object] $ComputerName, [object] $AuthSession)
-                return [pscustomobject]@{ Started = $true }
-            } -Force
+            & $script:SetPermissiveStartSyncCycle
 
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
