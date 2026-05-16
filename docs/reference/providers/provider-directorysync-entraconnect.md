@@ -71,7 +71,7 @@ $providers = @{
 This provider requires an AuthSession credential ([PSCredential]) and **must be elevated**.
 The provider creates and cleans up PSRemoting sessions internally.
 
-This provider does not document a default integrated/run-as authentication fallback; provide the credential at runtime via the AuthSessionBroker.
+There is no integrated/run-as authentication fallback; a credential-backed AuthSession must be supplied at runtime via the AuthSessionBroker.
 To select the runtime credential for this provider, pass the AuthSession via step configuration:
 
 - With.AuthSessionName
@@ -85,7 +85,7 @@ The Directory Sync (Entra Connect) provider supports the directory sync step typ
 
 | Step type | Typical use | Notes |
 | --- | --- | --- |
-| `IdLE.Step.TriggerDirectorySync` | Trigger Directory Sync | Initiated by PSRemote session execution, with optional wait/poll |
+| `IdLE.Step.TriggerDirectorySync` | Trigger Directory Sync | Executed via a provider-managed PSRemoting session, with optional wait/poll |
 
 ## Context Resolvers
 
@@ -93,15 +93,19 @@ This provider does **not** support any of the allowlisted Context Resolver capab
 
 ## Configuration
 
-### Options reference
+This provider does **not** expose an admin-facing provider option bag.
+Configuration for triggering and monitoring sync is supplied through the
+`IdLE.Step.TriggerDirectorySync` step inputs via `With.*` keys.
 
-| Option | Type | Default | Meaning |
+### Step input reference
+
+| Step input | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `ComputerName` | `string` | Required | ComputerName for PSSession connection |
-| `PolicyType` | `string` | Required | `Delta` or `Initial` sync policy |
-| `Wait` | `bool` | `false` | Poll sync status and wait for result (or timeout) |
-| `PollIntervalSeconds` | `int` | `10` | Interval in seconds to poll for sync status |
-| `TimeoutSeconds` | `int` | `600` | Timeout for poll wait in seconds. Will result in `StepFailed` |
+| `With.ComputerName` | `string` | Required | ComputerName for PSSession connection |
+| `With.PolicyType` | `string` | Required | `Delta` or `Initial` sync policy |
+| `With.Wait` | `bool` | `false` | Poll sync status and wait for result (or timeout) |
+| `With.PollIntervalSeconds` | `int` | `10` | Interval in seconds to poll for sync status |
+| `With.TimeoutSeconds` | `int` | `600` | Timeout for poll wait in seconds. Will result in `StepFailed` |
 
 ## Examples
 
