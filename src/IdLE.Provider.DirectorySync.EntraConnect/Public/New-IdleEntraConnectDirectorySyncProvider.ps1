@@ -15,7 +15,7 @@ function New-IdleEntraConnectDirectorySyncProvider {
 
     .OUTPUTS
     PSCustomObject
-    Provider instance with methods: GetCapabilities(), StartSyncCycle(PolicyType, ComputerName, AuthSession), GetSyncCycleState(ComputerName, AuthSession)
+    Provider instance with methods: GetCapabilities(), StartSyncCycle(ProviderInput, AuthSession), GetSyncCycleState(ProviderInput, AuthSession)
 
     .EXAMPLE
     $provider = New-IdleEntraConnectDirectorySyncProvider
@@ -26,7 +26,10 @@ function New-IdleEntraConnectDirectorySyncProvider {
     # With a credential from AuthSessionBroker (AuthSessionType='Credential')
     $credential = Get-Credential
     $provider = New-IdleEntraConnectDirectorySyncProvider
-    $result = $provider.StartSyncCycle('Delta', 'ad-sync1.corp.local', $credential)
+    $result = $provider.StartSyncCycle(@{
+        ComputerName = 'ad-sync1.corp.local'
+        PolicyType = 'Delta'
+    }, $credential)
     #>
     [CmdletBinding()]
     param()
@@ -109,11 +112,10 @@ function New-IdleEntraConnectDirectorySyncProvider {
         .DESCRIPTION
         Triggers a sync cycle via Start-ADSyncSyncCycle on the remote Entra Connect server.
 
-        .PARAMETER PolicyType
-        The sync policy type: 'Delta' or 'Initial'.
-
-        .PARAMETER ComputerName
-        Target Entra Connect server hostname for PSRemoting.
+        .PARAMETER ProviderInput
+        Provider-owned input bag. For Entra Connect this must include:
+        - ComputerName (string): target Entra Connect server hostname for PSRemoting.
+        - PolicyType (string): sync policy type ('Delta' or 'Initial').
 
         .PARAMETER AuthSession
         Credential ([PSCredential]) provided by the host's AuthSessionBroker.
@@ -125,17 +127,30 @@ function New-IdleEntraConnectDirectorySyncProvider {
         #>
         param(
             [Parameter(Mandatory)]
-            [ValidateSet('Delta', 'Initial', IgnoreCase = $true)]
-            [string] $PolicyType,
-
-            [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $ComputerName,
+            [ValidateNotNull()]
+            [hashtable] $ProviderInput,
 
             [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $AuthSession
         )
+
+        if (-not $ProviderInput.ContainsKey('ComputerName')) {
+            throw "StartSyncCycle requires ProviderInput.ComputerName."
+        }
+        if (-not $ProviderInput.ContainsKey('PolicyType')) {
+            throw "StartSyncCycle requires ProviderInput.PolicyType."
+        }
+
+        $computerName = [string]$ProviderInput.ComputerName
+        if ([string]::IsNullOrWhiteSpace($computerName)) {
+            throw "StartSyncCycle: ProviderInput.ComputerName must not be null, empty, or whitespace."
+        }
+
+        $policyType = [string]$ProviderInput.PolicyType
+        if ($policyType -notin @('Delta', 'Initial')) {
+            throw "StartSyncCycle: ProviderInput.PolicyType must be 'Delta' or 'Initial' (case-insensitive). Got: $policyType"
+        }
 
         if ($AuthSession -isnot [pscredential]) {
             $actualType = $AuthSession.GetType().FullName
@@ -182,8 +197,9 @@ function New-IdleEntraConnectDirectorySyncProvider {
         Queries the sync scheduler state via Get-ADSyncScheduler to determine if a
         sync cycle is currently in progress.
 
-        .PARAMETER ComputerName
-        Target Entra Connect server hostname for PSRemoting.
+        .PARAMETER ProviderInput
+        Provider-owned input bag. For Entra Connect this must include:
+        - ComputerName (string): target Entra Connect server hostname for PSRemoting.
 
         .PARAMETER AuthSession
         Credential ([PSCredential]) provided by the host's AuthSessionBroker.
@@ -196,13 +212,21 @@ function New-IdleEntraConnectDirectorySyncProvider {
         #>
         param(
             [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [string] $ComputerName,
+            [ValidateNotNull()]
+            [hashtable] $ProviderInput,
 
             [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $AuthSession
         )
+
+        if (-not $ProviderInput.ContainsKey('ComputerName')) {
+            throw "GetSyncCycleState requires ProviderInput.ComputerName."
+        }
+        $computerName = [string]$ProviderInput.ComputerName
+        if ([string]::IsNullOrWhiteSpace($computerName)) {
+            throw "GetSyncCycleState: ProviderInput.ComputerName must not be null, empty, or whitespace."
+        }
 
         if ($AuthSession -isnot [pscredential]) {
             $actualType = $AuthSession.GetType().FullName

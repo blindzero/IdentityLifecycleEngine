@@ -74,7 +74,7 @@ The provider creates and cleans up PSRemoting sessions internally.
 Your host/runtime should provide this credential via the AuthSessionBroker and you reference it in the step via:
 
 - `AuthSessionName = 'EntraConnect'`
-- `ComputerName = 'ad-sync1.corp.local'`
+- `ProviderInput = @{ ComputerName = 'ad-sync1.corp.local'; PolicyType = 'Delta' }`
 
 > No interactive prompts are made. If the credential does not have elevated rights on the target server, triggering a sync cycle will fail with a privilege/elevation error.
 
@@ -99,7 +99,8 @@ This provider does not advertise these capabilities, so it cannot be used in the
 ## Configuration
 
 This provider has no admin-facing option bag. Configuration is done through:
-- step inputs (`ComputerName`, `PolicyType`, `Wait`, `TimeoutSeconds`, `PollIntervalSeconds`)
+- provider input (`ProviderInput.ComputerName`, `ProviderInput.PolicyType`)
+- step-generic inputs (`Wait`, `TimeoutSeconds`, `PollIntervalSeconds`)
 - host configuration (credential broker)
 
 ## Examples (canonical template)

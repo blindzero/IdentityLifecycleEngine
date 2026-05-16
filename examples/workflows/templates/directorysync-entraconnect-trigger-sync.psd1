@@ -12,10 +12,11 @@
 
                 # Auth session is provided by the host (credential).
                 AuthSessionName     = 'EntraConnect'
-                ComputerName        = '{{Request.Intent.ComputerName}}'
-
-                # Delta or Initial
-                PolicyType          = '{{Request.Intent.PolicyType}}'
+                ProviderInput       = @{
+                    ComputerName = '{{Request.Intent.ComputerName}}'
+                    # Delta or Initial
+                    PolicyType   = '{{Request.Intent.PolicyType}}'
+                }
 
                 # Optional wait/polling behavior (step-specific)
                 Wait                = $true

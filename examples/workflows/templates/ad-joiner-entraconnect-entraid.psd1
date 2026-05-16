@@ -27,9 +27,10 @@
             With = @{
                 Provider            = 'DirectorySync'
                 AuthSessionName     = 'EntraConnect'
-                ComputerName        = '{{Request.Intent.EntraConnectServer}}'
-
-                PolicyType          = 'Delta'
+                ProviderInput       = @{
+                    ComputerName = '{{Request.Intent.EntraConnectServer}}'
+                    PolicyType   = 'Delta'
+                }
                 Wait                = $true
                 TimeoutSeconds      = 300
                 PollIntervalSeconds = 10
