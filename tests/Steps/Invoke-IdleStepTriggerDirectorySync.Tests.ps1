@@ -126,28 +126,46 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $result.Status | Should -Be 'Completed'
         }
 
-        It 'throws when With.PolicyType is missing' {
+        It 'does not enforce With.PolicyType at step level' {
             $step = $script:StepTemplate
             $step.With.Remove('PolicyType')
+            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
+                param([AllowNull()][object] $PolicyType, [AllowNull()][object] $ComputerName, [object] $AuthSession)
+                return [pscustomobject]@{ Started = $true }
+            } -Force
 
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*PolicyType*'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
         }
 
-        It 'throws when With.ComputerName is missing' {
+        It 'does not enforce With.ComputerName at step level' {
             $step = $script:StepTemplate
             $step.With.Remove('ComputerName')
+            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
+                param([AllowNull()][object] $PolicyType, [AllowNull()][object] $ComputerName, [object] $AuthSession)
+                return [pscustomobject]@{ Started = $true }
+            } -Force
 
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*ComputerName*'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
         }
 
-        It 'throws when With.ComputerName is whitespace' {
+        It 'does not enforce With.ComputerName whitespace validation at step level' {
             $step = $script:StepTemplate
             $step.With.ComputerName = '   '
+            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
+                param([AllowNull()][object] $PolicyType, [AllowNull()][object] $ComputerName, [object] $AuthSession)
+                return [pscustomobject]@{ Started = $true }
+            } -Force
 
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*ComputerName*'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
         }
 
         It 'uses default provider alias when not specified' {

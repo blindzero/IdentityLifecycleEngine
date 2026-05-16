@@ -16,6 +16,7 @@ function Invoke-IdleStepTriggerDirectorySync {
     - With.AuthSessionName (optional): routing key for AuthSessionBroker
     - With.AuthSessionOptions (optional, hashtable): forwarded to broker for session selection
     - If AuthSessionName is omitted, the broker is asked for a default session
+    - ComputerName and PolicyType are provider-specific inputs and are validated by the selected provider
     - ScriptBlocks in AuthSessionOptions are rejected (security boundary)
 
     .PARAMETER Context
@@ -24,8 +25,8 @@ function Invoke-IdleStepTriggerDirectorySync {
     .PARAMETER Step
     Normalized step object from the plan. Must contain a 'With' hashtable with keys:
     - AuthSessionName (optional, string): auth session name for broker (default session is used when omitted)
-    - ComputerName (required, string): target Entra Connect server
-    - PolicyType (required, string): 'Delta' or 'Initial' (case-insensitive)
+    - ComputerName (optional, string): provider-specific target server input
+    - PolicyType (optional, string): provider-specific policy input
     - Provider (optional, string): provider alias, defaults to 'DirectorySync'
     - Wait (optional, bool): wait for cycle completion, defaults to $false
     - TimeoutSeconds (optional, int): wait timeout, defaults to 600
@@ -63,24 +64,9 @@ function Invoke-IdleStepTriggerDirectorySync {
         throw "TriggerDirectorySync requires 'With' to be a hashtable."
     }
 
-    # Validate required inputs
-    if (-not $with.ContainsKey('PolicyType')) {
-        throw "TriggerDirectorySync requires With.PolicyType."
-    }
-
-    if (-not $with.ContainsKey('ComputerName')) {
-        throw "TriggerDirectorySync requires With.ComputerName."
-    }
-
-    $policyType = [string]$with.PolicyType
-    if ($policyType -notin @('Delta', 'Initial')) {
-        throw "TriggerDirectorySync: With.PolicyType must be 'Delta' or 'Initial' (case-insensitive). Got: $policyType"
-    }
-
-    $computerName = [string]$with.ComputerName
-    if ([string]::IsNullOrWhiteSpace($computerName)) {
-        throw "TriggerDirectorySync: With.ComputerName must not be null, empty, or whitespace."
-    }
+    # Provider-specific inputs are validated by the selected provider implementation
+    $policyType = if ($with.ContainsKey('PolicyType')) { [string]$with.PolicyType } else { $null }
+    $computerName = if ($with.ContainsKey('ComputerName')) { [string]$with.ComputerName } else { $null }
 
     # Optional inputs with defaults
     $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'DirectorySync' }

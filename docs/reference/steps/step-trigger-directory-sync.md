@@ -34,16 +34,14 @@ Authentication:
 
 - If AuthSessionName is omitted, the broker is asked for a default session
 
+- ComputerName and PolicyType are provider-specific inputs and are validated by the selected provider
+
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary)
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
-
-| Key | Required | Description |
-| --- | --- | --- |
-| `ComputerName` | Yes | See step description for details |
-| `PolicyType` | Yes | Type of policy (e.g., Delta, Initial) |
+The required input keys could not be detected automatically.
+Please refer to the step description and examples for usage details.
 
 ## Example
 
