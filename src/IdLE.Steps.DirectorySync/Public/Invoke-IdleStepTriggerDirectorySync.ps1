@@ -64,8 +64,8 @@ function Invoke-IdleStepTriggerDirectorySync {
         throw "TriggerDirectorySync requires 'With' to be a hashtable."
     }
 
-    $policyType = if ($with.ContainsKey('PolicyType')) { $with.PolicyType } else { $null }
-    $computerName = if ($with.ContainsKey('ComputerName')) { $with.ComputerName } else { $null }
+    $policyType = if ($with.ContainsKey('PolicyType')) { [string]$with.PolicyType } else { $null }
+    $computerName = if ($with.ContainsKey('ComputerName')) { [string]$with.ComputerName } else { $null }
 
     # Optional inputs with defaults
     $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'DirectorySync' }

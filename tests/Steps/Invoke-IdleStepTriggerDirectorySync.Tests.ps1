@@ -12,6 +12,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             PSTypeName = 'Mock.DirectorySyncProvider'
             Name       = 'MockDirectorySyncProvider'
             PollCount  = 0
+            LastPolicyType = $null
             LastComputerName = $null
         }
 
@@ -31,6 +32,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
                 [object] $AuthSession
             )
 
+            $this.LastPolicyType = $PolicyType
             $this.LastComputerName = $ComputerName
 
             return [pscustomobject]@{
@@ -207,6 +209,19 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $result.Status | Should -Be 'Completed'
         }
 
+        It 'coerces non-string PolicyType and ComputerName to strings before provider invocation' {
+            $step = $script:StepTemplate
+            $step.With.PolicyType = 123
+            $step.With.ComputerName = 456
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+            $script:MockProvider.LastPolicyType | Should -Be '123'
+            $script:MockProvider.LastComputerName | Should -Be '456'
+        }
+
         It 'uses default provider alias when not specified' {
             $step = $script:StepTemplate
             $step.With.Remove('Provider')
@@ -365,6 +380,26 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
 
             $triggerEvent = $capturedEvents | Where-Object { $_.Type -eq 'DirectorySyncTriggered' } | Select-Object -First 1
             $triggerEvent.Message | Should -Be 'Triggering directory sync cycle'
+        }
+
+        It 'emits string values in DirectorySyncTriggered event data for PolicyType and ComputerName' {
+            $capturedEvents = [System.Collections.ArrayList]::new()
+            $script:Context.EventSink = [pscustomobject]@{}
+            $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+                param($Type, $Message, $StepName, $Data)
+                $null = $capturedEvents.Add(@{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data })
+            } -Force
+
+            $step = $script:StepTemplate
+            $step.With.PolicyType = 123
+            $step.With.ComputerName = 456
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $null = & $handler -Context $script:Context -Step $step
+
+            $triggerEvent = $capturedEvents | Where-Object { $_.Type -eq 'DirectorySyncTriggered' } | Select-Object -First 1
+            $triggerEvent.Data.PolicyType | Should -Be '123'
+            $triggerEvent.Data.ComputerName | Should -Be '456'
         }
 
         It 'emits DirectorySyncCompleted event' {

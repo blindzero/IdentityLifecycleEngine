@@ -27,6 +27,9 @@
             With = @{
                 Provider            = 'DirectorySync'
                 AuthSessionName     = 'EntraConnect'
+                AuthSessionOptions  = @{
+                    Role = 'EntraConnectAdmin'
+                }
                 ComputerName        = '{{Request.Intent.EntraConnectServer}}'
 
                 PolicyType          = 'Delta'
