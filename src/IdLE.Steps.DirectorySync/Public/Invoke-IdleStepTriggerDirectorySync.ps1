@@ -6,15 +6,17 @@ function Invoke-IdleStepTriggerDirectorySync {
     .DESCRIPTION
     This is a provider-agnostic step. The host must supply a provider instance via
     Context.Providers[<ProviderAlias>] that implements:
-    - StartSyncCycle(PolicyType, AuthSession)
-    - GetSyncCycleState(AuthSession)
+    - StartSyncCycle(PolicyType, ComputerName, AuthSession)
+    - GetSyncCycleState(ComputerName, AuthSession)
 
     The step is designed for remote execution and requires an elevated auth session
     provided by the host's AuthSessionBroker.
 
     Authentication:
-    - With.AuthSessionName (required): routing key for AuthSessionBroker
+    - With.AuthSessionName (optional): routing key for AuthSessionBroker
     - With.AuthSessionOptions (optional, hashtable): forwarded to broker for session selection
+    - If AuthSessionName is omitted, the broker is asked for a default session
+    - ComputerName and PolicyType are provider-specific inputs and are validated by the selected provider
     - ScriptBlocks in AuthSessionOptions are rejected (security boundary)
 
     .PARAMETER Context
@@ -22,8 +24,9 @@ function Invoke-IdleStepTriggerDirectorySync {
 
     .PARAMETER Step
     Normalized step object from the plan. Must contain a 'With' hashtable with keys:
-    - AuthSessionName (required, string): auth session name for broker
-    - PolicyType (required, string): 'Delta' or 'Initial' (case-insensitive)
+    - AuthSessionName (optional, string): auth session name for broker (default session is used when omitted)
+    - ComputerName (optional, string): provider-specific target server input
+    - PolicyType (optional, string): provider-specific policy input
     - Provider (optional, string): provider alias, defaults to 'DirectorySync'
     - Wait (optional, bool): wait for cycle completion, defaults to $false
     - TimeoutSeconds (optional, int): wait timeout, defaults to 600
@@ -39,6 +42,7 @@ function Invoke-IdleStepTriggerDirectorySync {
         Type = 'IdLE.Step.TriggerDirectorySync'
         With = @{
             AuthSessionName = 'DirectorySync'
+            ComputerName = 'ad-sync1.corp.local'
             PolicyType = 'Delta'
             Wait = $true
         }
@@ -60,19 +64,8 @@ function Invoke-IdleStepTriggerDirectorySync {
         throw "TriggerDirectorySync requires 'With' to be a hashtable."
     }
 
-    # Validate required inputs
-    if (-not $with.ContainsKey('AuthSessionName')) {
-        throw "TriggerDirectorySync requires With.AuthSessionName."
-    }
-
-    if (-not $with.ContainsKey('PolicyType')) {
-        throw "TriggerDirectorySync requires With.PolicyType."
-    }
-
-    $policyType = [string]$with.PolicyType
-    if ($policyType -notin @('Delta', 'Initial')) {
-        throw "TriggerDirectorySync: With.PolicyType must be 'Delta' or 'Initial' (case-insensitive). Got: $policyType"
-    }
+    $policyType = if ($with.ContainsKey('PolicyType')) { [string]$with.PolicyType } else { $null }
+    $computerName = if ($with.ContainsKey('ComputerName')) { [string]$with.ComputerName } else { $null }
 
     # Optional inputs with defaults
     $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'DirectorySync' }
@@ -103,8 +96,17 @@ function Invoke-IdleStepTriggerDirectorySync {
 
     try {
         # Trigger sync cycle
-        $Context.EventSink.WriteEvent('DirectorySyncTriggered', "Triggering $policyType sync cycle", $stepName, @{
+        $policyTypeText = [string]$policyType
+        $triggerMessage = if ([string]::IsNullOrWhiteSpace($policyTypeText)) {
+            'Triggering directory sync cycle'
+        }
+        else {
+            "Triggering $policyTypeText sync cycle"
+        }
+
+        $Context.EventSink.WriteEvent('DirectorySyncTriggered', $triggerMessage, $stepName, @{
                 PolicyType = $policyType
+                ComputerName = $computerName
             })
 
         $startResult = Invoke-IdleProviderMethod `
@@ -112,7 +114,7 @@ function Invoke-IdleStepTriggerDirectorySync {
             -With $with `
             -ProviderAlias $providerAlias `
             -MethodName 'StartSyncCycle' `
-            -MethodArguments @($policyType)
+            -MethodArguments @($policyType, $computerName)
 
         $changed = $false
         if ($null -ne $startResult -and ($startResult.PSObject.Properties.Name -contains 'Started')) {
@@ -140,7 +142,7 @@ function Invoke-IdleStepTriggerDirectorySync {
                         -With $with `
                         -ProviderAlias $providerAlias `
                         -MethodName 'GetSyncCycleState' `
-                        -MethodArguments @()
+                        -MethodArguments @($computerName)
 
                     $lastState = if ($null -ne $stateResult) { $stateResult.State } else { 'Unknown' }
 
@@ -159,7 +161,7 @@ function Invoke-IdleStepTriggerDirectorySync {
                     -With $with `
                     -ProviderAlias $providerAlias `
                     -MethodName 'GetSyncCycleState' `
-                    -MethodArguments @()
+                    -MethodArguments @($computerName)
 
                 $inProgress = $true
                 if ($null -ne $stateResult -and ($stateResult.PSObject.Properties.Name -contains 'InProgress')) {

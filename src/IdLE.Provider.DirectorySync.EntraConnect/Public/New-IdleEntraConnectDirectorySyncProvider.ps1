@@ -7,16 +7,15 @@ function New-IdleEntraConnectDirectorySyncProvider {
     This provider triggers and monitors Entra ID Connect (ADSync) sync cycles on an
     on-premises server via remote execution.
 
-    The provider uses an AuthSession object (remote execution handle) provided by the host.
-    The AuthSession must implement InvokeCommand(CommandName, Parameters) to execute
-    commands in an elevated/privileged context on the Entra Connect server.
+    The provider uses a credential AuthSession provided by the host and establishes
+    a PSRemoting session to the target Entra Connect server internally.
 
     No interactive prompts are made; elevation and authentication are the host's responsibility
     via the AuthSessionBroker.
 
     .OUTPUTS
     PSCustomObject
-    Provider instance with methods: GetCapabilities(), StartSyncCycle(PolicyType, AuthSession), GetSyncCycleState(AuthSession)
+    Provider instance with methods: GetCapabilities(), StartSyncCycle(PolicyType, ComputerName, AuthSession), GetSyncCycleState(ComputerName, AuthSession)
 
     .EXAMPLE
     $provider = New-IdleEntraConnectDirectorySyncProvider
@@ -24,15 +23,10 @@ function New-IdleEntraConnectDirectorySyncProvider {
     # Returns: @('IdLE.DirectorySync.Trigger', 'IdLE.DirectorySync.Status')
 
     .EXAMPLE
-    # With a mock remote execution handle
-    $mockAuthSession = [pscustomobject]@{
-        InvokeCommand = { param($CommandName, $Parameters)
-            # Mock implementation
-            return @{ Started = $true }
-        }
-    }
+    # With a credential from AuthSessionBroker (AuthSessionType='Credential')
+    $credential = Get-Credential
     $provider = New-IdleEntraConnectDirectorySyncProvider
-    $result = $provider.StartSyncCycle('Delta', $mockAuthSession)
+    $result = $provider.StartSyncCycle('Delta', 'ad-sync1.corp.local', $credential)
     #>
     [CmdletBinding()]
     param()
@@ -58,6 +52,60 @@ function New-IdleEntraConnectDirectorySyncProvider {
         )
     } -Force
 
+    $provider | Add-Member -MemberType ScriptMethod -Name NewRemoteSession -Value {
+        param(
+            [Parameter(Mandatory)]
+            [string] $ComputerName,
+
+            [Parameter(Mandatory)]
+            [pscredential] $Credential
+        )
+
+        try {
+            return New-PSSession -ComputerName $ComputerName -Credential $Credential -ErrorAction Stop
+        }
+        catch {
+            throw "Failed to establish PSRemoting session to '$ComputerName': $($_.Exception.Message)"
+        }
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name InvokeRemoteCommand -Value {
+        param(
+            [Parameter(Mandatory)]
+            [object] $Session,
+
+            [Parameter(Mandatory)]
+            [scriptblock] $ScriptBlock,
+
+            [Parameter()]
+            [AllowNull()]
+            [object[]] $ArgumentList
+        )
+
+        if ($null -eq $ArgumentList -or $ArgumentList.Count -eq 0) {
+            return Invoke-Command -Session $Session -ScriptBlock $ScriptBlock -ErrorAction Stop
+        }
+
+        return Invoke-Command -Session $Session -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -ErrorAction Stop
+    } -Force
+
+    $provider | Add-Member -MemberType ScriptMethod -Name RemoveRemoteSession -Value {
+        param(
+            [Parameter(Mandatory)]
+            [AllowNull()]
+            [object] $Session
+        )
+
+        if ($null -ne $Session) {
+            try {
+                Remove-PSSession -Session $Session -ErrorAction Stop
+            }
+            catch {
+                Write-Warning "Failed to remove PSRemoting session: $($_.Exception.Message)"
+            }
+        }
+    } -Force
+
     $provider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
         <#
         .SYNOPSIS
@@ -69,9 +117,11 @@ function New-IdleEntraConnectDirectorySyncProvider {
         .PARAMETER PolicyType
         The sync policy type: 'Delta' or 'Initial'.
 
+        .PARAMETER ComputerName
+        Target Entra Connect server hostname for PSRemoting.
+
         .PARAMETER AuthSession
-        Remote execution handle provided by the host's AuthSessionBroker.
-        Must implement InvokeCommand(CommandName, Parameters).
+        Credential ([PSCredential]) provided by the host's AuthSessionBroker.
 
         .OUTPUTS
         PSCustomObject with properties:
@@ -84,28 +134,33 @@ function New-IdleEntraConnectDirectorySyncProvider {
             [string] $PolicyType,
 
             [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [ValidateScript({ -not [string]::IsNullOrWhiteSpace($_) })]
+            [string] $ComputerName,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $AuthSession
         )
 
-        # Validate AuthSession contract
-        if ($null -eq $AuthSession.PSObject.Methods['InvokeCommand']) {
-            throw "AuthSession must implement InvokeCommand(CommandName, Parameters) method. " + `
-                "The host must provide an elevated remote session via AuthSessionBroker."
+        if ($AuthSession -isnot [pscredential]) {
+            $actualType = $AuthSession.GetType().FullName
+            throw "AuthSession must be a [PSCredential] for PSRemoting session creation. Received: [$actualType]"
         }
 
+        $remoteSession = $null
         try {
-            # Execute Start-ADSyncSyncCycle remotely
-            # The remote session should already have ADSync module available or will import it
-            $AuthSession.InvokeCommand('Start-ADSyncSyncCycle', @{
-                    PolicyType = $PolicyType
-                }) | Out-Null
+            $remoteSession = $this.NewRemoteSession($ComputerName, $AuthSession)
 
-            # Start-ADSyncSyncCycle returns a result object or throws on error
-            # Success case: return Started = true
+            $this.InvokeRemoteCommand($remoteSession, {
+                param([string] $RemotePolicyType)
+                Import-Module -Name ADSync -ErrorAction Stop
+                Start-ADSyncSyncCycle -PolicyType $RemotePolicyType -ErrorAction Stop
+            }, @($PolicyType)) | Out-Null
+
             return [pscustomobject]@{
                 Started = $true
-                Message = "Sync cycle triggered with PolicyType: $PolicyType"
+                Message = "Sync cycle triggered with PolicyType: $PolicyType on $ComputerName"
             }
         }
         catch {
@@ -117,8 +172,10 @@ function New-IdleEntraConnectDirectorySyncProvider {
                     "The AuthSession must provide an elevated execution context. Original error: $errorMessage"
             }
 
-            # Re-throw other errors
             throw "Failed to start sync cycle: $errorMessage"
+        }
+        finally {
+            $this.RemoveRemoteSession($remoteSession)
         }
     } -Force
 
@@ -131,9 +188,11 @@ function New-IdleEntraConnectDirectorySyncProvider {
         Queries the sync scheduler state via Get-ADSyncScheduler to determine if a
         sync cycle is currently in progress.
 
+        .PARAMETER ComputerName
+        Target Entra Connect server hostname for PSRemoting.
+
         .PARAMETER AuthSession
-        Remote execution handle provided by the host's AuthSessionBroker.
-        Must implement InvokeCommand(CommandName, Parameters).
+        Credential ([PSCredential]) provided by the host's AuthSessionBroker.
 
         .OUTPUTS
         PSCustomObject with properties:
@@ -143,19 +202,28 @@ function New-IdleEntraConnectDirectorySyncProvider {
         #>
         param(
             [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [ValidateScript({ -not [string]::IsNullOrWhiteSpace($_) })]
+            [string] $ComputerName,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $AuthSession
         )
 
-        # Validate AuthSession contract
-        if ($null -eq $AuthSession.PSObject.Methods['InvokeCommand']) {
-            throw "AuthSession must implement InvokeCommand(CommandName, Parameters) method. " + `
-                "The host must provide an elevated remote session via AuthSessionBroker."
+        if ($AuthSession -isnot [pscredential]) {
+            $actualType = $AuthSession.GetType().FullName
+            throw "AuthSession must be a [PSCredential] for PSRemoting session creation. Received: [$actualType]"
         }
 
+        $remoteSession = $null
         try {
-            # Execute Get-ADSyncScheduler remotely
-            $scheduler = $AuthSession.InvokeCommand('Get-ADSyncScheduler', @{})
+            $remoteSession = $this.NewRemoteSession($ComputerName, $AuthSession)
+
+            $scheduler = $this.InvokeRemoteCommand($remoteSession, {
+                Import-Module -Name ADSync -ErrorAction Stop
+                Get-ADSyncScheduler -ErrorAction Stop
+            }, @())
 
             # Determine if sync is in progress
             # Get-ADSyncScheduler returns an object with SyncCycleInProgress property
@@ -194,6 +262,9 @@ function New-IdleEntraConnectDirectorySyncProvider {
             }
 
             throw "Failed to get sync cycle state: $errorMessage"
+        }
+        finally {
+            $this.RemoveRemoteSession($remoteSession)
         }
     } -Force
 

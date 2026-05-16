@@ -12,6 +12,8 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             PSTypeName = 'Mock.DirectorySyncProvider'
             Name       = 'MockDirectorySyncProvider'
             PollCount  = 0
+            LastPolicyType = $null
+            LastComputerName = $null
         }
 
         $script:MockProvider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
@@ -24,8 +26,14 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
                 [string] $PolicyType,
 
                 [Parameter(Mandatory)]
+                [string] $ComputerName,
+
+                [Parameter(Mandatory)]
                 [object] $AuthSession
             )
+
+            $this.LastPolicyType = $PolicyType
+            $this.LastComputerName = $ComputerName
 
             return [pscustomobject]@{
                 Started = $true
@@ -36,8 +44,13 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
         $script:MockProvider | Add-Member -MemberType ScriptMethod -Name GetSyncCycleState -Value {
             param(
                 [Parameter(Mandatory)]
+                [string] $ComputerName,
+
+                [Parameter(Mandatory)]
                 [object] $AuthSession
             )
+
+            $this.LastComputerName = $ComputerName
 
             # Increment poll count and determine state
             $this.PollCount++
@@ -87,9 +100,17 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             Type = 'IdLE.Step.TriggerDirectorySync'
             With = @{
                 AuthSessionName = 'EntraConnect'
+                ComputerName    = 'ad-sync1.corp.local'
                 PolicyType      = 'Delta'
                 Provider        = 'DirectorySync'
             }
+        }
+
+        $script:SetPermissiveStartSyncCycle = {
+            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
+                param([AllowNull()][object] $PolicyType, [AllowNull()][object] $ComputerName, [object] $AuthSession)
+                return [pscustomobject]@{ Started = $true }
+            } -Force
         }
     }
 
@@ -104,33 +125,9 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             { & $handler -Context $script:Context -Step $step } | Should -Throw
         }
 
-        It 'throws when With.AuthSessionName is missing' {
+        It 'does not enforce With.AuthSessionName at step level' {
             $step = $script:StepTemplate
             $step.With.Remove('AuthSessionName')
-
-            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*AuthSessionName*'
-        }
-
-        It 'throws when With.PolicyType is missing' {
-            $step = $script:StepTemplate
-            $step.With.Remove('PolicyType')
-
-            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*PolicyType*'
-        }
-
-        It 'throws when With.PolicyType is invalid' {
-            $step = $script:StepTemplate
-            $step.With.PolicyType = 'Invalid'
-
-            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*PolicyType*'
-        }
-
-        It 'accepts Delta as PolicyType' {
-            $step = $script:StepTemplate
-            $step.With.PolicyType = 'Delta'
 
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $result = & $handler -Context $script:Context -Step $step
@@ -138,7 +135,18 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $result.Status | Should -Be 'Completed'
         }
 
-        It 'accepts Initial as PolicyType' {
+        It 'does not enforce With.PolicyType at step level' {
+            $step = $script:StepTemplate
+            $step.With.Remove('PolicyType')
+            & $script:SetPermissiveStartSyncCycle
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+        }
+
+        It 'passes With.PolicyType = Initial through to the provider path' {
             $step = $script:StepTemplate
             $step.With.PolicyType = 'Initial'
 
@@ -146,6 +154,72 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $result = & $handler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
+        }
+
+        It 'throws error when provider rejects invalid With.PolicyType value' {
+            $step = $script:StepTemplate
+            $step.With.PolicyType = 'Invalid'
+            $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
+                param(
+                    [Parameter(Mandatory)]
+                    [ValidateSet('Delta', 'Initial')]
+                    [string] $PolicyType,
+                    [Parameter(Mandatory)]
+                    [string] $ComputerName,
+                    [Parameter(Mandatory)]
+                    [object] $AuthSession
+                )
+                return [pscustomobject]@{ Started = $true }
+            } -Force
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $thrown = $null
+            try {
+                $null = & $handler -Context $script:Context -Step $step
+            }
+            catch {
+                $thrown = $_
+            }
+
+            $thrown | Should -Not -BeNullOrEmpty
+            $thrown.Exception.Message | Should -Match 'Exception calling "StartSyncCycle"'
+            $thrown.Exception.Message | Should -Match 'Invalid'
+            $thrown.Exception.Message | Should -Not -Match 'TriggerDirectorySync: With.PolicyType'
+        }
+
+        It 'does not enforce With.ComputerName at step level' {
+            $step = $script:StepTemplate
+            $step.With.Remove('ComputerName')
+            & $script:SetPermissiveStartSyncCycle
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+        }
+
+        It 'does not enforce With.ComputerName whitespace validation at step level' {
+            $step = $script:StepTemplate
+            $step.With.ComputerName = '   '
+            & $script:SetPermissiveStartSyncCycle
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+        }
+
+        It 'coerces non-string PolicyType and ComputerName to strings before provider invocation' {
+            $step = $script:StepTemplate
+            $step.With.PolicyType = 123
+            $step.With.ComputerName = 456
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $result = & $handler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+            $script:MockProvider.LastPolicyType | Should -Be '123'
+            $script:MockProvider.LastComputerName | Should -Be '456'
         }
 
         It 'uses default provider alias when not specified' {
@@ -186,6 +260,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
             $result.Error | Should -BeNullOrEmpty
+            $script:MockProvider.LastComputerName | Should -Be 'ad-sync1.corp.local'
         }
 
         It 'defaults to not waiting when Wait is not specified' {
@@ -214,7 +289,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
         It 'throws timeout error when sync does not complete in time' {
             # Mock provider that never completes
             $script:MockProvider | Add-Member -MemberType ScriptMethod -Name GetSyncCycleState -Value {
-                param([object] $AuthSession)
+                param([string] $ComputerName, [object] $AuthSession)
                 return [pscustomobject]@{
                     InProgress = $true
                     State      = 'InProgress'
@@ -235,7 +310,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             # Use the provider's PollCount property which is already initialized
             $script:MockProvider.PollCount = 0
             $script:MockProvider | Add-Member -MemberType ScriptMethod -Name GetSyncCycleState -Value {
-                param([object] $AuthSession)
+                param([string] $ComputerName, [object] $AuthSession)
                 $this.PollCount++
                 $inProgress = $this.PollCount -le 2
                 return [pscustomobject]@{
@@ -286,6 +361,45 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $null = & $handler -Context $script:Context -Step $script:StepTemplate
 
             $capturedEvents.Type | Should -Contain 'DirectorySyncTriggered'
+        }
+
+        It 'emits readable trigger message when With.PolicyType is omitted' {
+            $capturedEvents = [System.Collections.ArrayList]::new()
+            $script:Context.EventSink = [pscustomobject]@{}
+            $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+                param($Type, $Message, $StepName, $Data)
+                $null = $capturedEvents.Add(@{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data })
+            } -Force
+
+            $step = $script:StepTemplate
+            $step.With.Remove('PolicyType')
+            & $script:SetPermissiveStartSyncCycle
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $null = & $handler -Context $script:Context -Step $step
+
+            $triggerEvent = $capturedEvents | Where-Object { $_.Type -eq 'DirectorySyncTriggered' } | Select-Object -First 1
+            $triggerEvent.Message | Should -Be 'Triggering directory sync cycle'
+        }
+
+        It 'emits string values in DirectorySyncTriggered event data for PolicyType and ComputerName' {
+            $capturedEvents = [System.Collections.ArrayList]::new()
+            $script:Context.EventSink = [pscustomobject]@{}
+            $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
+                param($Type, $Message, $StepName, $Data)
+                $null = $capturedEvents.Add(@{ Type = $Type; Message = $Message; StepName = $StepName; Data = $Data })
+            } -Force
+
+            $step = $script:StepTemplate
+            $step.With.PolicyType = 123
+            $step.With.ComputerName = 456
+
+            $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
+            $null = & $handler -Context $script:Context -Step $step
+
+            $triggerEvent = $capturedEvents | Where-Object { $_.Type -eq 'DirectorySyncTriggered' } | Select-Object -First 1
+            $triggerEvent.Data.PolicyType | Should -Be '123'
+            $triggerEvent.Data.ComputerName | Should -Be '456'
         }
 
         It 'emits DirectorySyncCompleted event' {

@@ -15,8 +15,8 @@
     'IdLE.Step.TriggerDirectorySync' = @{
         RequiredCapabilities = @('IdLE.DirectorySync.Trigger', 'IdLE.DirectorySync.Status')
         WithSchema           = @{
-            RequiredKeys = @('AuthSessionName', 'PolicyType')
-            OptionalKeys = @('Provider', 'Wait', 'TimeoutSeconds', 'PollIntervalSeconds', 'AuthSessionOptions')
+            RequiredKeys = @()
+            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions', 'ComputerName', 'PolicyType', 'Wait', 'TimeoutSeconds', 'PollIntervalSeconds')
         }
     }
 }

@@ -30,6 +30,7 @@
                 AuthSessionOptions  = @{
                     Role = 'EntraConnectAdmin'
                 }
+                ComputerName        = '{{Request.Intent.EntraConnectServer}}'
 
                 PolicyType          = 'Delta'
                 Wait                = $true

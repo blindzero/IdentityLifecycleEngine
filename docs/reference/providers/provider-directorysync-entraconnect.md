@@ -11,7 +11,7 @@ import EntraConnectTriggerSync from '@site/../examples/workflows/templates/direc
 
 - **Module:** `IdLE.Provider.DirectorySync.EntraConnect`
 - **What it’s for:** Triggering and monitoring **Entra Connect (ADSync)** sync cycles on an on-prem server
-- **Execution model:** Remote execution via a host-provided AuthSession (elevated context)
+- **Execution model:** Remote execution via provider-managed PSRemoting using a host-provided credential
 
 ## When to use
 
@@ -35,7 +35,7 @@ Non-goals:
 ### Requirements
 
 - An Entra Connect (Azure AD Connect) server with ADSync installed (ADSync cmdlets available)
-- A host/runtime that can provide an **elevated remote execution handle** to IdLE via AuthSessionBroker
+- A host/runtime that can provide an **elevated credential** to IdLE via AuthSessionBroker
 - Rights to run `Start-ADSyncSyncCycle` and `Get-ADSyncScheduler` in that remote context
 
 ### Install (PowerShell Gallery)
@@ -66,52 +66,58 @@ $providers = @{
 }
 ```
 
-## Authentication (important)
+## Authentication
 
-This provider requires an AuthSession that supports remote execution and **must be elevated**.
+This provider requires an AuthSession credential ([PSCredential]) and **must be elevated**.
+The provider creates and cleans up PSRemoting sessions internally.
 
-The AuthSession object must provide a method:
+There is no integrated/run-as authentication fallback; a credential-backed AuthSession must be supplied at runtime via the AuthSessionBroker.
+To select the runtime credential for this provider, pass the AuthSession via step configuration:
 
-- `InvokeCommand(CommandName, Parameters)`
+- With.AuthSessionName
+- With.AuthSessionOptions (optional)
 
-Your host/runtime should provide this session via the AuthSessionBroker and you reference it in the step via:
+> Keep credentials/secrets out of workflow files. Use the broker/host to resolve them at runtime.
 
-- `AuthSessionName = 'EntraConnect'`
-- `AuthSessionOptions = @{ Role = 'EntraConnectAdmin' }` (optional routing key)
+## Supported Step Types
 
-> No interactive prompts are made. If the remote context is not elevated, triggering a sync cycle will fail with a privilege/elevation error.
+The Directory Sync (Entra Connect) provider supports the directory sync step types listed below:
 
-## Supported operations
-
-This provider advertises these capabilities:
-
-- `IdLE.DirectorySync.Trigger`
-- `IdLE.DirectorySync.Status`
-
-Those are typically used by step types like:
-
-- `IdLE.Step.TriggerDirectorySync` (trigger + optional wait/poll)
+| Step type | Typical use | Notes |
+| --- | --- | --- |
+| `IdLE.Step.TriggerDirectorySync` | Trigger Directory Sync | Executed via a provider-managed PSRemoting session, with optional wait/poll |
 
 ## Context Resolvers
 
 This provider does **not** support any of the allowlisted Context Resolver capabilities.
 
-Context Resolvers can only use read-only capabilities like `IdLE.Identity.Read` and `IdLE.Entitlement.List`.
-This provider does not advertise these capabilities, so it cannot be used in the workflow `ContextResolvers` section.
-
 ## Configuration
 
-This provider has no admin-facing option bag. Configuration is done through:
-- step inputs (`PolicyType`, `Wait`, `TimeoutSeconds`, `PollIntervalSeconds`)
-- host configuration (remote connection and elevation)
+This provider does **not** expose an admin-facing provider option bag.
+Configuration for triggering and monitoring sync is supplied through the
+`IdLE.Step.TriggerDirectorySync` step inputs via `With.*` keys.
 
-## Examples (canonical template)
+The generic step schema does not require any `With.*` keys at schema level for this
+step type. However, this provider requires specific inputs during provider validation
+and execution, as noted below.
+
+### Step input reference
+
+| Step input | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `With.ComputerName` | `string` | Required by provider | ComputerName for PSSession connection |
+| `With.PolicyType` | `string` | Required by provider | `Delta` or `Initial` sync policy |
+| `With.Wait` | `bool` | `false` | Poll sync status and wait for result (or timeout) |
+| `With.PollIntervalSeconds` | `int` | `10` | Interval in seconds to poll for sync status |
+| `With.TimeoutSeconds` | `int` | `600` | Timeout for poll wait in seconds. Will result in `StepFailed` |
+
+## Examples
 
 <CodeBlock language="powershell" title="examples/workflows/templates/directorysync-entraconnect-trigger-sync.psd1">{EntraConnectTriggerSync}</CodeBlock>
 
 ## Troubleshooting
 
-- **“Missing privileges or elevation”**: your AuthSession must run commands in an elevated context on the Entra Connect server.
-- **“AuthSession must implement InvokeCommand”**: your host must provide an AuthSession object with an `InvokeCommand()` method.
-- **Get-ADSyncScheduler not found**: ensure ADSync cmdlets are available in the remote session (module installed/accessible).
+- **“Missing privileges or elevation”**: ensure the provided credential is elevated on the Entra Connect server.
+- **“AuthSession must be a [PSCredential]”**: configure the AuthSessionBroker/host runtime to provide a credential-backed AuthSession ([PSCredential]) for this provider.
+- **Get-ADSyncScheduler not found**: ensure ADSync cmdlets are available on the target server.
 - **Timeout waiting for completion**: increase `TimeoutSeconds` or check the scheduler state on the server.
