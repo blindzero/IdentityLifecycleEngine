@@ -61,7 +61,12 @@ function New-IdleEntraConnectDirectorySyncProvider {
             [pscredential] $Credential
         )
 
-        return New-PSSession -ComputerName $ComputerName -Credential $Credential -ErrorAction Stop
+        try {
+            return New-PSSession -ComputerName $ComputerName -Credential $Credential -ErrorAction Stop
+        }
+        catch {
+            throw "Failed to establish PSRemoting session to '$ComputerName': $($_.Exception.Message)"
+        }
     } -Force
 
     $provider | Add-Member -MemberType ScriptMethod -Name InvokeRemoteCommand -Value {
@@ -191,17 +196,13 @@ function New-IdleEntraConnectDirectorySyncProvider {
         #>
         param(
             [Parameter(Mandatory)]
-            [ValidateNotNull()]
+            [ValidateNotNullOrEmpty()]
             [string] $ComputerName,
 
             [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $AuthSession
         )
-
-        if ([string]::IsNullOrWhiteSpace($ComputerName)) {
-            throw "ComputerName must not be null, empty, or whitespace."
-        }
 
         if ($AuthSession -isnot [pscredential]) {
             $actualType = $AuthSession.GetType().FullName

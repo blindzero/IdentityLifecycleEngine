@@ -30,7 +30,7 @@ Describe 'Entra Connect directory sync provider contracts' {
         BeforeEach {
             $script:Provider = New-IdleEntraConnectDirectorySyncProvider
             $script:ComputerName = 'ad-sync1.corp.local'
-            $script:MockCredential = New-Object System.Management.Automation.PSCredential (
+            $script:MockCredential = [PSCredential]::new(
                 'contoso\syncadmin',
                 (ConvertTo-SecureString -String 'P@ssw0rd!' -AsPlainText -Force)
             )

@@ -30,8 +30,8 @@ function Invoke-IdleDirectorySyncProviderComputerNameCredentialContractTests {
                 throw 'ProviderFactory returned $null. A provider instance is required for contract tests.'
             }
 
-            $script:Credential = New-Object System.Management.Automation.PSCredential (
-                'contoso\\syncadmin',
+            $script:Credential = [PSCredential]::new(
+                'contoso\syncadmin',
                 (ConvertTo-SecureString -String 'P@ssw0rd!' -AsPlainText -Force)
             )
 
