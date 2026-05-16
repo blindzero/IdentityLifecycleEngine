@@ -32,6 +32,8 @@ Authentication:
 
 - With.AuthSessionOptions (optional, hashtable): forwarded to broker for session selection
 
+- If AuthSessionName is omitted, the broker is asked for a default session
+
 - ScriptBlocks in AuthSessionOptions are rejected (security boundary)
 
 ## Inputs (With.*)

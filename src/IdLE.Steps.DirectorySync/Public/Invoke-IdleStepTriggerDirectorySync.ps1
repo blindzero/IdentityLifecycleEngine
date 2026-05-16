@@ -15,6 +15,7 @@ function Invoke-IdleStepTriggerDirectorySync {
     Authentication:
     - With.AuthSessionName (optional): routing key for AuthSessionBroker
     - With.AuthSessionOptions (optional, hashtable): forwarded to broker for session selection
+    - If AuthSessionName is omitted, the broker is asked for a default session
     - ScriptBlocks in AuthSessionOptions are rejected (security boundary)
 
     .PARAMETER Context
@@ -22,7 +23,7 @@ function Invoke-IdleStepTriggerDirectorySync {
 
     .PARAMETER Step
     Normalized step object from the plan. Must contain a 'With' hashtable with keys:
-    - AuthSessionName (optional, string): auth session name for broker
+    - AuthSessionName (optional, string): auth session name for broker (default session is used when omitted)
     - ComputerName (required, string): target Entra Connect server
     - PolicyType (required, string): 'Delta' or 'Initial' (case-insensitive)
     - Provider (optional, string): provider alias, defaults to 'DirectorySync'
