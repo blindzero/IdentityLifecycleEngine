@@ -159,17 +159,17 @@ function New-IdleEntraConnectDirectorySyncProvider {
 
         $remoteSession = $null
         try {
-            $remoteSession = $this.NewRemoteSession($ComputerName, $AuthSession)
+            $remoteSession = $this.NewRemoteSession($computerName, $AuthSession)
 
             $this.InvokeRemoteCommand($remoteSession, {
                 param([string] $RemotePolicyType)
                 Import-Module -Name ADSync -ErrorAction Stop
                 Start-ADSyncSyncCycle -PolicyType $RemotePolicyType -ErrorAction Stop
-            }, @($PolicyType)) | Out-Null
+            }, @($policyType)) | Out-Null
 
             return [pscustomobject]@{
                 Started = $true
-                Message = "Sync cycle triggered with PolicyType: $PolicyType on $ComputerName"
+                Message = "Sync cycle triggered with PolicyType: $policyType on $computerName"
             }
         }
         catch {
@@ -235,7 +235,7 @@ function New-IdleEntraConnectDirectorySyncProvider {
 
         $remoteSession = $null
         try {
-            $remoteSession = $this.NewRemoteSession($ComputerName, $AuthSession)
+            $remoteSession = $this.NewRemoteSession($computerName, $AuthSession)
 
             $scheduler = $this.InvokeRemoteCommand($remoteSession, {
                 Import-Module -Name ADSync -ErrorAction Stop
