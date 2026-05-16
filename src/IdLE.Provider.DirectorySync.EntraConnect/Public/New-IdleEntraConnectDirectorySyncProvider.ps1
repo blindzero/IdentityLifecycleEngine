@@ -135,6 +135,7 @@ function New-IdleEntraConnectDirectorySyncProvider {
 
             [Parameter(Mandatory)]
             [ValidateNotNullOrEmpty()]
+            [ValidateScript({ -not [string]::IsNullOrWhiteSpace($_) })]
             [string] $ComputerName,
 
             [Parameter(Mandatory)]
