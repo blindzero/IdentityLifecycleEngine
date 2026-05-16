@@ -9,7 +9,7 @@ function New-IdleEntraIDIdentityProvider {
     via the host-provided AuthSessionBroker pattern.
 
     The provider supports common identity operations (Create, Read, Disable, Enable, Delete)
-    and group entitlement management (List, Grant, Revoke).
+    and entitlement management for groups and Administrative Units (List, Grant, Revoke).
 
     Identity addressing supports:
     - objectId (GUID string) - most deterministic
@@ -37,7 +37,7 @@ function New-IdleEntraIDIdentityProvider {
 
     .PARAMETER Adapter
     Internal parameter for dependency injection during testing. Allows unit tests to inject
-    a fake Graph adapter without requiring a real Entra ID environment.
+    a mock Graph adapter without requiring a real Entra ID environment.
 
     .EXAMPLE
     # Basic usage with delegated auth
@@ -82,6 +82,8 @@ function New-IdleEntraIDIdentityProvider {
     Requires Microsoft Graph API permissions (delegated or app-only):
     - User.Read.All, User.ReadWrite.All
     - Group.Read.All, GroupMember.ReadWrite.All
+    - AdministrativeUnit.Read.All (for ListEntitlements with Kind=AdministrativeUnit)
+    - AdministrativeUnit.ReadWrite.All (for Grant/Revoke with Kind=AdministrativeUnit)
     - For delete: User.ReadWrite.All
 
     See docs/reference/providers/provider-entraID.md for detailed permission requirements.
