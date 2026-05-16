@@ -154,7 +154,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $result.Status | Should -Be 'Completed'
         }
 
-        It 'passes invalid With.PolicyType through to provider validation' {
+        It 'throws error when provider rejects invalid With.PolicyType value' {
             $step = $script:StepTemplate
             $step.With.PolicyType = 'Invalid'
             $script:MockProvider | Add-Member -MemberType ScriptMethod -Name StartSyncCycle -Value {
@@ -171,7 +171,18 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             } -Force
 
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw -ErrorId * -ExpectedMessage '*PolicyType*'
+            $thrown = $null
+            try {
+                $null = & $handler -Context $script:Context -Step $step
+            }
+            catch {
+                $thrown = $_
+            }
+
+            $thrown | Should -Not -BeNullOrEmpty
+            $thrown.Exception.Message | Should -Match 'Exception calling "StartSyncCycle"'
+            $thrown.Exception.Message | Should -Match 'Invalid'
+            $thrown.Exception.Message | Should -Not -Match 'TriggerDirectorySync: With.PolicyType'
         }
 
         It 'does not enforce With.ComputerName at step level' {
