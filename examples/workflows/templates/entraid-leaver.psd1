@@ -96,6 +96,10 @@
 
         # Optional: remove the user from all Administrative Units.
         # Use when scoped admin visibility must be revoked as part of offboarding.
+        # This is remove-only: no AU is added. Existing memberships NOT in Keep are removed;
+        # Keep entries are protected but NOT granted if missing.
+        # Use PruneAdministrativeUnitMemberships_Optional (below) when you also need to guarantee
+        # a specific AU is present after the prune.
         @{
             Name      = 'RevokeAdministrativeUnitMemberships_Optional'
             Type      = 'IdLE.Step.PruneEntitlements'
@@ -115,6 +119,37 @@
                 IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
                 Kind               = 'AdministrativeUnit'
                 Keep               = @()
+            }
+        }
+
+        # Optional: remove all AU memberships EXCEPT a retain set AND ensure retain set is present.
+        # PruneEntitlementsEnsureKeep removes all AU memberships except the keep set AND grants
+        # any Keep AU that is not currently assigned.
+        # Use PruneEntitlements (above) if you only need removal with no guaranteed grant.
+        @{
+            Name      = 'PruneAdministrativeUnitMemberships_Optional'
+            Type      = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+            Condition = @{
+                All = @(
+                    @{
+                        Equals = @{
+                            Path  = 'Request.Intent.PruneAdministrativeUnitMemberships'
+                            Value = $true
+                        }
+                    }
+                )
+            }
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
+                Kind               = 'AdministrativeUnit'
+
+                # This AU is retained AND guaranteed to be present after the step.
+                # Reference by objectId (GUID) or by displayName (must be tenant-unique).
+                Keep               = @(
+                    @{ Kind = 'AdministrativeUnit'; Id = '{{Request.Intent.RetainAdministrativeUnitId}}' }
+                )
             }
         }
 
