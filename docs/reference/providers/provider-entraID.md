@@ -133,7 +133,6 @@ Each element represents one entitlement (group membership or Administrative Unit
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `PSTypeName` | `string` | Always `IdLE.Entitlement`. |
 | `Kind` | `string` | Always `Group`. |
 | `Id` | `string` | Entra group object ID (GUID). |
 | `Mail` | `string` or `$null` | Group `mail` (if returned by Graph). |
@@ -142,7 +141,6 @@ Each element represents one entitlement (group membership or Administrative Unit
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `PSTypeName` | `string` | Always `IdLE.Entitlement`. |
 | `Kind` | `string` | Always `AdministrativeUnit`. |
 | `Id` | `string` | Entra Administrative Unit object ID (GUID). |
 
@@ -151,65 +149,6 @@ Notes:
 - Each entry is automatically annotated with `SourceProvider` and `SourceAuthSessionName` metadata.
 - Use the global View (`Request.Context.Views.Identity.Entitlements`) in **Conditions** when you don't need to filter by provider. Use the scoped path when you need results from a specific provider only.
 - See [Context Resolvers](../../use/workflows/context-resolver.md) for the full path reference.
-
-## Administrative Unit entitlements
-
-Administrative Units (AUs) are modelled as `Kind = 'AdministrativeUnit'` entitlements. They control which scoped admins can manage which users — assigning a user to an AU makes them visible to that AU's scoped admin roles.
-
-### Supported operations
-
-| Operation | Behaviour |
-| --- | --- |
-| `ListEntitlements` | Returns all current AU memberships alongside group memberships. |
-| `GrantEntitlement` | Adds the user to the specified AU. Idempotent — no error if already a member. |
-| `RevokeEntitlement` | Removes the user from the specified AU. Idempotent — no error if not a member. |
-| `PruneEntitlements` | Covered automatically: `ListEntitlements` returns both groups and AUs, so the Prune step removes unlisted AUs in the same pass as groups. |
-
-### Workflow usage
-
-```powershell
-# Ensure a user is assigned to an Administrative Unit (Joiner / Mover)
-@{
-    Name = 'Assign to HR Administrative Unit'
-    Type = 'IdLE.Step.EnsureEntitlement'
-    With = @{
-        IdentityKey     = '{{Request.IdentityKeys.Id}}'
-        Provider        = 'Entra'
-        AuthSessionName = 'MicrosoftGraph'
-        Entitlement     = @{ Kind = 'AdministrativeUnit'; Id = '<AU-ObjectId-GUID>' }
-        State           = 'Present'
-    }
-}
-
-# Remove a user from an Administrative Unit (Leaver / Mover)
-@{
-    Name = 'Remove from HR Administrative Unit'
-    Type = 'IdLE.Step.EnsureEntitlement'
-    With = @{
-        IdentityKey     = '{{Request.IdentityKeys.Id}}'
-        Provider        = 'Entra'
-        AuthSessionName = 'MicrosoftGraph'
-        Entitlement     = @{ Kind = 'AdministrativeUnit'; Id = '<AU-ObjectId-GUID>' }
-        State           = 'Absent'
-    }
-}
-```
-
-### Constraints
-
-- Administrative Units must be **pre-created in Entra** before being referenced in a workflow. The provider validates AU existence and throws a clear, actionable error if the AU is not found.
-- AUs can be referenced by **object ID (GUID)** or by **displayName**. Display-name lookup is supported for convenience, but AU display names are not guaranteed to be unique within a tenant — if multiple AUs share the same name, the provider throws an error and requires the object ID to be used instead.
-- `BulkGrantEntitlements` and `BulkRevokeEntitlements` both support `Kind = 'Group'` (Graph batch path) and `Kind = 'AdministrativeUnit'` (per-item path — no Graph batch API exists for AU membership changes). Mixed-kind batches are accepted in both methods. This ensures `PruneEntitlementsEnsureKeep` works correctly for AUs (it calls both bulk methods internally).
-
-### Graph endpoints used
-
-| Operation | Endpoint |
-| --- | --- |
-| List | `GET /users/{id}/memberOf/microsoft.graph.administrativeUnit` |
-| Grant | `POST /directory/administrativeUnits/{id}/members/$ref` |
-| Revoke | `DELETE /directory/administrativeUnits/{id}/members/{userId}/$ref` |
-| Validate AU exists by ID | `GET /directory/administrativeUnits/{id}` |
-| Resolve AU by displayName | `GET /directory/administrativeUnits?$filter=displayName eq '...'` |
 
 ## Configuration
 
