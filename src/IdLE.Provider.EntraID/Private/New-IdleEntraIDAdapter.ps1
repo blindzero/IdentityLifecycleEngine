@@ -75,8 +75,11 @@ function New-IdleEntraIDAdapter {
             if ($_.Exception.Response) {
                 $statusCode = [int]$_.Exception.Response.StatusCode
                 if ($_.Exception.Response.Headers) {
-                    $requestId = $_.Exception.Response.Headers['request-id']
-                    $retryAfter = $_.Exception.Response.Headers['Retry-After']
+                    # HttpResponseHeaders (PowerShell 7 / HttpClient) does not support
+                    # indexer-style access. Use GetValues() with a safety catch for the
+                    # case where the header is absent (GetValues throws in that case).
+                    try { $requestId  = $_.Exception.Response.Headers.GetValues('request-id')   | Select-Object -First 1 } catch { }
+                    try { $retryAfter = $_.Exception.Response.Headers.GetValues('Retry-After')  | Select-Object -First 1 } catch { }
                 }
             }
 
