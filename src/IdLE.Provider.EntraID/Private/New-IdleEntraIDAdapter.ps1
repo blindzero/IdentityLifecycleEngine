@@ -347,7 +347,9 @@ function New-IdleEntraIDAdapter {
             [string] $AccessToken
         )
 
-        $encodedName = [System.Net.WebUtility]::UrlEncode($DisplayName)
+        # Escape single quotes for OData string literals (doubling), then URL-encode for the URI
+        $odataEscapedName = $DisplayName.Replace("'", "''")
+        $encodedName = [System.Net.WebUtility]::UrlEncode($odataEscapedName)
         $uri = "$($this.BaseUri)/groups?`$filter=displayName eq '$encodedName'"
         $uri += '&$select=id,displayName,mail,mailNickname'
 
@@ -419,7 +421,9 @@ function New-IdleEntraIDAdapter {
             [string] $AccessToken
         )
 
-        $encodedName = [System.Net.WebUtility]::UrlEncode($DisplayName)
+        # Escape single quotes for OData string literals (doubling), then URL-encode for the URI
+        $odataEscapedName = $DisplayName.Replace("'", "''")
+        $encodedName = [System.Net.WebUtility]::UrlEncode($odataEscapedName)
         $uri = "$($this.BaseUri)/directory/administrativeUnits?`$filter=displayName eq '$encodedName'"
         $uri += '&$select=id,displayName'
 

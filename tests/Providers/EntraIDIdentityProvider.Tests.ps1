@@ -1252,7 +1252,37 @@ Describe 'EntraID identity provider - Entitlement operations' {
             @($afterRevoke | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 0
         }
 
-        It 'ListEntitlements returns both Group and AdministrativeUnit entitlements' {
+        It 'ListEntitlements with Kind=Group only returns Group entitlements and does not call ListUserAdministrativeUnits' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $groupId = [guid]::NewGuid().ToString()
+            $auId    = [guid]::NewGuid().ToString()
+
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $groupId })
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $entitlements = @($script:EntProvider.ListEntitlements($userId, $null, 'Group'))
+
+            @($entitlements | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $groupId }).Count | Should -Be 1
+            @($entitlements | Where-Object { $_.Kind -eq 'AdministrativeUnit' }).Count | Should -Be 0
+        }
+
+        It 'ListEntitlements with Kind=AdministrativeUnit only returns AU entitlements and does not call ListUserGroups' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $groupId = [guid]::NewGuid().ToString()
+            $auId    = [guid]::NewGuid().ToString()
+
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $groupId })
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $entitlements = @($script:EntProvider.ListEntitlements($userId, $null, 'AdministrativeUnit'))
+
+            @($entitlements | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 1
+            @($entitlements | Where-Object { $_.Kind -eq 'Group' }).Count | Should -Be 0
+        }
+
+        It 'ListEntitlements with no Kind returns both Group and AdministrativeUnit entitlements' {
             $userId = [guid]::NewGuid().ToString()
             [void]$script:EntProvider.GetIdentity($userId)
             $groupId = [guid]::NewGuid().ToString()

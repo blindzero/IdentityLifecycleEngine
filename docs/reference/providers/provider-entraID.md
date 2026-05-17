@@ -168,7 +168,7 @@ This provider has **no provider-specific option bag**. Configuration is done thr
 At minimum, you typically need:
 - **Users:** read/write (create/update/disable/delete if enabled)
 - **Groups:** read/write memberships (if you use group entitlement steps)
-- **Administrative Units:** read/write memberships (if you use Administrative Unit entitlement steps)
+- **Administrative Units:** read/write memberships — only required when using `Kind = 'AdministrativeUnit'` in entitlement steps. Group-only workflows do not need these permissions because `ListEntitlements` skips AU Graph calls when `Kind = 'Group'` is specified.
 
 Exact permission names depend on your auth model (delegated vs application) and what operations you enable.
 
@@ -178,8 +178,8 @@ Exact permission names depend on your auth model (delegated vs application) and 
 | Create/update/disable users | `User.ReadWrite.All` |
 | List group memberships | `Group.Read.All` |
 | Grant/revoke group memberships | `GroupMember.ReadWrite.All` |
-| List AU memberships | `AdministrativeUnit.Read.All` |
-| Grant/revoke AU memberships | `AdministrativeUnit.ReadWrite.All` |
+| List AU memberships (`Kind = 'AdministrativeUnit'`) | `AdministrativeUnit.Read.All` |
+| Grant/revoke AU memberships (`Kind = 'AdministrativeUnit'`) | `AdministrativeUnit.ReadWrite.All` |
 
 ## Examples (canonical templates)
 

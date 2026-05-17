@@ -82,7 +82,7 @@ function New-IdleEntraIDIdentityProvider {
     Requires Microsoft Graph API permissions (delegated or app-only):
     - User.Read.All, User.ReadWrite.All
     - Group.Read.All, GroupMember.ReadWrite.All
-    - AdministrativeUnit.Read.All (for ListEntitlements with Kind=AdministrativeUnit)
+    - AdministrativeUnit.Read.All (for ListEntitlements/GrantEntitlement/RevokeEntitlement with Kind=AdministrativeUnit)
     - AdministrativeUnit.ReadWrite.All (for Grant/Revoke with Kind=AdministrativeUnit)
     - For delete: User.ReadWrite.All
 
@@ -833,45 +833,60 @@ function New-IdleEntraIDIdentityProvider {
 
             [Parameter()]
             [AllowNull()]
-            [object] $AuthSession
+            [object] $AuthSession,
+
+            [Parameter()]
+            [AllowNull()]
+            [string] $Kind = $null
         )
 
         $accessToken = $this.ExtractAccessToken($AuthSession)
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
-        $groups = $this.Adapter.ListUserGroups($user.id, $accessToken)
-        $aus = $this.Adapter.ListUserAdministrativeUnits($user.id, $accessToken)
+        # When Kind is supplied, only fetch the relevant directory objects.
+        # When Kind is null/empty, fetch both (backward-compatible, e.g. host-level reports).
+        $includeGroups = [string]::IsNullOrEmpty($Kind) -or
+            [string]::Equals($Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)
+        $includeAUs    = [string]::IsNullOrEmpty($Kind) -or
+            [string]::Equals($Kind, 'AdministrativeUnit', [System.StringComparison]::OrdinalIgnoreCase)
 
         $result = @()
-        foreach ($group in $groups) {
-            # Handle both hashtables and PSCustomObjects
-            $groupId = if ($group -is [System.Collections.IDictionary]) {
-                $group['id']
-            } else {
-                $group.id
-            }
 
-            $mail = if ($group -is [System.Collections.IDictionary]) {
-                if ($group.ContainsKey('mail')) { $group['mail'] } else { $null }
-            } else {
-                if ($group.PSObject.Properties.Name -contains 'mail') { $group.mail } else { $null }
-            }
+        if ($includeGroups) {
+            $groups = $this.Adapter.ListUserGroups($user.id, $accessToken)
+            foreach ($group in $groups) {
+                # Handle both hashtables and PSCustomObjects
+                $groupId = if ($group -is [System.Collections.IDictionary]) {
+                    $group['id']
+                } else {
+                    $group.id
+                }
 
-            $result += [pscustomobject]@{
-                PSTypeName = 'IdLE.Entitlement'
-                Kind       = 'Group'
-                Id         = $groupId
-                Mail       = $mail
+                $mail = if ($group -is [System.Collections.IDictionary]) {
+                    if ($group.ContainsKey('mail')) { $group['mail'] } else { $null }
+                } else {
+                    if ($group.PSObject.Properties.Name -contains 'mail') { $group.mail } else { $null }
+                }
+
+                $result += [pscustomobject]@{
+                    PSTypeName = 'IdLE.Entitlement'
+                    Kind       = 'Group'
+                    Id         = $groupId
+                    Mail       = $mail
+                }
             }
         }
 
-        foreach ($au in $aus) {
-            $auId = if ($au -is [System.Collections.IDictionary]) { $au['id'] } else { $au.id }
+        if ($includeAUs) {
+            $aus = $this.Adapter.ListUserAdministrativeUnits($user.id, $accessToken)
+            foreach ($au in $aus) {
+                $auId = if ($au -is [System.Collections.IDictionary]) { $au['id'] } else { $au.id }
 
-            $result += [pscustomobject]@{
-                PSTypeName = 'IdLE.Entitlement'
-                Kind       = 'AdministrativeUnit'
-                Id         = $auId
+                $result += [pscustomobject]@{
+                    PSTypeName = 'IdLE.Entitlement'
+                    Kind       = 'AdministrativeUnit'
+                    Id         = $auId
+                }
             }
         }
 
