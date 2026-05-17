@@ -35,13 +35,13 @@ BeforeDiscovery {
 
 Describe 'EntraID identity provider - Contract tests' {
     BeforeAll {
-        # Create a fake adapter for contract tests
-        $fakeAdapter = [pscustomobject]@{
-            PSTypeName = 'IdLE.EntraIDAdapter.Fake'
+        # Create a mock adapter for contract tests
+        $mockAdapter = [pscustomobject]@{
+            PSTypeName = 'IdLE.EntraIDAdapter.Mock'
             Store      = @{}
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
             param($ObjectId, $AccessToken)
             $key = "id:$ObjectId"
             if (-not $this.Store.ContainsKey($key)) {
@@ -58,7 +58,7 @@ Describe 'EntraID identity provider - Contract tests' {
             return $this.Store[$key]
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
             param($Upn, $AccessToken)
             # Try direct lookup first
             if ($this.Store.ContainsKey("upn:$Upn")) {
@@ -73,7 +73,7 @@ Describe 'EntraID identity provider - Contract tests' {
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
             param($Mail, $AccessToken)
             # Try direct lookup first
             if ($this.Store.ContainsKey("mail:$Mail")) {
@@ -88,7 +88,7 @@ Describe 'EntraID identity provider - Contract tests' {
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name CreateUser -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name CreateUser -Value {
             param($Payload, $AccessToken)
             $id = [guid]::NewGuid().ToString()
             $user = @{
@@ -108,7 +108,7 @@ Describe 'EntraID identity provider - Contract tests' {
             return $user
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name PatchUser -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name PatchUser -Value {
             param($ObjectId, $Payload, $AccessToken)
             $key = "id:$ObjectId"
             if ($this.Store.ContainsKey($key)) {
@@ -118,7 +118,7 @@ Describe 'EntraID identity provider - Contract tests' {
             }
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name DeleteUser -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name DeleteUser -Value {
             param($ObjectId, $AccessToken)
             $key = "id:$ObjectId"
             if ($this.Store.ContainsKey($key)) {
@@ -126,7 +126,7 @@ Describe 'EntraID identity provider - Contract tests' {
             }
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name ListUsers -Value {
             param($Filter, $AccessToken)
             $users = @()
             foreach ($key in $this.Store.Keys) {
@@ -135,7 +135,7 @@ Describe 'EntraID identity provider - Contract tests' {
             return $users
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
             param($GroupId, $AccessToken)
             return @{
                 id          = $GroupId
@@ -144,7 +144,7 @@ Describe 'EntraID identity provider - Contract tests' {
             }
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
             param($DisplayName, $AccessToken)
             # Generate a deterministic GUID based on the display name
             # This simulates real Graph API behavior where groups have GUID ids
@@ -159,7 +159,7 @@ Describe 'EntraID identity provider - Contract tests' {
             }
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name ListUserGroups -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name ListUserGroups -Value {
             param($ObjectId, $AccessToken)
             $key = "groups:$ObjectId"
             if (-not $this.Store.ContainsKey($key)) {
@@ -168,7 +168,49 @@ Describe 'EntraID identity provider - Contract tests' {
             return $this.Store[$key]
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+            param($AuId, $AccessToken)
+            return @{ id = $AuId; displayName = "AU $AuId" }
+        }
+
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+            param($DisplayName, $AccessToken)
+            return @{ id = "resolved-au-$DisplayName"; displayName = $DisplayName }
+        }
+
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name ListUserAdministrativeUnits -Value {
+            param($ObjectId, $AccessToken)
+            $key = "aus:$ObjectId"
+            if (-not $this.Store.ContainsKey($key)) {
+                $this.Store[$key] = @()
+            }
+            return $this.Store[$key]
+        }
+
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name AddAdministrativeUnitMember -Value {
+            param($AuObjectId, $UserObjectId, $AccessToken)
+            $key = "aus:$UserObjectId"
+            if (-not $this.Store.ContainsKey($key)) { $this.Store[$key] = @() }
+            $alreadyMember = $null -ne ($this.Store[$key] | Where-Object { $_.id -eq $AuObjectId })
+            if (-not $alreadyMember) {
+                $this.Store[$key] += @{ id = $AuObjectId; displayName = "AU $AuObjectId" }
+                return $true
+            }
+            return $false
+        }
+
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name RemoveAdministrativeUnitMember -Value {
+            param($AuObjectId, $UserObjectId, $AccessToken)
+            $key = "aus:$UserObjectId"
+            if ($this.Store.ContainsKey($key)) {
+                $wasMember = $null -ne ($this.Store[$key] | Where-Object { $_.id -eq $AuObjectId })
+                $this.Store[$key] = @($this.Store[$key] | Where-Object { $_.id -ne $AuObjectId })
+                return $wasMember
+            }
+            return $false
+        }
+
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {
             param($GroupObjectId, $UserObjectId, $AccessToken)
             $key = "groups:$UserObjectId"
             if (-not $this.Store.ContainsKey($key)) {
@@ -195,7 +237,7 @@ Describe 'EntraID identity provider - Contract tests' {
             return $false
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name RemoveGroupMember -Value {
             param($GroupObjectId, $UserObjectId, $AccessToken)
             $key = "groups:$UserObjectId"
             if ($this.Store.ContainsKey($key)) {
@@ -206,7 +248,7 @@ Describe 'EntraID identity provider - Contract tests' {
             return $false
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name BatchMembershipChanges -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name BatchMembershipChanges -Value {
             param($Operations, $AccessToken)
             $results = @()
             foreach ($op in $Operations) {
@@ -226,16 +268,16 @@ Describe 'EntraID identity provider - Contract tests' {
             return $results
         }
 
-        $script:FakeAdapter = $fakeAdapter
+        $script:MockAdapter = $mockAdapter
     }
 
     Context 'Contracts' {
         Invoke-IdleIdentityProviderContractTests -NewProvider {
-            New-IdleEntraIDIdentityProvider -Adapter $script:FakeAdapter
+            New-IdleEntraIDIdentityProvider -Adapter $script:MockAdapter
         }
 
         Invoke-IdleProviderCapabilitiesContractTests -ProviderFactory {
-            New-IdleEntraIDIdentityProvider -Adapter $script:FakeAdapter
+            New-IdleEntraIDIdentityProvider -Adapter $script:MockAdapter
         }
 
         # Note: Generic entitlement contract tests are skipped for EntraID provider because:
@@ -284,26 +326,26 @@ Describe 'EntraID identity provider - Capabilities' {
 Describe 'EntraID identity provider - AllowDelete gate' {
     Context 'Guard' {
         It 'Throws when Delete is called without AllowDelete' {
-            $fakeAdapter = [pscustomobject]@{ PSTypeName = 'Fake' }
-            $provider = New-IdleEntraIDIdentityProvider -Adapter $fakeAdapter
+            $mockAdapter = [pscustomobject]@{ PSTypeName = 'Mock' }
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $mockAdapter
 
-            { $provider.DeleteIdentity('test-id', 'fake-token') } | Should -Throw '*Delete capability is not enabled*'
+            { $provider.DeleteIdentity('test-id', 'mock-token') } | Should -Throw '*Delete capability is not enabled*'
         }
 
         It 'Allows Delete when AllowDelete is true' {
-            $fakeAdapter = [pscustomobject]@{
-                PSTypeName = 'Fake'
+            $mockAdapter = [pscustomobject]@{
+                PSTypeName = 'Mock'
             }
-            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+            $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
                 param($ObjectId, $AccessToken)
                 return $null
             }
 
-            $provider = New-IdleEntraIDIdentityProvider -AllowDelete -Adapter $fakeAdapter
+            $provider = New-IdleEntraIDIdentityProvider -AllowDelete -Adapter $mockAdapter
 
             # Use GUID format, should not throw capability error
             $userId = [guid]::NewGuid().ToString()
-            $result = $provider.DeleteIdentity($userId, 'fake-token')
+            $result = $provider.DeleteIdentity($userId, 'mock-token')
             $result.Changed | Should -BeFalse
         }
     }
@@ -312,12 +354,12 @@ Describe 'EntraID identity provider - AllowDelete gate' {
 Describe 'EntraID identity provider - Idempotency' {
     BeforeEach {
         $store = @{}
-        $fakeAdapter = [pscustomobject]@{
-            PSTypeName = 'IdLE.EntraIDAdapter.Fake'
+        $mockAdapter = [pscustomobject]@{
+            PSTypeName = 'IdLE.EntraIDAdapter.Mock'
             Store      = $store
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
             param($ObjectId, $AccessToken)
             if ($this.Store.ContainsKey($ObjectId)) {
                 return $this.Store[$ObjectId]
@@ -325,7 +367,7 @@ Describe 'EntraID identity provider - Idempotency' {
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
             param($Upn, $AccessToken)
             foreach ($key in $this.Store.Keys) {
                 if ($this.Store[$key].userPrincipalName -eq $Upn) {
@@ -335,7 +377,7 @@ Describe 'EntraID identity provider - Idempotency' {
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
             param($Mail, $AccessToken)
             foreach ($key in $this.Store.Keys) {
                 if ($this.Store[$key].mail -eq $Mail) {
@@ -345,7 +387,7 @@ Describe 'EntraID identity provider - Idempotency' {
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name CreateUser -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name CreateUser -Value {
             param($Payload, $AccessToken)
             $id = [guid]::NewGuid().ToString()
             $user = @{
@@ -358,7 +400,7 @@ Describe 'EntraID identity provider - Idempotency' {
             return $user
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name PatchUser -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name PatchUser -Value {
             param($ObjectId, $Payload, $AccessToken)
             if ($this.Store.ContainsKey($ObjectId)) {
                 foreach ($prop in $Payload.Keys) {
@@ -367,14 +409,14 @@ Describe 'EntraID identity provider - Idempotency' {
             }
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name DeleteUser -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name DeleteUser -Value {
             param($ObjectId, $AccessToken)
             if ($this.Store.ContainsKey($ObjectId)) {
                 $this.Store.Remove($ObjectId)
             }
         }
 
-        $script:TestAdapter = $fakeAdapter
+        $script:TestAdapter = $mockAdapter
     }
 
     Context 'Idempotency' {
@@ -386,13 +428,13 @@ Describe 'EntraID identity provider - Idempotency' {
                 DisplayName       = 'Test User'
             }
 
-            $result1 = $provider.CreateIdentity('test@test.local', $attrs, 'fake-token')
+            $result1 = $provider.CreateIdentity('test@test.local', $attrs, 'mock-token')
             $result1.Changed | Should -BeTrue
 
             $userId = $result1.IdentityKey
 
             # Second create should be idempotent
-            $result2 = $provider.CreateIdentity($userId, $attrs, 'fake-token')
+            $result2 = $provider.CreateIdentity($userId, $attrs, 'mock-token')
             $result2.Changed | Should -BeFalse
         }
 
@@ -400,7 +442,7 @@ Describe 'EntraID identity provider - Idempotency' {
             $provider = New-IdleEntraIDIdentityProvider -AllowDelete -Adapter $script:TestAdapter
 
             $userId = [guid]::NewGuid().ToString()
-            $result = $provider.DeleteIdentity($userId, 'fake-token')
+            $result = $provider.DeleteIdentity($userId, 'mock-token')
             $result.Changed | Should -BeFalse
         }
 
@@ -413,10 +455,10 @@ Describe 'EntraID identity provider - Idempotency' {
                 accountEnabled = $true
             }
 
-            $result1 = $provider.DisableIdentity($userId, 'fake-token')
+            $result1 = $provider.DisableIdentity($userId, 'mock-token')
             $result1.Changed | Should -BeTrue
 
-            $result2 = $provider.DisableIdentity($userId, 'fake-token')
+            $result2 = $provider.DisableIdentity($userId, 'mock-token')
             $result2.Changed | Should -BeFalse
         }
 
@@ -429,10 +471,10 @@ Describe 'EntraID identity provider - Idempotency' {
                 accountEnabled = $false
             }
 
-            $result1 = $provider.EnableIdentity($userId, 'fake-token')
+            $result1 = $provider.EnableIdentity($userId, 'mock-token')
             $result1.Changed | Should -BeTrue
 
-            $result2 = $provider.EnableIdentity($userId, 'fake-token')
+            $result2 = $provider.EnableIdentity($userId, 'mock-token')
             $result2.Changed | Should -BeFalse
         }
 
@@ -445,10 +487,10 @@ Describe 'EntraID identity provider - Idempotency' {
                 displayName = 'Old Name'
             }
 
-            $result1 = $provider.EnsureAttribute($userId, 'DisplayName', 'New Name', 'fake-token')
+            $result1 = $provider.EnsureAttribute($userId, 'DisplayName', 'New Name', 'mock-token')
             $result1.Changed | Should -BeTrue
 
-            $result2 = $provider.EnsureAttribute($userId, 'DisplayName', 'New Name', 'fake-token')
+            $result2 = $provider.EnsureAttribute($userId, 'DisplayName', 'New Name', 'mock-token')
             $result2.Changed | Should -BeFalse
         }
     }
@@ -456,12 +498,12 @@ Describe 'EntraID identity provider - Idempotency' {
 
 Describe 'EntraID identity provider - AuthSession handling' {
     BeforeEach {
-        $fakeAdapter = [pscustomobject]@{
-            PSTypeName    = 'IdLE.EntraIDAdapter.Fake'
+        $mockAdapter = [pscustomobject]@{
+            PSTypeName    = 'IdLE.EntraIDAdapter.Mock'
             LastTokenUsed = $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
             param($ObjectId, $AccessToken)
             $this.LastTokenUsed = $AccessToken
             return @{
@@ -471,7 +513,7 @@ Describe 'EntraID identity provider - AuthSession handling' {
             }
         }
 
-        $script:TestAdapter = $fakeAdapter
+        $script:TestAdapter = $mockAdapter
     }
 
     Context 'AuthSession formats' {
@@ -531,12 +573,12 @@ Describe 'EntraID identity provider - AuthSession handling' {
 Describe 'EntraID identity provider - Identity resolution' {
     BeforeEach {
         $store = @{}
-        $fakeAdapter = [pscustomobject]@{
-            PSTypeName = 'IdLE.EntraIDAdapter.Fake'
+        $mockAdapter = [pscustomobject]@{
+            PSTypeName = 'IdLE.EntraIDAdapter.Mock'
             Store      = $store
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
             param($ObjectId, $AccessToken)
             if ($this.Store.ContainsKey("id:$ObjectId")) {
                 return $this.Store["id:$ObjectId"]
@@ -544,7 +586,7 @@ Describe 'EntraID identity provider - Identity resolution' {
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
             param($Upn, $AccessToken)
             if ($this.Store.ContainsKey("upn:$Upn")) {
                 return $this.Store["upn:$Upn"]
@@ -552,7 +594,7 @@ Describe 'EntraID identity provider - Identity resolution' {
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
             param($Mail, $AccessToken)
             if ($this.Store.ContainsKey("mail:$Mail")) {
                 return $this.Store["mail:$Mail"]
@@ -560,7 +602,7 @@ Describe 'EntraID identity provider - Identity resolution' {
             return $null
         }
 
-        $script:TestAdapter = $fakeAdapter
+        $script:TestAdapter = $mockAdapter
     }
 
     Context 'Lookups' {
@@ -574,7 +616,7 @@ Describe 'EntraID identity provider - Identity resolution' {
                 displayName    = "User $guid"
             }
 
-            $result = $provider.GetIdentity($guid, 'fake-token')
+            $result = $provider.GetIdentity($guid, 'mock-token')
             $result.IdentityKey | Should -Be $guid
         }
 
@@ -590,7 +632,7 @@ Describe 'EntraID identity provider - Identity resolution' {
                 displayName       = "Test User"
             }
 
-            $result = $provider.GetIdentity($upn, 'fake-token')
+            $result = $provider.GetIdentity($upn, 'mock-token')
             $result.IdentityKey | Should -Be $upn  # Returns original key format
         }
 
@@ -606,25 +648,25 @@ Describe 'EntraID identity provider - Identity resolution' {
                 displayName    = "Test User"
             }
 
-            $result = $provider.GetIdentity($mail, 'fake-token')
+            $result = $provider.GetIdentity($mail, 'mock-token')
             $result.IdentityKey | Should -Be $mail  # Returns original key format
         }
 
         It 'Throws when identity is not found' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-            { $provider.GetIdentity('nonexistent@test.local', 'fake-token') } | Should -Throw '*not found*'
+            { $provider.GetIdentity('nonexistent@test.local', 'mock-token') } | Should -Throw '*not found*'
         }
     }
 }
 
 Describe 'EntraID identity provider - Group resolution' {
     BeforeEach {
-        $fakeAdapter = [pscustomobject]@{
-            PSTypeName = 'IdLE.EntraIDAdapter.Fake'
+        $mockAdapter = [pscustomobject]@{
+            PSTypeName = 'IdLE.EntraIDAdapter.Mock'
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
             param($GroupId, $AccessToken)
             $guid = [System.Guid]::Empty
             if ([System.Guid]::TryParse($GroupId, [ref]$guid)) {
@@ -636,7 +678,7 @@ Describe 'EntraID identity provider - Group resolution' {
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
             param($DisplayName, $AccessToken)
             if ($DisplayName -eq 'AmbiguousGroup') {
                 throw "Multiple groups found with displayName '$DisplayName'. Use objectId for deterministic lookup."
@@ -647,7 +689,7 @@ Describe 'EntraID identity provider - Group resolution' {
             }
         }
 
-        $script:TestAdapter = $fakeAdapter
+        $script:TestAdapter = $mockAdapter
     }
 
     Context 'Lookups' {
@@ -655,7 +697,7 @@ Describe 'EntraID identity provider - Group resolution' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
             $groupGuid = [guid]::NewGuid().ToString()
-            $resolvedId = $provider.ResolveGroup($groupGuid, 'fake-token')
+            $resolvedId = $provider.ResolveGroup($groupGuid, 'mock-token')
 
             $resolvedId | Should -Be $groupGuid
         }
@@ -663,25 +705,98 @@ Describe 'EntraID identity provider - Group resolution' {
         It 'Resolves group by displayName' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-            $resolvedId = $provider.ResolveGroup('UniqueGroup', 'fake-token')
+            $resolvedId = $provider.ResolveGroup('UniqueGroup', 'mock-token')
             $resolvedId | Should -Be 'resolved-UniqueGroup'
         }
 
         It 'Throws when multiple groups match displayName' {
             $provider = New-IdleEntraIDIdentityProvider -Adapter $script:TestAdapter
 
-            { $provider.ResolveGroup('AmbiguousGroup', 'fake-token') } | Should -Throw '*Multiple groups found*'
+            { $provider.ResolveGroup('AmbiguousGroup', 'mock-token') } | Should -Throw '*Multiple groups found*'
+        }
+    }
+}
+
+Describe 'EntraID identity provider - Administrative Unit resolution' {
+    BeforeEach {
+        $mockAdapter = [pscustomobject]@{
+            PSTypeName = 'IdLE.EntraIDAdapter.Mock'
+        }
+
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+            param($AuId, $AccessToken)
+            $guid = [System.Guid]::Empty
+            if ([System.Guid]::TryParse($AuId, [ref]$guid)) {
+                return @{ id = $AuId; displayName = "AU $AuId" }
+            }
+            return $null
+        }
+
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+            param($DisplayName, $AccessToken)
+            if ($DisplayName -eq 'AmbiguousAU') {
+                throw "Multiple Administrative Units found with displayName '$DisplayName'. Use objectId for deterministic lookup."
+            }
+            if ($DisplayName -eq 'MissingAU') {
+                return $null
+            }
+            return @{ id = "resolved-au-$DisplayName"; displayName = $DisplayName }
+        }
+
+        $script:AuTestAdapter = $mockAdapter
+    }
+
+    Context 'Lookups' {
+        It 'Resolves Administrative Unit by objectId' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            $auGuid = [guid]::NewGuid().ToString()
+            $resolvedId = $provider.ResolveAdministrativeUnit($auGuid, 'mock-token')
+
+            $resolvedId | Should -Be $auGuid
+        }
+
+        It 'Resolves Administrative Unit by displayName' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            $resolvedId = $provider.ResolveAdministrativeUnit('EU Region Admins', 'mock-token')
+            $resolvedId | Should -Be 'resolved-au-EU Region Admins'
+        }
+
+        It 'Throws when GUID objectId is not found' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            $missingGuid = [guid]::NewGuid().ToString()
+            # Override GetAdministrativeUnitById to return null for this GUID
+            $script:AuTestAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+                param($AuId, $AccessToken)
+                return $null
+            } -Force
+
+            { $provider.ResolveAdministrativeUnit($missingGuid, 'mock-token') } | Should -Throw '*not found*'
+        }
+
+        It 'Throws when displayName is not found' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            { $provider.ResolveAdministrativeUnit('MissingAU', 'mock-token') } | Should -Throw '*not found*'
+        }
+
+        It 'Throws when multiple Administrative Units match displayName' {
+            $provider = New-IdleEntraIDIdentityProvider -Adapter $script:AuTestAdapter
+
+            { $provider.ResolveAdministrativeUnit('AmbiguousAU', 'mock-token') } | Should -Throw '*Multiple Administrative Units found*'
         }
     }
 }
 
 Describe 'EntraID identity provider - Entitlement operations' {
     BeforeAll {
-        function New-FakeEntraIDAdapterForEntitlements {
+        function New-MockEntraIDAdapterForEntitlements {
             $store = @{}
 
             $adapter = [pscustomobject]@{
-                PSTypeName = 'IdLE.EntraIDAdapter.Fake'
+                PSTypeName = 'IdLE.EntraIDAdapter.Mock'
                 Store      = $store
             }
 
@@ -715,6 +830,48 @@ Describe 'EntraID identity provider - Entitlement operations' {
                     $this.Store[$key] = @()
                 }
                 return $this.Store[$key]
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+                param($AuId, $AccessToken)
+                return @{ id = $AuId; displayName = "AU $AuId" }
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+                param($DisplayName, $AccessToken)
+                return @{ id = "resolved-au-$DisplayName"; displayName = $DisplayName }
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name ListUserAdministrativeUnits -Value {
+                param($ObjectId, $AccessToken)
+                $key = "aus:$ObjectId"
+                if (-not $this.Store.ContainsKey($key)) {
+                    $this.Store[$key] = @()
+                }
+                return $this.Store[$key]
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name AddAdministrativeUnitMember -Value {
+                param($AuObjectId, $UserObjectId, $AccessToken)
+                $key = "aus:$UserObjectId"
+                if (-not $this.Store.ContainsKey($key)) { $this.Store[$key] = @() }
+                $alreadyMember = $null -ne ($this.Store[$key] | Where-Object { $_.id -eq $AuObjectId })
+                if (-not $alreadyMember) {
+                    $this.Store[$key] += @{ id = $AuObjectId; displayName = "AU $AuObjectId" }
+                    return $true
+                }
+                return $false
+            }
+
+            $adapter | Add-Member -MemberType ScriptMethod -Name RemoveAdministrativeUnitMember -Value {
+                param($AuObjectId, $UserObjectId, $AccessToken)
+                $key = "aus:$UserObjectId"
+                if ($this.Store.ContainsKey($key)) {
+                    $wasMember = $null -ne ($this.Store[$key] | Where-Object { $_.id -eq $AuObjectId })
+                    $this.Store[$key] = @($this.Store[$key] | Where-Object { $_.id -ne $AuObjectId })
+                    return $wasMember
+                }
+                return $false
             }
 
             $adapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {
@@ -778,7 +935,7 @@ Describe 'EntraID identity provider - Entitlement operations' {
             return $adapter
         }
 
-        $script:EntAdapter = New-FakeEntraIDAdapterForEntitlements
+        $script:EntAdapter = New-MockEntraIDAdapterForEntitlements
         $script:EntProvider = New-IdleEntraIDIdentityProvider -Adapter $script:EntAdapter
     }
 
@@ -936,19 +1093,238 @@ Describe 'EntraID identity provider - Entitlement operations' {
             $results[0].Changed | Should -Be $false
             $results[0].Error | Should -BeNullOrEmpty
         }
+
+        It 'BulkGrantEntitlements adds an AdministrativeUnit membership and returns Changed=$true' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+
+            $results = $script:EntProvider.BulkGrantEntitlements($userId, @(
+                @{ Kind = 'AdministrativeUnit'; Id = $auId }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $true
+            $results[0].Error | Should -BeNullOrEmpty
+            $results[0].Entitlement.Kind | Should -Be 'AdministrativeUnit'
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 1
+        }
+
+        It 'BulkGrantEntitlements is idempotent for AdministrativeUnit (already a member → Changed=$false)' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $results = $script:EntProvider.BulkGrantEntitlements($userId, @(
+                @{ Kind = 'AdministrativeUnit'; Id = $auId }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $false
+            $results[0].Error | Should -BeNullOrEmpty
+        }
+
+        It 'BulkGrantEntitlements handles mixed Group and AdministrativeUnit in a single call' {
+            $userId  = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $groupId = [guid]::NewGuid().ToString()
+            $auId    = [guid]::NewGuid().ToString()
+
+            $results = $script:EntProvider.BulkGrantEntitlements($userId, @(
+                @{ Kind = 'Group';               Id = $groupId },
+                @{ Kind = 'AdministrativeUnit'; Id = $auId    }
+            ))
+
+            @($results).Count | Should -Be 2
+            ($results | Where-Object { $_.Changed -eq $true }).Count | Should -Be 2
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Kind -eq 'Group'               -and $_.Id -eq $groupId }).Count | Should -Be 1
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId    }).Count | Should -Be 1
+        }
+
+        It 'BulkRevokeEntitlements removes an AdministrativeUnit membership and returns Changed=$true' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'AdministrativeUnit'; Id = $auId }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $true
+            $results[0].Error | Should -BeNullOrEmpty
+            $results[0].Entitlement.Kind | Should -Be 'AdministrativeUnit'
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 0
+        }
+
+        It 'BulkRevokeEntitlements is idempotent for AdministrativeUnit (not a member → Changed=$false)' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'AdministrativeUnit'; Id = $auId }
+            ))
+
+            @($results).Count | Should -Be 1
+            $results[0].Changed | Should -Be $false
+            $results[0].Error | Should -BeNullOrEmpty
+        }
+
+        It 'BulkRevokeEntitlements handles mixed Group and AdministrativeUnit in a single call' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $groupId = [guid]::NewGuid().ToString()
+            $auId    = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group';               Id = $groupId })
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId    })
+
+            $results = $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                @{ Kind = 'Group';               Id = $groupId },
+                @{ Kind = 'AdministrativeUnit'; Id = $auId    }
+            ))
+
+            @($results).Count | Should -Be 2
+            ($results | Where-Object { $_.Changed -eq $true }).Count | Should -Be 2
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $groupId }).Count | Should -Be 0
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 0
+        }
+
+        It 'GrantEntitlement returns stable result shape with Kind=AdministrativeUnit' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+
+            $result = $script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $result.Operation | Should -Be 'GrantEntitlement'
+            $result.Changed | Should -Be $true
+            $result.Entitlement.Kind | Should -Be 'AdministrativeUnit'
+            $result.Entitlement.Id | Should -Be $auId
+        }
+
+        It 'GrantEntitlement is idempotent with Kind=AdministrativeUnit' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+
+            $result1 = $script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+            $result2 = $script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $result1.Changed | Should -Be $true
+            $result2.Changed | Should -Be $false
+        }
+
+        It 'RevokeEntitlement is idempotent with Kind=AdministrativeUnit' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $result1 = $script:EntProvider.RevokeEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+            $result2 = $script:EntProvider.RevokeEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $result1.Changed | Should -Be $true
+            $result2.Changed | Should -Be $false
+        }
+
+        It 'ListEntitlements reflects AdministrativeUnit grant and revoke' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+
+            $before = @($script:EntProvider.ListEntitlements($userId))
+
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+            $afterGrant = @($script:EntProvider.ListEntitlements($userId))
+
+            [void]$script:EntProvider.RevokeEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+            $afterRevoke = @($script:EntProvider.ListEntitlements($userId))
+
+            @($afterGrant | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 1
+            @($afterRevoke | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 0
+        }
+
+        It 'ListEntitlements with Kind=Group only returns Group entitlements and does not call ListUserAdministrativeUnits' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $groupId = [guid]::NewGuid().ToString()
+            $auId    = [guid]::NewGuid().ToString()
+
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $groupId })
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $entitlements = @($script:EntProvider.ListEntitlements($userId, $null, 'Group'))
+
+            @($entitlements | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $groupId }).Count | Should -Be 1
+            @($entitlements | Where-Object { $_.Kind -eq 'AdministrativeUnit' }).Count | Should -Be 0
+        }
+
+        It 'ListEntitlements with Kind=AdministrativeUnit only returns AU entitlements and does not call ListUserGroups' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $groupId = [guid]::NewGuid().ToString()
+            $auId    = [guid]::NewGuid().ToString()
+
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $groupId })
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $entitlements = @($script:EntProvider.ListEntitlements($userId, $null, 'AdministrativeUnit'))
+
+            @($entitlements | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 1
+            @($entitlements | Where-Object { $_.Kind -eq 'Group' }).Count | Should -Be 0
+        }
+
+        It 'ListEntitlements with no Kind returns both Group and AdministrativeUnit entitlements' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $groupId = [guid]::NewGuid().ToString()
+            $auId = [guid]::NewGuid().ToString()
+
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Group'; Id = $groupId })
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            $entitlements = @($script:EntProvider.ListEntitlements($userId))
+
+            @($entitlements | Where-Object { $_.Kind -eq 'Group' -and $_.Id -eq $groupId }).Count | Should -Be 1
+            @($entitlements | Where-Object { $_.Kind -eq 'AdministrativeUnit' -and $_.Id -eq $auId }).Count | Should -Be 1
+        }
+
+        It 'GrantEntitlement throws for unsupported Kind' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            { $script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Unknown'; Id = [guid]::NewGuid().ToString() }) } |
+                Should -Throw "*Kind 'Group' or 'AdministrativeUnit'*"
+        }
+
+        It 'RevokeEntitlement throws for unsupported Kind' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            { $script:EntProvider.RevokeEntitlement($userId, @{ Kind = 'Unknown'; Id = [guid]::NewGuid().ToString() }) } |
+                Should -Throw "*Kind 'Group' or 'AdministrativeUnit'*"
+        }
     }
 }
 
 Describe 'EntraID identity provider - RevokeSessions' {
     BeforeAll {
-        # Create a fake adapter that tracks revocation calls
-        $fakeAdapter = [pscustomobject]@{
-            PSTypeName          = 'IdLE.EntraIDAdapter.Fake'
+        # Create a mock adapter that tracks revocation calls
+        $mockAdapter = [pscustomobject]@{
+            PSTypeName          = 'IdLE.EntraIDAdapter.Mock'
             RevocationCallLog   = @()
             RevocationResponses = @{}
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
             param($ObjectId, $AccessToken)
             return @{
                 id                = $ObjectId
@@ -957,7 +1333,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
             }
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
             param($Upn, $AccessToken)
             return @{
                 id                = 'test-user-id'
@@ -966,7 +1342,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
             }
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
             param($Mail, $AccessToken)
             return @{
                 id                = 'test-user-id'
@@ -976,7 +1352,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
             }
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name RevokeSignInSessions -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name RevokeSignInSessions -Value {
             param($ObjectId, $AccessToken)
             $this.RevocationCallLog += @{
                 ObjectId    = $ObjectId
@@ -993,7 +1369,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
             }
         }
 
-        $script:RevokeAdapter = $fakeAdapter
+        $script:RevokeAdapter = $mockAdapter
         $script:RevokeProvider = New-IdleEntraIDIdentityProvider -Adapter $script:RevokeAdapter
     }
 
@@ -1011,7 +1387,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
             $userId = [guid]::NewGuid().ToString()
             $script:RevokeAdapter.RevocationCallLog = @()
             
-            $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+            $result = $script:RevokeProvider.RevokeSessions($userId, 'mock-token')
             
             $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
             $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be $userId
@@ -1020,7 +1396,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
         It 'RevokeSessions returns ProviderResult with correct shape' {
             $userId = [guid]::NewGuid().ToString()
             
-            $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+            $result = $script:RevokeProvider.RevokeSessions($userId, 'mock-token')
             
             $result | Should -Not -BeNullOrEmpty
             $result.PSObject.TypeNames[0] | Should -Be 'IdLE.ProviderResult'
@@ -1035,7 +1411,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
                 value = $true
             }
             
-            $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+            $result = $script:RevokeProvider.RevokeSessions($userId, 'mock-token')
             
             $result.Changed | Should -Be $true
         }
@@ -1046,7 +1422,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
                 value = $false
             }
             
-            $result = $script:RevokeProvider.RevokeSessions($userId, 'fake-token')
+            $result = $script:RevokeProvider.RevokeSessions($userId, 'mock-token')
             
             $result.Changed | Should -Be $false
         }
@@ -1055,7 +1431,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
             $upn = 'test.user@contoso.com'
             $script:RevokeAdapter.RevocationCallLog = @()
             
-            $result = $script:RevokeProvider.RevokeSessions($upn, 'fake-token')
+            $result = $script:RevokeProvider.RevokeSessions($upn, 'mock-token')
             
             $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
             $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be 'test-user-id'
@@ -1065,7 +1441,7 @@ Describe 'EntraID identity provider - RevokeSessions' {
             $mail = 'test.user@contoso.com'
             $script:RevokeAdapter.RevocationCallLog = @()
             
-            $result = $script:RevokeProvider.RevokeSessions($mail, 'fake-token')
+            $result = $script:RevokeProvider.RevokeSessions($mail, 'mock-token')
             
             $script:RevokeAdapter.RevocationCallLog.Count | Should -Be 1
             $script:RevokeAdapter.RevocationCallLog[0].ObjectId | Should -Be 'test-user-id'
@@ -1087,29 +1463,29 @@ Describe 'EntraID identity provider - RevokeSessions' {
 
 Describe 'EntraID identity provider - Password generation' {
     BeforeAll {
-        # Create a fake adapter for password generation tests
-        $fakeAdapter = [pscustomobject]@{
-            PSTypeName = 'IdLE.EntraIDAdapter.Fake'
+        # Create a mock adapter for password generation tests
+        $mockAdapter = [pscustomobject]@{
+            PSTypeName = 'IdLE.EntraIDAdapter.Mock'
             Store      = @{}
             LastCreatePayload = $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserById -Value {
             param($ObjectId, $AccessToken)
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByUpn -Value {
             param($Upn, $AccessToken)
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetUserByMail -Value {
             param($Mail, $AccessToken)
             return $null
         }
 
-        $fakeAdapter | Add-Member -MemberType ScriptMethod -Name CreateUser -Value {
+        $mockAdapter | Add-Member -MemberType ScriptMethod -Name CreateUser -Value {
             param($Payload, $AccessToken)
             
             # Store the payload for inspection
@@ -1124,9 +1500,9 @@ Describe 'EntraID identity provider - Password generation' {
             }
         } -Force
 
-        $provider = New-IdleEntraIDIdentityProvider -Adapter $fakeAdapter
+        $provider = New-IdleEntraIDIdentityProvider -Adapter $mockAdapter
         $script:PasswordTestProvider = $provider
-        $script:PasswordTestAdapter = $fakeAdapter
+        $script:PasswordTestAdapter = $mockAdapter
     }
 
     Context 'Password generation' {
@@ -1136,7 +1512,7 @@ Describe 'EntraID identity provider - Password generation' {
                 DisplayName = 'New User'
             }
 
-            $result = $script:PasswordTestProvider.CreateIdentity('newuser@contoso.com', $attrs, 'fake-token')
+            $result = $script:PasswordTestProvider.CreateIdentity('newuser@contoso.com', $attrs, 'mock-token')
             
             # Verify password was generated
             $result.PasswordGenerated | Should -BeTrue
@@ -1150,7 +1526,7 @@ Describe 'EntraID identity provider - Password generation' {
                 DisplayName = 'User'
             }
 
-            $result = $script:PasswordTestProvider.CreateIdentity('user@contoso.com', $attrs, 'fake-token')
+            $result = $script:PasswordTestProvider.CreateIdentity('user@contoso.com', $attrs, 'mock-token')
             
             # Verify plaintext password is not included
             $result.PSObject.Properties.Name | Should -Not -Contain 'GeneratedAccountPasswordPlainText'
@@ -1163,7 +1539,7 @@ Describe 'EntraID identity provider - Password generation' {
                 AllowPlainTextPasswordOutput = $true
             }
 
-            $result = $script:PasswordTestProvider.CreateIdentity('user2@contoso.com', $attrs, 'fake-token')
+            $result = $script:PasswordTestProvider.CreateIdentity('user2@contoso.com', $attrs, 'mock-token')
             
             # Verify plaintext password is included
             $result.GeneratedAccountPasswordPlainText | Should -Not -BeNullOrEmpty
@@ -1183,7 +1559,7 @@ Describe 'EntraID identity provider - Password generation' {
                 }
             }
 
-            $result = $script:PasswordTestProvider.CreateIdentity('user3@contoso.com', $attrs, 'fake-token')
+            $result = $script:PasswordTestProvider.CreateIdentity('user3@contoso.com', $attrs, 'mock-token')
             
             # Verify password was not generated (explicit password provided)
             $result.PSObject.Properties.Name | Should -Not -Contain 'PasswordGenerated'
@@ -1195,7 +1571,7 @@ Describe 'EntraID identity provider - Password generation' {
                 DisplayName = 'User 4'
             }
 
-            $result = $script:PasswordTestProvider.CreateIdentity('user4@contoso.com', $attrs, 'fake-token')
+            $result = $script:PasswordTestProvider.CreateIdentity('user4@contoso.com', $attrs, 'mock-token')
             
             # Verify the payload sent to adapter
             $script:PasswordTestAdapter.LastCreatePayload.passwordProfile.forceChangePasswordNextSignIn | Should -BeTrue
@@ -1208,7 +1584,7 @@ Describe 'EntraID identity provider - Password generation' {
                 ForceChangePasswordNextSignIn = $false
             }
 
-            $result = $script:PasswordTestProvider.CreateIdentity('serviceaccount@contoso.com', $attrs, 'fake-token')
+            $result = $script:PasswordTestProvider.CreateIdentity('serviceaccount@contoso.com', $attrs, 'mock-token')
             
             # Verify the payload sent to adapter
             $script:PasswordTestAdapter.LastCreatePayload.passwordProfile.forceChangePasswordNextSignIn | Should -BeFalse
@@ -1220,7 +1596,7 @@ Describe 'EntraID identity provider - Password generation' {
                 DisplayName = 'User 5'
             }
 
-            $result = $script:PasswordTestProvider.CreateIdentity('user5@contoso.com', $attrs, 'fake-token')
+            $result = $script:PasswordTestProvider.CreateIdentity('user5@contoso.com', $attrs, 'mock-token')
             
             # Verify ProtectedString can be converted back to SecureString
             $protectedString = $result.GeneratedAccountPasswordProtected
@@ -1238,7 +1614,7 @@ Describe 'EntraID identity provider - Password generation' {
                 AllowPlainTextPasswordOutput = $true
             }
 
-            $result = $script:PasswordTestProvider.CreateIdentity('user6@contoso.com', $attrs, 'fake-token')
+            $result = $script:PasswordTestProvider.CreateIdentity('user6@contoso.com', $attrs, 'mock-token')
             
             # Verify the generated password is a valid GUID
             $plainPwd = $result.GeneratedAccountPasswordPlainText
@@ -1262,37 +1638,60 @@ Describe 'EntraID identity provider - ResolveEntitlement' {
 
     Context 'ResolveEntitlement behavior' {
         BeforeAll {
-            # Fake adapter that returns canonical objectId for groups (mimics real Graph lookup)
-            $fakeAdapter = [pscustomobject]@{ PSTypeName = 'IdLE.EntraIDAdapter.Fake'; Store = @{} }
-            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
+            # Mock adapter that returns canonical objectId for groups and AUs (mimics real Graph lookup)
+            $mockAdapter = [pscustomobject]@{ PSTypeName = 'IdLE.EntraIDAdapter.Mock'; Store = @{} }
+            $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupById -Value {
                 param($GroupId, $AccessToken)
                 return @{ id = $GroupId; displayName = "Group $GroupId" }
             }
-            $fakeAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
+            $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetGroupByDisplayName -Value {
                 param($DisplayName, $AccessToken)
                 return @{ id = "resolved-$DisplayName"; displayName = $DisplayName }
             }
-            $script:NormProvider = New-IdleEntraIDIdentityProvider -Adapter $fakeAdapter
+            $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+                param($AuId, $AccessToken)
+                return @{ id = $AuId; displayName = "AU $AuId" }
+            }
+            $mockAdapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+                param($DisplayName, $AccessToken)
+                return @{ id = "resolved-au-$DisplayName"; displayName = $DisplayName }
+            }
+            $script:NormProvider = New-IdleEntraIDIdentityProvider -Adapter $mockAdapter
         }
 
         It 'Normalizes a Group entitlement with a GUID Id to canonical objectId' {
             $groupGuid = [guid]::NewGuid().ToString()
             $ent = @{ Kind = 'Group'; Id = $groupGuid }
-            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'fake-token')
+            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'mock-token')
             $result.Kind | Should -Be 'Group'
             $result.Id   | Should -Be $groupGuid
         }
 
         It 'Normalizes a Group entitlement with a displayName to canonical objectId' {
             $ent = @{ Kind = 'Group'; Id = 'HR Team' }
-            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'fake-token')
+            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'mock-token')
             $result.Kind | Should -Be 'Group'
             $result.Id   | Should -Be 'resolved-HR Team'
         }
 
+        It 'Normalizes an AdministrativeUnit entitlement with a GUID Id to canonical objectId' {
+            $auGuid = [guid]::NewGuid().ToString()
+            $ent = @{ Kind = 'AdministrativeUnit'; Id = $auGuid }
+            $result = $script:NormProvider.ResolveEntitlement('AdministrativeUnit', $ent, 'mock-token')
+            $result.Kind | Should -Be 'AdministrativeUnit'
+            $result.Id   | Should -Be $auGuid
+        }
+
+        It 'Normalizes an AdministrativeUnit entitlement with a displayName to canonical objectId' {
+            $ent = @{ Kind = 'AdministrativeUnit'; Id = 'EU Region Admins' }
+            $result = $script:NormProvider.ResolveEntitlement('AdministrativeUnit', $ent, 'mock-token')
+            $result.Kind | Should -Be 'AdministrativeUnit'
+            $result.Id   | Should -Be 'resolved-au-EU Region Admins'
+        }
+
         It 'Returns entitlement unchanged when Kind is not Group' {
             $ent = [pscustomobject]@{ Kind = 'License'; Id = 'Some-License-Id' }
-            $result = $script:NormProvider.ResolveEntitlement('License', $ent, 'fake-token')
+            $result = $script:NormProvider.ResolveEntitlement('License', $ent, 'mock-token')
             $result.Kind | Should -Be 'License'
             $result.Id   | Should -Be 'Some-License-Id'
         }
@@ -1345,7 +1744,7 @@ Describe 'EntraID adapter - GetAllPages paging regression' {
 
             $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page)
             # Direct call; any thrown exception will fail this test automatically
-            $result = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'fake-token')
+            $result = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'mock-token')
             $result | Should -HaveCount 2
             $result[0].id | Should -Be 'g1'
             $result[1].id | Should -Be 'g2'
@@ -1364,7 +1763,7 @@ Describe 'EntraID adapter - GetAllPages paging regression' {
             }
 
             $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page1, $page2)
-            $result  = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'fake-token')
+            $result  = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'mock-token')
             $result | Should -HaveCount 2
             ($result | Select-Object -ExpandProperty id) | Should -Contain 'g1'
             ($result | Select-Object -ExpandProperty id) | Should -Contain 'g2'
@@ -1382,7 +1781,7 @@ Describe 'EntraID adapter - GetAllPages paging regression' {
 
             $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page)
             $result  = $null
-            { $result = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'fake-token') } | Should -Not -Throw
+            { $result = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'mock-token') } | Should -Not -Throw
             $result | Should -HaveCount 1
         }
 
@@ -1396,7 +1795,7 @@ Describe 'EntraID adapter - GetAllPages paging regression' {
             }
 
             $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page1, $page2)
-            $result  = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'fake-token')
+            $result  = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/groups', 'mock-token')
             $result | Should -HaveCount 2
         }
     }
@@ -1406,7 +1805,7 @@ Describe 'EntraID adapter - GetAllPages paging regression' {
             $page = [pscustomobject]@{ id = 'single-object'; displayName = 'Something' }
 
             $adapter = New-EntraIDPagingTestAdapter -PageSequence @($page)
-            $result  = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/something', 'fake-token')
+            $result  = $adapter.GetAllPages('https://graph.microsoft.com/v1.0/something', 'mock-token')
             $result | Should -HaveCount 0
         }
     }

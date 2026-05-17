@@ -222,6 +222,7 @@ function Invoke-IdleStepPruneEntitlements {
     }
 
     $listSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'AuthSession'
+    $listSupportsKind = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'Kind'
     $revokeSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['RevokeEntitlement'] -ParameterName 'AuthSession'
     $grantSupportsAuthSession = if ($ensureKeep) {
         Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['GrantEntitlement'] -ParameterName 'AuthSession'
@@ -238,7 +239,13 @@ function Invoke-IdleStepPruneEntitlements {
     } else { $false }
 
     # 1. List current entitlements, filter by Kind
-    $allCurrent = if ($listSupportsAuthSession -and $null -ne $authSession) {
+    # When the provider supports the Kind parameter, pass it so the provider can skip
+    # fetching unrelated directory objects (e.g. avoid AU Graph calls for Group-only prunes).
+    $allCurrent = if ($listSupportsKind -and $listSupportsAuthSession -and $null -ne $authSession) {
+        @($provider.ListEntitlements($identityKey, $authSession, $kind))
+    } elseif ($listSupportsKind) {
+        @($provider.ListEntitlements($identityKey, $null, $kind))
+    } elseif ($listSupportsAuthSession -and $null -ne $authSession) {
         @($provider.ListEntitlements($identityKey, $authSession))
     } else {
         @($provider.ListEntitlements($identityKey))

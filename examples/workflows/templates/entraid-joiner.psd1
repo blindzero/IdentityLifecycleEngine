@@ -1,7 +1,7 @@
 @{
     Name           = 'EntraID Joiner - Complete Onboarding'
     LifecycleEvent = 'Joiner'
-    Description    = 'Creates or updates an Entra ID user with baseline attributes and group memberships. Includes optional mover patterns.'
+    Description    = 'Creates or updates an Entra ID user with baseline attributes, group memberships, and Administrative Unit assignments. Includes optional mover patterns.'
 
     Steps          = @(
         @{
@@ -10,9 +10,8 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                
-                # Using UPN keeps it human-friendly in templates.
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
 
                 Attributes         = @{
                     UserPrincipalName = '{{Request.Intent.UserPrincipalName}}'
@@ -37,29 +36,51 @@
             }
         }
 
+        # Baseline groups: add one EnsureEntitlement step per group.
         @{
-            Name = 'AddToBaselineGroups'
+            Name = 'AddToAllEmployeesGroup'
             Type = 'IdLE.Step.EnsureEntitlement'
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
+                Entitlement        = @{
+                    Kind = 'Group'
+                    Id   = '{{Request.Intent.AllEmployeesGroupId}}'
+                }
+                State              = 'Present'
+            }
+        }
 
-                # Using UPN keeps it human-friendly in templates.
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+        @{
+            Name = 'AddToDepartmentGroup'
+            Type = 'IdLE.Step.EnsureEntitlement'
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
+                Entitlement        = @{
+                    Kind = 'Group'
+                    Id   = '{{Request.Intent.DepartmentGroupId}}'
+                }
+                State              = 'Present'
+            }
+        }
 
-                # Baseline groups should be explicit and driven by request input (no hardcoding).
-                Desired            = @(
-                    @{
-                        Kind        = 'Group'
-                        Id          = '{{Request.Intent.AllEmployeesGroupId}}'
-                        DisplayName = '{{Request.Intent.AllEmployeesGroupName}}'
-                    }
-                    @{
-                        Kind        = 'Group'
-                        Id          = '{{Request.Intent.DepartmentGroupId}}'
-                        DisplayName = '{{Request.Intent.DepartmentGroupName}}'
-                    }
-                )
+        # Baseline Administrative Unit: controls which scoped admins can manage this user.
+        # AUs can be referenced by their GUID objectId or by displayName (tenant-unique names only).
+        @{
+            Name = 'AddToDepartmentAdministrativeUnit'
+            Type = 'IdLE.Step.EnsureEntitlement'
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
+                Entitlement        = @{
+                    Kind = 'AdministrativeUnit'
+                    Id   = '{{Request.Intent.DepartmentAdministrativeUnitId}}'
+                }
+                State              = 'Present'
             }
         }
 
@@ -69,7 +90,7 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
             }
         }
 
@@ -95,19 +116,20 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
 
                 Attributes         = @{
                     Department     = '{{Request.Intent.NewDepartment}}'
-                    JobTitle        = '{{Request.Intent.NewJobTitle}}'
-                    OfficeLocation  = '{{Request.Intent.NewOfficeLocation}}'
-                    Manager         = '{{Request.Intent.NewManagerObjectId}}'
+                    JobTitle       = '{{Request.Intent.NewJobTitle}}'
+                    OfficeLocation = '{{Request.Intent.NewOfficeLocation}}'
+                    Manager        = '{{Request.Intent.NewManagerObjectId}}'
                 }
             }
         }
 
+        # Add one EnsureEntitlement step per group change required on a mover.
         @{
-            Name      = 'Mover_AdjustManagedGroups'
+            Name      = 'Mover_AddToDepartmentGroup'
             Type      = 'IdLE.Step.EnsureEntitlement'
             Condition = @{
                 All = @(
@@ -122,21 +144,63 @@
             With = @{
                 AuthSessionName    = 'MicrosoftGraph'
                 AuthSessionOptions = @{ Role = 'Admin' }
-                IdentityKey        = '{{Request.Intent.UserPrincipalName}}'
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
+                Entitlement        = @{
+                    Kind = 'Group'
+                    Id   = '{{Request.Intent.DepartmentGroupId}}'
+                }
+                State              = 'Present'
+            }
+        }
 
-                # Optional: add department/project groups as part of a move.
-                Desired            = @(
+        @{
+            Name      = 'Mover_AddToProjectGroup'
+            Type      = 'IdLE.Step.EnsureEntitlement'
+            Condition = @{
+                All = @(
                     @{
-                        Kind        = 'Group'
-                        Id          = '{{Request.Intent.DepartmentGroupId}}'
-                        DisplayName = '{{Request.Intent.DepartmentGroupName}}'
-                    }
-                    @{
-                        Kind        = 'Group'
-                        Id          = '{{Request.Intent.ProjectGroupId}}'
-                        DisplayName = '{{Request.Intent.ProjectGroupName}}'
+                        Equals = @{
+                            Path  = 'Request.Intent.IsMover'
+                            Value = $true
+                        }
                     }
                 )
+            }
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
+                Entitlement        = @{
+                    Kind = 'Group'
+                    Id   = '{{Request.Intent.ProjectGroupId}}'
+                }
+                State              = 'Present'
+            }
+        }
+
+        # Reassign to the new department's Administrative Unit on a move.
+        @{
+            Name      = 'Mover_AddToNewDepartmentAdministrativeUnit'
+            Type      = 'IdLE.Step.EnsureEntitlement'
+            Condition = @{
+                All = @(
+                    @{
+                        Equals = @{
+                            Path  = 'Request.Intent.IsMover'
+                            Value = $true
+                        }
+                    }
+                )
+            }
+            With = @{
+                AuthSessionName    = 'MicrosoftGraph'
+                AuthSessionOptions = @{ Role = 'Admin' }
+                IdentityKey        = '{{Request.IdentityKeys.UserPrincipalName}}'
+                Entitlement        = @{
+                    Kind = 'AdministrativeUnit'
+                    Id   = '{{Request.Intent.NewDepartmentAdministrativeUnitId}}'
+                }
+                State              = 'Present'
             }
         }
 
@@ -144,7 +208,7 @@
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'EntraID user {{Request.Intent.UserPrincipalName}} created/updated successfully.'
+                Message = 'EntraID user {{Request.IdentityKeys.UserPrincipalName}} created/updated successfully.'
             }
         }
     )

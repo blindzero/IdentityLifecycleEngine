@@ -75,8 +75,11 @@ function New-IdleEntraIDAdapter {
             if ($_.Exception.Response) {
                 $statusCode = [int]$_.Exception.Response.StatusCode
                 if ($_.Exception.Response.Headers) {
-                    $requestId = $_.Exception.Response.Headers['request-id']
-                    $retryAfter = $_.Exception.Response.Headers['Retry-After']
+                    # HttpResponseHeaders (PowerShell 7 / HttpClient) does not support
+                    # indexer-style access. Use GetValues() with a safety catch for the
+                    # case where the header is absent (GetValues throws in that case).
+                    try { $requestId  = $_.Exception.Response.Headers.GetValues('request-id')   | Select-Object -First 1 } catch { }
+                    try { $retryAfter = $_.Exception.Response.Headers.GetValues('Retry-After')  | Select-Object -First 1 } catch { }
                 }
             }
 
@@ -344,7 +347,9 @@ function New-IdleEntraIDAdapter {
             [string] $AccessToken
         )
 
-        $encodedName = [System.Net.WebUtility]::UrlEncode($DisplayName)
+        # Escape single quotes for OData string literals (doubling), then URL-encode for the URI
+        $odataEscapedName = $DisplayName.Replace("'", "''")
+        $encodedName = [System.Net.WebUtility]::UrlEncode($odataEscapedName)
         $uri = "$($this.BaseUri)/groups?`$filter=displayName eq '$encodedName'"
         $uri += '&$select=id,displayName,mail,mailNickname'
 
@@ -372,11 +377,146 @@ function New-IdleEntraIDAdapter {
             [string] $AccessToken
         )
 
-        $uri = "$($this.BaseUri)/users/$ObjectId/memberOf"
+        $uri = "$($this.BaseUri)/users/$ObjectId/memberOf/microsoft.graph.group"
         $uri += '?$select=id,displayName,mail'
 
         $groups = $this.GetAllPages($uri, $AccessToken)
         return $groups
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitById -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AuId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $uri = "$($this.BaseUri)/directory/administrativeUnits/$AuId"
+        $uri += '?$select=id,displayName'
+
+        try {
+            $au = $this.InvokeGraphRequest('GET', $uri, $AccessToken, $null)
+            return $au
+        }
+        catch {
+            if ($_.Exception.Message -match '404|not found|does not exist') {
+                return $null
+            }
+            throw
+        }
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name GetAdministrativeUnitByDisplayName -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $DisplayName,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        # Escape single quotes for OData string literals (doubling), then URL-encode for the URI
+        $odataEscapedName = $DisplayName.Replace("'", "''")
+        $encodedName = [System.Net.WebUtility]::UrlEncode($odataEscapedName)
+        $uri = "$($this.BaseUri)/directory/administrativeUnits?`$filter=displayName eq '$encodedName'"
+        $uri += '&$select=id,displayName'
+
+        $aus = $this.InvokeGraphRequest('GET', $uri, $AccessToken, $null)
+
+        if (-not $aus.value -or $aus.value.Count -eq 0) {
+            return $null
+        }
+
+        if ($aus.value.Count -gt 1) {
+            throw "Multiple Administrative Units found with displayName '$DisplayName'. Use objectId for deterministic lookup."
+        }
+
+        return $aus.value[0]
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name ListUserAdministrativeUnits -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $ObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $uri = "$($this.BaseUri)/users/$ObjectId/memberOf/microsoft.graph.administrativeUnit"
+        $uri += '?$select=id,displayName'
+
+        $aus = $this.GetAllPages($uri, $AccessToken)
+        return $aus
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name AddAdministrativeUnitMember -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AuObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $UserObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $uri = "$($this.BaseUri)/directory/administrativeUnits/$AuObjectId/members/`$ref"
+        $body = @{
+            '@odata.id' = "$($this.BaseUri)/users/$UserObjectId"
+        }
+
+        try {
+            $null = $this.InvokeGraphRequest('POST', $uri, $AccessToken, $body)
+            return $true
+        }
+        catch {
+            if ($_.Exception.Message -match 'already exists|already a member') {
+                return $false
+            }
+            throw
+        }
+    } -Force
+
+    $adapter | Add-Member -MemberType ScriptMethod -Name RemoveAdministrativeUnitMember -Value {
+        param(
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AuObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $UserObjectId,
+
+            [Parameter(Mandatory)]
+            [ValidateNotNullOrEmpty()]
+            [string] $AccessToken
+        )
+
+        $uri = "$($this.BaseUri)/directory/administrativeUnits/$AuObjectId/members/$UserObjectId/`$ref"
+
+        try {
+            $null = $this.InvokeGraphRequest('DELETE', $uri, $AccessToken, $null)
+            return $true
+        }
+        catch {
+            if ($_.Exception.Message -match '404|not found|does not exist') {
+                return $false
+            }
+            throw
+        }
     } -Force
 
     $adapter | Add-Member -MemberType ScriptMethod -Name AddGroupMember -Value {

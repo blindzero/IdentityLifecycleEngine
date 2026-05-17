@@ -11,16 +11,16 @@ import EntraLeaver from '@site/../examples/workflows/templates/entraid-leaver.ps
 ## Summary
 
 - **Module:** `IdLE.Provider.EntraID`
-- **What it’s for:** Entra ID user lifecycle + group entitlements (Microsoft Graph API)
+- **What it’s for:** Entra ID user lifecycle + group and Administrative Unit entitlements (Microsoft Graph API)
 - **Targets:** Microsoft Entra ID (formerly Azure AD) via Microsoft Graph (v1.0)
 
 ## When to use
 
 Use this provider when your workflow needs to manage **Entra ID user accounts**, for example:
 
-- **Joiner:** create or update a user, set baseline attributes, assign baseline groups
+- **Joiner:** create or update a user, set baseline attributes, assign baseline groups and Administrative Units
 - **Mover:** update org attributes and managed groups (covered as *optional patterns* inside the Joiner template)
-- **Leaver:** disable account, revoke sessions, optional cleanup (groups, delete)
+- **Leaver:** disable account, revoke sessions, optional cleanup (groups, Administrative Units, delete)
 
 Non-goals:
 
@@ -32,7 +32,7 @@ Non-goals:
 ### Requirements
 
 - Your runtime must be able to supply a **Microsoft Graph auth session** (token/session object) to IdLE
-- Graph permissions must allow the actions you intend to run (users + groups)
+- Graph permissions must allow the actions you intend to run (users, groups, Administrative Units)
 
 ### Install (PowerShell Gallery)
 
@@ -127,14 +127,22 @@ Writes to scoped path: `Request.Context.Providers.<ProviderAlias>.<AuthSessionKe
 Engine-defined View: `Request.Context.Views.Identity.Entitlements`  
 Type: `object[]` (array of `PSCustomObject`, `PSTypeName = 'IdLE.Entitlement'`)
 
-Each element represents one Entra ID group membership:
+Each element represents one entitlement (group membership or Administrative Unit membership):
+
+**Group entitlements (`Kind = 'Group'`):**
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `PSTypeName` | `string` | Always `IdLE.Entitlement`. |
 | `Kind` | `string` | Always `Group`. |
-| `Id` | `string` | Entra group `id`. |
-| `Mail` | `string` or `$null` | Group `mail` (if returned by the adapter). |
+| `Id` | `string` | Entra group object ID (GUID). |
+| `Mail` | `string` or `$null` | Group `mail` (if returned by Graph). |
+
+**Administrative Unit entitlements (`Kind = 'AdministrativeUnit'`):**
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `Kind` | `string` | Always `AdministrativeUnit`. |
+| `Id` | `string` | Entra Administrative Unit object ID (GUID). |
 
 Notes:
 - The output paths are fixed by the engine and cannot be changed.
@@ -159,9 +167,19 @@ This provider has **no provider-specific option bag**. Configuration is done thr
 
 At minimum, you typically need:
 - **Users:** read/write (create/update/disable/delete if enabled)
-- **Groups:** read/write memberships (if you use entitlement steps)
+- **Groups:** read/write memberships (if you use group entitlement steps)
+- **Administrative Units:** read/write memberships — only required when using `Kind = 'AdministrativeUnit'` in entitlement steps. Group-only workflows do not need these permissions because `ListEntitlements` skips AU Graph calls when `Kind = 'Group'` is specified.
 
 Exact permission names depend on your auth model (delegated vs application) and what operations you enable.
+
+| Capability | Permission (Application) |
+| --- | --- |
+| List/Read users | `User.Read.All` |
+| Create/update/disable users | `User.ReadWrite.All` |
+| List group memberships | `Group.Read.All` |
+| Grant/revoke group memberships | `GroupMember.ReadWrite.All` |
+| List AU memberships (`Kind = 'AdministrativeUnit'`) | `AdministrativeUnit.Read.All` |
+| Grant/revoke AU memberships (`Kind = 'AdministrativeUnit'`) | `AdministrativeUnit.ReadWrite.All` |
 
 ## Examples (canonical templates)
 
@@ -178,3 +196,5 @@ Mover scenarios are integrated as **optional patterns** in the Joiner template.
 - **Auth session not found**: check `AuthSessionName` matches your runtime/broker configuration.
 - **Delete doesn’t work**: deletion is opt-in. Create the provider with `-AllowDelete` and only use delete with a privileged auth role.
 - **Group cleanup is disruptive**: only enable revoke/remove operations when you fully understand the impact (prefer managed allow-lists).
+- **Administrative Unit not found**: the AU must exist in Entra before the workflow runs. When referencing by objectId, confirm the GUID is correct. When referencing by displayName, confirm the name matches exactly and `AdministrativeUnit.Read.All` permission is granted.
+- **Multiple AUs match displayName**: AU display names are not unique in Entra. If multiple AUs share the same name, use the objectId (GUID) instead to ensure deterministic lookup.

@@ -178,13 +178,20 @@ function Invoke-IdleStepEnsureEntitlement {
 
     # Check AuthSession support for each method
     $listSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'AuthSession'
+    $listSupportsKind = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'Kind'
     $grantSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['GrantEntitlement'] -ParameterName 'AuthSession'
     $revokeSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['RevokeEntitlement'] -ParameterName 'AuthSession'
 
-    if ($listSupportsAuthSession -and $null -ne $authSession) {
+    # Pass Kind to the provider when supported, so it can skip fetching unrelated objects
+    # (e.g. avoid AU Graph calls for a Group entitlement check).
+    $entitlementKind = [string]$entitlement.Kind
+    if ($listSupportsKind -and $listSupportsAuthSession -and $null -ne $authSession) {
+        $current = @($provider.ListEntitlements($identityKey, $authSession, $entitlementKind))
+    } elseif ($listSupportsKind) {
+        $current = @($provider.ListEntitlements($identityKey, $null, $entitlementKind))
+    } elseif ($listSupportsAuthSession -and $null -ne $authSession) {
         $current = @($provider.ListEntitlements($identityKey, $authSession))
-    }
-    else {
+    } else {
         $current = @($provider.ListEntitlements($identityKey))
     }
     $matches = @($current | Where-Object { Test-IdleStepEntitlementEquals -A $_ -B $entitlement })
