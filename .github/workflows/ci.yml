@@ -60,7 +60,7 @@ jobs:
 
       - name: Publish coverage report
         if: always() && matrix.os == 'ubuntu-latest' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: madrapps/jacoco-report@v1.7.2
+        uses: madrapps/jacoco-report@v1.8.0
         with:
           paths: artifacts/coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
