@@ -4,7 +4,7 @@ Website for IdLE, built using [Docusaurus](https://docusaurus.io/).
 
 ## Prerequisites
 
-[NodeJS](https://nodejs.org/en/download/current)
+[Node.js](https://nodejs.org/en/download) LTS, version 22 or later (CI builds with Node.js 24).
 
 ## Local Development
 
