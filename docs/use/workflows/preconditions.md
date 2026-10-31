@@ -86,8 +86,9 @@ Add these optional properties to a workflow step definition:
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `Type` | `String` | **Yes** | Event type string (for example: `ManualActionRequired`). |
+| `Type` | `String` | **Yes** | Event type string (for example: `Contoso.ManualActionRequired`). Must not start with `IdLE.` (reserved) and must not be `Information`, `Warning`, `Error` or `Custom`. |
 | `Message` | `String` | **Yes** | Human-readable description of the required action. |
+| `Level` | `String` | No | `Information` (default), `Warning` or `Error`. |
 | `Data` | `Hashtable` | No | Optional key-value payload. Must not contain secrets. |
 
 ---
@@ -107,8 +108,8 @@ When a step is `Blocked`:
 - `result.Status` is `'Blocked'`.
 - `result.Steps[n].Status` is `'Blocked'` for the blocking step.
 - `result.OnFailure.Status` is `'NotRun'` (OnFailureSteps do not execute).
-- A `StepPreconditionFailed` engine event is always emitted.
-- A `StepBlocked` engine event is emitted for the blocked step.
+- An `IdLE.Step.PreconditionFailed` engine event is always emitted.
+- An `IdLE.Step.Blocked` engine event is emitted for the blocked step.
 - If `PreconditionEvent` is configured, an additional event of the declared `Type` is also emitted.
 
 ### Execution result — Fail
@@ -118,8 +119,8 @@ When `OnPreconditionFalse = 'Fail'`:
 - `result.Status` is `'Failed'`.
 - `result.Steps[n].Status` is `'Failed'` with `Error = 'Precondition check failed.'`.
 - `OnFailureSteps` run (same behavior as any other step failure).
-- A `StepPreconditionFailed` engine event is always emitted.
-- A `StepFailed` engine event is emitted (matching the format of regular step failure events).
+- An `IdLE.Step.PreconditionFailed` engine event is always emitted.
+- An `IdLE.Step.Failed` engine event is emitted (matching the format of regular step failure events).
 - If `PreconditionEvent` is configured, an additional event of the declared `Type` is also emitted.
 
 ### Execution result — Continue
@@ -129,7 +130,7 @@ When `OnPreconditionFalse = 'Continue'`:
 - `result.Status` is `'Completed'` (unless a subsequent step fails for another reason).
 - `result.Steps[n].Status` is `'PreconditionSkipped'` for the skipped step.
 - Subsequent steps execute as normal.
-- A `StepPreconditionFailed` engine event is always emitted for observability.
+- An `IdLE.Step.PreconditionFailed` engine event is always emitted for observability.
 - If `PreconditionEvent` is configured, an additional event of the declared `Type` is also emitted.
 
 Use `Continue` when a precondition failure is advisory rather than blocking — for example, to emit
@@ -142,16 +143,17 @@ the rest of the workflow to complete.
 
 | Event type | `OnPreconditionFalse` modes | Description |
 |---|---|---|
-| `StepPreconditionFailed` | All (`Blocked`, `Fail`, `Continue`) | Always emitted. Contains `StepType`, `Index`, `OnPreconditionFalse`. |
-| `StepBlocked` | `Blocked` | Emitted when the step outcome is `Blocked`. Contains `StepType`, `Index`. |
-| `StepFailed` | `Fail` | Emitted when the step outcome is `Failed`. Contains `StepType`, `Index`, `Error`. |
+| `IdLE.Step.PreconditionFailed` | All (`Blocked`, `Fail`, `Continue`) | Always emitted. Contains `StepType`, `Index`, `OnPreconditionFalse`. |
+| `IdLE.Step.Blocked` | `Blocked` | Emitted when the step outcome is `Blocked`. Contains `StepType`, `Index`. |
+| `IdLE.Step.Failed` | `Fail` | Emitted when the step outcome is `Failed`. Contains `StepType`, `Index`, `Error`. |
 | Configured `PreconditionEvent.Type` | All (if `PreconditionEvent` configured) | Caller-defined event. |
 
-### StepPreconditionFailed event
+### IdLE.Step.PreconditionFailed event
 
 | Field | Value |
 |---|---|
-| `Type` | `StepPreconditionFailed` |
+| `Type` | `IdLE.Step.PreconditionFailed` |
+| `Level` | `Warning` |
 | `StepName` | The name of the affected step. |
 | `Data.StepType` | The step type identifier. |
 | `Data.Index` | The step index in the plan. |
@@ -164,6 +166,7 @@ If `PreconditionEvent` is configured, an additional event is emitted with:
 | Field | Value |
 |---|---|
 | `Type` | The configured `PreconditionEvent.Type`. |
+| `Level` | The configured `PreconditionEvent.Level` (default `Information`). |
 | `Message` | The configured `PreconditionEvent.Message`. |
 | `StepName` | The name of the affected step. |
 | `Data` | The configured `PreconditionEvent.Data` (if provided). |
@@ -212,7 +215,7 @@ a `Blocked` outcome and a message instructing the operator to perform the wipe m
       }
       OnPreconditionFalse = 'Blocked'
       PreconditionEvent   = @{
-        Type    = 'ManualActionRequired'
+        Type    = 'Contoso.ManualActionRequired'
         Message = 'Perform Intune retire / wipe company data for BYOD device before disabling the identity.'
         Data    = @{
           Reason = 'BYOD wipe not confirmed'

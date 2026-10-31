@@ -108,8 +108,11 @@ The engine (`IdLE.Core`) must **not** depend on:
 
 Use the single event contract:
 
-- `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`
+- `Context.EventSink.WriteEvent(Type, Message, StepName, Data[, Level])`
 - This is the runtime contract used by steps/providers through the execution context.
+- `Type` follows the namespace scheme (`IdLE.<Area>.<Event>` first-party, `<Owner>.IdLE.<Area>.<Event>` extensions);
+  severity goes into `Level` (`Information` default, `Warning`, `Error`), never into `Type`.
+- New or renamed first-party event types MUST be listed in `docs/extend/events.md` (type, level, data fields).
 - External event sinks (host implementations) must follow the guidance in `docs/extend/events.md` (object-based event payload), but the engine-facing API remains `Context.EventSink.WriteEvent(...)`.
 
 Do not introduce alternative eventing APIs unless explicitly planned and documented.

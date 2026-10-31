@@ -288,23 +288,26 @@ Steps may emit **structured events** for progress and audit.
 
 The engine provides a stable, object-based contract on the execution context:
 
-- `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`
+- `Context.EventSink.WriteEvent(Type, Message, StepName, Data[, Level])`
 
 Notes:
 
-- `Type` is a short string (for example: `Custom`, `Debug`).
+- `Type` says *what happened*: `IdLE.<Area>.<Event>` for first-party steps (e.g. `IdLE.Step.DirectorySync.Completed`),
+  `<Owner>.IdLE.<Area>.<Event>` for extensions (e.g. `Contoso.IdLE.Hr.ManagerSynced`).
+  See [Event types](events.md#event-types).
 - `Message` is a human-readable message.
 - `StepName` should be the current step name (if available).
 - `Data` is an optional hashtable for structured details.
+- `Level` says *how severe* it is: `Information` (default), `Warning` or `Error`.
 
 Example:
 
 ```powershell
 $Context.EventSink.WriteEvent(
-  'Custom',
-  'Ensured Department attribute.',
+  'Contoso.IdLE.Hr.ManagerSynced',
+  'Synced manager from HR.',
   $Step.Name,
-  @{ Provider = 'Identity'; Attribute = 'Department' }
+  @{ Provider = 'Identity'; Attribute = 'Manager' }
 )
 ```
 

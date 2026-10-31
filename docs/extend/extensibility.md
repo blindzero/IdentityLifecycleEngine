@@ -26,12 +26,12 @@ Extension step types and capabilities use your own owner prefix: `<Owner>.IdLE.S
 
 Steps can emit structured events using the execution context contract:
 
-- `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`
+- `Context.EventSink.WriteEvent(Type, Message, StepName, Data[, Level])` (see [Event types](events.md#event-types))
 
 Keep steps host-agnostic: do not call UI APIs directly.
 
 - Use providers for system operations; do not embed authentication logic inside steps.
-- Emit events using `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`.
+- Emit events using `Context.EventSink.WriteEvent(Type, Message, StepName, Data[, Level])`.
 - Avoid global state. Steps should be idempotent whenever possible.
 
 ---
