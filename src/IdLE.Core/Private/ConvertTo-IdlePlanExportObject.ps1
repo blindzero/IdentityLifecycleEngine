@@ -29,6 +29,26 @@ function ConvertTo-IdlePlanExportObject {
         return [ordered] @{}
     }
 
+    # Maps an internal source record (@{ Module; Version }) to the export shape.
+    # Returns $null when no source was recorded (e.g. plans built by older engine versions).
+    function ConvertTo-IdleSourceExportMap {
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Source
+        )
+
+        if ($null -eq $Source) {
+            return $null
+        }
+
+        $map = [ordered] @{}
+        $map.module = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $Source -Names @('Module'))
+        $map.version = ConvertTo-NullIfEmptyString -Value (Get-FirstPropertyValue -Object $Source -Names @('Version'))
+        return $map
+    }
+
     function Get-FirstPropertyValue {
         [CmdletBinding()]
         param(
@@ -275,6 +295,7 @@ function ConvertTo-IdlePlanExportObject {
         $stepMap.condition = $conditionMap
         $stepMap.inputs = $redactedInputs
         $stepMap.expectedState = $redactedExpectedState
+        $stepMap.source = ConvertTo-IdleSourceExportMap -Source (Get-FirstPropertyValue -Object $step -Names @('Source'))
 
         # Per-step planning warnings (e.g. unresolved precondition context paths).
         $rawStepWarnings = Get-FirstPropertyValue -Object $step -Names @('Warnings', 'PlanningWarnings', 'StepWarnings')
@@ -314,10 +335,26 @@ function ConvertTo-IdlePlanExportObject {
         $warningList += $warningMap
     }
 
+    # ---- Provider sources (provenance) --------------------------------------
+    # Ordered by alias (as recorded at planning time); provider configuration is never exported.
+    $rawProviderSources = Get-FirstPropertyValue -Object $Plan -Names @('ProviderSources')
+    $providerList = @()
+    if ($rawProviderSources -is [System.Collections.IDictionary]) {
+        foreach ($alias in $rawProviderSources.Keys) {
+            $providerMap = New-OrderedMap
+            $providerMap.alias = [string]$alias
+            $sourceMap = ConvertTo-IdleSourceExportMap -Source $rawProviderSources[$alias]
+            $providerMap.module = $sourceMap.module
+            $providerMap.version = $sourceMap.version
+            $providerList += $providerMap
+        }
+    }
+
     $planMap = New-OrderedMap
     $planMap.id = $planId
     $planMap.mode = $mode
     $planMap.steps = $stepList
+    $planMap.providers = $providerList
     $planMap.warnings = $warningList
 
     # ---- Metadata block ------------------------------------------------------
@@ -328,7 +365,7 @@ function ConvertTo-IdlePlanExportObject {
 
     # ---- Root ---------------------------------------------------------------
     $root = New-OrderedMap
-    $root.schemaVersion = '1.0'
+    $root.schemaVersion = '1.1'
     $root.engine = $engineMap
     $root.request = $requestMap
     $root.plan = $planMap

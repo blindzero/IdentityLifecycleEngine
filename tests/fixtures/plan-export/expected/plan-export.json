@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "engine": {
     "name": "IdLE"
   },
@@ -34,9 +34,14 @@
           "mailboxType": "User"
         },
         "expectedState": null,
+        "source": {
+          "module": null,
+          "version": null
+        },
         "warnings": []
       }
     ],
+    "providers": [],
     "warnings": []
   },
   "metadata": {

@@ -128,7 +128,7 @@ Describe 'Export-IdlePlan' {
         }
     }
     Context 'Contract invariants' {
-        It 'always includes schemaVersion 1.0' {
+        It 'always includes schemaVersion 1.1' {
             $cid = '11111111-1111-1111-1111-111111111111'
 
             $wfPath = New-IdleTestWorkflowFile -FileName 'joiner-export-empty.psd1' -Content @'
@@ -148,7 +148,7 @@ Describe 'Export-IdlePlan' {
 
             $json = $plan | Export-IdlePlan | ConvertFrom-Json
 
-            $json.schemaVersion | Should -Be '1.0'
+            $json.schemaVersion | Should -Be '1.1'
         }
     }
 }

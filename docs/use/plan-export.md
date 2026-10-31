@@ -43,6 +43,7 @@ A plan export typically includes:
 - the planned step list in execution order
 - step configuration after template resolution (as applicable)
 - provider alias references (but **not** live provider objects)
+- provenance: which module (and version) provides each step handler and provider
 - capability information (if available)
 
 :::info
@@ -56,7 +57,7 @@ Providers and authentication are always supplied by the host at execution time.
 
 ```json
 {
-    "schemaVersion": "1.0",
+    "schemaVersion": "1.1",
     "engine": {
         "name": "IdLE"
     },
@@ -91,7 +92,18 @@ Providers and authentication are always supplied by the host at execution time.
                     "mailboxType": "User"
                 },
                 "expectedState": null,
+                "source": {
+                    "module": "IdLE.Steps.Mailbox",
+                    "version": "1.0.0"
+                },
                 "warnings": []
+            }
+        ],
+        "providers": [
+            {
+                "alias": "ExchangeOnline",
+                "module": "IdLE.Provider.ExchangeOnline",
+                "version": "1.0.0"
             }
         ],
         "warnings": []

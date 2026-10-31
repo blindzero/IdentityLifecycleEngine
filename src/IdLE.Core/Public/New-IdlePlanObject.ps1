@@ -136,5 +136,33 @@ function New-IdlePlanObject {
 
     Assert-IdlePlanCapabilitiesSatisfied -Steps $allStepsForCapabilities -Providers $Providers
 
+    # Provenance (audit): record which module provides each step handler and each provider.
+    # Planning-time view; execution results record the handlers that actually ran.
+    # StepRegistry validation stays at execution time; planning only records what it can resolve.
+    $stepRegistry = $null
+    try {
+        $stepRegistry = Get-IdleStepRegistry -Providers $Providers
+    }
+    catch {
+        Write-Verbose "Step registry not available at planning time; step handler sources are recorded as unknown: $($_.Exception.Message)"
+    }
+
+    foreach ($planStep in $allStepsForCapabilities) {
+        $handlerModule = $null
+        if ($null -ne $stepRegistry) {
+            try {
+                $handlerModule = (Resolve-IdleStepHandler -StepType ([string]$planStep.Type) -StepRegistry $stepRegistry).Module
+            }
+            catch {
+                # The handler may only be registered at execution time (Invoke-IdlePlan -Providers); record an unknown source.
+                Write-Verbose "No step handler resolvable at planning time for step type '$($planStep.Type)': $($_.Exception.Message)"
+            }
+        }
+
+        $null = $planStep | Add-Member -MemberType NoteProperty -Name Source -Value (ConvertTo-IdleSourceInfo -Module $handlerModule) -Force
+    }
+
+    $null = $plan | Add-Member -MemberType NoteProperty -Name ProviderSources -Value (Get-IdleProviderSources -Providers $Providers) -Force
+
     return $plan
 }

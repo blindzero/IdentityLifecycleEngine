@@ -1,18 +1,21 @@
 # IdLE Plan Export Specification
 
-Schema-Version: 1.0  
+Schema-Version: 1.1  
 
 ## Overview
+
 This document specifies the canonical, machine-readable representation of an IdLE plan export.
 It defines structure, required fields, and normative rules for producers and consumers.
 
 The exported plan is a **contract artifact**, not an internal object dump.
 
 ## Scope
+
 This specification focuses on format and semantics.
 Operational guidance is documented separately in the User Guide.
 
 ## Format
+
 The export is a JSON document encoded in UTF-8.
 
 ---
@@ -47,7 +50,7 @@ The plan export MUST NOT contain:
 
 ```json
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "engine": {
     "name": "IdLE"
   },
@@ -167,7 +170,14 @@ This bound prevents unbounded snapshot artifacts while keeping the marker audita
 "plan": {
   "id": "plan-001",
   "mode": null,
-  "steps": []
+  "steps": [],
+  "providers": [
+    {
+      "alias": "Identity",
+      "module": "IdLE.Provider.AD",
+      "version": "1.0.0"
+    }
+  ]
 }
 ```
 
@@ -179,11 +189,19 @@ This bound prevents unbounded snapshot artifacts while keeping the marker audita
 | createdAt | (Optional) ISO-8601 UTC timestamp |
 | mode | Plan lifecycle state (`null` when not explicitly set on the plan object) |
 | steps | Ordered list of step objects |
+| providers | (Since 1.1) Provenance of each provider used for planning, ordered by alias. Only provider objects are listed; provider configuration is never exported. |
+
+### providers entries
+
+| Field | Description |
+| ------ | ------------ |
+| alias | Provider alias in the host's `Providers` map |
+| module | Module that defines the provider, or `null` if unknown (e.g. a provider created in a host script) |
+| version | Version of that module, or `null` |
 
 ---
 
 ## Step Object
-
 
 Each step is an **atomic, independent unit**.
 
@@ -202,6 +220,10 @@ Each step is an **atomic, independent unit**.
   },
   "expectedState": {
     "MailboxExists": true
+  },
+  "source": {
+    "module": "IdLE.Steps.Mailbox",
+    "version": "1.0.0"
   }
 }
 ```
@@ -212,6 +234,10 @@ Each step is an **atomic, independent unit**.
 - Steps are ordered and deterministic
 - `stepType` is a logical identifier, not a module path
 - `provider` is declarative, not an implementation reference
+- `source` (since 1.1) records the module that provides the step handler at planning time
+  (`module`, `version`). `module` and `version` are `null` if the handler has no module or is
+  only registered at execution time. `source` is informational for audits and MUST NOT be used to select
+  the handler at execution time.
 
 ---
 
