@@ -26,7 +26,7 @@ function New-IdleExchangeOnlineProvider {
 
     By default, mailbox steps should use:
     - With.AuthSessionName = 'ExchangeOnline'
-    - With.AuthSessionOptions = @{ Role = 'Admin' } (or other routing keys)
+    - `With.AuthSessionOptions = @{ Role = 'Admin' }` (or other routing keys)
 
     Prerequisites:
     - ExchangeOnlineManagement PowerShell module must be installed

@@ -44,7 +44,7 @@ The provider supports multiple auth session formats:
 
 By default, steps should use:
 - With.AuthSessionName = 'MicrosoftGraph'
-- With.AuthSessionOptions = @{ Role = 'Admin' } (or other routing keys)
+- \`With.AuthSessionOptions = @{ Role = 'Admin' }\` (or other routing keys)
 
 ## EXAMPLES
 
