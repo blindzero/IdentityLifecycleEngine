@@ -147,6 +147,28 @@ so hosts do not need `Providers.StepRegistry` for step pack steps:
 Modules named `IdLE.Steps.*` that export `Get-IdleStepMetadataCatalog` but carry no marker are still
 discovered. This fallback is deprecated.
 
+### Provenance
+
+Plans and execution results record which module provided each step handler and each provider
+(e.g. for audits: "which code disabled this account?"):
+
+```powershell
+$plan.Steps[0].Source           # @{ Module = 'IdLE.Steps.Common'; Version = '1.0.0' }
+$plan.ProviderSources['Identity']
+$result.Steps[0].Source         # handler that actually ran
+$result.ProviderSources['Identity']
+```
+
+- Handlers without a module (e.g. host functions registered via `Providers.StepRegistry`) and handlers that
+  are not resolvable at planning time are recorded with `Module = $null` and `Version = $null`.
+- `Source` records names and versions as loaded; it is not an integrity check of the module files.
+- In execution results, `Source` is `$null` for steps whose handler did not run (`NotApplicable`,
+  `Blocked`, `PreconditionSkipped`).
+- `ProviderSources` lists only provider objects (entries exposing `GetCapabilities()`). The module of a
+  provider is the module that defines its `GetCapabilities` method.
+- The plan export contains the same information (`steps[].source`, `plan.providers`); see the
+  [plan export specification](../reference/specs/plan-export.md).
+
 Metadata exists to make steps:
 
 - understandable

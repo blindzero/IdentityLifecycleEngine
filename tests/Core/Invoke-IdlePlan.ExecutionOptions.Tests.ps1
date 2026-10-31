@@ -115,7 +115,9 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-            { Invoke-IdlePlan -Plan $plan -ExecutionOptions 'invalid' } | Should -Throw -ExpectedMessage '*Cannot convert*Hashtable*'
+            # Assert on type and error id instead of the message: PowerShell localizes binding errors.
+            { Invoke-IdlePlan -Plan $plan -ExecutionOptions 'invalid' } |
+                Should -Throw -ExceptionType ([System.Management.Automation.ParameterBindingException]) -ErrorId 'ParameterArgumentTransformationError,Invoke-IdlePlan'
         }
 
         It 'rejects ExecutionOptions with ScriptBlocks' {

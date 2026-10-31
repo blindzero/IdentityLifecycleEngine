@@ -181,8 +181,10 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
                 $thrown = $_
             }
 
+            # Assert on exception types instead of the 'Exception calling ...' text: PowerShell localizes it.
             $thrown | Should -Not -BeNullOrEmpty
-            $thrown.Exception.Message | Should -Match 'Exception calling "StartSyncCycle"'
+            $thrown.Exception | Should -BeOfType ([System.Management.Automation.MethodInvocationException])
+            $thrown.Exception.InnerException | Should -BeOfType ([System.Management.Automation.ValidationMetadataException])
             $thrown.Exception.Message | Should -Match 'Invalid'
             $thrown.Exception.Message | Should -Not -Match 'TriggerDirectorySync: With.PolicyType'
         }

@@ -497,8 +497,10 @@ function Invoke-IdlePlanObject {
             }
         )
 
+        $handlerSource = $null
         try {
             $impl = Resolve-IdleStepHandler -StepType ([string]$stepType) -StepRegistry $stepRegistry
+            $handlerSource = ConvertTo-IdleSourceInfo -Module $impl.Module
 
             $supportedParams = Get-IdleCommandParameterNames -Handler $impl
 
@@ -554,6 +556,8 @@ function Invoke-IdlePlanObject {
                 }
             }
 
+            $null = $result | Add-Member -MemberType NoteProperty -Name Source -Value $handlerSource -Force
+
             $stepResults += $result
 
             if ($result.Status -eq 'Failed') {
@@ -594,6 +598,7 @@ function Invoke-IdlePlanObject {
                 Status     = 'Failed'
                 Error      = $err.Exception.Message
                 Attempts   = 1
+                Source     = $handlerSource
             }
 
             $context.EventSink.WriteEvent(
@@ -783,8 +788,10 @@ function Invoke-IdlePlanObject {
                 }
             )
 
+            $handlerSource = $null
             try {
                 $impl = Resolve-IdleStepHandler -StepType ([string]$ofType) -StepRegistry $stepRegistry
+                $handlerSource = ConvertTo-IdleSourceInfo -Module $impl.Module
 
                 $supportedParams = Get-IdleCommandParameterNames -Handler $impl
 
@@ -838,6 +845,8 @@ function Invoke-IdlePlanObject {
                     }
                 }
 
+                $null = $result | Add-Member -MemberType NoteProperty -Name Source -Value $handlerSource -Force
+
                 $onFailureStepResults += $result
 
                 if ($result.Status -eq 'Failed') {
@@ -877,6 +886,7 @@ function Invoke-IdlePlanObject {
                     Status     = 'Failed'
                     Error      = $err.Exception.Message
                     Attempts   = 1
+                    Source     = $handlerSource
                 }
 
                 $context.EventSink.WriteEvent(
@@ -933,14 +943,22 @@ function Invoke-IdlePlanObject {
         $null
     }
 
+    # Steps whose handler did not run (NotApplicable, Blocked, PreconditionSkipped) have no source.
+    foreach ($stepResult in @($stepResults) + @($onFailure.Steps)) {
+        if ($null -ne $stepResult -and $stepResult.PSObject.Properties.Name -notcontains 'Source') {
+            $null = $stepResult | Add-Member -MemberType NoteProperty -Name Source -Value $null -Force
+        }
+    }
+
     return [pscustomobject]@{
-        PSTypeName    = 'IdLE.ExecutionResult'
-        Status        = $runStatus
-        CorrelationId = $corr
-        Actor         = $actor
-        Steps         = @($stepResults)
-        OnFailure     = $onFailure
-        Events        = $events
-        Providers     = $redactedProviders
+        PSTypeName      = 'IdLE.ExecutionResult'
+        Status          = $runStatus
+        CorrelationId   = $corr
+        Actor           = $actor
+        Steps           = @($stepResults)
+        OnFailure       = $onFailure
+        Events          = $events
+        Providers       = $redactedProviders
+        ProviderSources = Get-IdleProviderSources -Providers $effectiveProviders
     }
 }
