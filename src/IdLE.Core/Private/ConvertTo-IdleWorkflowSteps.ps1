@@ -109,7 +109,7 @@ function ConvertTo-IdleWorkflowSteps {
         else {
             # Workflow references a Step.Type for which no StepMetadata entry is available - fail fast.
             $errorMessage = "MissingStepTypeMetadata: Workflow step '$stepName' references step type '$stepType' which has no metadata entry. " + `
-                "To resolve this: (1) Import/load the step pack module (IdLE.Steps.*) that provides metadata for '$stepType' via Get-IdleStepMetadataCatalog, OR " + `
+                "To resolve this: (1) Import/load the step pack module (manifest PrivateData.IdLE.Kind = 'StepPack') that provides metadata for '$stepType', OR " + `
                 "(2) For host-defined/custom step types only, provide Providers.StepMetadata['$stepType'] = @{ RequiredCapabilities = @(...) }."
             throw [System.InvalidOperationException]::new($errorMessage)
         }

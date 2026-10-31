@@ -169,16 +169,19 @@ function ConvertTo-IdleMdxSafeText {
 function Get-IdleStepTypeFromCommandName {
     <#
     .SYNOPSIS
-    Resolves the canonical step type(s) for a command by loading and inverting the step registry.
-    
+    Resolves the canonical step type(s) for a command from its step pack's metadata catalog.
+
     .DESCRIPTION
-    Instead of deriving step types from command names (which can be ambiguous),
-    this function loads the step registry script and inverts it to find the actual
-    registered step type(s).
-    
+    Step packs declare the handler of each step type via the 'Handler' key in their
+    StepMetadataCatalog.psd1. This function loads the catalog of the command's module and
+    inverts the Handler entries to find the registered step type(s).
+
     .PARAMETER CommandName
     The step handler command name (e.g., 'Invoke-IdleStepMailboxOutOfOfficeEnsure').
-    
+
+    .PARAMETER ModuleName
+    The module that exports the command (e.g., 'IdLE.Steps.Mailbox').
+
     .OUTPUTS
     Array of step type strings registered for this command, or empty array if not found.
     #>
@@ -186,40 +189,38 @@ function Get-IdleStepTypeFromCommandName {
     param(
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string] $CommandName
+        [string] $CommandName,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $ModuleName
     )
 
-    # Load the step registry script to access its mappings
-    $registryPath = Join-Path $script:repoRoot 'src' 'IdLE.Core' 'Private' 'Get-IdleStepRegistry.ps1'
-    
-    if (-not (Test-Path $registryPath)) {
-        Write-Warning "Step registry not found at: $registryPath"
+    # Disambiguate in case multiple versions of the module are loaded
+    $module = Get-Module -Name $ModuleName -All -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -eq $module) {
         return @()
     }
 
-    # Read the registry file and extract step type → handler mappings
-    $registryContent = Get-Content -Path $registryPath -Raw
-    
-    # Scan for command name and find nearby step type
-    $lines = $registryContent -split "`n"
-    $stepTypes = @()
-    
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match "CommandName\s+'$([regex]::Escape($CommandName))'") {
-            # Look backwards for the step type in the ContainsKey check
-            for ($j = $i; $j -ge [Math]::Max(0, $i - 10); $j--) {
-                if ($lines[$j] -match "ContainsKey\('([^']+)'\)") {
-                    $stepType = $matches[1]
-                    if ($stepType -and $stepType -notlike '*$*') {
-                        $stepTypes += $stepType
-                        break
-                    }
-                }
-            }
+    $catalog = & $module { Get-IdleStepMetadataCatalog -ErrorAction SilentlyContinue }
+    if ($catalog -isnot [System.Collections.IDictionary]) {
+        return @()
+    }
+
+    $stepTypes = foreach ($stepType in $catalog.Keys) {
+        $metadata = $catalog[$stepType]
+        if ($metadata -isnot [System.Collections.IDictionary] -or -not $metadata.Contains('Handler')) {
+            continue
+        }
+
+        # Catalog handlers may be unqualified or module-qualified ('Module\Command').
+        $handler = [string]$metadata['Handler']
+        if ($handler -eq $CommandName -or $handler -eq "$ModuleName\$CommandName") {
+            $stepType
         }
     }
-    
-    return $stepTypes | Select-Object -Unique
+
+    return @($stepTypes | Sort-Object -Unique)
 }
 
 function Get-IdleHelpSafe {
@@ -462,17 +463,16 @@ function New-IdleStepDocModel {
     )
 
     $commandName = $CommandInfo.Name
-    $stepTypes = @(Get-IdleStepTypeFromCommandName -CommandName $commandName)
-    
+    $moduleName = Get-IdleCommandModuleName -CommandInfo $CommandInfo
+    $stepTypes = @(Get-IdleStepTypeFromCommandName -CommandName $commandName -ModuleName $moduleName)
+
     if ($stepTypes.Count -eq 0) {
-        Write-Warning "No step types found in registry for command: $commandName"
+        Write-Warning "No step types found in the step pack catalog for command: $commandName"
         return $null
     }
 
     # Use the first (or only) step type as the primary
     $stepType = $stepTypes[0]
-
-    $moduleName = Get-IdleCommandModuleName -CommandInfo $CommandInfo
     $help = Get-IdleHelpSafe -CommandName $commandName
 
     $synopsis = ''

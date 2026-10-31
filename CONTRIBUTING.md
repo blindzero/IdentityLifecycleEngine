@@ -76,9 +76,17 @@ git clone https://github.com/blindzero/IdentityLifecycleEngine.git
 ### Branching Model
 
 - `main` → stable
-- feature branches:
-  - `feature/<short-description>`
-  - `fix/<short-description>`
+- work branches: `<prefix>/<issueNumber>-<short-description>` (omit `<issueNumber>-` if there is no issue)
+
+| Prefix | Use for |
+| --- | --- |
+| `feature/` | new functionality |
+| `fix/` or `hotfix/` | bug fixes or urgent fixes for a released version |
+| `ci/` | CI/CD workflows and build tooling |
+| `docs/` | documentation only |
+| `chore/` | maintenance (dependencies, cleanup, repo housekeeping) |
+
+Example: `feature/292-step-handler-registration-via-catalog`
 
 ---
 

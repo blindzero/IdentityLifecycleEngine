@@ -19,6 +19,10 @@
     )
 
     PrivateData       = @{
+        IdLE   = @{
+            Kind        = 'StepPack'
+            StepCatalog = 'StepMetadataCatalog.psd1'
+        }
         PSData = @{
             Tags       = @('IdentityLifecycleEngine', 'IdLE', 'Steps', 'Mailbox')
             LicenseUri    = 'https://www.apache.org/licenses/LICENSE-2.0'

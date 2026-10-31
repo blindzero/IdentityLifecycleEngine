@@ -13,6 +13,7 @@
   - `pwsh -NoProfile -File ./tools/Invoke-IdleScriptAnalyzer.ps1`
 - **Generated references** under `docs/reference/` are never edited by hand. Regenerate them with
   `./tools/Generate-IdleCmdletReference.ps1` and `./tools/Generate-IdleStepReference.ps1` (see `CONTRIBUTING.md`).
-- **Branch names** for issue work: `issues/<issueNumber>-<sanitizedTitle>`.
+- **Branch names** follow the branching model in `CONTRIBUTING.md` (`<prefix>/<issueNumber>-<short-description>`,
+  e.g. `feature/292-...`).
 - On pull requests, CI restores `.claude/` and `CLAUDE.md` from the base branch. Changes to these files only take
   effect for reviews after they are merged.
