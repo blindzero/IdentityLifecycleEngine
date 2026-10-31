@@ -38,9 +38,17 @@ function ConvertTo-IdleCapabilityList {
 
         if ($Validate -and -not (Test-IdleCapabilityIdentifier -Capability $s)) {
             throw [System.ArgumentException]::new(
-                "$ErrorPrefix '$s' is invalid. Expected dot-separated segments like 'IdLE.Identity.Read' or 'IdLE.Entitlement.Write'.",
+                "$ErrorPrefix '$s' is invalid. Expected dot-separated segments like 'IdLE.Identity.Read'.",
                 'Capabilities'
             )
+        }
+
+        if ($Validate) {
+            # IdLE-defined capabilities or extension capabilities ('<Owner>.IdLE.*') only.
+            $namespaceError = Get-IdleIdentifierNamespaceError -Kind 'Capability' -Identifier $s
+            if ($null -ne $namespaceError) {
+                throw [System.ArgumentException]::new("$namespaceError ($ErrorPrefix)", 'Capabilities')
+            }
         }
 
         if ($Normalize) {

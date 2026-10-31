@@ -96,11 +96,13 @@ The engine (`IdLE.Core`) must **not** depend on:
   - Hosts MUST provide an `AuthSessionBroker`, and steps/providers MUST acquire auth sessions via `Context.AcquireAuthSession(...)` rather than receiving raw credentials directly.
   - Do not pass secrets or credential objects via provider options or workflow configuration; provider options must remain data-only (no ScriptBlocks, no executable objects).
 
-#### 4.2.1 Capability naming convention
+#### 4.2.1 Identifier namespaces (step types, capabilities)
 
-- New work MUST use the IdLE. capability namespace (e.g., IdLE.Identity.Read, IdLE.Identity.Attribute.Ensure, IdLE.Entitlement.Grant).
-- Do not introduce new un-namespaced capabilities (e.g., Identity.Read) in new modules.
-- If legacy capability names exist, treat them as deprecated aliases and document migration behavior explicitly in the relevant issue/PR.
+- `IdLE.*` is reserved for first-party modules shipped in the `IdLE` bundle (e.g., `IdLE.Step.DisableIdentity`, `IdLE.Identity.Read`).
+- Extensions (third-party or host modules, including tests) use `<Owner>.IdLE.*` (e.g., `Contoso.IdLE.Step.Hr.SyncManager`, `Contoso.IdLE.Hr.Manager.Read`); tests use `Test.IdLE.*`.
+- A new first-party capability MUST be added to `src/IdLE.Core/Data/ReservedNamespaces.psd1` and `docs/reference/capabilities.md` (kept in sync by tests).
+- If legacy capability names exist, treat them as deprecated aliases (`Deprecated` in `ReservedNamespaces.psd1`) and document migration behavior explicitly in the relevant issue/PR.
+- Rules and error codes: `docs/extend/steps.md` (Step type names) and `docs/reference/capabilities.md` (Naming rules).
 
 ### 4.3 Eventing
 

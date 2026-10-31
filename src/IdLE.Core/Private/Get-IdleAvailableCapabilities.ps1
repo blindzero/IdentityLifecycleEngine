@@ -43,7 +43,8 @@ function Get-IdleAvailableCapabilities {
             if ($null -eq $caps) {
                 return @()
             }
-            return @(ConvertTo-IdleCapabilityList -Capabilities $caps -Normalize -Unique)
+            # Validate at planning time: providers may only advertise IdLE-defined or '<Owner>.IdLE.*' capabilities.
+            return @(ConvertTo-IdleCapabilityList -Capabilities $caps -Validate -Normalize -Unique -ErrorPrefix 'Provider capability')
         }
 
         return @()

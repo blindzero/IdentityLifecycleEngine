@@ -44,6 +44,7 @@ The public `Assert-IdleNoScriptBlock` function is the single, authoritative vali
 These inputs are **provided by the host** and are **privileged** because they determine what code is executed:
 
 - **Step registry** (maps `Step.Type` to a handler function name)
+- **Step packs** (modules marked with `PrivateData.IdLE.Kind = 'StepPack'` that declare step types and handlers)
 - **Provider modules** / provider objects (system-specific adapters)
 - **External event sinks** (streaming events)
 - **AuthSessionBroker** (host-provided authentication orchestration)
@@ -51,6 +52,14 @@ These inputs are **provided by the host** and are **privileged** because they de
 :::info
 **Rule:** Only trusted code should populate these extension points.
 :::
+
+Trust levels within these extension points:
+
+- **First-party:** modules shipped in the loaded `IdLE` bundle and loaded from its folders. Only these may
+  define `IdLE.*` step types. Module names alone never make a module first-party.
+- **Host-trusted:** every other loaded step pack or provider, and the host's own `Providers.StepRegistry` /
+  `Providers.StepMetadata`. They use their own `<Owner>.IdLE.*` namespace and can only add step types; they
+  cannot replace step types defined by another step pack.
 
 These extension points may contain ScriptMethods (e.g., the `AcquireAuthSession` method on AuthSessionBroker objects) but should not contain ScriptBlock *properties* that could be confused with data.
 

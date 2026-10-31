@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name          = 'Step1'
-      Type          = 'IdLE.Step.PassingPrecondition'
+      Type          = 'Test.IdLE.Step.PassingPrecondition'
       Precondition = @{
         All = @(
         @{

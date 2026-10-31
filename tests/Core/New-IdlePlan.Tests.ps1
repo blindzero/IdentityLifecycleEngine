@@ -47,10 +47,10 @@ Describe 'New-IdlePlan' {
                 Dummy        = $true
                 Identity     = $dummyProvider
                 StepRegistry = @{
-                    'IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.ResolveIdentity'  = 'Invoke-IdleTestNoopStep'
                     'IdLE.Step.EnsureAttributes' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.ResolveIdentity')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -64,7 +64,7 @@ Describe 'New-IdlePlan' {
             @($plan.Steps).Count | Should -Be 2
             $plan.Steps[0].PSTypeNames | Should -Contain 'IdLE.PlanStep'
             $plan.Steps[0].Name | Should -Be 'ResolveIdentity'
-            $plan.Steps[0].Type | Should -Be 'IdLE.Step.ResolveIdentity'
+            $plan.Steps[0].Type | Should -Be 'Test.IdLE.Step.ResolveIdentity'
 
             @($plan.Actions).Count | Should -Be 0
             @($plan.Warnings).Count | Should -Be 0
@@ -83,18 +83,18 @@ Describe 'New-IdlePlan' {
   Name           = 'Joiner - OnFailureSteps'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+    @{ Name = 'ResolveIdentity'; Type = 'Test.IdLE.Step.ResolveIdentity' }
   )
   OnFailureSteps = @(
     @{
       Name      = 'Containment'
-      Type      = 'IdLE.Step.Containment'
+      Type      = 'Test.IdLE.Step.Containment'
       Condition = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
       With      = @{ Mode = 'Quarantine' }
     }
     @{
       Name      = 'NeverApplicable'
-      Type      = 'IdLE.Step.NeverApplicable'
+      Type      = 'Test.IdLE.Step.NeverApplicable'
       Condition = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Mover' } }
     }
   )
@@ -105,14 +105,14 @@ Describe 'New-IdlePlan' {
             $providers = @{
                 Dummy        = $true
                 StepRegistry = @{
-                    'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
-                    'IdLE.Step.Containment'     = 'Invoke-IdleTestNoopStep'
-                    'IdLE.Step.NeverApplicable' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Containment'     = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.NeverApplicable' = 'Invoke-IdleTestNoopStep'
                 }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @(
-                    'IdLE.Step.ResolveIdentity',
-                    'IdLE.Step.Containment',
-                    'IdLE.Step.NeverApplicable'
+                    'Test.IdLE.Step.ResolveIdentity',
+                    'Test.IdLE.Step.Containment',
+                    'Test.IdLE.Step.NeverApplicable'
                 )
             }
 
@@ -124,13 +124,13 @@ Describe 'New-IdlePlan' {
 
             $plan.OnFailureSteps[0].PSTypeNames | Should -Contain 'IdLE.PlanStep'
             $plan.OnFailureSteps[0].Name | Should -Be 'Containment'
-            $plan.OnFailureSteps[0].Type | Should -Be 'IdLE.Step.Containment'
+            $plan.OnFailureSteps[0].Type | Should -Be 'Test.IdLE.Step.Containment'
             $plan.OnFailureSteps[0].Status | Should -Be 'Planned'
             $plan.OnFailureSteps[0].With.Mode | Should -Be 'Quarantine'
 
             $plan.OnFailureSteps[1].PSTypeNames | Should -Contain 'IdLE.PlanStep'
             $plan.OnFailureSteps[1].Name | Should -Be 'NeverApplicable'
-            $plan.OnFailureSteps[1].Type | Should -Be 'IdLE.Step.NeverApplicable'
+            $plan.OnFailureSteps[1].Type | Should -Be 'Test.IdLE.Step.NeverApplicable'
             $plan.OnFailureSteps[1].Status | Should -Be 'NotApplicable'
         }
 
@@ -142,14 +142,14 @@ Describe 'New-IdlePlan' {
   Steps          = @(
     @{
       Name         = 'SharedName'
-      Type         = 'IdLE.Step.ResolveIdentity'
+      Type         = 'Test.IdLE.Step.ResolveIdentity'
       Precondition = @{ Exists = 'Request.Context.MissingAtPlan' }
     }
   )
   OnFailureSteps = @(
     @{
       Name = 'SharedName'
-      Type = 'IdLE.Step.Containment'
+      Type = 'Test.IdLE.Step.Containment'
       With = @{ Mode = 'Quarantine' }
     }
   )
@@ -160,12 +160,12 @@ Describe 'New-IdlePlan' {
             $providers = @{
                 Dummy        = $true
                 StepRegistry = @{
-                    'IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
-                    'IdLE.Step.Containment'     = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.ResolveIdentity' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Containment'     = 'Invoke-IdleTestNoopStep'
                 }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @(
-                    'IdLE.Step.ResolveIdentity',
-                    'IdLE.Step.Containment'
+                    'Test.IdLE.Step.ResolveIdentity',
+                    'Test.IdLE.Step.Containment'
                 )
             }
 
@@ -184,8 +184,8 @@ Describe 'New-IdlePlan' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.ExistsConditionTest' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ExistsConditionTest')
+                StepRegistry = @{ 'Test.IdLE.Step.ExistsConditionTest' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.ExistsConditionTest')
             }
 
             # Must not throw: Exists on absent path evaluates to false without a path-resolvability error
@@ -201,8 +201,8 @@ Describe 'New-IdlePlan' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.ConditionalSkipTest' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ConditionalSkipTest')
+                StepRegistry = @{ 'Test.IdLE.Step.ConditionalSkipTest' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.ConditionalSkipTest')
             }
 
             # Must not throw despite template referencing absent Request.Intent.MissingKey
@@ -218,9 +218,9 @@ Describe 'New-IdlePlan' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.StrictSchemaTest' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.StrictSchemaTest') -WithSchemas @{
-                    'IdLE.Step.StrictSchemaTest' = @{ RequiredKeys = @('IdentityKey'); OptionalKeys = @() }
+                StepRegistry = @{ 'Test.IdLE.Step.StrictSchemaTest' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.StrictSchemaTest') -WithSchemas @{
+                    'Test.IdLE.Step.StrictSchemaTest' = @{ RequiredKeys = @('IdentityKey'); OptionalKeys = @() }
                 }
             }
 
@@ -237,9 +237,9 @@ Describe 'New-IdlePlan' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.StrictApplicableTest' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.StrictApplicableTest') -WithSchemas @{
-                    'IdLE.Step.StrictApplicableTest' = @{ RequiredKeys = @('IdentityKey'); OptionalKeys = @() }
+                StepRegistry = @{ 'Test.IdLE.Step.StrictApplicableTest' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.StrictApplicableTest') -WithSchemas @{
+                    'Test.IdLE.Step.StrictApplicableTest' = @{ RequiredKeys = @('IdentityKey'); OptionalKeys = @() }
                 }
             }
 
@@ -254,12 +254,12 @@ Describe 'New-IdlePlan' {
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.PrimarySkipTest'   = 'Invoke-IdleTestNoopStep'
-                    'IdLE.Step.OnFailureSkipTest' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.PrimarySkipTest'   = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.OnFailureSkipTest' = 'Invoke-IdleTestNoopStep'
                 }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @(
-                    'IdLE.Step.PrimarySkipTest',
-                    'IdLE.Step.OnFailureSkipTest'
+                    'Test.IdLE.Step.PrimarySkipTest',
+                    'Test.IdLE.Step.OnFailureSkipTest'
                 )
             }
 
@@ -279,7 +279,7 @@ Describe 'New-IdlePlan' {
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+    @{ Name = 'ResolveIdentity'; Type = 'Test.IdLE.Step.ResolveIdentity' }
   )
 }
 '@

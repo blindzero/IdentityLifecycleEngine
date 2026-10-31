@@ -211,7 +211,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'Step1'; Type = 'Test.Step' }
+    @{ Name = 'Step1'; Type = 'Test.IdLE.Step.Basic' }
   )
 }
 '@
@@ -219,8 +219,8 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
             $providers = @{
-                StepRegistry = @{ 'Test.Step' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTestStep" }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.Step')
+                StepRegistry = @{ 'Test.IdLE.Step.Basic' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTestStep" }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Basic')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -238,7 +238,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'Step1'; Type = 'Test.TransientStep'; RetryProfile = 'Custom' }
+    @{ Name = 'Step1'; Type = 'Test.IdLE.Step.Transient'; RetryProfile = 'Custom' }
   )
 }
 '@
@@ -246,8 +246,8 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
             $providers = @{
-                StepRegistry = @{ 'Test.TransientStep' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTransientStep" }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.TransientStep')
+                StepRegistry = @{ 'Test.IdLE.Step.Transient' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTransientStep" }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Transient')
             }
 
             $opts = @{
@@ -273,7 +273,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'Step1'; Type = 'Test.TransientStep' }
+    @{ Name = 'Step1'; Type = 'Test.IdLE.Step.Transient' }
   )
 }
 '@
@@ -281,8 +281,8 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
             $providers = @{
-                StepRegistry = @{ 'Test.TransientStep' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTransientStep" }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.TransientStep')
+                StepRegistry = @{ 'Test.IdLE.Step.Transient' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTransientStep" }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Transient')
             }
 
             $opts = @{
@@ -303,7 +303,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'Step1'; Type = 'Test.Step'; RetryProfile = 'Unknown' }
+    @{ Name = 'Step1'; Type = 'Test.IdLE.Step.Basic'; RetryProfile = 'Unknown' }
   )
 }
 '@
@@ -311,8 +311,8 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
             $providers = @{
-                StepRegistry = @{ 'Test.Step' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTestStep" }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.Step')
+                StepRegistry = @{ 'Test.IdLE.Step.Basic' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTestStep" }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Basic')
             }
 
             $opts = @{ RetryProfiles = @{ Default = @{ MaxAttempts = 3 } } }
@@ -333,7 +333,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'Step1'; Type = 'Test.TransientStep'; RetryProfile = 'NoRetry' }
+    @{ Name = 'Step1'; Type = 'Test.IdLE.Step.Transient'; RetryProfile = 'NoRetry' }
   )
 }
 '@
@@ -341,8 +341,8 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
             $providers = @{
-                StepRegistry = @{ 'Test.TransientStep' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTransientStep" }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.TransientStep')
+                StepRegistry = @{ 'Test.IdLE.Step.Transient' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTransientStep" }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Transient')
             }
 
             $opts = @{ RetryProfiles = @{ NoRetry = @{ MaxAttempts = 0 } } }
@@ -386,10 +386,10 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
   Name           = 'Test Workflow'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'FailingStep'; Type = 'Test.Failing' }
+    @{ Name = 'FailingStep'; Type = 'Test.IdLE.Step.Failing' }
   )
   OnFailureSteps = @(
-    @{ Name = 'CleanupStep'; Type = 'Test.TransientStep'; RetryProfile = 'Cleanup' }
+    @{ Name = 'CleanupStep'; Type = 'Test.IdLE.Step.Transient'; RetryProfile = 'Cleanup' }
   )
 }
 '@
@@ -398,10 +398,10 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Test.Failing'       = "$failingModuleName\Invoke-IdleFailingStep"
-                    'Test.TransientStep' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTransientStep"
+                    'Test.IdLE.Step.Failing'       = "$failingModuleName\Invoke-IdleFailingStep"
+                    'Test.IdLE.Step.Transient' = "$script:RetryProfileTestModuleName\Invoke-IdleRetryProfileTransientStep"
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.Failing', 'Test.TransientStep')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Failing', 'Test.IdLE.Step.Transient')
             }
 
             $opts = @{

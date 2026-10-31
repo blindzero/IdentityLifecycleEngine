@@ -22,11 +22,8 @@ function ConvertTo-IdleNormalizedCapability {
         [string] $Capability
     )
 
-    # Deprecated capability ID mappings (pre-1.0)
-    # Format: @{ 'OldID' = 'NewID' }
-    $deprecatedMappings = @{
-        'IdLE.Mailbox.Read' = 'IdLE.Mailbox.Info.Read'
-    }
+    # Deprecated capability ID mappings (@{ 'OldID' = 'NewID' }) live in Data/ReservedNamespaces.psd1.
+    $deprecatedMappings = (Get-IdleReservedNamespaces).Capability.Deprecated
 
     $normalized = $Capability.Trim()
 

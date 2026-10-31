@@ -14,7 +14,7 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
                 Steps          = @(
                     @{
                         Name      = 'InvalidCondition'
-                        Type      = 'IdLE.Step.Noop'
+                        Type      = 'Test.IdLE.Step.Noop'
                         Condition = @{ Foo = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
                     }
                 )
@@ -29,12 +29,12 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
                 Name           = 'Condition Validation'
                 LifecycleEvent = 'Joiner'
                 Steps          = @(
-                    @{ Name = 'Primary'; Type = 'IdLE.Step.Noop' }
+                    @{ Name = 'Primary'; Type = 'Test.IdLE.Step.Noop' }
                 )
                 OnFailureSteps = @(
                     @{
                         Name      = 'InvalidOnFailureCondition'
-                        Type      = 'IdLE.Step.Noop'
+                        Type      = 'Test.IdLE.Step.Noop'
                         Condition = @{ Foo = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
                     }
                 )
@@ -51,7 +51,7 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
                 Steps          = @(
                     @{
                         Name         = 'InvalidPrecondition'
-                        Type         = 'IdLE.Step.Noop'
+                        Type         = 'Test.IdLE.Step.Noop'
                         Precondition = @{ Foo = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
                     }
                 )
@@ -68,7 +68,7 @@ Describe 'Workflow schema validation - Condition/Precondition DSL parity' {
                 Steps          = @(
                     @{
                         Name         = 'ValidPrecondition'
-                        Type         = 'IdLE.Step.Noop'
+                        Type         = 'Test.IdLE.Step.Noop'
                         Condition    = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
                         Precondition = @{
                             All = @(
@@ -100,7 +100,7 @@ Describe 'Workflow schema validation - ContextResolvers' {
                     }
                 )
                 Steps            = @(
-                    @{ Name = 'Step1'; Type = 'IdLE.Step.Noop' }
+                    @{ Name = 'Step1'; Type = 'Test.IdLE.Step.Noop' }
                 )
             }
 
@@ -119,7 +119,7 @@ Describe 'Workflow schema validation - ContextResolvers' {
                     }
                 )
                 Steps            = @(
-                    @{ Name = 'Step1'; Type = 'IdLE.Step.Noop' }
+                    @{ Name = 'Step1'; Type = 'Test.IdLE.Step.Noop' }
                 )
             }
 
@@ -138,7 +138,7 @@ Describe 'Workflow schema validation - ContextResolvers' {
                     }
                 )
                 Steps            = @(
-                    @{ Name = 'Step1'; Type = 'IdLE.Step.Noop' }
+                    @{ Name = 'Step1'; Type = 'Test.IdLE.Step.Noop' }
                 )
             }
 
@@ -162,7 +162,7 @@ Describe 'Workflow schema validation - ContextResolvers' {
                     }
                 )
                 Steps            = @(
-                    @{ Name = 'Step1'; Type = 'IdLE.Step.Noop' }
+                    @{ Name = 'Step1'; Type = 'Test.IdLE.Step.Noop' }
                 )
             }
 

@@ -15,7 +15,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.Unknown' = 'Invoke-CustomStepUnknown'
+                    'Custom.IdLE.Step.Unknown' = 'Invoke-CustomStepUnknown'
                 }
             }
 
@@ -25,7 +25,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
             }
             catch {
                 $_.Exception.Message | Should -Match 'MissingStepTypeMetadata'
-                $_.Exception.Message | Should -Match 'Custom.Step.Unknown'
+                $_.Exception.Message | Should -Match 'Custom.IdLE.Step.Unknown'
             }
         }
     }
@@ -123,21 +123,21 @@ Describe 'New-IdlePlan - required provider capabilities' {
     }
 
     Context 'Metadata validation' {
-        It 'rejects host override attempt of step pack metadata (DuplicateStepTypeMetadata)' {
+        It 'rejects host metadata for a first-party step type (ReservedNamespace)' {
             $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'joiner-override.psd1'
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
             $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
             $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-                return @('Custom.Capability.Override')
+                return @('Custom.IdLE.Capability.Override')
             } -Force
 
             $providers = @{
                 IdentityProvider = $provider
                 StepMetadata     = @{
                     'IdLE.Step.DisableIdentity' = @{
-                        RequiredCapabilities = @('Custom.Capability.Override')
+                        RequiredCapabilities = @('Custom.IdLE.Capability.Override')
                     }
                 }
             }
@@ -147,7 +147,7 @@ Describe 'New-IdlePlan - required provider capabilities' {
                 throw 'Expected an exception but none was thrown.'
             }
             catch {
-                $_.Exception.Message | Should -Match 'DuplicateStepTypeMetadata'
+                $_.Exception.Message | Should -Match 'ReservedNamespace'
                 $_.Exception.Message | Should -Match 'IdLE.Step.DisableIdentity'
             }
         }
@@ -159,10 +159,10 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.Test' = 'Invoke-CustomStep'
+                    'Custom.IdLE.Step.Test' = 'Invoke-CustomStep'
                 }
                 StepMetadata = @{
-                    'Custom.Step.Test' = @{
+                    'Custom.IdLE.Step.Test' = @{
                         RequiredCapabilities = { 'Dynamic.Capability' }
                     }
                 }
@@ -184,10 +184,10 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.Test' = 'Invoke-CustomStep'
+                    'Custom.IdLE.Step.Test' = 'Invoke-CustomStep'
                 }
                 StepMetadata = @{
-                    'Custom.Step.Test' = 'not-a-hashtable'
+                    'Custom.IdLE.Step.Test' = 'not-a-hashtable'
                 }
             }
 
@@ -207,10 +207,10 @@ Describe 'New-IdlePlan - required provider capabilities' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.Test' = 'Invoke-CustomStep'
+                    'Custom.IdLE.Step.Test' = 'Invoke-CustomStep'
                 }
                 StepMetadata = @{
-                    'Custom.Step.Test' = @{
+                    'Custom.IdLE.Step.Test' = @{
                         RequiredCapabilities = @('Invalid Capability With Spaces')
                     }
                 }

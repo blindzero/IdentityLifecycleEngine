@@ -137,8 +137,8 @@ Describe 'New-IdlePlan - Request.Identity rejection' {
 
         $wfPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows/template-tests/template-simple.psd1'
         $providers = @{
-            StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
         }
 
         { New-IdlePlan -WorkflowPath $wfPath -Request $badRequest -Providers $providers } |

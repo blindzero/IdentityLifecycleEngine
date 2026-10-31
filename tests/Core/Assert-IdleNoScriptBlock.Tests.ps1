@@ -186,7 +186,7 @@ Describe 'Assert-IdleNoScriptBlock' {
                 Steps = @(
                     @{
                         Name = 'Step1'
-                        Type = 'Test.Step'
+                        Type = 'Test.IdLE.Step.Basic'
                         With = @{
                             Action = { Invoke-MaliciousCode }
                         }

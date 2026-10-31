@@ -8,21 +8,30 @@ BeforeAll {
     $script:PackName = 'Contoso.IdLE.Steps.Hr'
     $script:StepType = 'Contoso.IdLE.Step.Hr.Hello'
 
-    # Creates a step pack module on disk that is discovered via the manifest marker only
-    # (its name does not match 'IdLE.Steps.*' and it exports no Get-IdleStepMetadataCatalog).
+    # Creates a step pack module on disk. With -NoMarker the module has no PrivateData.IdLE marker and instead
+    # exports Get-IdleStepMetadataCatalog (the removed name-based discovery shape).
     function New-TestStepPack {
         param(
             [Parameter(Mandatory)]
             [string] $CatalogContent,
 
             [Parameter()]
-            [string] $StepCatalog = 'StepMetadataCatalog.psd1'
+            [string] $StepCatalog = 'StepMetadataCatalog.psd1',
+
+            [Parameter()]
+            [string] $PackName = $script:PackName,
+
+            [Parameter()]
+            [switch] $NoMarker
         )
 
-        $moduleDir = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N')) | Join-Path -ChildPath $script:PackName
+        $marker = if ($NoMarker) { '' } else { "IdLE = @{ Kind = 'StepPack'; StepCatalog = '$StepCatalog' }" }
+        $exports = if ($NoMarker) { "'Invoke-ContosoStepHello', 'Get-IdleStepMetadataCatalog'" } else { "'Invoke-ContosoStepHello'" }
+
+        $moduleDir = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N')) | Join-Path -ChildPath $PackName
         $null = New-Item -Path $moduleDir -ItemType Directory -Force
 
-        Set-Content -Path (Join-Path $moduleDir "$($script:PackName).psm1") -Encoding UTF8 -Value @'
+        Set-Content -Path (Join-Path $moduleDir "$($PackName).psm1") -Encoding UTF8 -Value @'
 function Invoke-ContosoStepHello {
     [CmdletBinding()]
     param(
@@ -41,38 +50,40 @@ function Invoke-ContosoStepHello {
     }
 }
 
-Export-ModuleMember -Function 'Invoke-ContosoStepHello'
+function Get-IdleStepMetadataCatalog {
+    return Import-PowerShellDataFile -Path (Join-Path $PSScriptRoot 'StepMetadataCatalog.psd1')
+}
+
+Export-ModuleMember -Function 'Invoke-ContosoStepHello', 'Get-IdleStepMetadataCatalog'
 '@
 
-        Set-Content -Path (Join-Path $moduleDir "$($script:PackName).psd1") -Encoding UTF8 -Value @"
+        Set-Content -Path (Join-Path $moduleDir "$PackName.psd1") -Encoding UTF8 -Value @"
 @{
-    RootModule        = '$($script:PackName).psm1'
+    RootModule        = '$PackName.psm1'
     ModuleVersion     = '1.0.0'
     GUID              = '$([guid]::NewGuid())'
-    FunctionsToExport = @('Invoke-ContosoStepHello')
-    PrivateData       = @{
-        IdLE = @{
-            Kind        = 'StepPack'
-            StepCatalog = '$StepCatalog'
-        }
-    }
+    FunctionsToExport = @($exports)
+    PrivateData       = @{ $marker }
 }
 "@
 
         Set-Content -Path (Join-Path $moduleDir 'StepMetadataCatalog.psd1') -Encoding UTF8 -Value $CatalogContent
 
-        Import-Module -Name (Join-Path $moduleDir "$($script:PackName).psd1") -Force -ErrorAction Stop
+        Import-Module -Name (Join-Path $moduleDir "$PackName.psd1") -Force -ErrorAction Stop
     }
 
     function New-TestCatalogContent {
         param(
             [Parameter(Mandatory)]
-            [string] $HandlerLiteral
+            [string] $HandlerLiteral,
+
+            [Parameter()]
+            [string] $StepType = $script:StepType
         )
 
         return @"
 @{
-    '$($script:StepType)' = @{
+    '$StepType' = @{
         Handler              = $HandlerLiteral
         RequiredCapabilities = @()
         WithSchema           = @{
@@ -101,7 +112,7 @@ Export-ModuleMember -Function 'Invoke-ContosoStepHello'
 
 Describe 'Step pack handler registration (StepMetadataCatalog Handler)' {
     AfterEach {
-        Remove-Module -Name $script:PackName -Force -ErrorAction SilentlyContinue
+        Remove-Module -Name $script:PackName, 'IdLE.Steps.Impostor', 'IdLE.Steps.Legacy' -Force -ErrorAction SilentlyContinue
     }
 
     Context 'Third-party step pack with manifest marker' {
@@ -125,13 +136,13 @@ Describe 'Step pack handler registration (StepMetadataCatalog Handler)' {
             }
         }
 
-        It 'lets Providers.StepRegistry override the catalog handler' {
+        It 'rejects Providers.StepRegistry entries for step pack step types (DuplicateStepHandler)' {
             New-TestStepPack -CatalogContent (New-TestCatalogContent -HandlerLiteral "'Invoke-ContosoStepHello'")
 
             InModuleScope 'IdLE.Core' -Parameters @{ StepType = $script:StepType } {
                 param($StepType)
-                $registry = Get-IdleStepRegistry -Providers @{ StepRegistry = @{ $StepType = 'Invoke-HostHello' } }
-                $registry[$StepType] | Should -Be 'Invoke-HostHello'
+                { Get-IdleStepRegistry -Providers @{ StepRegistry = @{ $StepType = 'Invoke-HostHello' } } } |
+                    Should -Throw '*DuplicateStepHandler*'
             }
         }
     }
@@ -183,6 +194,62 @@ Describe 'Step pack handler registration (StepMetadataCatalog Handler)' {
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } | Should -Throw '*Providers.StepRegistry*'
+        }
+    }
+
+    Context 'Identifier namespaces and discovery' {
+        It 'rejects IdLE.* step types from a third-party step pack (ReservedNamespace)' {
+            New-TestStepPack -CatalogContent (New-TestCatalogContent -HandlerLiteral "'Invoke-ContosoStepHello'" -StepType 'IdLE.Step.Hr.Hello')
+
+            { New-TestPlan } | Should -Throw "*ReservedNamespace: Step type 'IdLE.Step.Hr.Hello'*'<Owner>.IdLE.Step.Hr.Hello'*"
+        }
+
+        It 'rejects step types that do not follow Owner.IdLE.Step.* (InvalidExtensionNamespace)' {
+            New-TestStepPack -CatalogContent (New-TestCatalogContent -HandlerLiteral "'Invoke-ContosoStepHello'" -StepType 'Contoso.Step.Hr.Hello')
+
+            { New-TestPlan } | Should -Throw "*InvalidExtensionNamespace: Step type 'Contoso.Step.Hr.Hello'*"
+        }
+
+        It 'does not treat a module as first-party because of its IdLE.* name' {
+            New-TestStepPack -PackName 'IdLE.Steps.Impostor' -CatalogContent (New-TestCatalogContent -HandlerLiteral "'Invoke-ContosoStepHello'" -StepType 'IdLE.Step.Impostor.Hello')
+
+            { New-TestPlan } | Should -Throw "*ReservedNamespace*Defined by step pack 'IdLE.Steps.Impostor'*"
+        }
+
+        It 'does not discover IdLE.Steps.* modules without the manifest marker' {
+            New-TestStepPack -PackName 'IdLE.Steps.Legacy' -NoMarker -CatalogContent (New-TestCatalogContent -HandlerLiteral "'Invoke-ContosoStepHello'")
+
+            { New-TestPlan } | Should -Throw "*MissingStepTypeMetadata*"
+        }
+
+        It 'rejects host metadata for a third-party step pack step type (DuplicateStepTypeMetadata)' {
+            New-TestStepPack -CatalogContent (New-TestCatalogContent -HandlerLiteral "'Invoke-ContosoStepHello'")
+
+            InModuleScope 'IdLE.Core' -Parameters @{ StepType = $script:StepType } {
+                param($StepType)
+                $providers = @{ StepMetadata = @{ $StepType = @{ WithSchema = @{ RequiredKeys = @(); OptionalKeys = @() } } } }
+                { Resolve-IdleStepMetadataCatalog -Providers $providers } | Should -Throw "*DuplicateStepTypeMetadata*Contoso.IdLE.Steps.Hr*"
+            }
+        }
+
+        It 'accepts extension capabilities and rejects unknown IdLE.* capabilities in step pack metadata' {
+            $catalog = @"
+@{
+    '$($script:StepType)' = @{
+        Handler              = 'Invoke-ContosoStepHello'
+        RequiredCapabilities = @('IdLE.Identity.Read', 'Contoso.IdLE.Hr.Manager.Read')
+        WithSchema           = @{ RequiredKeys = @(); OptionalKeys = @() }
+    }
+    'Contoso.IdLE.Step.Hr.Unknown' = @{
+        Handler              = 'Invoke-ContosoStepHello'
+        RequiredCapabilities = @('IdLE.Hr.Manager.Read')
+        WithSchema           = @{ RequiredKeys = @(); OptionalKeys = @() }
+    }
+}
+"@
+            New-TestStepPack -CatalogContent $catalog
+
+            { New-TestPlan } | Should -Throw "*UnknownCapability: Capability 'IdLE.Hr.Manager.Read'*Contoso.IdLE.Step.Hr.Unknown*"
         }
     }
 

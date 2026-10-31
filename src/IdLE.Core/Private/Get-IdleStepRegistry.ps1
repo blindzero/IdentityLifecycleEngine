@@ -18,7 +18,21 @@ function Get-IdleStepRegistry {
 
     $registry = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    # 1) Copy host-provided StepRegistry (optional)
+    # 1) Register handlers declared by loaded step packs (StepMetadataCatalog 'Handler' key).
+    #
+    # First-party and third-party step packs declare their handlers the same way. Handler names are
+    # module-qualified, so step packs loaded as nested modules (e.g. by the IdLE meta module) work without
+    # exporting their commands globally.
+    $stepPackCatalog = Resolve-IdleStepMetadataCatalog -Providers $null
+
+    foreach ($stepType in $stepPackCatalog.Keys) {
+        $metadata = $stepPackCatalog[$stepType]
+        if ($metadata.ContainsKey('Handler')) {
+            $registry[$stepType] = $metadata['Handler']
+        }
+    }
+
+    # 2) Add host-provided StepRegistry entries (optional) for host-defined step types.
     # We support two shapes for compatibility:
     # - Providers.StepRegistry (hashtable)
     # - Providers['StepRegistry'] (hashtable)
@@ -59,25 +73,20 @@ function Get-IdleStepRegistry {
                 )
             }
 
+            # Host step types are extensions ('<Owner>.IdLE.Step.*') and only supplement step packs:
+            # replacing the handler of a step pack step type would run other code than the plan declares.
+            $namespaceError = Get-IdleIdentifierNamespaceError -Kind 'StepType' -Identifier ([string]$key)
+            if ($null -ne $namespaceError) {
+                throw [System.ArgumentException]::new("$namespaceError Registered in Providers.StepRegistry.", 'Providers')
+            }
+
+            if ($stepPackCatalog.ContainsKey([string]$key)) {
+                throw [System.InvalidOperationException]::new(
+                    "DuplicateStepHandler: Step type '$key' is defined by a step pack. Providers.StepRegistry can only register handlers for host-defined step types, not replace step pack handlers."
+                )
+            }
+
             $registry[[string]$key] = ([string]$value).Trim()
-        }
-    }
-
-    # 2) Register handlers declared by loaded step packs (StepMetadataCatalog 'Handler' key).
-    #
-    # First-party and third-party step packs declare their handlers the same way. Handler names are
-    # module-qualified, so step packs loaded as nested modules (e.g. by the IdLE meta module) work without
-    # exporting their commands globally. Host-provided entries from (1) take precedence.
-    $stepPackCatalog = Resolve-IdleStepMetadataCatalog -Providers $null
-
-    foreach ($stepType in $stepPackCatalog.Keys) {
-        if ($registry.ContainsKey($stepType)) {
-            continue
-        }
-
-        $metadata = $stepPackCatalog[$stepType]
-        if ($metadata.ContainsKey('Handler')) {
-            $registry[$stepType] = $metadata['Handler']
         }
     }
 

@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name          = 'Step1'
-      Type          = 'IdLE.Step.BlockedNoOnFailure'
+      Type          = 'Test.IdLE.Step.BlockedNoOnFailure'
       Precondition = @{
         All = @(
         @{
@@ -20,7 +20,7 @@
   OnFailureSteps = @(
     @{
       Name = 'Cleanup'
-      Type = 'IdLE.Step.OnFailureCleanup'
+      Type = 'Test.IdLE.Step.OnFailureCleanup'
     }
   )
 }

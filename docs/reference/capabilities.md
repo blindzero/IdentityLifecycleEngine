@@ -19,9 +19,18 @@ For the conceptual model (why capabilities exist, how discovery/merging works, a
 
 A capability is a **stable string identifier** describing a feature a provider can perform.
 
-Rules:
+Namespaces (enforced during planning):
 
-- Must start with the `IdLE.` prefix.
+- `IdLE.*` capabilities are defined by the IdLE project. Only the capabilities listed in the [catalog](#catalog)
+  are valid; any other `IdLE.*` capability is rejected with `UnknownCapability`. Providers (also third-party
+  providers) may advertise them, and steps may require them.
+- Extensions define their own capabilities as `<Owner>.IdLE.<Domain>.<Verb>`, e.g. `Contoso.IdLE.Hr.Manager.Read`.
+  Anything else (e.g. `Contoso.Hr.Read`) is rejected with `InvalidExtensionNamespace`.
+- The rules apply to capabilities advertised by providers (`GetCapabilities()`) and to capabilities required
+  by step metadata (`RequiredCapabilities`).
+
+Format rules:
+
 - Use **PascalCase** for each segment (e.g., `Identity`, `OutOfOffice`).
 - Use **verbs** for the last segment whenever possible (`Read`, `List`, `Create`, `Disable`, `Ensure`).
 - No provider names inside a capability ID. Capabilities describe *what* is possible, not *where* it is implemented.
@@ -40,7 +49,8 @@ Examples:
 
 ## Catalog
 
-The catalog below lists capabilities currently referenced by the documentation and expected by steps/providers.
+The catalog below is the complete list of IdLE-defined capabilities. It matches the list in
+`src/IdLE.Core/Data/ReservedNamespaces.psd1` (enforced by tests).
 
 ### Identity
 
@@ -68,6 +78,9 @@ Delete an identity/account (hard deprovision). Typically irreversible; steps sho
 #### `IdLE.Identity.Attribute.Ensure`
 Ensure one or more attributes on an identity match desired state (set/clear/replace). Provider decides how to map logical attribute names to system fields.
 
+#### `IdLE.Identity.RevokeSessions`
+Revoke active sign-in sessions and refresh tokens of an identity (e.g., force sign-out during offboarding).
+
 ### Entitlements
 
 #### `IdLE.Entitlement.List`
@@ -93,8 +106,11 @@ Ensure mailbox type/config matches desired state (e.g., shared vs user mailbox, 
 #### `IdLE.Mailbox.OutOfOffice.Ensure`
 Ensure out-of-office / automatic replies configuration matches desired state.
 
+#### `IdLE.Mailbox.Permissions.Ensure`
+Ensure mailbox delegate permissions (e.g., FullAccess, SendAs, SendOnBehalf) match desired state.
 
-> Compatibility note: older docs or experiments may reference `IdLE.Mailbox.Read`. Prefer `IdLE.Mailbox.Info.Read` for metadata-only access, to avoid ambiguity with reading message contents.
+> Compatibility note: `IdLE.Mailbox.Read` is a deprecated alias of `IdLE.Mailbox.Info.Read`. It is still accepted
+> (with a warning) and mapped to `IdLE.Mailbox.Info.Read`.
 
 ### Directory synchronization
 

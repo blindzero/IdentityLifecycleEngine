@@ -85,10 +85,10 @@ Describe 'Module manifests and public surface' {
   Name           = 'Surface - OnFailure Contract'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'Primary'; Type = 'IdLE.Step.Primary' }
+    @{ Name = 'Primary'; Type = 'Test.IdLE.Step.Primary' }
   )
   OnFailureSteps = @(
-    @{ Name = 'Containment'; Type = 'IdLE.Step.Containment' }
+    @{ Name = 'Containment'; Type = 'Test.IdLE.Step.Containment' }
   )
 }
 '@
@@ -96,10 +96,10 @@ Describe 'Module manifests and public surface' {
 
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Primary'     = 'Invoke-IdleSurfaceTestNoopStep'
-                    'IdLE.Step.Containment' = 'Invoke-IdleSurfaceTestNoopStep'
+                    'Test.IdLE.Step.Primary'     = 'Invoke-IdleSurfaceTestNoopStep'
+                    'Test.IdLE.Step.Containment' = 'Invoke-IdleSurfaceTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Primary', 'IdLE.Step.Containment')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Primary', 'Test.IdLE.Step.Containment')
             }
             
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

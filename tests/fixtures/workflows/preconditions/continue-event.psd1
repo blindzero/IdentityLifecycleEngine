@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name                = 'Step1'
-      Type                = 'IdLE.Step.ContinuePreconditionEvent'
+      Type                = 'Test.IdLE.Step.ContinuePreconditionEvent'
       Precondition        = @{
         All = @(
         @{

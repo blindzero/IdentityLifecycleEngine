@@ -140,12 +140,31 @@ so hosts do not need `Providers.StepRegistry` for step pack steps:
 - The module does not need to be imported globally; nested modules work.
 - `StepCatalog` must point to a file inside the module folder.
 - A step type may be defined by only one step pack.
-- `Providers.StepRegistry` still takes precedence over catalog handlers (e.g. to replace a step in tests).
+- Discovery uses the manifest marker only. Module names are never used for discovery or ownership.
 - `Providers.StepMetadata` must not declare `Handler`; host-defined steps register their handler via
   `Providers.StepRegistry`.
+- Host extension points only supplement step packs: `Providers.StepMetadata` and `Providers.StepRegistry`
+  cannot redefine or replace a step type defined by a step pack (`DuplicateStepTypeMetadata`,
+  `DuplicateStepHandler`).
 
-Modules named `IdLE.Steps.*` that export `Get-IdleStepMetadataCatalog` but carry no marker are still
-discovered. This fallback is deprecated.
+### Step type names
+
+Step type identifiers follow the namespace rules (owner first, then product):
+
+| Defined by | Format | Example |
+| --- | --- | --- |
+| IdLE (first-party step packs in the `IdLE` bundle) | `IdLE.Step.<Area>.<Name>` | `IdLE.Step.Mailbox.GetInfo` |
+| Extensions (third-party step packs, host steps) | `<Owner>.IdLE.Step.<Area>.<Name>` | `Contoso.IdLE.Step.Hr.SyncManager` |
+
+- `IdLE.*` is reserved. Only modules shipped in the loaded `IdLE` bundle (and loaded from its folders) may
+  define `IdLE.*` step types; anywhere else they are rejected with `ReservedNamespace`.
+- First-party step types that do not match `IdLE.Step.<Name>` or `IdLE.Step.<Area>.<Name>` are rejected with `InvalidFirstPartyStepType`.
+- Extension step types that do not match `<Owner>.IdLE.Step.<...>` are rejected with `InvalidExtensionNamespace`.
+- The rules apply to step pack catalogs, `Providers.StepMetadata` and `Providers.StepRegistry`.
+- Name extension modules `<Owner>.IdLE.<Area>` (e.g. `Contoso.IdLE.Hr`); `IdLE.*` module names are reserved for the
+  IdLE project.
+
+Capability identifiers follow the same scheme; see [Capabilities](../reference/capabilities.md#naming-rules).
 
 ### Provenance
 

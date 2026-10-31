@@ -62,16 +62,16 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
 
             $provider = [pscustomobject]@{ Name = 'CustomProvider' }
             $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-                return @('Custom.Capability.Test')
+                return @('Custom.IdLE.Capability.Test')
             } -Force
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.Unknown' = 'Invoke-CustomStepUnknown'
+                    'Custom.IdLE.Step.Unknown' = 'Invoke-CustomStepUnknown'
                 }
                 StepMetadata = @{
-                    'Custom.Step.Unknown' = @{
-                        RequiredCapabilities = @('Custom.Capability.Test')
+                    'Custom.IdLE.Step.Unknown' = @{
+                        RequiredCapabilities = @('Custom.IdLE.Capability.Test')
                         WithSchema           = @{
                             RequiredKeys = @()
                             OptionalKeys = @()
@@ -83,23 +83,23 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
 
-            $plan.Steps[0].RequiresCapabilities | Should -Contain 'Custom.Capability.Test'
+            $plan.Steps[0].RequiresCapabilities | Should -Contain 'Custom.IdLE.Capability.Test'
         }
 
-        It 'rejects host override attempt of step pack metadata (DuplicateStepTypeMetadata)' {
+        It 'rejects host metadata for a first-party step type (ReservedNamespace)' {
             $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'joiner-builtin.psd1'
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
             $provider = [pscustomobject]@{ Name = 'IdentityProvider' }
             $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
-                return @('Custom.Capability.Override')
+                return @('Custom.IdLE.Capability.Override')
             } -Force
 
             $providers = @{
                 IdentityProvider = $provider
                 StepMetadata     = @{
                     'IdLE.Step.DisableIdentity' = @{
-                        RequiredCapabilities = @('Custom.Capability.Override')
+                        RequiredCapabilities = @('Custom.IdLE.Capability.Override')
                     }
                 }
             }
@@ -109,10 +109,9 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
                 throw 'Expected an exception but none was thrown.'
             }
             catch {
-                $_.Exception.Message | Should -Match 'DuplicateStepTypeMetadata'
+                $_.Exception.Message | Should -Match 'ReservedNamespace'
                 $_.Exception.Message | Should -Match 'IdLE.Step.DisableIdentity'
-                $_.Exception.Message | Should -Match 'IdLE.Steps.Common'
-                $_.Exception.Message | Should -Match 'supplement'
+                $_.Exception.Message | Should -Match 'Providers.StepMetadata'
             }
         }
 
@@ -122,10 +121,10 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.Unknown' = 'Invoke-CustomStepUnknown'
+                    'Custom.IdLE.Step.Unknown' = 'Invoke-CustomStepUnknown'
                 }
                 StepMetadata = @{
-                    'Custom.Step.Unknown' = @{
+                    'Custom.IdLE.Step.Unknown' = @{
                         RequiredCapabilities = { 'Dynamic.Cap' }
                     }
                 }
@@ -146,10 +145,10 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.NoSchema' = 'Invoke-CustomStep'
+                    'Custom.IdLE.Step.NoSchema' = 'Invoke-CustomStep'
                 }
                 StepMetadata = @{
-                    'Custom.Step.NoSchema' = @{
+                    'Custom.IdLE.Step.NoSchema' = @{
                         RequiredCapabilities = @()
                     }
                 }
@@ -161,7 +160,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
             }
             catch {
                 $_.Exception.Message | Should -Match 'WithSchema'
-                $_.Exception.Message | Should -Match 'Custom.Step.NoSchema'
+                $_.Exception.Message | Should -Match 'Custom.IdLE.Step.NoSchema'
             }
         }
 
@@ -171,10 +170,10 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.BadSchema' = 'Invoke-CustomStep'
+                    'Custom.IdLE.Step.BadSchema' = 'Invoke-CustomStep'
                 }
                 StepMetadata = @{
-                    'Custom.Step.BadSchema' = @{
+                    'Custom.IdLE.Step.BadSchema' = @{
                         RequiredCapabilities = @()
                         WithSchema           = @{
                             OptionalKeys = @('Message')
@@ -189,7 +188,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
             }
             catch {
                 $_.Exception.Message | Should -Match 'RequiredKeys'
-                $_.Exception.Message | Should -Match 'Custom.Step.BadSchema'
+                $_.Exception.Message | Should -Match 'Custom.IdLE.Step.BadSchema'
             }
         }
 
@@ -199,10 +198,10 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.DupSchema' = 'Invoke-CustomStep'
+                    'Custom.IdLE.Step.DupSchema' = 'Invoke-CustomStep'
                 }
                 StepMetadata = @{
-                    'Custom.Step.DupSchema' = @{
+                    'Custom.IdLE.Step.DupSchema' = @{
                         RequiredCapabilities = @()
                         WithSchema           = @{
                             RequiredKeys = @('IdentityKey')
@@ -310,7 +309,7 @@ Describe 'New-IdlePlan - step metadata catalog integration' {
 
             $providers = @{
                 StepRegistry = @{
-                    'Custom.Step.Unknown' = 'Invoke-CustomStepUnknown'
+                    'Custom.IdLE.Step.Unknown' = 'Invoke-CustomStepUnknown'
                 }
             }
 
@@ -320,7 +319,7 @@ Describe 'New-IdlePlan - step metadata catalog integration' {
             }
             catch {
                 $_.Exception.Message | Should -Match 'MissingStepTypeMetadata'
-                $_.Exception.Message | Should -Match 'Custom.Step.Unknown'
+                $_.Exception.Message | Should -Match 'Custom.IdLE.Step.Unknown'
                 $_.Exception.Message | Should -Match 'Import/load the step pack'
                 $_.Exception.Message | Should -Match 'Providers.StepMetadata'
             }

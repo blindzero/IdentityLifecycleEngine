@@ -41,7 +41,7 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
     Name           = 'Joiner - Standard'
     LifecycleEvent = 'Joiner'
     Steps          = @(
-        @{ Name = 'TestStep'; Type = 'IdLE.Step.Test' }
+        @{ Name = 'TestStep'; Type = 'Test.IdLE.Step.Test' }
     )
 }
 '@
@@ -50,9 +50,9 @@ Describe 'Invoke-IdlePlan Provider Fallback' {
 
         $script:BaseProviders = @{
             StepRegistry = @{
-                'IdLE.Step.Test' = 'Invoke-IdleTestProviderFallbackStep'
+                'Test.IdLE.Step.Test' = 'Invoke-IdleTestProviderFallbackStep'
             }
-            StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+            StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
         }
     }
 

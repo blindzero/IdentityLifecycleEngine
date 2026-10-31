@@ -82,31 +82,6 @@ function Invoke-IdlePlanObject {
     $engineEventSink = New-IdleEventSink -CorrelationId $corr -Actor $actor -ExternalEventSink $EventSink -EventBuffer $events
 
     # Enforce data-only boundary: reject ScriptBlocks in untrusted inputs.
-    # Special-case: for auth session acquisition options, throw a contextualized error message.
-    $planSteps = if ($planPropNames -contains 'Steps') { $Plan.Steps } else { $null }
-    if ($null -ne $planSteps -and ($planSteps -is [System.Collections.IEnumerable]) -and ($planSteps -isnot [string])) {
-        $i = 0
-        foreach ($step in $planSteps) {
-            $stepType = [string](Get-IdlePropertyValue -Object $step -Name 'Type')
-            if ($stepType -eq 'IdLE.Step.AcquireAuthSession') {
-                $with = Get-IdlePropertyValue -Object $step -Name 'With'
-                $options = $null
-                if ($null -ne $with) {
-                    if ($with -is [System.Collections.IDictionary]) {
-                        if ($with.Contains('Options')) { $options = $with['Options'] }
-                    }
-                    else {
-                        if ($with.PSObject.Properties.Name -contains 'Options') { $options = $with.Options }
-                    }
-                }
-
-                Assert-IdleNoScriptBlockInAuthSessionOptions -InputObject $options -Path "Plan.Steps[$i].With.Options"
-            }
-
-            $i++
-        }
-    }
-
     Assert-IdleNoScriptBlock -InputObject $Plan -Path 'Plan'
 
     # Resolve effective providers: explicit -Providers parameter takes precedence, otherwise use Plan.Providers.
@@ -206,56 +181,6 @@ function Invoke-IdlePlanObject {
 
         return $broker.AcquireAuthSession($Name, $optionsCopy)
     } -Force
-
-    # Fail-fast security validation: Check if AuthSessionBroker is required but missing.
-    # AcquireAuthSession steps require an AuthSessionBroker to be present in Providers.
-    # Skip NotApplicable steps, as they won't be executed and don't require the broker.
-    $requiresAuthBroker = $false
-    $steps = if ($planPropNames -contains 'Steps') { $Plan.Steps } else { @() }
-    foreach ($step in $steps) {
-        if ($null -eq $step) { continue }
-
-        $stepType = $null
-        $stepStatus = $null
-        if ($step -is [System.Collections.IDictionary]) {
-            if ($step.Contains('Type')) {
-                $stepType = $step['Type']
-            }
-            if ($step.Contains('Status')) {
-                $stepStatus = $step['Status']
-            }
-        }
-        else {
-            $stepPropNames = @($step.PSObject.Properties.Name)
-            $stepType = if ($stepPropNames -contains 'Type') { $step.Type } else { $null }
-            $stepStatus = if ($stepPropNames -contains 'Status') { $step.Status } else { $null }
-        }
-
-        if ($stepType -eq 'IdLE.Step.AcquireAuthSession' -and $stepStatus -ne 'NotApplicable') {
-            $requiresAuthBroker = $true
-            break
-        }
-    }
-
-    if ($requiresAuthBroker) {
-        $broker = $null
-        if ($effectiveProviders -is [System.Collections.IDictionary]) {
-            if ($effectiveProviders.Contains('AuthSessionBroker')) {
-                $broker = $effectiveProviders['AuthSessionBroker']
-            }
-        }
-        else {
-            if ($null -ne $effectiveProviders -and $effectiveProviders.PSObject.Properties.Name -contains 'AuthSessionBroker') {
-                $broker = $effectiveProviders.AuthSessionBroker
-            }
-        }
-
-        if ($null -eq $broker) {
-            throw [System.InvalidOperationException]::new(
-                'AuthSessionBroker is required but not configured. One or more steps require auth session acquisition. Provide Providers.AuthSessionBroker to proceed.'
-            )
-        }
-    }
 
     $context.EventSink.WriteEvent(
         'RunStarted',

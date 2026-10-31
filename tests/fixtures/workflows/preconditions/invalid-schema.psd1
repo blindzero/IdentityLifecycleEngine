@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name          = 'Step1'
-      Type          = 'IdLE.Step.InvalidPreconditionSchema'
+      Type          = 'Test.IdLE.Step.InvalidPreconditionSchema'
       Precondition = @{
         All = @(
         @{

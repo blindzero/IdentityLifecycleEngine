@@ -24,7 +24,7 @@
       {
         "id": "step-01",
         "name": "Ensure Mailbox",
-        "stepType": "EnsureMailbox",
+        "stepType": "Test.IdLE.Step.EnsureMailbox",
         "provider": null,
         "condition": {
           "type": "always",

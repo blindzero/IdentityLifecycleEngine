@@ -154,6 +154,19 @@ function Resolve-IdleStepMetadataCatalog {
             return
         }
 
+        # Helper: Enforce capability namespaces (IdLE-defined or '<Owner>.IdLE.*').
+        function Assert-IdleRequiredCapabilityNamespace {
+            param([string] $Capability)
+
+            $namespaceError = Get-IdleIdentifierNamespaceError -Kind 'Capability' -Identifier $Capability
+            if ($null -ne $namespaceError) {
+                throw [System.ArgumentException]::new(
+                    "$namespaceError Declared by $SourceName entry for step type '$StepType'.",
+                    'Providers'
+                )
+            }
+        }
+
         if ($Value -is [string]) {
             $cap = ConvertTo-IdleCapabilityIdentifier -Value $Value
             if ($null -ne $cap -and -not (Test-IdleCapabilityIdentifier -Capability $cap)) {
@@ -161,6 +174,9 @@ function Resolve-IdleStepMetadataCatalog {
                     "$SourceName entry for step type '$StepType' declares invalid capability '$cap'. Expected dot-separated segments like 'IdLE.Identity.Read'.",
                     'Providers'
                 )
+            }
+            if ($null -ne $cap) {
+                Assert-IdleRequiredCapabilityNamespace -Capability $cap
             }
             return
         }
@@ -197,6 +213,8 @@ function Resolve-IdleStepMetadataCatalog {
                         'Providers'
                     )
                 }
+
+                Assert-IdleRequiredCapabilityNamespace -Capability $cap
             }
             return
         }
@@ -370,9 +388,8 @@ function Resolve-IdleStepMetadataCatalog {
         return $stepPackCatalog
     }
 
-    # Helper: Discover loaded step packs.
-    # - Manifest marker PrivateData.IdLE.Kind = 'StepPack' (preferred).
-    # - Legacy: modules named 'IdLE.Steps.*' exporting Get-IdleStepMetadataCatalog.
+    # Helper: Discover loaded step packs by manifest marker (PrivateData.IdLE.Kind = 'StepPack').
+    # Module names are never used for discovery or ownership.
     function Get-IdleStepPackModules {
         [CmdletBinding()]
         param()
@@ -380,11 +397,6 @@ function Resolve-IdleStepMetadataCatalog {
         $stepPackModules = @()
         foreach ($m in @(Get-Module -All)) {
             if ($null -ne (Get-IdleStepPackMarker -Module $m)) {
-                $stepPackModules += $m
-                continue
-            }
-
-            if ($m.Name -like 'IdLE.Steps.*' -and $null -ne $m.ExportedCommands -and $m.ExportedCommands.ContainsKey('Get-IdleStepMetadataCatalog')) {
                 $stepPackModules += $m
             }
         }
@@ -408,12 +420,21 @@ function Resolve-IdleStepMetadataCatalog {
             [string] $SourceModuleName,
 
             [Parameter(Mandatory)]
-            [hashtable] $StepTypeOwners
+            [hashtable] $StepTypeOwners,
+
+            [Parameter()]
+            [switch] $FirstParty
         )
 
         foreach ($key in $Source.Keys) {
             if ($null -eq $key -or [string]::IsNullOrWhiteSpace([string]$key)) {
                 throw [System.ArgumentException]::new("$SourceModuleName contains an empty step type key.", 'Providers')
+            }
+
+            # Only first-party step packs may define 'IdLE.*' step types; extensions use '<Owner>.IdLE.Step.*'.
+            $namespaceError = Get-IdleIdentifierNamespaceError -Kind 'StepType' -Identifier ([string]$key) -FirstParty:$FirstParty
+            if ($null -ne $namespaceError) {
+                throw [System.ArgumentException]::new("$namespaceError Defined by step pack '$SourceModuleName'.", 'Providers')
             }
 
             $value = $Source[$key]
@@ -466,16 +487,10 @@ function Resolve-IdleStepMetadataCatalog {
     $stepPackModules = Get-IdleStepPackModules
 
     foreach ($module in $stepPackModules) {
-        $marker = Get-IdleStepPackMarker -Module $module
-        if ($null -ne $marker) {
-            $stepPackCatalog = Import-IdleStepPackCatalogFile -Module $module -Marker $marker
-        }
-        else {
-            $stepPackCatalog = & $module.ExportedCommands['Get-IdleStepMetadataCatalog']
-        }
+        $stepPackCatalog = Import-IdleStepPackCatalogFile -Module $module -Marker (Get-IdleStepPackMarker -Module $module)
 
         if ($null -ne $stepPackCatalog -and $stepPackCatalog -is [hashtable]) {
-            Merge-IdleStepPackCatalog -Target $catalog -Source $stepPackCatalog -SourceModuleName $module.Name -StepTypeOwners $stepTypeOwners
+            Merge-IdleStepPackCatalog -Target $catalog -Source $stepPackCatalog -SourceModuleName $module.Name -StepTypeOwners $stepTypeOwners -FirstParty:(Test-IdleFirstPartyModule -Module $module)
         }
     }
 
@@ -490,6 +505,12 @@ function Resolve-IdleStepMetadataCatalog {
         foreach ($key in $hostMetadata.Keys) {
             if ($null -eq $key -or [string]::IsNullOrWhiteSpace([string]$key)) {
                 throw [System.ArgumentException]::new('Providers.StepMetadata contains an empty step type key.', 'Providers')
+            }
+
+            # Host step types are extensions: '<Owner>.IdLE.Step.*'.
+            $namespaceError = Get-IdleIdentifierNamespaceError -Kind 'StepType' -Identifier ([string]$key)
+            if ($null -ne $namespaceError) {
+                throw [System.ArgumentException]::new("$namespaceError Defined by Providers.StepMetadata.", 'Providers')
             }
 
             # Check if this step type already exists in step pack catalog (no override allowed)
