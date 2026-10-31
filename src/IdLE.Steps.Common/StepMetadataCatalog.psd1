@@ -20,7 +20,7 @@
         RequiredCapabilities = @()
         WithSchema           = @{
             RequiredKeys = @()
-            OptionalKeys = @('Message', 'Provider', 'AuthSessionName', 'AuthSessionOptions')
+            OptionalKeys = @('Message', 'Type', 'Level', 'Provider', 'AuthSessionName', 'AuthSessionOptions')
         }
     }
 

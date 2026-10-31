@@ -183,7 +183,7 @@ function Invoke-IdlePlanObject {
     } -Force
 
     $context.EventSink.WriteEvent(
-        'RunStarted',
+        'IdLE.Run.Started',
         'Plan execution started.',
         $null,
         @{
@@ -230,7 +230,7 @@ function Invoke-IdlePlanObject {
             }
 
             $context.EventSink.WriteEvent(
-                'StepNotApplicable',
+                'IdLE.Step.NotApplicable',
                 "Step '$stepName' not applicable (condition not met).",
                 $stepName,
                 @{
@@ -315,14 +315,15 @@ function Invoke-IdlePlanObject {
 
                 # Always emit StepPreconditionFailed for engine observability.
                 $context.EventSink.WriteEvent(
-                    'StepPreconditionFailed',
+                    'IdLE.Step.PreconditionFailed',
                     "Step '$stepName' precondition check failed.",
                     $stepName,
                     @{
                         StepType            = $stepType
                         Index               = $i
                         OnPreconditionFalse = $onPreconditionFalse
-                    }
+                    },
+                    'Warning'
                 )
 
                 # Emit the caller-configured PreconditionEvent if present.
@@ -334,7 +335,8 @@ function Invoke-IdlePlanObject {
                     # PreconditionEvent.Data is validated as a hashtable at planning time and
                     # stored via Copy-IdleDataObject, so it will be a hashtable (IDictionary) here.
                     $pcEvtDataHt = if ($pcEvtData -is [System.Collections.IDictionary]) { [hashtable]$pcEvtData } else { $null }
-                    $context.EventSink.WriteEvent($pcEvtType, $pcEvtMsg, $stepName, $pcEvtDataHt)
+                    $pcEvtLevel = [string](Get-IdlePropertyValue -Object $pcEvt -Name 'Level')
+                    $context.EventSink.WriteEvent($pcEvtType, $pcEvtMsg, $stepName, $pcEvtDataHt, $pcEvtLevel)
                 }
 
                 if ($onPreconditionFalse -eq 'Fail') {
@@ -348,14 +350,15 @@ function Invoke-IdlePlanObject {
                         Attempts   = 0
                     }
                     $context.EventSink.WriteEvent(
-                        'StepFailed',
+                        'IdLE.Step.Failed',
                         "Step '$stepName' failed (precondition check failed).",
                         $stepName,
                         @{
                             StepType = $stepType
                             Index    = $i
                             Error    = 'Precondition check failed.'
-                        }
+                        },
+                        'Error'
                     )
                 }
                 elseif ($onPreconditionFalse -eq 'Continue') {
@@ -385,13 +388,14 @@ function Invoke-IdlePlanObject {
                         Attempts   = 0
                     }
                     $context.EventSink.WriteEvent(
-                        'StepBlocked',
+                        'IdLE.Step.Blocked',
                         "Step '$stepName' blocked (precondition check failed).",
                         $stepName,
                         @{
                             StepType = $stepType
                             Index    = $i
-                        }
+                        },
+                        'Warning'
                     )
                 }
 
@@ -413,7 +417,7 @@ function Invoke-IdlePlanObject {
         }
 
         $context.EventSink.WriteEvent(
-            'StepStarted',
+            'IdLE.Step.Started',
             "Step '$stepName' started.",
             $stepName,
             @{
@@ -489,21 +493,22 @@ function Invoke-IdlePlanObject {
                 $failed = $true
 
                 $context.EventSink.WriteEvent(
-                    'StepFailed',
+                    'IdLE.Step.Failed',
                     "Step '$stepName' failed.",
                     $stepName,
                     @{
                         StepType = $stepType
                         Index    = $i
                         Error    = $result.Error
-                    }
+                    },
+                    'Error'
                 )
 
                 break
             }
 
             $context.EventSink.WriteEvent(
-                'StepCompleted',
+                'IdLE.Step.Completed',
                 "Step '$stepName' completed.",
                 $stepName,
                 @{
@@ -527,14 +532,15 @@ function Invoke-IdlePlanObject {
             }
 
             $context.EventSink.WriteEvent(
-                'StepFailed',
+                'IdLE.Step.Failed',
                 "Step '$stepName' failed.",
                 $stepName,
                 @{
                     StepType = $stepType
                     Index    = $i
                     Error    = $err.Exception.Message
-                }
+                },
+                'Error'
             )
 
             break
@@ -561,7 +567,7 @@ function Invoke-IdlePlanObject {
     # OnFailureSteps run only for genuine failures, NOT for Blocked outcomes (policy gates).
     if ($failed -and -not $blocked -and @($planOnFailureSteps).Count -gt 0) {
         $context.EventSink.WriteEvent(
-            'OnFailureStarted',
+            'IdLE.OnFailure.Started',
             'Executing OnFailureSteps (best effort).',
             $null,
             @{
@@ -598,7 +604,7 @@ function Invoke-IdlePlanObject {
                 }
 
                 $context.EventSink.WriteEvent(
-                    'OnFailureStepNotApplicable',
+                    'IdLE.OnFailure.StepNotApplicable',
                     "OnFailure step '$ofName' not applicable (condition not met).",
                     $ofName,
                     @{
@@ -634,14 +640,15 @@ function Invoke-IdlePlanObject {
 
                     # Always emit StepPreconditionFailed for engine observability.
                     $context.EventSink.WriteEvent(
-                        'StepPreconditionFailed',
+                        'IdLE.Step.PreconditionFailed',
                         "OnFailure step '$ofName' precondition check failed.",
                         $ofName,
                         @{
                             StepType            = $ofType
                             Index               = $j
                             OnPreconditionFalse = $ofOnPreconditionFalse
-                        }
+                        },
+                        'Warning'
                     )
 
                     # Emit the caller-configured PreconditionEvent if present.
@@ -651,7 +658,8 @@ function Invoke-IdlePlanObject {
                         $ofPcEvtMsg = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Message')
                         $ofPcEvtData = Get-IdlePropertyValue -Object $ofPcEvt -Name 'Data'
                         $ofPcEvtDataHt = if ($ofPcEvtData -is [System.Collections.IDictionary]) { [hashtable]$ofPcEvtData } else { $null }
-                        $context.EventSink.WriteEvent($ofPcEvtType, $ofPcEvtMsg, $ofName, $ofPcEvtDataHt)
+                        $ofPcEvtLevel = [string](Get-IdlePropertyValue -Object $ofPcEvt -Name 'Level')
+                        $context.EventSink.WriteEvent($ofPcEvtType, $ofPcEvtMsg, $ofName, $ofPcEvtDataHt, $ofPcEvtLevel)
                     }
 
                     if ($ofOnPreconditionFalse -eq 'Fail') {
@@ -665,14 +673,15 @@ function Invoke-IdlePlanObject {
                             Attempts   = 0
                         }
                         $context.EventSink.WriteEvent(
-                            'StepFailed',
+                            'IdLE.Step.Failed',
                             "OnFailure step '$ofName' failed (precondition check failed).",
                             $ofName,
                             @{
                                 StepType = $ofType
                                 Index    = $j
                                 Error    = 'Precondition check failed.'
-                            }
+                            },
+                            'Error'
                         )
                     }
                     else {
@@ -687,13 +696,14 @@ function Invoke-IdlePlanObject {
                         }
                         if ($ofOnPreconditionFalse -ne 'Continue') {
                             $context.EventSink.WriteEvent(
-                                'StepBlocked',
+                                'IdLE.Step.Blocked',
                                 "OnFailure step '$ofName' blocked (precondition check failed).",
                                 $ofName,
                                 @{
                                     StepType = $ofType
                                     Index    = $j
-                                }
+                                },
+                                'Warning'
                             )
                         }
                     }
@@ -704,7 +714,7 @@ function Invoke-IdlePlanObject {
             }
 
             $context.EventSink.WriteEvent(
-                'OnFailureStepStarted',
+                'IdLE.OnFailure.StepStarted',
                 "OnFailure step '$ofName' started.",
                 $ofName,
                 @{
@@ -778,19 +788,20 @@ function Invoke-IdlePlanObject {
                     $onFailureHadFailures = $true
 
                     $context.EventSink.WriteEvent(
-                        'OnFailureStepFailed',
+                        'IdLE.OnFailure.StepFailed',
                         "OnFailure step '$ofName' failed.",
                         $ofName,
                         @{
                             StepType = $ofType
                             Index    = $j
                             Error    = $result.Error
-                        }
+                        },
+                        'Error'
                     )
                 }
                 else {
                     $context.EventSink.WriteEvent(
-                        'OnFailureStepCompleted',
+                        'IdLE.OnFailure.StepCompleted',
                         "OnFailure step '$ofName' completed.",
                         $ofName,
                         @{
@@ -815,14 +826,15 @@ function Invoke-IdlePlanObject {
                 }
 
                 $context.EventSink.WriteEvent(
-                    'OnFailureStepFailed',
+                    'IdLE.OnFailure.StepFailed',
                     "OnFailure step '$ofName' failed.",
                     $ofName,
                     @{
                         StepType = $ofType
                         Index    = $j
                         Error    = $err.Exception.Message
-                    }
+                    },
+                    'Error'
                 )
             }
 
@@ -838,25 +850,33 @@ function Invoke-IdlePlanObject {
         }
 
         $context.EventSink.WriteEvent(
-            'OnFailureCompleted',
+            'IdLE.OnFailure.Completed',
             "OnFailureSteps finished (status: $onFailureStatus).",
             $null,
             @{
                 Status    = $onFailureStatus
                 StepCount = @($planOnFailureSteps).Count
-            }
+            },
+            $(if ($onFailureHadFailures) { 'Warning' } else { 'Information' })
         )
     }
 
-    # RunCompleted should always be the last event for deterministic event order.
+    $runLevel = switch ($runStatus) {
+        'Failed' { 'Error' }
+        'Blocked' { 'Warning' }
+        default { 'Information' }
+    }
+
+    # IdLE.Run.Completed should always be the last event for deterministic event order.
     $context.EventSink.WriteEvent(
-        'RunCompleted',
+        'IdLE.Run.Completed',
         "Plan execution finished (status: $runStatus).",
         $null,
         @{
             Status    = $runStatus
             StepCount = @($Plan.Steps).Count
-        }
+        },
+        $runLevel
     )
 
     # Issue #48:

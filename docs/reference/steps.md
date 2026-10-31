@@ -8,7 +8,7 @@
 | [IdLE.Step.CreateIdentity](steps/step-create-identity.md) | ``IdLE.Steps.Common`` | Creates a new identity in the target system. |
 | [IdLE.Step.DeleteIdentity](steps/step-delete-identity.md) | ``IdLE.Steps.Common`` | Deletes an identity from the target system. |
 | [IdLE.Step.DisableIdentity](steps/step-disable-identity.md) | ``IdLE.Steps.Common`` | Disables an identity in the target system. |
-| [IdLE.Step.EmitEvent](steps/step-emit-event.md) | ``IdLE.Steps.Common`` | Emits a custom event (demo step). |
+| [IdLE.Step.EmitEvent](steps/step-emit-event.md) | ``IdLE.Steps.Common`` | Emits a workflow-defined event. |
 | [IdLE.Step.EnableIdentity](steps/step-enable-identity.md) | ``IdLE.Steps.Common`` | Enables an identity in the target system. |
 | [IdLE.Step.EnsureAttributes](steps/step-ensure-attributes.md) | ``IdLE.Steps.Common`` | Ensures that multiple identity attributes match their desired values. |
 | [IdLE.Step.EnsureEntitlement](steps/step-ensure-entitlement.md) | ``IdLE.Steps.Common`` | Ensures that an entitlement assignment is present or absent for an identity. |

@@ -252,7 +252,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $script:Context.EventSink = [pscustomobject]@{
                 WriteEvent = {
                     param($Type, $Message, $StepName, $Data)
-                    if ($Type -eq 'Warning') {
+                    if ($Type -eq 'IdLE.Step.PruneEntitlements.EntitlementSkipped') {
                         $script:warningEvents += $Message
                     }
                 }.GetNewClosure()

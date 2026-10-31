@@ -48,7 +48,7 @@ function New-IdleEventSink {
     }
 
     # Provide a stable, object-based contract to steps.
-    # Steps call: $Context.EventSink.WriteEvent(Type, Message, StepName, Data)
+    # Steps call: $Context.EventSink.WriteEvent(Type, Message, StepName, Data[, Level])
     # The engine stays in control of event shape and buffering.
     $writeMethod = {
         param(
@@ -66,10 +66,17 @@ function New-IdleEventSink {
 
             [Parameter()]
             [AllowNull()]
-            [hashtable] $Data
+            [hashtable] $Data,
+
+            # Optional so that existing four-argument callers keep working.
+            [Parameter()]
+            [AllowNull()]
+            [string] $Level
         )
 
-        $evt = & $newIdleEventCmd -Type $Type -Message $Message -CorrelationId $CorrelationId -Actor $Actor -StepName $StepName -Data $Data
+        if ([string]::IsNullOrEmpty($Level)) { $Level = 'Information' }
+
+        $evt = & $newIdleEventCmd -Type $Type -Message $Message -CorrelationId $CorrelationId -Actor $Actor -StepName $StepName -Data $Data -Level $Level
         & $writeIdleEventCmd -Event $evt -EventSink $ExternalEventSink -EventBuffer $EventBuffer
     }.GetNewClosure()
 

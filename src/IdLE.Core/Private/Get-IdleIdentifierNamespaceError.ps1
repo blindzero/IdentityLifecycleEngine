@@ -7,11 +7,14 @@ function Get-IdleIdentifierNamespaceError {
     Rules (see Data/ReservedNamespaces.psd1):
     - StepType: 'IdLE.*' only from first-party modules; extensions use '<Owner>.IdLE.Step.<...>'.
     - Capability: 'IdLE.*' only if defined by IdLE (or a deprecated alias); extensions use '<Owner>.IdLE.<Domain>.<Verb>'.
+    - WorkflowEventType (PreconditionEvent.Type, EmitEvent With.Type): any name except 'IdLE.*' and the
+      disallowed catch-all types (Information, Warning, Error, Custom).
 
-    Messages start with a stable error code (ReservedNamespace, InvalidExtensionNamespace, UnknownCapability).
+    Messages start with a stable error code (ReservedNamespace, InvalidExtensionNamespace, UnknownCapability,
+    InvalidEventType).
 
     .PARAMETER Kind
-    Identifier kind: StepType or Capability.
+    Identifier kind: StepType, Capability or WorkflowEventType.
 
     .PARAMETER Identifier
     The identifier to check.
@@ -25,7 +28,7 @@ function Get-IdleIdentifierNamespaceError {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('StepType', 'Capability')]
+        [ValidateSet('StepType', 'Capability', 'WorkflowEventType')]
         [string] $Kind,
 
         [Parameter(Mandatory)]
@@ -37,6 +40,19 @@ function Get-IdleIdentifierNamespaceError {
     )
 
     $rules = Get-IdleReservedNamespaces
+
+    if ($Kind -eq 'WorkflowEventType') {
+        if ($rules.EventType.Disallowed -contains $Identifier) {
+            return "InvalidEventType: Event type '$Identifier' is not allowed. Use a descriptive event name and set the severity via Level."
+        }
+
+        if ($Identifier.StartsWith($rules.ReservedPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return "ReservedNamespace: Event type '$Identifier' uses the reserved prefix '$($rules.ReservedPrefix)'. Workflow-defined event types must not start with '$($rules.ReservedPrefix)'."
+        }
+
+        return $null
+    }
+
     $kindRules = $rules[$Kind]
     $label = if ($Kind -eq 'StepType') { 'Step type' } else { 'Capability' }
 

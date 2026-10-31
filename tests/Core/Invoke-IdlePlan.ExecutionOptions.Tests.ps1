@@ -262,7 +262,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
             $result.Status | Should -Be 'Completed'
             $result.Steps[0].Status | Should -Be 'Completed'
             $result.Steps[0].Attempts | Should -Be 2
-            @($result.Events | Where-Object Type -eq 'StepRetrying').Count | Should -Be 1
+            @($result.Events | Where-Object Type -eq 'IdLE.Step.Retrying').Count | Should -Be 1
         }
 
         It 'uses DefaultRetryProfile when step does not specify RetryProfile' {
@@ -353,7 +353,7 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
             $result.Status | Should -Be 'Failed'
             $result.Steps[0].Status | Should -Be 'Failed'
             $result.Steps[0].Attempts | Should -Be 1
-            @($result.Events | Where-Object Type -eq 'StepRetrying').Count | Should -Be 0
+            @($result.Events | Where-Object Type -eq 'IdLE.Step.Retrying').Count | Should -Be 0
             Should -Invoke -ModuleName IdLE.Core -CommandName Start-Sleep -Times 0
         }
 

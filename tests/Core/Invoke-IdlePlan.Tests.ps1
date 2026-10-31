@@ -40,7 +40,7 @@ BeforeAll {
             [object] $Step
         )
 
-        $Context.EventSink.WriteEvent('Custom', 'Hello from test step', $Step.Name, @{ StepType = $Step.Type })
+        $Context.EventSink.WriteEvent('Test.IdLE.Emit.Emitted', 'Hello from test step', $Step.Name, @{ StepType = $Step.Type })
 
         return [pscustomobject]@{
             PSTypeName = 'IdLE.StepResult'
@@ -173,8 +173,8 @@ Describe 'Invoke-IdlePlan' {
             @($result.Steps).Count | Should -Be 2
 
             @($result.Events).Count | Should -BeGreaterThan 0
-            $result.Events[0].Type | Should -Be 'RunStarted'
-            $result.Events[-1].Type | Should -Be 'RunCompleted'
+            $result.Events[0].Type | Should -Be 'IdLE.Run.Started'
+            $result.Events[-1].Type | Should -Be 'IdLE.Run.Completed'
 
             $result.Steps[0].Status | Should -Be 'Completed'
             $result.Steps[1].Status | Should -Be 'Completed'
@@ -229,7 +229,7 @@ Describe 'Invoke-IdlePlan' {
 
             $sinkEvents.Count | Should -BeGreaterThan 0
             $sinkEvents[0].PSTypeNames | Should -Contain 'IdLE.Event'
-            $result.Events[0].Type | Should -Be 'RunStarted'
+            $result.Events[0].Type | Should -Be 'IdLE.Run.Started'
         }
     }
 
@@ -260,7 +260,7 @@ Describe 'Invoke-IdlePlan' {
 
             $result.Status | Should -Be 'Completed'
             $result.Steps[0].Status | Should -Be 'Completed'
-            ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
+            ($result.Events | Where-Object Type -eq 'Test.IdLE.Emit.Emitted').Count | Should -Be 1
         }
     }
 
@@ -305,13 +305,13 @@ Describe 'Invoke-IdlePlan' {
             $result.OnFailure.Steps[0].Status | Should -Be 'Completed'
 
             $types = @($result.Events | ForEach-Object { $_.Type })
-            $types | Should -Contain 'StepFailed'
-            $types | Should -Contain 'OnFailureStarted'
-            $types | Should -Contain 'OnFailureCompleted'
+            $types | Should -Contain 'IdLE.Step.Failed'
+            $types | Should -Contain 'IdLE.OnFailure.Started'
+            $types | Should -Contain 'IdLE.OnFailure.Completed'
 
-            [array]::IndexOf($types, 'StepFailed') | Should -BeLessThan ([array]::IndexOf($types, 'OnFailureStarted'))
+            [array]::IndexOf($types, 'IdLE.Step.Failed') | Should -BeLessThan ([array]::IndexOf($types, 'IdLE.OnFailure.Started'))
 
-            ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
+            ($result.Events | Where-Object Type -eq 'Test.IdLE.Emit.Emitted').Count | Should -Be 1
         }
 
         It 'continues OnFailureSteps when an OnFailure step fails (best effort)' {
@@ -350,9 +350,9 @@ Describe 'Invoke-IdlePlan' {
             $result.OnFailure.Steps[0].Status | Should -Be 'Failed'
             $result.OnFailure.Steps[1].Status | Should -Be 'Completed'
 
-            ($result.Events | Where-Object Type -eq 'OnFailureStepStarted').Count | Should -Be 2
-            ($result.Events | Where-Object Type -eq 'OnFailureStepFailed').Count | Should -Be 1
-            ($result.Events | Where-Object Type -eq 'OnFailureStepCompleted').Count | Should -Be 1
+            ($result.Events | Where-Object Type -eq 'IdLE.OnFailure.StepStarted').Count | Should -Be 2
+            ($result.Events | Where-Object Type -eq 'IdLE.OnFailure.StepFailed').Count | Should -Be 1
+            ($result.Events | Where-Object Type -eq 'IdLE.OnFailure.StepCompleted').Count | Should -Be 1
         }
 
         It 'does not execute OnFailureSteps when run completes successfully' {
@@ -387,8 +387,8 @@ Describe 'Invoke-IdlePlan' {
             $result.OnFailure.Status | Should -Be 'NotRun'
             @($result.OnFailure.Steps).Count | Should -Be 0
 
-            @($result.Events | Where-Object Type -like 'OnFailure*').Count | Should -Be 0
-            @($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
+            @($result.Events | Where-Object Type -like 'IdLE.OnFailure.*').Count | Should -Be 0
+            @($result.Events | Where-Object Type -eq 'Test.IdLE.Emit.Emitted').Count | Should -Be 0
         }
     }
 
