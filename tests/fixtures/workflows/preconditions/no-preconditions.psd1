@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name = 'Step1'
-      Type = 'IdLE.Step.NoPrecondition'
+      Type = 'Test.IdLE.Step.NoPrecondition'
     }
   )
 }

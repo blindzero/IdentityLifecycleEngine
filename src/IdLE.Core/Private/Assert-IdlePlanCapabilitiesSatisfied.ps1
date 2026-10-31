@@ -9,6 +9,9 @@ function Assert-IdlePlanCapabilitiesSatisfied {
     Fail-fast validation executed during planning.
     If one or more capabilities are missing, an ArgumentException is thrown with a
     deterministic error message listing missing capabilities and affected steps.
+
+    Advertised provider capabilities are validated on every planning run (namespace rules), even if no
+    step requires a capability.
     #>
     [CmdletBinding()]
     param(
@@ -20,6 +23,9 @@ function Assert-IdlePlanCapabilitiesSatisfied {
         [AllowNull()]
         [object] $Providers
     )
+
+    # Validates advertised capabilities (IdLE-defined or '<Owner>.IdLE.*'); throws on invalid identifiers.
+    $available = @(Get-IdleAvailableCapabilities -Providers $Providers)
 
     if ($null -eq $Steps -or @($Steps).Count -eq 0) {
         return
@@ -51,8 +57,6 @@ function Assert-IdlePlanCapabilitiesSatisfied {
     if (@($required).Count -eq 0) {
         return
     }
-
-    $available = @(Get-IdleAvailableCapabilities -Providers $Providers)
 
     $missing = @()
     foreach ($c in $required) {

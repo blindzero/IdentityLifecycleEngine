@@ -34,16 +34,16 @@ function New-IdleTestStepMetadata {
     hashtable receive the default permissive schema: @{ RequiredKeys = @(); OptionalKeys = @('*') }.
 
     .EXAMPLE
-    $metadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.ResolveIdentity', 'IdLE.Step.Primary')
+    $metadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.ResolveIdentity', 'Test.IdLE.Step.Primary')
 
     .EXAMPLE
-    $metadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Custom') -RequiredCapabilities @{
-        'IdLE.Step.Custom' = @('Custom.Capability')
+    $metadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Custom') -RequiredCapabilities @{
+        'Test.IdLE.Step.Custom' = @('Custom.IdLE.Capability.Test')
     }
 
     .EXAMPLE
-    $metadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Strict') -WithSchemas @{
-        'IdLE.Step.Strict' = @{ RequiredKeys = @('IdentityKey'); OptionalKeys = @('Provider') }
+    $metadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Strict') -WithSchemas @{
+        'Test.IdLE.Step.Strict' = @{ RequiredKeys = @('IdentityKey'); OptionalKeys = @('Provider') }
     }
     #>
     [CmdletBinding()]

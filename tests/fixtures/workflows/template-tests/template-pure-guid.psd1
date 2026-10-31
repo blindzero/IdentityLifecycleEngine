@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name = 'TestStep'
-      Type = 'IdLE.Step.Test'
+      Type = 'Test.IdLE.Step.Test'
       With = @{
         ObjectId = '{{Request.Intent.ObjectId}}'
       }

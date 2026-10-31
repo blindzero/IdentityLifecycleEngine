@@ -20,6 +20,10 @@ A new step typically involves:
 
 See [Steps and Metadata](steps.md#step-metadata-contract) for the required metadata shape.
 
+Extension step types and capabilities use your own owner prefix: `<Owner>.IdLE.Step.<Area>.<Name>` and
+`<Owner>.IdLE.<Domain>.<Verb>` (e.g. `Contoso.IdLE.Step.Hr.SyncManager`, `Contoso.IdLE.Hr.Manager.Read`).
+`IdLE.*` is reserved for the IdLE project; see [Step type names](steps.md#step-type-names).
+
 Steps can emit structured events using the execution context contract:
 
 - `Context.EventSink.WriteEvent(Type, Message, StepName, Data)`
@@ -73,7 +77,9 @@ during plan build to validate whether all required functionality is
 available.
 
 The full contract, naming rules, and validation behavior are described in
-[Provider Capabilities](../reference/capabilities.md).
+[Provider Capabilities](../reference/capabilities.md). Providers may advertise IdLE-defined capabilities
+(`IdLE.*`, as listed in the catalog) and their own extension capabilities (`<Owner>.IdLE.*`); anything else
+fails planning.
 
 Providers should include the corresponding provider capability contract tests
 to ensure compliance.
@@ -105,10 +111,13 @@ Those belong in a host application.
 
 ## Register step handlers
 
-Steps are executed via a host-provided step registry.
+Steps are executed via the step registry.
 
 - Workflows reference steps by `Type` (identifier).
-- The host maps this identifier to a **function name** (string) in the step registry.
+- Step packs register their handlers with the `Handler` key in their metadata catalog
+  (see [Step packs](steps.md#step-packs)).
+- For host-defined step types only, the host maps the identifier to a **function name** (string) in
+  `Providers.StepRegistry`. Step types defined by a step pack cannot be replaced.
 
 ScriptBlock handlers are intentionally not supported as a secure default.
 

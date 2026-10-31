@@ -5,31 +5,6 @@ BeforeAll {
     Import-IdleTestModule
 
     $script:FixturesPath = Join-Path $PSScriptRoot '..' 'fixtures/workflows'
-
-    function global:Invoke-IdleContextResolverTestNoopStep {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Context,
-
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Step
-        )
-
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
-    }
-}
-
-AfterAll {
-    Remove-Item -Path 'Function:\Invoke-IdleContextResolverTestNoopStep' -ErrorAction SilentlyContinue
 }
 
 Describe 'New-IdlePlan - ContextResolvers' {
@@ -53,7 +28,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -90,7 +64,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -118,7 +91,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -172,7 +144,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -214,7 +185,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             # Provider is registered without an explicit alias in the resolver
             $providers = @{
                 IdentityProvider = $provider
-                StepRegistry     = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -242,7 +212,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Dummy        = $dummyProvider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -289,7 +258,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -322,7 +290,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Identity          = $provider
                 AuthSessionBroker = $broker
-                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -359,7 +326,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Provider1    = & $makeProvider
                 Provider2    = & $makeProvider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -387,7 +353,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -417,7 +382,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             # Should not throw even though request has no Context property
@@ -449,7 +413,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Entra        = & $makeProvider -GroupId 'entra-grp'
                 AD           = & $makeProvider -GroupId 'ad-grp'
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -489,7 +452,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Identity          = $provider
                 AuthSessionBroker = $broker
-                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -527,7 +489,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Entra        = & $makeProvider -GroupId 'entra-grp'
                 AD           = & $makeProvider -GroupId 'ad-grp'
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -562,7 +523,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Entra        = & $makeProvider -GroupId 'entra-grp'
                 AD           = & $makeProvider -GroupId 'ad-grp'
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -595,7 +555,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Identity          = $provider
                 AuthSessionBroker = $broker
-                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -622,7 +581,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -656,7 +614,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Identity          = $provider
                 AuthSessionBroker = $broker
-                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -695,7 +652,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Identity          = $provider
                 AuthSessionBroker = $broker
-                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -729,7 +685,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -758,7 +713,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Entra        = & $makeProvider -Dept 'Entra-IT'
                 HR           = & $makeProvider -Dept 'HR-IT'
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -789,7 +743,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Entra        = & $makeProvider -Dept 'Entra-IT'
                 HR           = & $makeProvider -Dept 'HR-IT'
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -826,7 +779,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Identity          = $provider
                 AuthSessionBroker = $broker
-                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -863,7 +815,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Identity          = $provider
                 AuthSessionBroker = $broker
-                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -892,7 +843,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 'Invalid.Alias' = $p
-                StepRegistry    = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -916,7 +866,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Identity          = $provider
                 AuthSessionBroker = $broker
-                StepRegistry      = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -938,7 +887,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             # Should fail immediately with a clear message (not silently continue with null context)
@@ -964,7 +912,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -1001,7 +948,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Entra        = $entraProvider
                 AD           = $adProvider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -1038,7 +984,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $providers = @{
                 Entra        = & $makeProvider -ProfileToReturn @{ IdentityKey = 'user1'; Source = 'Entra' }
                 HR           = & $makeProvider -ProfileToReturn $null  # HR finds no profile
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -1078,7 +1023,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -1124,7 +1068,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -1153,7 +1096,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -1189,7 +1131,6 @@ Describe 'New-IdlePlan - ContextResolvers' {
 
             $providers = @{
                 Identity     = $provider
-                StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleContextResolverTestNoopStep' }
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

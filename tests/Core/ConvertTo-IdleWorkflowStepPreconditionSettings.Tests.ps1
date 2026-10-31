@@ -8,7 +8,7 @@ BeforeDiscovery {
 Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
     InModuleScope 'IdLE.Core' {
         It 'returns null values when the step does not define precondition settings' {
-            $step = @{ Name = 'Noop'; Type = 'IdLE.Step.Noop' }
+            $step = @{ Name = 'Noop'; Type = 'Test.IdLE.Step.Noop' }
 
             $planningContext = @{ Plan = @{ LifecycleEvent = 'Joiner' }; Request = @{ IdentityKeys = @{}; Intent = @{}; Context = @{} } }
             $result = ConvertTo-IdleWorkflowStepPreconditionSettings -Step $step -StepName 'Noop' -PlanningContext $planningContext
@@ -21,7 +21,7 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
         It 'normalizes valid precondition settings and deep-copies the data' {
             $step = @{
                 Name                = 'GuardedStep'
-                Type                = 'IdLE.Step.Noop'
+                Type                = 'Test.IdLE.Step.Noop'
                 Precondition        = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Joiner' } }
                 OnPreconditionFalse = 'Continue'
                 PreconditionEvent   = @{
@@ -47,7 +47,7 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
         It 'does not throw when precondition uses unresolved Request.Context path in planning context' {
             $step = @{
                 Name         = 'MissingPath'
-                Type         = 'IdLE.Step.Noop'
+                Type         = 'Test.IdLE.Step.Noop'
                 Precondition = @{ Exists = 'Request.Context.OffboardingDate' }
             }
 
@@ -58,7 +58,7 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
         It 'throws when precondition uses unresolved non-context path in planning context' {
             $step = @{
                 Name         = 'MissingIntentPath'
-                Type         = 'IdLE.Step.Noop'
+                Type         = 'Test.IdLE.Step.Noop'
                 Precondition = @{ Exists = 'Request.Intent.OffboardingDate' }
             }
 
@@ -69,7 +69,7 @@ Describe 'ConvertTo-IdleWorkflowStepPreconditionSettings' {
         It 'throws when OnPreconditionFalse has an invalid value' {
             $step = @{
                 Name                = 'InvalidPolicy'
-                Type                = 'IdLE.Step.Noop'
+                Type                = 'Test.IdLE.Step.Noop'
                 OnPreconditionFalse = 'StopAll'
             }
 

@@ -3,33 +3,6 @@ Set-StrictMode -Version Latest
 BeforeDiscovery {
     . (Join-Path (Split-Path -Path $PSScriptRoot -Parent) '_testHelpers.ps1')
     Import-IdleTestModule
-
-    function global:Invoke-IdleConditionTestEmitStep {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Context,
-
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Step
-        )
-
-        $Context.EventSink.WriteEvent('Custom', 'Hello', $Step.Name, @{ StepType = $Step.Type })
-
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
-    }
-}
-
-AfterAll {
-    Remove-Item -Path 'Function:\Invoke-IdleConditionTestEmitStep' -ErrorAction SilentlyContinue
 }
 
 InModuleScope 'IdLE.Core' {
@@ -59,7 +32,7 @@ InModuleScope 'IdLE.Core' {
                 $req = New-IdleRequest -LifecycleEvent 'Joiner'
                 $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-                $providers = @{ StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleConditionTestEmitStep' } }
+                $providers = @{}
 
                 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
@@ -93,7 +66,7 @@ InModuleScope 'IdLE.Core' {
                 $req = New-IdleRequest -LifecycleEvent 'Joiner'
                 $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req
 
-                $providers = @{ StepRegistry = @{ 'IdLE.Step.EmitEvent' = 'Invoke-IdleConditionTestEmitStep' } }
+                $providers = @{}
 
                 $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 

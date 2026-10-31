@@ -13,7 +13,7 @@ Describe 'Test-IdleWorkflow' {
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+    @{ Name = 'ResolveIdentity'; Type = 'Test.IdLE.Step.ResolveIdentity' }
   )
 }
 '@
@@ -33,7 +33,7 @@ Describe 'Test-IdleWorkflow' {
   Name           = 'Joiner - OnFailure'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+    @{ Name = 'ResolveIdentity'; Type = 'Test.IdLE.Step.ResolveIdentity' }
   )
   OnFailureSteps = @(
     @{ Name = 'Containment'; Type = 'IdLE.Step.DisableIdentity' }
@@ -58,7 +58,7 @@ Describe 'Test-IdleWorkflow' {
   Name           = 'Joiner - Invalid'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+    @{ Name = 'ResolveIdentity'; Type = 'Test.IdLE.Step.ResolveIdentity' }
   )
   CleanupSteps   = @(
     @{ Name = 'Nope'; Type = 'IdLE.Step.DisableIdentity' }
@@ -82,7 +82,7 @@ Describe 'Test-IdleWorkflow' {
   Name           = 'Joiner - Standard'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'ResolveIdentity'; Type = 'IdLE.Step.ResolveIdentity' }
+    @{ Name = 'ResolveIdentity'; Type = 'Test.IdLE.Step.ResolveIdentity' }
   )
 }
 '@

@@ -47,9 +47,9 @@ Describe 'Template Substitution' {
             }
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -65,9 +65,9 @@ Describe 'Template Substitution' {
             }
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -83,9 +83,9 @@ Describe 'Template Substitution' {
             }
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -104,9 +104,9 @@ Describe 'Template Substitution' {
             }
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -125,9 +125,9 @@ Describe 'Template Substitution' {
             }
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -146,9 +146,9 @@ Describe 'Template Substitution' {
             }
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -168,9 +168,9 @@ Describe 'Template Substitution' {
             }
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -188,9 +188,9 @@ Describe 'Template Substitution' {
             }
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -206,8 +206,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -219,8 +219,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -234,8 +234,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ UserName = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -247,8 +247,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ UserName = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -262,8 +262,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -275,8 +275,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Context @{ Identity = @{ ObjectId = 'abc' } }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -290,8 +290,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ NullField = $null }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -305,8 +305,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -318,8 +318,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -331,8 +331,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -346,8 +346,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -360,8 +360,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'TestName' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -374,8 +374,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -IdentityKeys @{ sAMAccountName = 'jdoe' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -391,8 +391,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -410,9 +410,9 @@ Describe 'Template Substitution' {
             }
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
+                    'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep'
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -428,8 +428,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -442,8 +442,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -456,8 +456,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Name = 'Test' } -Actor 'admin@example.com'
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -472,8 +472,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ UserId = 12345 }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -486,8 +486,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ IsEnabled = $true }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -502,8 +502,8 @@ Describe 'Template Substitution' {
                 UserData = @{ Name = 'John'; Age = 30 }
             }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -517,8 +517,8 @@ Describe 'Template Substitution' {
                 Tags = @('tag1', 'tag2')
             }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers } |
@@ -532,8 +532,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Enabled = $false }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -549,8 +549,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ IsActive = $true }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -564,8 +564,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ UserId = 12345 }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -580,8 +580,8 @@ Describe 'Template Substitution' {
             $testDate = Get-Date '2026-01-15T10:00:00'
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ StartDate = $testDate }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -596,8 +596,8 @@ Describe 'Template Substitution' {
             $testGuid = [guid]::NewGuid()
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ ObjectId = $testGuid }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -611,8 +611,8 @@ Describe 'Template Substitution' {
 
             $req = New-IdleRequest -LifecycleEvent 'Joiner' -Intent @{ Enabled = $false }
             $providers = @{
-                StepRegistry = @{ 'IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Test')
+                StepRegistry = @{ 'Test.IdLE.Step.Test' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Test')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

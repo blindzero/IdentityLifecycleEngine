@@ -13,7 +13,7 @@
   Steps = @(
     @{
       Name                = 'CurrentBlockedStep'
-      Type                = 'IdLE.Step.CurrentCleanupTest'
+      Type                = 'Test.IdLE.Step.CurrentCleanupTest'
       With                = @{ Provider = 'Identity' }
       # Precondition always fails: LifecycleEvent is Joiner, not Leaver.
       Precondition        = @{

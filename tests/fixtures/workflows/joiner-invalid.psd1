@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name = 'Test step'
-      Type = 'Custom.Step.Test'
+      Type = 'Custom.IdLE.Step.Test'
     }
   )
 }

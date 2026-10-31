@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name          = 'Step1'
-      Type          = 'IdLE.Step.BlockedDefault'
+      Type          = 'Test.IdLE.Step.BlockedDefault'
       Precondition = @{
         All = @(
         @{

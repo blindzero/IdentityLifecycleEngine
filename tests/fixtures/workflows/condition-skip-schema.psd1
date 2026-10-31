@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name      = 'StrictStep'
-      Type      = 'IdLE.Step.StrictSchemaTest'
+      Type      = 'Test.IdLE.Step.StrictSchemaTest'
       Condition = @{ Equals = @{ Path = 'Plan.LifecycleEvent'; Value = 'Leaver' } }
     }
   )

@@ -17,7 +17,7 @@ Describe 'Export-IdlePlan' {
   Steps          = @(
     @{
       Name = 'Ensure Mailbox'
-      Type = 'EnsureMailbox'
+      Type = 'Test.IdLE.Step.EnsureMailbox'
       With = @{
         mailboxType = 'User'
       }
@@ -34,8 +34,8 @@ Describe 'Export-IdlePlan' {
 
             $providers = @{
                 Dummy        = $true
-                StepRegistry = @{ 'EnsureMailbox' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('EnsureMailbox')
+                StepRegistry = @{ 'Test.IdLE.Step.EnsureMailbox' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.EnsureMailbox')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -91,7 +91,7 @@ Describe 'Export-IdlePlan' {
   Steps          = @(
     @{
       Name         = 'Check Context'
-      Type         = 'EnsureMailbox'
+      Type         = 'Test.IdLE.Step.EnsureMailbox'
       Precondition = @{ Exists = 'Request.Context.OffboardingDate' }
       With         = @{ mailboxType = 'User' }
     }
@@ -107,8 +107,8 @@ Describe 'Export-IdlePlan' {
 
             $providers = @{
                 Dummy        = $true
-                StepRegistry = @{ 'EnsureMailbox' = 'Invoke-IdleTestNoopStep' }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('EnsureMailbox')
+                StepRegistry = @{ 'Test.IdLE.Step.EnsureMailbox' = 'Invoke-IdleTestNoopStep' }
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.EnsureMailbox')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

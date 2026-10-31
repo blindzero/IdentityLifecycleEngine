@@ -101,7 +101,7 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
   Name           = 'Retry Transient Demo'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'TransientStep'; Type = 'IdLE.Step.Transient' }
+    @{ Name = 'TransientStep'; Type = 'Test.IdLE.Step.Transient' }
   )
 }
 '@
@@ -110,9 +110,9 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
 
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.Transient' = "$script:RetryTestModuleName\Invoke-IdleRetryTestTransientStep"
+                    'Test.IdLE.Step.Transient' = "$script:RetryTestModuleName\Invoke-IdleRetryTestTransientStep"
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.Transient')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.Transient')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -142,7 +142,7 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
   Name           = 'Retry Non-Transient Demo'
   LifecycleEvent = 'Joiner'
   Steps          = @(
-    @{ Name = 'NonTransientStep'; Type = 'IdLE.Step.NonTransient' }
+    @{ Name = 'NonTransientStep'; Type = 'Test.IdLE.Step.NonTransient' }
   )
 }
 '@
@@ -151,9 +151,9 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
 
             $providers = @{
                 StepRegistry = @{
-                    'IdLE.Step.NonTransient' = "$script:RetryTestModuleName\Invoke-IdleRetryTestNonTransientStep"
+                    'Test.IdLE.Step.NonTransient' = "$script:RetryTestModuleName\Invoke-IdleRetryTestNonTransientStep"
                 }
-                StepMetadata = New-IdleTestStepMetadata -StepTypes @('IdLE.Step.NonTransient')
+                StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.NonTransient')
             }
 
             $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

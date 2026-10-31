@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name      = 'ConditionalExistsStep'
-      Type      = 'IdLE.Step.ExistsConditionTest'
+      Type      = 'Test.IdLE.Step.ExistsConditionTest'
       Condition = @{ Exists = 'Request.Context.Views.Identity.Profile.Attributes.Region' }
       With      = @{
         Value = '{{Request.Context.Views.Identity.Profile.Attributes.Region}}'

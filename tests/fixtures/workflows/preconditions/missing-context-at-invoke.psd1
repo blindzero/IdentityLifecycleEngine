@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name         = 'Step1'
-      Type         = 'IdLE.Step.MissingContextAtInvoke'
+      Type         = 'Test.IdLE.Step.MissingContextAtInvoke'
       Precondition = @{
         All = @(
           @{ In = @{ Path = 'Request.Context.NA'; Values = @('EU', 'DE') } }

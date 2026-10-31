@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name                = 'Step1'
-      Type                = 'IdLE.Step.FailRunsOnFailure'
+      Type                = 'Test.IdLE.Step.FailRunsOnFailure'
       Precondition        = @{
         All = @(
         @{
@@ -21,7 +21,7 @@
   OnFailureSteps = @(
     @{
       Name                = 'Cleanup'
-      Type                = 'IdLE.Step.OnFailureCleanup'
+      Type                = 'Test.IdLE.Step.OnFailureCleanup'
       Precondition        = @{
         All = @(
         @{

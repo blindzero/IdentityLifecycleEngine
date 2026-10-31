@@ -4,7 +4,7 @@
   Steps          = @(
     @{
       Name          = 'Step1'
-      Type          = 'IdLE.Step.InvalidPCSingleHt'
+      Type          = 'Test.IdLE.Step.InvalidPCSingleHt'
       Precondition = @{
         Equals = @{
           Path  = 'Plan.LifecycleEvent'
