@@ -95,9 +95,57 @@ Every step type registered with the engine **must** declare a data-only metadata
 - A key must not appear in both sets.
 - Metadata must be data-only — ScriptBlocks are rejected.
 
-Step pack modules expose their catalog via `Get-IdleStepMetadataCatalog`, which loads from a
-`StepMetadataCatalog.psd1` data file. Host-supplied step types may supplement (but not override)
-the catalog via `Providers.StepMetadata`.
+Host-supplied step types may supplement (but not override) the catalog via `Providers.StepMetadata`.
+
+### Step packs
+
+A step pack is a module that ships a `StepMetadataCatalog.psd1` data file and declares it in its
+module manifest. The engine discovers every loaded module carrying this marker:
+
+```powershell
+# Contoso.IdLE.Steps.Hr.psd1
+@{
+    # ...
+    FunctionsToExport = @('Invoke-ContosoStepSyncManager')
+    PrivateData       = @{
+        IdLE = @{
+            Kind        = 'StepPack'
+            StepCatalog = 'StepMetadataCatalog.psd1'   # relative to the module folder
+        }
+    }
+}
+```
+
+Each catalog entry declares its handler with the `Handler` key. The engine registers it automatically,
+so hosts do not need `Providers.StepRegistry` for step pack steps:
+
+```powershell
+# Contoso.IdLE.Steps.Hr/StepMetadataCatalog.psd1
+@{
+    'Contoso.IdLE.Step.Hr.SyncManager' = @{
+        Handler              = 'Invoke-ContosoStepSyncManager'
+        RequiredCapabilities = @('Contoso.IdLE.Hr.Manager.Read')
+        WithSchema           = @{
+            RequiredKeys = @('IdentityKey')
+            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+        }
+    }
+}
+```
+
+**Rules:**
+
+- `Handler` is a function name (string) exported by the step pack module. It is bound to the declaring
+  module (`Contoso.IdLE.Steps.Hr\Invoke-ContosoStepSyncManager`); a handler from another module is rejected.
+- The module does not need to be imported globally; nested modules work.
+- `StepCatalog` must point to a file inside the module folder.
+- A step type may be defined by only one step pack.
+- `Providers.StepRegistry` still takes precedence over catalog handlers (e.g. to replace a step in tests).
+- `Providers.StepMetadata` must not declare `Handler`; host-defined steps register their handler via
+  `Providers.StepRegistry`.
+
+Modules named `IdLE.Steps.*` that export `Get-IdleStepMetadataCatalog` but carry no marker are still
+discovered. This fallback is deprecated.
 
 Metadata exists to make steps:
 

@@ -8,6 +8,7 @@ function Get-IdleStepMetadataCatalog {
     The catalog is defined in StepMetadataCatalog.psd1 (data-only, no ScriptBlocks).
 
     Each metadata object contains:
+      Handler              - handler function of this step pack (bound to this module by the engine)
       RequiredCapabilities - capability identifiers the step requires from providers
       WithSchema           - the With key contract used for plan-time validation
 

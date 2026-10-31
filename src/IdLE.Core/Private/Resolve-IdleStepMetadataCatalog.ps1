@@ -261,19 +261,130 @@ function Resolve-IdleStepMetadataCatalog {
         return $null
     }
 
-    # Helper: Discover loaded step packs exporting Get-IdleStepMetadataCatalog.
+    # Helper: Validate a step pack 'Handler' value and bind it to the declaring module.
+    function ConvertTo-IdleStepPackHandlerName {
+        [CmdletBinding()]
+        param(
+            [Parameter()]
+            [AllowNull()]
+            [object] $Value,
+
+            [Parameter(Mandatory)]
+            [string] $StepType,
+
+            [Parameter(Mandatory)]
+            [string] $SourceName
+        )
+
+        if ($Value -isnot [string] -or [string]::IsNullOrWhiteSpace($Value)) {
+            throw [System.ArgumentException]::new(
+                "$SourceName entry for step type '$StepType' has an invalid 'Handler'. Expected a non-empty function name (string) exported by '$SourceName', e.g. 'Invoke-MyStep' or '$SourceName\Invoke-MyStep'.",
+                'Providers'
+            )
+        }
+
+        $handler = $Value.Trim()
+
+        # Unqualified names are bound to the declaring module so that a same-named function from another
+        # module (or the global session) cannot take over the step type.
+        if (-not $handler.Contains('\')) {
+            return "$SourceName\$handler"
+        }
+
+        $parts = $handler.Split('\', 2)
+        if ($parts[0] -ne $SourceName -or [string]::IsNullOrWhiteSpace($parts[1])) {
+            throw [System.ArgumentException]::new(
+                "$SourceName entry for step type '$StepType' declares Handler '$handler' outside of its own module. A step pack may only register its own commands, e.g. '$SourceName\Invoke-MyStep'.",
+                'Providers'
+            )
+        }
+
+        return $handler
+    }
+
+    # Helper: Return the step pack marker from a module manifest, or $null if the module is no step pack.
+    # Marker shape: PrivateData = @{ IdLE = @{ Kind = 'StepPack'; StepCatalog = 'StepMetadataCatalog.psd1' } }
+    function Get-IdleStepPackMarker {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [System.Management.Automation.PSModuleInfo] $Module
+        )
+
+        $privateData = $Module.PrivateData
+        if ($privateData -isnot [hashtable] -or -not $privateData.ContainsKey('IdLE')) {
+            return $null
+        }
+
+        $marker = $privateData['IdLE']
+        if ($marker -isnot [hashtable] -or $marker['Kind'] -ne 'StepPack') {
+            return $null
+        }
+
+        return $marker
+    }
+
+    # Helper: Load the catalog file declared by a step pack marker (data-only PSD1 inside the module).
+    function Import-IdleStepPackCatalogFile {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)]
+            [System.Management.Automation.PSModuleInfo] $Module,
+
+            [Parameter(Mandatory)]
+            [hashtable] $Marker
+        )
+
+        $relativePath = $Marker['StepCatalog']
+        if ($relativePath -isnot [string] -or [string]::IsNullOrWhiteSpace($relativePath) -or [System.IO.Path]::IsPathRooted($relativePath)) {
+            throw [System.ArgumentException]::new(
+                "Step pack '$($Module.Name)' must declare PrivateData.IdLE.StepCatalog as a path relative to the module folder, e.g. 'StepMetadataCatalog.psd1'.",
+                'Providers'
+            )
+        }
+
+        # The catalog must ship with the module; paths escaping the module folder are rejected.
+        $moduleBase = [System.IO.Path]::GetFullPath($Module.ModuleBase).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+        $catalogPath = [System.IO.Path]::GetFullPath((Join-Path -Path $moduleBase -ChildPath $relativePath))
+        if (-not $catalogPath.StartsWith($moduleBase + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw [System.ArgumentException]::new(
+                "Step pack '$($Module.Name)' declares StepCatalog '$relativePath' outside of its module folder.",
+                'Providers'
+            )
+        }
+
+        if (-not (Test-Path -LiteralPath $catalogPath -PathType Leaf)) {
+            throw [System.ArgumentException]::new(
+                "Step pack '$($Module.Name)' declares StepCatalog '$relativePath', but the file was not found at '$catalogPath'.",
+                'Providers'
+            )
+        }
+
+        $rawData = Import-PowerShellDataFile -LiteralPath $catalogPath
+
+        $stepPackCatalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($key in $rawData.Keys) {
+            $stepPackCatalog[$key] = $rawData[$key]
+        }
+
+        return $stepPackCatalog
+    }
+
+    # Helper: Discover loaded step packs.
+    # - Manifest marker PrivateData.IdLE.Kind = 'StepPack' (preferred).
+    # - Legacy: modules named 'IdLE.Steps.*' exporting Get-IdleStepMetadataCatalog.
     function Get-IdleStepPackModules {
         [CmdletBinding()]
         param()
 
-        $loadedModules = Get-Module -Name 'IdLE.Steps.*' -All
-        if ($null -eq $loadedModules) {
-            return @()
-        }
-
         $stepPackModules = @()
-        foreach ($m in @($loadedModules)) {
-            if ($null -ne $m.ExportedCommands -and $m.ExportedCommands.ContainsKey('Get-IdleStepMetadataCatalog')) {
+        foreach ($m in @(Get-Module -All)) {
+            if ($null -ne (Get-IdleStepPackMarker -Module $m)) {
+                $stepPackModules += $m
+                continue
+            }
+
+            if ($m.Name -like 'IdLE.Steps.*' -and $null -ne $m.ExportedCommands -and $m.ExportedCommands.ContainsKey('Get-IdleStepMetadataCatalog')) {
                 $stepPackModules += $m
             }
         }
@@ -338,6 +449,12 @@ function Resolve-IdleStepMetadataCatalog {
                 throw [System.InvalidOperationException]::new($errorMessage)
             }
 
+            if ($value.ContainsKey('Handler')) {
+                # Copy before normalizing so the step pack's own catalog object stays untouched.
+                $value = $value.Clone()
+                $value['Handler'] = ConvertTo-IdleStepPackHandlerName -Value $value['Handler'] -StepType $key -SourceName $SourceModuleName
+            }
+
             # Register ownership and add to catalog
             $StepTypeOwners[[string]$key] = $SourceModuleName
             $Target[[string]$key] = $value
@@ -349,12 +466,16 @@ function Resolve-IdleStepMetadataCatalog {
     $stepPackModules = Get-IdleStepPackModules
 
     foreach ($module in $stepPackModules) {
-        $catalogFunction = $module.ExportedCommands['Get-IdleStepMetadataCatalog']
-        if ($null -ne $catalogFunction) {
-            $stepPackCatalog = & $catalogFunction
-            if ($null -ne $stepPackCatalog -and $stepPackCatalog -is [hashtable]) {
-                Merge-IdleStepPackCatalog -Target $catalog -Source $stepPackCatalog -SourceModuleName $module.Name -StepTypeOwners $stepTypeOwners
-            }
+        $marker = Get-IdleStepPackMarker -Module $module
+        if ($null -ne $marker) {
+            $stepPackCatalog = Import-IdleStepPackCatalogFile -Module $module -Marker $marker
+        }
+        else {
+            $stepPackCatalog = & $module.ExportedCommands['Get-IdleStepMetadataCatalog']
+        }
+
+        if ($null -ne $stepPackCatalog -and $stepPackCatalog -is [hashtable]) {
+            Merge-IdleStepPackCatalog -Target $catalog -Source $stepPackCatalog -SourceModuleName $module.Name -StepTypeOwners $stepTypeOwners
         }
     }
 
@@ -403,6 +524,15 @@ function Resolve-IdleStepMetadataCatalog {
             # Validate WithSchema is present and structurally valid
             $withSchemaValue = if ($value.ContainsKey('WithSchema')) { $value['WithSchema'] } else { $null }
             Test-IdleWithSchema -Value $withSchemaValue -StepType $key -SourceName 'Providers.StepMetadata'
+
+            # Host handlers are registered via Providers.StepRegistry only, so that execution does not depend on
+            # the metadata passed at plan time.
+            if ($value.ContainsKey('Handler')) {
+                throw [System.ArgumentException]::new(
+                    "Providers.StepMetadata entry for step type '$key' must not declare 'Handler'. Register host step handlers via Providers.StepRegistry['$key'].",
+                    'Providers'
+                )
+            }
 
             # Add host supplement
             $catalog[[string]$key] = $value
