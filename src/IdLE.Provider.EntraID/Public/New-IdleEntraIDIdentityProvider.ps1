@@ -841,10 +841,9 @@ function New-IdleEntraIDIdentityProvider {
 
         # When Kind is supplied, only fetch the relevant directory objects.
         # When Kind is null/empty, fetch both (backward-compatible, e.g. host-level reports).
-        $includeGroups = [string]::IsNullOrEmpty($Kind) -or
-            [string]::Equals($Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)
-        $includeAUs    = [string]::IsNullOrEmpty($Kind) -or
-            [string]::Equals($Kind, 'AdministrativeUnit', [System.StringComparison]::OrdinalIgnoreCase)
+        $kindIsEmpty = [string]::IsNullOrEmpty($Kind)
+        $includeGroups = $kindIsEmpty -or [string]::Equals($Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)
+        $includeAUs = $kindIsEmpty -or [string]::Equals($Kind, 'AdministrativeUnit', [System.StringComparison]::OrdinalIgnoreCase)
 
         $result = @()
 
@@ -1009,8 +1008,8 @@ function New-IdleEntraIDIdentityProvider {
 
         # Split entitlements by kind: Groups use the Graph $batch path; AUs are processed per-item
         # (no Graph batch API exists for Administrative Unit membership changes).
-        $groupOperations            = @()
-        $administrativeUnitResults  = @()
+        $groupOperations = @()
+        $administrativeUnitResults = @()
 
         foreach ($ent in $Entitlements) {
             $normalized = $this.ConvertToEntitlement($ent)
@@ -1107,8 +1106,8 @@ function New-IdleEntraIDIdentityProvider {
 
         # Split entitlements by kind: Groups use the Graph $batch path; AUs are processed per-item
         # (no Graph batch API exists for Administrative Unit membership changes).
-        $groupOperations            = @()
-        $administrativeUnitResults  = @()
+        $groupOperations = @()
+        $administrativeUnitResults = @()
 
         foreach ($ent in $Entitlements) {
             $normalized = $this.ConvertToEntitlement($ent)
