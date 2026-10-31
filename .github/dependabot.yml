@@ -16,3 +16,23 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # Keep website (Docusaurus) npm dependencies up to date.
+  - package-ecosystem: "npm"
+    directory: "/website"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Berlin"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "javascript"
+
+    # Group minor/patch updates into one weekly PR; majors (e.g. Docusaurus) stay separate.
+    groups:
+      website-npm:
+        update-types:
+          - "minor"
+          - "patch"
