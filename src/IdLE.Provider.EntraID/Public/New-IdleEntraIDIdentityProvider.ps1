@@ -28,7 +28,7 @@ function New-IdleEntraIDIdentityProvider {
 
     By default, steps should use:
     - With.AuthSessionName = 'MicrosoftGraph'
-    - With.AuthSessionOptions = @{ Role = 'Admin' } (or other routing keys)
+    - With.AuthSessionOptions with routing keys, e.g. Role = 'Admin'
 
     .PARAMETER AllowDelete
     Opt-in flag to enable the IdLE.Identity.Delete capability.
@@ -46,7 +46,6 @@ function New-IdleEntraIDIdentityProvider {
     $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{} = $accessToken
     } -DefaultCredential $accessToken
-
     $provider = New-IdleEntraIDIdentityProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = $provider
@@ -57,18 +56,15 @@ function New-IdleEntraIDIdentityProvider {
     # Multi-role scenario
     $tier0Token = Get-GraphTokenForTier0  # host-managed auth
     $adminToken = Get-GraphTokenForAdmin
-
     $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Role = 'Tier0' } = $tier0Token
         @{ Role = 'Admin' } = $adminToken
     } -DefaultCredential $adminToken
-
     $provider = New-IdleEntraIDIdentityProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = $provider
         AuthSessionBroker = $authSessionBroker
     }
-
     # Workflow steps specify: With.AuthSessionOptions = @{ Role = 'Tier0' }
 
     .EXAMPLE

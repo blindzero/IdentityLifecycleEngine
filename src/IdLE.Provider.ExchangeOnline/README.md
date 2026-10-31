@@ -5,8 +5,8 @@ Exchange Online mailbox provider for IdLE.
 ## Quick Start
 
 ```powershell
-# Import the provider
-Import-Module IdLE.Provider.ExchangeOnline
+# Import IdLE (includes the Exchange Online provider)
+Import-Module IdLE
 
 # Host establishes Exchange Online session (delegated or app-only)
 Connect-ExchangeOnline -UserPrincipalName admin@contoso.com

@@ -40,7 +40,8 @@ IdLE follows [Semantic Versioning](https://semver.org/):
 
 ### Multi-Module Versioning Strategy
 
-Starting with version 1.0, IdLE uses a **synchronized versioning strategy** across all published modules:
+IdLE uses a **synchronized versioning strategy** across all modules. All modules are shipped together in the
+bundled `IdLE` package (see [PowerShell Gallery publishing](#powershell-gallery-publishing)):
 
 - All modules (`IdLE`, `IdLE.Core`, `IdLE.Steps.Common`, providers, and step modules) share the **same version number**
 - Version bumps are **synchronized** across all modules in each release
@@ -223,64 +224,42 @@ If you need another preview, repeat with `preview.2`, etc. (no version bump requ
 
 ### PowerShell Gallery publishing
 
-IdLE is published to the PowerShell Gallery as **multiple separate modules** (multi-module distribution):
+IdLE is published to the PowerShell Gallery as **one package**, `IdLE`. It contains all first-party modules
+(`IdLE.Core`, the `IdLE.Steps.*` step packs and the `IdLE.Provider.*` providers) as nested modules.
 
-- **IdLE** (meta-module) — Declares `IdLE.Core` and `IdLE.Steps.Common` as `RequiredModules`
-- **IdLE.Core** — Workflow engine (no IdLE dependencies)
-- **IdLE.Steps.Common** — Built-in steps (requires `IdLE.Core`)
-- **IdLE.Provider.\*** — Provider modules (each published separately, typically require `IdLE.Core`)
-- **IdLE.Steps.\*** — Optional step modules (published separately, require `IdLE.Core` and/or `IdLE.Steps.Common`)
-
-**Publishing Order:**
-
-Modules are published in **dependency order** to ensure dependencies exist before dependent modules:
-
-1. `IdLE.Core` (no IdLE dependencies)
-2. `IdLE.Steps.Common` (depends on Core)
-3. `IdLE` (depends on Core + Steps.Common)
-4. All providers and optional step modules
-
-The publish order is defined in `tools/ModulePublishOrder.psd1` and used by the release workflow.
+The bundle content is defined by the `NestedModules` list in `src/IdLE/IdLE.psd1` (single source of truth).
 
 **Workflow Behavior:**
 
-- On tag pushes matching `v*`, the workflow publishes all modules to PSGallery in dependency order.
-- A 30-second delay is added between publishes to allow PSGallery processing time.
+- On tag pushes matching `v*`, the workflow publishes the `IdLE` package to PSGallery.
 - For manual runs (`workflow_dispatch`), publishing is only performed when **publish_psgallery** is set to `true`.
+- Before publishing, the `psgallery_local_test` job publishes the package to a local PSRepository, installs and imports it,
+  and verifies that all bundled modules are loaded from the installed package.
+
+:::note Discontinued standalone packages
+Up to v0.9.x, every module was published as a separate package (`IdLE.Core`, `IdLE.Provider.AD`, …).
+These packages are discontinued. After the first bundled release, the package owner unlists them manually on the PowerShell Gallery.
+:::
 
 ### Package staging
 
-The workflow does not publish directly from the repository `src/` layout. Instead it stages publishable packages using:
+The workflow does not publish directly from the repository `src/` layout. Instead it stages the publishable package using:
 
-- `tools/New-IdleModulePackage.ps1 -Mode MultiModule`
+- `tools/New-IdleModulePackage.ps1`
 
-**Packaging modes:**
+The tool:
 
-1. **Bundled Mode** (`-Mode Bundled`, default):
-   - Creates a single package with nested modules under `Modules/`
-   - Output: `artifacts/IdLE/`
-   - Used for legacy distribution (GitHub releases, zip archives)
+- copies `src/IdLE/` to `artifacts/IdLE/` (package root),
+- copies every module listed in `NestedModules` to `artifacts/IdLE/Modules/<Name>/`,
+- rewrites the staged `NestedModules` entries from `..\<Name>\<Name>.psd1` to `.\Modules\<Name>\<Name>.psd1`.
 
-2. **MultiModule Mode** (`-Mode MultiModule`):
-   - Creates separate packages for each module
-   - Output: `artifacts/modules/<ModuleName>/`
-   - Used for PowerShell Gallery publishing
-   - **Manifest transformation for IdLE:**
-     - Converts `NestedModules` with relative paths → `RequiredModules` with module names
-     - Removes `ScriptsToProcess` entry
-     - Removes `IdLE.Init.ps1` file (not needed in published packages)
+The repository layout stays unchanged: every module keeps its own folder and manifest under `src/`, so contributors can
+import directly from source with `Import-Module ./src/IdLE/IdLE.psd1`.
 
-**Why transform manifests?**
+**Mixed-version guard:** `IdLE.Init.ps1` (`ScriptsToProcess`) rejects the import if a standalone `IdLE.*` module that is
+not part of the imported bundle is already loaded in the session.
 
-- **Source manifests** use `NestedModules` with relative paths to support direct import from repository/zip: `Import-Module ./src/IdLE/IdLE.psd1`
-- **Published manifests** use `RequiredModules` with module names for standard PowerShell dependency resolution when installed via `Install-Module`
-
-This dual-manifest approach ensures:
-- ✅ Contributors can work directly from repository source
-- ✅ Published modules follow PowerShell best practices
-- ✅ No `$env:PSModulePath` configuration required for either scenario
-
-For details on the architecture, see **[Installation Guide](../use/installation.md#multi-module-architecture)**.
+For the user-facing view, see **[Installation Guide](../use/installation.md)**.
 
 ## Versioning and naming
 

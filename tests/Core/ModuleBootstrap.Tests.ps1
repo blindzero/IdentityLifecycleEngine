@@ -56,16 +56,6 @@ Describe 'IdLE Module Bootstrap for Repo/Zip Layouts' {
             $matchingPaths.Count | Should -BeExactly 1
         }
 
-        It 'Enables name-based import of provider modules after IdLE import' {
-            Import-Module $script:IdleManifest -Force -ErrorAction Stop
-
-            { Import-Module IdLE.Provider.Mock -ErrorAction Stop } | Should -Not -Throw
-
-            $providerModule = Get-Module IdLE.Provider.Mock
-            $providerModule | Should -Not -BeNullOrEmpty
-            $providerModule.Name | Should -Be 'IdLE.Provider.Mock'
-        }
-
         It 'Enables name-based import of step modules with RequiredModules after IdLE import' {
             Import-Module $script:IdleManifest -Force -ErrorAction Stop
 
@@ -74,14 +64,16 @@ Describe 'IdLE Module Bootstrap for Repo/Zip Layouts' {
             $stepsModule = Get-Module IdLE.Steps.Mailbox
             $stepsModule | Should -Not -BeNullOrEmpty
             $stepsModule.Name | Should -Be 'IdLE.Steps.Mailbox'
-
-            $commonModule = Get-Module IdLE.Steps.Common
-            $commonModule | Should -Not -BeNullOrEmpty
         }
 
         It 'Does not modify PSModulePath when IdLE is imported from a non-repo layout' {
             $moduleRoot = Join-Path -Path $TestDrive -ChildPath 'psmodules'
-            $layout = New-IdleTestModuleLayout -DestinationRoot $moduleRoot
+            # IdLE nests all sibling modules, so the layout must contain the complete bundle.
+            $modules = @('IdLE') + @(
+                (Import-PowerShellDataFile -Path $script:IdleManifest).NestedModules |
+                    ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension(($_ -replace '\\', '/')) }
+            )
+            $layout = New-IdleTestModuleLayout -DestinationRoot $moduleRoot -Modules $modules
 
             $idleManifest = Join-Path -Path $layout.Root -ChildPath 'IdLE\IdLE.psd1'
             $originalPSModulePath = $env:PSModulePath
@@ -90,6 +82,60 @@ Describe 'IdLE Module Bootstrap for Repo/Zip Layouts' {
 
             $env:PSModulePath | Should -Be $originalPSModulePath
             Remove-Module IdLE -Force -ErrorAction SilentlyContinue
+        }
+
+        It 'Exports the provider factory functions of the bundled providers' {
+            Import-Module $script:IdleManifest -Force -ErrorAction Stop
+
+            $exported = (Get-Module IdLE).ExportedCommands.Keys
+            $exported | Should -Contain 'New-IdleMockIdentityProvider'
+            $exported | Should -Contain 'New-IdleADIdentityProvider'
+
+            (New-IdleMockIdentityProvider) | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context 'Mixed-version guard' {
+        It 'Allows importing IdLE when a bundled module was imported from the same location' {
+            Import-Module (Join-Path -Path $script:SrcPath -ChildPath 'IdLE.Provider.Mock/IdLE.Provider.Mock.psd1') -Force -ErrorAction Stop
+
+            { Import-Module $script:IdleManifest -Force -ErrorAction Stop } | Should -Not -Throw
+        }
+
+        It 'Allows re-importing IdLE with -Force' {
+            Import-Module $script:IdleManifest -Force -ErrorAction Stop
+
+            { Import-Module $script:IdleManifest -Force -ErrorAction Stop } | Should -Not -Throw
+        }
+
+        It 'Fails with an actionable error when a standalone IdLE module is already loaded' {
+            $standaloneRoot = Join-Path -Path $TestDrive -ChildPath 'standalone'
+            $null = New-IdleTestModuleLayout -DestinationRoot $standaloneRoot -Modules @('IdLE.Provider.Mock')
+            $standaloneManifest = Join-Path -Path $standaloneRoot -ChildPath 'IdLE.Provider.Mock/IdLE.Provider.Mock.psd1'
+
+            $standaloneEscaped = $standaloneManifest -replace "'", "''"
+            $idleEscaped = $script:IdleManifest -replace "'", "''"
+            $script = @"
+Import-Module '$standaloneEscaped' -ErrorAction Stop
+try {
+    Import-Module '$idleEscaped' -ErrorAction Stop
+    'IMPORTED'
+}
+catch {
+    `$_.Exception.Message
+}
+'IdLE loaded: ' + [bool](Get-Module -Name IdLE)
+"@
+
+            $result = Invoke-IdleIsolatedPwsh -Script $script -WorkingDirectory $script:RepoRoot
+
+            $result.ExitCode | Should -Be 0 -Because $result.StdErr
+            $result.StdOut | Should -Not -Match 'IMPORTED'
+            $result.StdOut | Should -Match 'standalone IdLE modules are already loaded'
+            $result.StdOut | Should -Match ([regex]::Escape('IdLE.Provider.Mock'))
+            $result.StdOut | Should -Match ([regex]::Escape("Remove-Module -Name 'IdLE.Provider.Mock' -Force"))
+            $result.StdOut | Should -Match ([regex]::Escape("Uninstall-Module -Name 'IdLE.Provider.Mock' -AllVersions"))
+            $result.StdOut | Should -Match 'IdLE loaded: False'
         }
     }
 

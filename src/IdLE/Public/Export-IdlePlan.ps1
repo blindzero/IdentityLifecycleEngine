@@ -22,19 +22,19 @@ Optional file path to write the JSON artifact to.
 When -Path is used, returns the JSON string in addition to writing the file.
 
 .EXAMPLE
-$plan = New-IdlePlan -Request $request -Workflow $workflow -StepRegistry $registry
+$plan = New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $request -Providers $providers
 $plan | Export-IdlePlan
 
 Exports the plan and returns the JSON string.
 
 .EXAMPLE
-New-IdlePlan -Request $request -Workflow $workflow -StepRegistry $registry |
+New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $request -Providers $providers |
     Export-IdlePlan -Path ./artifacts/plan.json
 
 Exports the plan and writes the JSON to a file.
 
 .EXAMPLE
-New-IdlePlan -Request $request -Workflow $workflow -StepRegistry $registry |
+New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $request -Providers $providers |
     Export-IdlePlan -Path ./artifacts/plan.json -PassThru
 
 Writes the file and also returns the JSON string.
