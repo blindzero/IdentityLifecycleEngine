@@ -24,6 +24,10 @@ TestResults/
 .vscode/
 history/
 
+# Claude Code (personal, local-only settings)
+.claude/settings.local.json
+CLAUDE.local.md
+
 # Environment files
 .env
 .env.*.local
