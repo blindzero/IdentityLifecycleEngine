@@ -459,7 +459,7 @@ function New-IdleExchangeOnlineProvider {
 
             if ($hasEventSink) {
                 $null = $this.EventSink.WriteEvent(
-                    'Provider.ExchangeOnline.Permissions.Evaluated',
+                    'IdLE.Provider.ExchangeOnline.PermissionsEvaluated',
                     "FullAccess current state evaluated for '$mailboxSmtp'",
                     'EnsureMailboxPermissions',
                     @{ MailboxSmtp = $mailboxSmtp; Right = 'FullAccess'; CurrentUsers = $currentFullAccessUsers }
@@ -473,7 +473,7 @@ function New-IdleExchangeOnlineProvider {
                 if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
                     if ($hasEventSink) {
                         $null = $this.EventSink.WriteEvent(
-                            'Provider.ExchangeOnline.Permissions.Applying',
+                            'IdLE.Provider.ExchangeOnline.PermissionChanging',
                             "Granting FullAccess on '$mailboxSmtp' to '$($entry.AssignedUser)'",
                             'EnsureMailboxPermissions',
                             @{ MailboxSmtp = $mailboxSmtp; Right = 'FullAccess'; User = [string]$entry.AssignedUser; Action = 'Add' }
@@ -485,7 +485,7 @@ function New-IdleExchangeOnlineProvider {
                 elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
                     if ($hasEventSink) {
                         $null = $this.EventSink.WriteEvent(
-                            'Provider.ExchangeOnline.Permissions.Applying',
+                            'IdLE.Provider.ExchangeOnline.PermissionChanging',
                             "Revoking FullAccess on '$mailboxSmtp' from '$($entry.AssignedUser)'",
                             'EnsureMailboxPermissions',
                             @{ MailboxSmtp = $mailboxSmtp; Right = 'FullAccess'; User = [string]$entry.AssignedUser; Action = 'Remove' }
@@ -507,7 +507,7 @@ function New-IdleExchangeOnlineProvider {
 
             if ($hasEventSink) {
                 $null = $this.EventSink.WriteEvent(
-                    'Provider.ExchangeOnline.Permissions.Evaluated',
+                    'IdLE.Provider.ExchangeOnline.PermissionsEvaluated',
                     "SendAs current state evaluated for '$mailboxSmtp'",
                     'EnsureMailboxPermissions',
                     @{ MailboxSmtp = $mailboxSmtp; Right = 'SendAs'; CurrentUsers = $currentSendAsTrustees }
@@ -521,7 +521,7 @@ function New-IdleExchangeOnlineProvider {
                 if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
                     if ($hasEventSink) {
                         $null = $this.EventSink.WriteEvent(
-                            'Provider.ExchangeOnline.Permissions.Applying',
+                            'IdLE.Provider.ExchangeOnline.PermissionChanging',
                             "Granting SendAs on '$mailboxSmtp' to '$($entry.AssignedUser)'",
                             'EnsureMailboxPermissions',
                             @{ MailboxSmtp = $mailboxSmtp; Right = 'SendAs'; User = [string]$entry.AssignedUser; Action = 'Add' }
@@ -533,7 +533,7 @@ function New-IdleExchangeOnlineProvider {
                 elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
                     if ($hasEventSink) {
                         $null = $this.EventSink.WriteEvent(
-                            'Provider.ExchangeOnline.Permissions.Applying',
+                            'IdLE.Provider.ExchangeOnline.PermissionChanging',
                             "Revoking SendAs on '$mailboxSmtp' from '$($entry.AssignedUser)'",
                             'EnsureMailboxPermissions',
                             @{ MailboxSmtp = $mailboxSmtp; Right = 'SendAs'; User = [string]$entry.AssignedUser; Action = 'Remove' }
@@ -553,7 +553,7 @@ function New-IdleExchangeOnlineProvider {
 
             if ($hasEventSink) {
                 $null = $this.EventSink.WriteEvent(
-                    'Provider.ExchangeOnline.Permissions.Evaluated',
+                    'IdLE.Provider.ExchangeOnline.PermissionsEvaluated',
                     "SendOnBehalf current state evaluated for '$mailboxSmtp'",
                     'EnsureMailboxPermissions',
                     @{ MailboxSmtp = $mailboxSmtp; Right = 'SendOnBehalf'; CurrentUsers = $currentDelegatesLower }
@@ -572,7 +572,7 @@ function New-IdleExchangeOnlineProvider {
                 if ($entry.Ensure -eq 'Present' -and -not $isPresent) {
                     if ($hasEventSink) {
                         $null = $this.EventSink.WriteEvent(
-                            'Provider.ExchangeOnline.Permissions.Applying',
+                            'IdLE.Provider.ExchangeOnline.PermissionChanging',
                             "Granting SendOnBehalf on '$mailboxSmtp' to '$($entry.AssignedUser)'",
                             'EnsureMailboxPermissions',
                             @{ MailboxSmtp = $mailboxSmtp; Right = 'SendOnBehalf'; User = [string]$entry.AssignedUser; Action = 'Add' }
@@ -584,7 +584,7 @@ function New-IdleExchangeOnlineProvider {
                 elseif ($entry.Ensure -eq 'Absent' -and $isPresent) {
                     if ($hasEventSink) {
                         $null = $this.EventSink.WriteEvent(
-                            'Provider.ExchangeOnline.Permissions.Applying',
+                            'IdLE.Provider.ExchangeOnline.PermissionChanging',
                             "Revoking SendOnBehalf on '$mailboxSmtp' from '$($entry.AssignedUser)'",
                             'EnsureMailboxPermissions',
                             @{ MailboxSmtp = $mailboxSmtp; Right = 'SendOnBehalf'; User = [string]$entry.AssignedUser; Action = 'Remove' }
@@ -605,7 +605,7 @@ function New-IdleExchangeOnlineProvider {
 
         if ($hasEventSink) {
             $null = $this.EventSink.WriteEvent(
-                'Provider.ExchangeOnline.Permissions.Result',
+                'IdLE.Provider.ExchangeOnline.PermissionsEnsured',
                 "EnsureMailboxPermissions completed for '$mailboxSmtp': Changed=$changed",
                 'EnsureMailboxPermissions',
                 @{ MailboxSmtp = $mailboxSmtp; Changed = $changed }

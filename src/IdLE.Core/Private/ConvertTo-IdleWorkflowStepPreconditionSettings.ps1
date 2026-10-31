@@ -92,6 +92,21 @@ function ConvertTo-IdleWorkflowStepPreconditionSettings {
                 )
             }
 
+            $pcEvtTypeError = Get-IdleIdentifierNamespaceError -Kind WorkflowEventType -Identifier $pcEvtType
+            if ($null -ne $pcEvtTypeError) {
+                throw [System.ArgumentException]::new(
+                    ("Workflow step '{0}': PreconditionEvent.Type: {1}" -f $StepName, $pcEvtTypeError),
+                    'Workflow'
+                )
+            }
+
+            if ($rawPreconditionEvent.Contains('Level') -and [string]$rawPreconditionEvent['Level'] -notin @('Information', 'Warning', 'Error')) {
+                throw [System.ArgumentException]::new(
+                    ("Workflow step '{0}': PreconditionEvent.Level must be 'Information', 'Warning', or 'Error'." -f $StepName),
+                    'Workflow'
+                )
+            }
+
             $pcEvtMsg = if ($rawPreconditionEvent.Contains('Message')) { [string]$rawPreconditionEvent['Message'] } else { $null }
             if ([string]::IsNullOrWhiteSpace($pcEvtMsg)) {
                 throw [System.ArgumentException]::new(

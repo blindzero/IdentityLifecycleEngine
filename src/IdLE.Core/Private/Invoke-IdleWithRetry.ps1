@@ -174,7 +174,7 @@ function Invoke-IdleWithRetry {
             if ($null -ne $EventSink -and $EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
                 try {
                     $EventSink.WriteEvent(
-                        'StepRetrying',
+                        'IdLE.Step.Retrying',
                         "Transient failure in '$OperationName' (attempt $attempt/$MaxAttempts). Retrying.",
                         $StepName,
                         @{
@@ -183,7 +183,8 @@ function Invoke-IdleWithRetry {
                             delayMs     = $delay
                             errorType   = $exception.GetType().FullName
                             message     = $exception.Message
-                        }
+                        },
+                        'Warning'
                     )
                 }
                 catch {

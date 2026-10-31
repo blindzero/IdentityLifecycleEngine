@@ -12,13 +12,23 @@
 
 ## Synopsis
 
-Emits a custom event (demo step).
+Emits a workflow-defined event.
 
 ## Description
 
-This step does not change external state. It emits a custom event message.
-The engine provides an EventSink on the execution context that the step can use
-to write structured events.
+This step does not change external state. It writes one structured event to the
+EventSink on the execution context (buffered in the execution result and forwarded
+to the host event sink, if any).
+
+Inputs (all optional):
+
+- With.Message: event message. Defaults to "Event emitted by step '&lt;Name&gt;'.".
+
+- With.Type: event type, e.g. 'Contoso.Joiner.Notified'. Must not start with 'IdLE.'
+  (reserved) and must not be 'Information', 'Warning', 'Error' or 'Custom'.
+  Defaults to 'IdLE.Step.EmitEvent.Emitted'.
+
+- With.Level: 'Information' (default), 'Warning' or 'Error'.
 
 ## Inputs (With.*)
 

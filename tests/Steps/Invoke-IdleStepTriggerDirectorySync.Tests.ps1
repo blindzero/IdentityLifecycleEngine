@@ -351,7 +351,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
     }
 
     Context 'Event emission' {
-        It 'emits DirectorySyncTriggered event' {
+        It 'emits IdLE.Step.DirectorySync.Triggered event' {
             $capturedEvents = [System.Collections.ArrayList]::new()
             $script:Context.EventSink = [pscustomobject]@{}
             $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
@@ -362,7 +362,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $script:StepTemplate
 
-            $capturedEvents.Type | Should -Contain 'DirectorySyncTriggered'
+            $capturedEvents.Type | Should -Contain 'IdLE.Step.DirectorySync.Triggered'
         }
 
         It 'emits readable trigger message when With.PolicyType is omitted' {
@@ -380,11 +380,11 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $step
 
-            $triggerEvent = $capturedEvents | Where-Object { $_.Type -eq 'DirectorySyncTriggered' } | Select-Object -First 1
+            $triggerEvent = $capturedEvents | Where-Object { $_.Type -eq 'IdLE.Step.DirectorySync.Triggered' } | Select-Object -First 1
             $triggerEvent.Message | Should -Be 'Triggering directory sync cycle'
         }
 
-        It 'emits string values in DirectorySyncTriggered event data for PolicyType and ComputerName' {
+        It 'emits string values in IdLE.Step.DirectorySync.Triggered event data for PolicyType and ComputerName' {
             $capturedEvents = [System.Collections.ArrayList]::new()
             $script:Context.EventSink = [pscustomobject]@{}
             $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
@@ -399,12 +399,12 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $step
 
-            $triggerEvent = $capturedEvents | Where-Object { $_.Type -eq 'DirectorySyncTriggered' } | Select-Object -First 1
+            $triggerEvent = $capturedEvents | Where-Object { $_.Type -eq 'IdLE.Step.DirectorySync.Triggered' } | Select-Object -First 1
             $triggerEvent.Data.PolicyType | Should -Be '123'
             $triggerEvent.Data.ComputerName | Should -Be '456'
         }
 
-        It 'emits DirectorySyncCompleted event' {
+        It 'emits IdLE.Step.DirectorySync.Completed event' {
             $capturedEvents = [System.Collections.ArrayList]::new()
             $script:Context.EventSink = [pscustomobject]@{}
             $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
@@ -415,10 +415,10 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $script:StepTemplate
 
-            $capturedEvents.Type | Should -Contain 'DirectorySyncCompleted'
+            $capturedEvents.Type | Should -Contain 'IdLE.Step.DirectorySync.Completed'
         }
 
-        It 'emits DirectorySyncWaiting event when waiting' {
+        It 'emits IdLE.Step.DirectorySync.Waiting event when waiting' {
             $capturedEvents = [System.Collections.ArrayList]::new()
             $script:Context.EventSink = [pscustomobject]@{}
             $script:Context.EventSink | Add-Member -MemberType ScriptMethod -Name WriteEvent -Value {
@@ -433,7 +433,7 @@ Describe 'Invoke-IdleStepTriggerDirectorySync (DirectorySync step)' {
             $handler = 'IdLE.Steps.DirectorySync\Invoke-IdleStepTriggerDirectorySync'
             $null = & $handler -Context $script:Context -Step $step
 
-            $capturedEvents.Type | Should -Contain 'DirectorySyncWaiting'
+            $capturedEvents.Type | Should -Contain 'IdLE.Step.DirectorySync.Waiting'
         }
     }
 }

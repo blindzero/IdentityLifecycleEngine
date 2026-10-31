@@ -878,9 +878,9 @@ Describe 'ExchangeOnline provider - Unit tests' {
 
             $provider.EventSink = $null
 
-            $evalEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Evaluated' })
-            $applyEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Applying' })
-            $resultEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'Provider.ExchangeOnline.Permissions.Result' })
+            $evalEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'IdLE.Provider.ExchangeOnline.PermissionsEvaluated' })
+            $applyEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'IdLE.Provider.ExchangeOnline.PermissionChanging' })
+            $resultEvents = @($script:capturedEvents | Where-Object { $_.Type -eq 'IdLE.Provider.ExchangeOnline.PermissionsEnsured' })
 
             $evalEvents.Count | Should -BeGreaterOrEqual 1
             $applyEvents.Count | Should -Be 1

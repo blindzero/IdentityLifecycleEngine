@@ -35,7 +35,7 @@ Describe 'Invoke-IdlePlan - StepRegistry' {
             $result.Status | Should -Be 'Completed'
             @($result.Steps).Count | Should -Be 1
             $result.Steps[0].Status | Should -Be 'Completed'
-            ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
+            ($result.Events | Where-Object Type -eq 'IdLE.Step.EmitEvent.Emitted').Count | Should -Be 1
         }
     }
 }

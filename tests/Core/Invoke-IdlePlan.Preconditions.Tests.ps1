@@ -95,7 +95,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
                 $result.Status | Should -Be 'Completed'
                 $result.Steps[0].Status | Should -Be 'Completed'
-                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 0
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.PreconditionFailed').Count | Should -Be 0
             }
         }
 
@@ -113,7 +113,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
                 $result.Status | Should -Be 'Completed'
                 $result.Steps[0].Status | Should -Be 'Completed'
-                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 0
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.PreconditionFailed').Count | Should -Be 0
             }
         }
 
@@ -136,8 +136,8 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 $result.Steps.Count | Should -Be 1
                 $result.Steps[0].Name   | Should -Be 'Step1'
                 $result.Steps[0].Status | Should -Be 'Blocked'
-                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 1
-                @($result.Events | Where-Object Type -eq 'StepBlocked').Count | Should -Be 1
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.PreconditionFailed').Count | Should -Be 1
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.Blocked').Count | Should -Be 1
                 @($result.Events | Where-Object Type -eq 'SecondStepRan').Count | Should -Be 0
             }
 
@@ -176,8 +176,8 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 $result.Steps.Count | Should -Be 1
                 $result.Steps[0].Status | Should -Be 'Failed'
                 $result.Steps[0].Error  | Should -Not -BeNullOrEmpty
-                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 1
-                @($result.Events | Where-Object Type -eq 'StepFailed').Count | Should -Be 1
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.PreconditionFailed').Count | Should -Be 1
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.Failed').Count | Should -Be 1
                 @($result.Events | Where-Object Type -eq 'SecondStepRan').Count | Should -Be 0
             }
         }
@@ -206,7 +206,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 $result.Steps[1].Name   | Should -Be 'Step2'
                 $result.Steps[1].Status | Should -Be 'Completed'
                 # Engine event is emitted for observability
-                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 1
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.PreconditionFailed').Count | Should -Be 1
                 # Subsequent step ran
                 @($result.Events | Where-Object Type -eq 'SecondStepRan').Count | Should -Be 1
             }
@@ -283,8 +283,8 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
 
                 $result.Status | Should -Be 'Blocked'
 
-                # StepPreconditionFailed must be emitted
-                $pcFailedEvent = $result.Events | Where-Object Type -eq 'StepPreconditionFailed'
+                # IdLE.Step.PreconditionFailed must be emitted
+                $pcFailedEvent = $result.Events | Where-Object Type -eq 'IdLE.Step.PreconditionFailed'
                 $pcFailedEvent | Should -Not -BeNullOrEmpty
 
                 # Configured PreconditionEvent should also be emitted with the declared Type/Message
@@ -348,7 +348,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 # OnFailure cleanup step was blocked by its precondition (Leaver != Joiner)
                 $result.OnFailure.Steps.Count | Should -Be 1
                 $result.OnFailure.Steps[0].Status | Should -Be 'Blocked'
-                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 2
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.PreconditionFailed').Count | Should -Be 2
                 @($result.Events | Where-Object Type -eq 'OnFailureRan').Count | Should -Be 0
             }
 
@@ -370,7 +370,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 # OnFailure cleanup step was skipped via Continue
                 $result.OnFailure.Steps.Count | Should -Be 1
                 $result.OnFailure.Steps[0].Status | Should -Be 'PreconditionSkipped'
-                @($result.Events | Where-Object Type -eq 'StepPreconditionFailed').Count | Should -Be 2
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.PreconditionFailed').Count | Should -Be 2
                 @($result.Events | Where-Object Type -eq 'OnFailureRan').Count | Should -Be 0
             }
         }

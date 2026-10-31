@@ -106,7 +106,7 @@ and execution, as noted below.
 | `With.PolicyType` | `string` | Required by provider | `Delta` or `Initial` sync policy |
 | `With.Wait` | `bool` | `false` | Poll sync status and wait for result (or timeout) |
 | `With.PollIntervalSeconds` | `int` | `10` | Interval in seconds to poll for sync status |
-| `With.TimeoutSeconds` | `int` | `600` | Timeout for poll wait in seconds. Will result in `StepFailed` |
+| `With.TimeoutSeconds` | `int` | `600` | Timeout for poll wait in seconds. Will result in `IdLE.Step.Failed` |
 
 ## Examples
 

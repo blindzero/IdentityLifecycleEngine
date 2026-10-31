@@ -472,7 +472,7 @@ function New-IdleADIdentityProvider {
                 IdentityKey = $IdentityKey
                 Requested   = $validationResult.Requested
             }
-            $this.EventSink.WriteEvent('Provider.AD.CreateIdentity.AttributesRequested', 'Attributes requested during identity creation', 'CreateIdentity', $eventData)
+            $this.EventSink.WriteEvent('IdLE.Provider.AD.AttributesRequested', 'Attributes requested during identity creation', 'CreateIdentity', $eventData)
         }
 
         # Build result with optional password generation info
@@ -643,7 +643,7 @@ function New-IdleADIdentityProvider {
                         OldValue     = $currentValue
                         NewValue     = $Value
                     }
-                    $this.EventSink.WriteEvent('Provider.AD.EnsureAttribute.AttributeChanged', "Attribute '$Name' changed", 'EnsureAttribute', $eventData)
+                    $this.EventSink.WriteEvent('IdLE.Provider.AD.AttributeChanged', "Attribute '$Name' changed", 'EnsureAttribute', $eventData)
                 }
             }
         }

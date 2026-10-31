@@ -38,8 +38,8 @@ InModuleScope 'IdLE.Core' {
 
                 $result.Status | Should -Be 'Completed'
                 $result.Steps[0].Status | Should -Be 'NotApplicable'
-                @($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 0
-                @($result.Events | Where-Object Type -eq 'StepNotApplicable').Count | Should -Be 1
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.EmitEvent.Emitted').Count | Should -Be 0
+                @($result.Events | Where-Object Type -eq 'IdLE.Step.NotApplicable').Count | Should -Be 1
             }
 
             It 'runs a step when condition is met' {
@@ -72,7 +72,7 @@ InModuleScope 'IdLE.Core' {
 
                 $result.Status | Should -Be 'Completed'
                 $result.Steps[0].Status | Should -Be 'Completed'
-                ($result.Events | Where-Object Type -eq 'Custom').Count | Should -Be 1
+                ($result.Events | Where-Object Type -eq 'IdLE.Step.EmitEvent.Emitted').Count | Should -Be 1
             }
         }
     }

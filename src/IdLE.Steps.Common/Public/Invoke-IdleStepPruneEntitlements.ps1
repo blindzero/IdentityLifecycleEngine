@@ -273,7 +273,7 @@ function Invoke-IdleStepPruneEntitlements {
     # Emit plan intent event
     if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
         $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-        $Context.EventSink.WriteEvent('Information', "PruneEntitlements: plan - keep=$(
+        $Context.EventSink.WriteEvent('IdLE.Step.PruneEntitlements.Planned', "PruneEntitlements: plan - keep=$(
             @($toKeep).Count), remove=$(@($toRemove).Count)", $Step.Name, @{
                 Kind       = $kind
                 KeepCount  = @($toKeep).Count
@@ -302,18 +302,18 @@ function Invoke-IdleStepPruneEntitlements {
                 }
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                    $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: skipped non-removable entitlement '$($br.Entitlement.Id)': $($br.Error)", $Step.Name, @{
+                    $Context.EventSink.WriteEvent('IdLE.Step.PruneEntitlements.EntitlementSkipped', "PruneEntitlements: skipped non-removable entitlement '$($br.Entitlement.Id)': $($br.Error)", $Step.Name, @{
                             Kind          = $kind
                             EntitlementId = [string]$br.Entitlement.Id
                             Reason        = [string]$br.Error
-                        }
+                        }, 'Warning'
                     )
                 }
             } else {
                 if ($br.Changed) { $changed = $true }
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                    $Context.EventSink.WriteEvent('Information', "PruneEntitlements: revoked entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
+                    $Context.EventSink.WriteEvent('IdLE.Step.PruneEntitlements.EntitlementRevoked', "PruneEntitlements: revoked entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
                             Kind          = $kind
                             EntitlementId = [string]$br.Entitlement.Id
                         }
@@ -336,7 +336,7 @@ function Invoke-IdleStepPruneEntitlements {
 
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                    $Context.EventSink.WriteEvent('Information', "PruneEntitlements: revoked entitlement '$($ent.Id)'", $Step.Name, @{
+                    $Context.EventSink.WriteEvent('IdLE.Step.PruneEntitlements.EntitlementRevoked', "PruneEntitlements: revoked entitlement '$($ent.Id)'", $Step.Name, @{
                             Kind          = $kind
                             EntitlementId = [string]$ent.Id
                         }
@@ -353,11 +353,11 @@ function Invoke-IdleStepPruneEntitlements {
 
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                    $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: skipped non-removable entitlement '$($ent.Id)': $reason", $Step.Name, @{
+                    $Context.EventSink.WriteEvent('IdLE.Step.PruneEntitlements.EntitlementSkipped', "PruneEntitlements: skipped non-removable entitlement '$($ent.Id)': $reason", $Step.Name, @{
                             Kind          = $kind
                             EntitlementId = [string]$ent.Id
                             Reason        = $reason
-                        }
+                        }, 'Warning'
                     )
                 }
             }
@@ -390,18 +390,18 @@ function Invoke-IdleStepPruneEntitlements {
                     }
                     if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                         $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                        $Context.EventSink.WriteEvent('Warning', "PruneEntitlements: failed to grant keep entitlement '$($br.Entitlement.Id)': $($br.Error)", $Step.Name, @{
+                        $Context.EventSink.WriteEvent('IdLE.Step.PruneEntitlements.KeepGrantFailed', "PruneEntitlements: failed to grant keep entitlement '$($br.Entitlement.Id)': $($br.Error)", $Step.Name, @{
                                 Kind          = $kind
                                 EntitlementId = [string]$br.Entitlement.Id
                                 Reason        = [string]$br.Error
-                            }
+                            }, 'Warning'
                         )
                     }
                 } else {
                     if ($br.Changed) { $changed = $true }
                     if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                         $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                        $Context.EventSink.WriteEvent('Information', "PruneEntitlements: granted keep entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
+                        $Context.EventSink.WriteEvent('IdLE.Step.PruneEntitlements.KeepGranted', "PruneEntitlements: granted keep entitlement '$($br.Entitlement.Id)'", $Step.Name, @{
                                 Kind          = $kind
                                 EntitlementId = [string]$br.Entitlement.Id
                             }
@@ -427,7 +427,7 @@ function Invoke-IdleStepPruneEntitlements {
                 }
                 if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink -and
                     $Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-                    $Context.EventSink.WriteEvent('Information', "PruneEntitlements: granted keep entitlement '$($k.Id)'", $Step.Name, @{
+                    $Context.EventSink.WriteEvent('IdLE.Step.PruneEntitlements.KeepGranted', "PruneEntitlements: granted keep entitlement '$($k.Id)'", $Step.Name, @{
                             Kind          = $kind
                             EntitlementId = [string]$k.Id
                         }

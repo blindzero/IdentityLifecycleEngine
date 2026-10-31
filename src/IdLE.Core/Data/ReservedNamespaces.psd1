@@ -52,4 +52,12 @@
             'IdLE.Mailbox.Read' = 'IdLE.Mailbox.Info.Read'
         }
     }
+
+    # Event types: first-party 'IdLE.<Area>.<Event>', extensions '<Owner>.IdLE.<Area>.<Event>' (by convention).
+    # Workflow-defined types (PreconditionEvent.Type, EmitEvent With.Type) are free but must not use 'IdLE.'.
+    # See docs/extend/events.md.
+    EventType      = @{
+        # Former catch-all types; severity is carried by Event.Level instead. Rejected everywhere.
+        Disallowed = @('Information', 'Warning', 'Error', 'Custom')
+    }
 }

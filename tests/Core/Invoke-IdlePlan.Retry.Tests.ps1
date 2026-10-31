@@ -122,7 +122,7 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
             $result.Status | Should -Be 'Completed'
             $result.Steps[0].Status | Should -Be 'Completed'
 
-            @($result.Events | Where-Object Type -eq 'StepRetrying').Count | Should -Be 1
+            @($result.Events | Where-Object Type -eq 'IdLE.Step.Retrying').Count | Should -Be 1
             Should -Invoke -ModuleName IdLE.Core -CommandName Start-Sleep -Times 1 -Exactly
 
             (& "$script:RetryTestModuleName\Get-IdleRetryTestTransientCallCount") | Should -Be 2
@@ -161,7 +161,7 @@ Describe 'Invoke-IdlePlan - safe retries for transient failures (fail-fast)' {
             $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
             $result.Status | Should -Be 'Failed'
-            @($result.Events | Where-Object Type -eq 'StepRetrying').Count | Should -Be 0
+            @($result.Events | Where-Object Type -eq 'IdLE.Step.Retrying').Count | Should -Be 0
             Should -Invoke -ModuleName IdLE.Core -CommandName Start-Sleep -Times 0
         }
     }

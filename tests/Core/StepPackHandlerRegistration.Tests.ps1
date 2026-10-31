@@ -39,7 +39,7 @@ function Invoke-ContosoStepHello {
         [Parameter(Mandatory)] [object] $Step
     )
 
-    $Context.EventSink.WriteEvent('Custom', 'Hello from step pack', $Step.Name, @{})
+    $Context.EventSink.WriteEvent('Test.IdLE.StepPack.Hello', 'Hello from step pack', $Step.Name, @{})
 
     return [pscustomobject]@{
         PSTypeName = 'IdLE.StepResult'

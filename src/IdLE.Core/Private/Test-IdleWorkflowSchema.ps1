@@ -99,6 +99,15 @@ function Test-IdleWorkflowSchema {
                 if (-not $pcEvt.ContainsKey('Type') -or [string]::IsNullOrWhiteSpace([string]$pcEvt.Type)) {
                     $ErrorList.Add("'$StepPath.PreconditionEvent.Type' is required and must be a non-empty string.")
                 }
+                else {
+                    $pcEvtTypeError = Get-IdleIdentifierNamespaceError -Kind WorkflowEventType -Identifier ([string]$pcEvt.Type)
+                    if ($null -ne $pcEvtTypeError) {
+                        $ErrorList.Add("'$StepPath.PreconditionEvent.Type': $pcEvtTypeError")
+                    }
+                }
+                if ($pcEvt.ContainsKey('Level') -and [string]$pcEvt.Level -notin @('Information', 'Warning', 'Error')) {
+                    $ErrorList.Add("'$StepPath.PreconditionEvent.Level' must be 'Information', 'Warning', or 'Error'.")
+                }
                 if (-not $pcEvt.ContainsKey('Message') -or [string]::IsNullOrWhiteSpace([string]$pcEvt.Message)) {
                     $ErrorList.Add("'$StepPath.PreconditionEvent.Message' is required and must be a non-empty string.")
                 }
