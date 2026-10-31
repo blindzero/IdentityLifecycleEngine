@@ -62,6 +62,11 @@ Describe 'Module manifests and public surface' {
                 'New-IdlePlan'
                 'Test-IdleWorkflow'
                 'Export-IdlePlan'
+                'New-IdleADIdentityProvider'
+                'New-IdleEntraIDIdentityProvider'
+                'New-IdleExchangeOnlineProvider'
+                'New-IdleEntraConnectDirectorySyncProvider'
+                'New-IdleMockIdentityProvider'
             ) | Sort-Object
 
             $actual = (Get-Command -Module IdLE).Name | Sort-Object
@@ -128,13 +133,8 @@ Describe 'Module manifests and public surface' {
             
             Import-Module $script:IdlePsd1 -Force -ErrorAction Stop
 
-            # NOTE: In repo/zip layouts, PSModulePath bootstrap causes NestedModules to resolve
-            # via PSModulePath, which exports them globally. This is a known limitation/tradeoff
-            # to enable name-based imports of providers and optional steps after IdLE import.
-            # In published PSGallery packages, RequiredModules are used instead, maintaining proper scope.
-            #
             # The step registry supports both:
-            # - Global commands: 'Invoke-IdleStepEmitEvent' (repo/zip with PSModulePath bootstrap)
+            # - Global commands: 'Invoke-IdleStepEmitEvent' (step pack imported directly, e.g. by tests)
             # - Module-qualified: 'IdLE.Steps.Common\Invoke-IdleStepEmitEvent' (nested modules without global export)
             #
             # Both formats work correctly - the engine can invoke either unqualified or module-qualified handlers.
@@ -169,27 +169,18 @@ Describe 'Module manifests and public surface' {
             
             Import-Module $script:IdlePsd1 -Force -ErrorAction Stop
 
-            # NOTE: In repo/zip layouts, PSModulePath bootstrap causes NestedModules to resolve
-            # via PSModulePath, which exports them globally. This is a known limitation/tradeoff.
-            # In published PSGallery packages, RequiredModules maintain proper scope.
-            #
             # Verify IdLE.Core is loaded and accessible (use -All to catch nested modules)
             $coreModule = Get-Module -All IdLE.Core
             $coreModule | Should -Not -BeNullOrEmpty
         }
 
-        It 'IdLE module imports IdLE.Core and IdLE.Steps.Common via bootstrap' {
+        It 'IdLE module imports IdLE.Core and IdLE.Steps.Common as nested modules' {
             Remove-Module IdLE -Force -ErrorAction SilentlyContinue
             Import-Module $script:IdlePsd1 -Force -ErrorAction Stop
 
             $idle = Get-Module IdLE
             $idle | Should -Not -BeNullOrEmpty
 
-            # With the new name-based import approach, IdLE.Core and IdLE.Steps.Common
-            # are imported by IdLE.psm1 bootstrap logic, not via NestedModules in manifest.
-            # Verify they are loaded and accessible to the engine.
-            # Note: They may appear in Get-Module -All depending on import scope.
-            
             # The key validation is that IdLE public commands work (which depend on Core)
             $publicCommands = (Get-Command -Module IdLE).Name
             $publicCommands | Should -Contain 'New-IdlePlan'
@@ -203,73 +194,47 @@ Describe 'Module manifests and public surface' {
         }
     }
 
-    Context 'Baseline modules' {
-        It 'IdLE auto-imports only baseline modules (Core and Steps.Common), not optional modules' {
-        # Clean test state - remove ALL IdLE modules to ensure fresh import
-        Get-Module -All IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
-        
-        # Import without -Force to avoid re-importing previously loaded optional modules
-        # (PowerShell module caching can cause previously imported modules to be re-loaded with -Force)
-        Import-Module $script:IdlePsd1 -ErrorAction Stop
+    Context 'Bundled modules' {
+        It 'IdLE imports all bundled first-party modules from the bundle' {
+            Get-Module -All IdLE* | Remove-Module -Force -ErrorAction SilentlyContinue
 
-        $idle = Get-Module IdLE
-        $idle | Should -Not -BeNullOrEmpty
+            Import-Module $script:IdlePsd1 -ErrorAction Stop
 
-        # Define expected baseline modules in one place
-        $baselineModules = @('IdLE.Core', 'IdLE.Steps.Common')
+            $idleBase = (Get-Module IdLE).ModuleBase
+            $bundled = @((Import-PowerShellDataFile -Path $script:IdlePsd1).NestedModules)
+            $bundled.Count | Should -Be 9
 
-        # With name-based import, baseline modules are loaded via NestedModules
-        # Verify public API is available (depends on Core and Steps.Common being loaded)
-        $publicCommands = (Get-Command -Module IdLE).Name
-        $publicCommands | Should -Contain 'New-IdlePlan'
-        $publicCommands | Should -Contain 'Invoke-IdlePlan'
-        
-        # Verify built-in steps are available (depends on Steps.Common)
-        InModuleScope IdLE.Core {
-            $registry = Get-IdleStepRegistry -Providers $null
-            $registry.ContainsKey('IdLE.Step.EmitEvent') | Should -BeTrue
-        }
+            foreach ($entry in $bundled) {
+                $name = [System.IO.Path]::GetFileNameWithoutExtension($entry)
+                $expectedBase = Split-Path -Path ([System.IO.Path]::GetFullPath((Join-Path -Path $idleBase -ChildPath $entry))) -Parent
 
-        # Verify baseline modules are loaded
-        foreach ($moduleName in $baselineModules) {
-            $module = Get-Module -All -Name $moduleName
-            $module | Should -Not -BeNullOrEmpty -Because "$moduleName should be loaded as a baseline module"
-        }
-
-        # Verify no optional providers or step modules are imported
-        # NOTE: PowerShell's Import-Module -Force can cause previously imported modules to be re-loaded
-        # even after Remove-Module. This is a known PowerShell behavior where module dependency resolution
-        # can trigger re-import of dependent modules. Since we removed -Force above, this should work correctly.
-        #
-        # Optional modules should only be imported when explicitly requested by the user
-        $optionalProviders = @('IdLE.Provider.AD', 'IdLE.Provider.EntraID', 'IdLE.Provider.ExchangeOnline')
-        $optionalSteps = @('IdLE.Steps.Mailbox')
-        
-        # Check providers
-        foreach ($moduleName in $optionalProviders) {
-            (Get-Module -All -Name $moduleName) | Should -BeNullOrEmpty -Because "$moduleName should not be auto-imported"
-        }
-        
-        # Check optional steps
-        foreach ($moduleName in $optionalSteps) {
-            # Skip IdLE.Steps.Mailbox if it was loaded by ModuleBootstrap test
-            # Due to PowerShell module caching, it may persist across test cleanup
-            if ($moduleName -eq 'IdLE.Steps.Mailbox') {
-                $mailboxModule = Get-Module -All -Name $moduleName
-                if ($mailboxModule) {
-                    Write-Verbose "IdLE.Steps.Mailbox is loaded (likely from ModuleBootstrap test). In a fresh PowerShell session, it would NOT be auto-imported."
-                    continue
-                }
+                $module = Get-Module -All -Name $name | Select-Object -First 1
+                $module | Should -Not -BeNullOrEmpty -Because "$name is part of the IdLE bundle"
+                $module.ModuleBase | Should -Be $expectedBase
             }
-            (Get-Module -All -Name $moduleName) | Should -BeNullOrEmpty -Because "$moduleName should not be auto-imported"
+
+            # Built-in steps of all bundled step packs are available to the engine.
+            InModuleScope IdLE.Core {
+                $registry = Get-IdleStepRegistry -Providers $null
+                $registry.ContainsKey('IdLE.Step.EmitEvent') | Should -BeTrue
+                $registry.ContainsKey('IdLE.Step.TriggerDirectorySync') | Should -BeTrue
+                $registry.ContainsKey('IdLE.Step.Mailbox.GetInfo') | Should -BeTrue
+            }
         }
 
-        # NOTE: IdLE.Steps.DirectorySync and IdLE.Provider.DirectorySync.EntraConnect are imported by
-        # Import-IdleTestModule in BeforeAll. IdLE.Steps.Mailbox may be imported by ModuleBootstrap test.
-        # Due to PowerShell module caching, they may persist across test cleanup (Remove-Module) and 
-        # re-appear when their dependencies are re-imported.
-        # This is a known test isolation limitation in PowerShell and doesn't reflect actual module behavior.
-        # In a fresh PowerShell session, these modules are NOT auto-imported when importing IdLE.
+        It 'Importing IdLE loads no external (non-IdLE) module' {
+            $idlePsd1Escaped = $script:IdlePsd1 -replace "'", "''"
+            $script = @"
+`$before = @(Get-Module -All | ForEach-Object Name)
+Import-Module '$idlePsd1Escaped' -ErrorAction Stop
+`$added = @(Get-Module -All | Where-Object { `$before -notcontains `$_.Name -and `$_.Name -notlike 'IdLE*' -and -not `$_.ModuleBase.StartsWith(`$PSHOME) } | ForEach-Object Name)
+`$added -join ','
+"@
+
+            $result = Invoke-IdleIsolatedPwsh -Script $script -WorkingDirectory $script:RepoRoot
+
+            $result.ExitCode | Should -Be 0 -Because $result.StdErr
+            $result.StdOut.Trim() | Should -BeNullOrEmpty -Because 'external dependencies (e.g. ActiveDirectory, ADSync, Microsoft.Graph) must be loaded lazily'
         }
     }
 
