@@ -32,14 +32,11 @@ None beyond IdLE itself. The Mock provider stores everything in-memory during th
 
 ### Install (PowerShell Gallery)
 
-```powershell
-Install-Module IdLE.Provider.Mock -Scope CurrentUser
-```
-
-### Import
+The provider is part of the `IdLE` package.
 
 ```powershell
-Import-Module IdLE.Provider.Mock
+Install-Module IdLE -Scope CurrentUser
+Import-Module IdLE
 ```
 
 ## Quickstart

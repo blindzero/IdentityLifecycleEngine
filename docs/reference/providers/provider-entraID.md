@@ -36,14 +36,11 @@ Non-goals:
 
 ### Install (PowerShell Gallery)
 
-```powershell
-Install-Module IdLE.Provider.EntraID -Scope CurrentUser
-```
-
-### Import
+The provider is part of the `IdLE` package.
 
 ```powershell
-Import-Module IdLE.Provider.EntraID
+Install-Module IdLE -Scope CurrentUser
+Import-Module IdLE
 ```
 
 ## Quickstart

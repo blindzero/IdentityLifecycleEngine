@@ -34,7 +34,6 @@ For this walkthrough we use the mock provider:
 
 ```powershell
 Import-Module -Name IdLE
-Import-Module -Name IdLE.Provider.Mock
 
 $providers = @{
   Identity = New-IdleMockIdentityProvider

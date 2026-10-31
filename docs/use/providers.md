@@ -34,7 +34,7 @@ IdLE expects a hashtable of providers keyed by **alias**.
 The alias is what workflow steps reference via `With.Provider`.
 
 ```powershell
-Import-Module -Name IdLE.Provider.Mock
+Import-Module -Name IdLE
 
 $providers = @{
   Identity = New-IdleMockIdentityProvider

@@ -224,10 +224,9 @@ function Select-DemoWorkflows {
     return @($AvailableWorkflows[0])
 }
 
-# Import modules from the repo (path-based import, no global installation required).
+# Import IdLE from the repo (path-based import, no global installation required).
+# IdLE includes all built-in steps and providers (incl. the Mock provider).
 Import-Module (Join-Path $PSScriptRoot '..\src\IdLE\IdLE.psd1') -Force -ErrorAction Stop
-# Mock provider is optional and must be imported explicitly (not auto-imported by IdLE)
-Import-Module (Join-Path $PSScriptRoot '..\src\IdLE.Provider.Mock\IdLE.Provider.Mock.psd1') -Force -ErrorAction Stop
 
 $available = @(Get-DemoWorkflows -Category $Category)
 

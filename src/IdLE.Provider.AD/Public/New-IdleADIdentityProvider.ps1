@@ -11,7 +11,7 @@ function New-IdleADIdentityProvider {
     and group entitlement management (List, Grant, Revoke).
 
     Identity addressing supports:
-    - GUID (ObjectGuid) - pattern: ^[0-9a-fA-F-]{36}$ or N-format
+    - GUID (ObjectGuid) - 36 hex characters with hyphens (D-format) or 32 hex characters (N-format)
     - UPN (UserPrincipalName) - contains @
     - sAMAccountName - default fallback
 
@@ -69,18 +69,15 @@ function New-IdleADIdentityProvider {
     # Multi-role scenario with New-IdleAuthSessionBroker (recommended)
     $tier0Credential = Get-Credential -Message "Enter Tier0 admin credentials"
     $adminCredential = Get-Credential -Message "Enter regular admin credentials"
-
     $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Role = 'Tier0' } = $tier0Credential
         @{ Role = 'Admin' } = $adminCredential
     } -DefaultCredential $adminCredential
-
     $provider = New-IdleADIdentityProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = $provider
         AuthSessionBroker = $authSessionBroker
     }
-
     # Workflow steps can specify different auth contexts:
     # With.AuthSessionName = 'ActiveDirectory'
     # With.AuthSessionOptions = @{ Role = 'Tier0' }
@@ -95,7 +92,6 @@ function New-IdleADIdentityProvider {
         }
         return Get-SecretFromVault -Name 'AD-Admin'
     }
-
     $provider = New-IdleADIdentityProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = $provider

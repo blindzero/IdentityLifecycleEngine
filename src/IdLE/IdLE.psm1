@@ -2,8 +2,8 @@
 
 Set-StrictMode -Version Latest
 
-# NestedModules in the manifest handle loading IdLE.Core and IdLE.Steps.Common
-# PSModulePath bootstrap is performed by IdLE.Init.ps1 via ScriptsToProcess (before NestedModules load)
+# NestedModules in the manifest load all first-party modules of the bundle.
+# The mixed-version guard is performed by IdLE.Init.ps1 via ScriptsToProcess (before NestedModules load).
 
 $PublicPath = Join-Path -Path $PSScriptRoot -ChildPath 'Public'
 if (Test-Path -Path $PublicPath) {
@@ -21,6 +21,11 @@ Export-ModuleMember -Function @(
     'New-IdlePlan',
     'Invoke-IdlePlan',
     'Export-IdlePlan',
-    'New-IdleAuthSession'
+    'New-IdleAuthSession',
+    'New-IdleADIdentityProvider',
+    'New-IdleEntraIDIdentityProvider',
+    'New-IdleExchangeOnlineProvider',
+    'New-IdleEntraConnectDirectorySyncProvider',
+    'New-IdleMockIdentityProvider'
 )
 

@@ -142,8 +142,6 @@ Write-Host "  Request CorrelationId: $($request.CorrelationId)" -ForegroundColor
 Write-Host "==> Setting up providers..." -ForegroundColor Cyan
 
 # For this example, we'll use mock providers (replace with real providers in production)
-Import-Module ./src/IdLE.Steps.Mailbox/IdLE.Steps.Mailbox.psd1 -Force
-Import-Module ./src/IdLE.Provider.Mock/IdLE.Provider.Mock.psd1 -Force
 
 $exoProvider = New-IdleMockProvider -Name 'ExchangeOnline' -Capabilities @(
     'IdLE.Mailbox.Info.Read'

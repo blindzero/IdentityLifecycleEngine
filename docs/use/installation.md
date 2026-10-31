@@ -18,18 +18,35 @@ IdLE can be installed either from the **PowerShell Gallery** (recommended) or di
 From a PowerShell 7 prompt:
 
 ```powershell
-# Install the IdLE meta-module (pulls IdLE.Core and IdLE.Steps.Common as dependencies)
+# Install IdLE (one package: engine, all built-in steps and all providers)
 Install-Module -Name IdLE -Scope CurrentUser
 
-# Import the baseline modules
+# Import IdLE
 Import-Module -Name IdLE
 ```
+
+The `IdLE` package contains all first-party modules as nested modules, in one synchronized version:
+
+| Module | Content |
+| --- | --- |
+| `IdLE.Core` | Workflow engine |
+| `IdLE.Steps.Common`, `IdLE.Steps.DirectorySync`, `IdLE.Steps.Mailbox` | Built-in steps |
+| `IdLE.Provider.AD`, `IdLE.Provider.EntraID`, `IdLE.Provider.ExchangeOnline`, `IdLE.Provider.DirectorySync.EntraConnect`, `IdLE.Provider.Mock` | Providers |
+
+`Import-Module IdLE` makes all built-in steps available to the engine and exports the provider factory functions
+(e.g. `New-IdleADIdentityProvider`, `New-IdleMockIdentityProvider`).
+See the [reference](../reference/intro-reference.md) for further details on [Steps](../reference/steps.md) and [Providers](../reference/providers.md).
+
+:::info External dependencies are loaded on use
+Providers do not import their external modules (e.g. `ActiveDirectory`, `ExchangeOnlineManagement`, `ADSync`) when IdLE is imported.
+Install those modules only for the providers you use; they are required when the provider is created or used.
+:::
 
 :::info Command collision during install?
 If PowerShellGet reports that a command is already available, prefer a clean reinstall instead of `-AllowClobber`.
 
 ```powershell
-Get-InstalledModule IdLE, IdLE.Core, IdLE.Steps.Common -ErrorAction SilentlyContinue |
+Get-InstalledModule IdLE -ErrorAction SilentlyContinue |
   Uninstall-Module -AllVersions -Force
 
 Install-Module -Name IdLE -Scope CurrentUser -Force
@@ -39,29 +56,6 @@ Import-Module -Name IdLE
 :::
 
 ---
-
-## Install optional modules
-
-Providers and additional step modules are published as separate modules and can be installed independently.
-See the [reference](../reference/intro-reference.md) for further details on [Steps](../reference/steps.md) and [Providers](../reference/providers.md).
-
-```powershell
-# Provider modules (examples)
-Install-Module -Name IdLE.Provider.AD -Scope CurrentUser
-Install-Module -Name IdLE.Provider.EntraID -Scope CurrentUser
-Install-Module -Name IdLE.Provider.ExchangeOnline -Scope CurrentUser
-
-# Optional step modules (examples)
-Install-Module -Name IdLE.Steps.Mailbox -Scope CurrentUser
-
-# Mock provider (safe, used for tests and walkthroughs)
-Install-Module -Name IdLE.Provider.Mock -Scope CurrentUser
-```
-
-
-:::tip
-If a workflow references a StepType from an optional steps module, that steps module must be installed and imported in the host session.
-:::
 
 ---
 
@@ -77,30 +71,24 @@ This path is intended for development and contribution scenarios.
 git clone https://github.com/blindzero/IdentityLifecycleEngine
 cd IdentityLifecycleEngine
 
-# Import meta module
+# Import IdLE (imports all modules under src/ as nested modules)
 Import-Module ./src/IdLE/IdLE.psd1 -Force
 ```
 
 :::info
-The meta module bootstraps module discovery for the repository layout. Avoid using this in parallel with an IdLE installation from the PowerShell Gallery.
-After importing from source, you can import additional modules by name.
+Importing from source loads the same set of modules as the `IdLE` package. Avoid using this in parallel with an IdLE installation from the PowerShell Gallery.
 :::
-
-```powershell
-Import-Module IdLE.Provider.Mock -Force
-Import-Module IdLE.Steps.Mailbox -Force
-```
 
 ---
 
 ## Verify installation
 
 ```powershell
-Get-Module IdLE* -ListAvailable | Select-Object Name, Version, Path
-# Public-facing user commands
+Get-Module IdLE -ListAvailable | Select-Object Name, Version, Path
+# Public commands (engine cmdlets and provider factories)
 Get-Command -Module IdLE | Sort-Object Name
-# Public interface functions from modules
-Get-Command -Module IdLE.* | Sort-Object Name
+# Bundled modules loaded with IdLE
+Get-Module -All -Name 'IdLE.*' | Select-Object Name, Version, ModuleBase
 ```
 
 ---
