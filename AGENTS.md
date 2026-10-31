@@ -194,6 +194,8 @@ Document precedence (from most to least specific):
 - Event patterns → `docs/extend/events.md`
 - Provider contracts → `docs/extend/providers.md`
 - Step metadata → `docs/extend/steps.md`
+- Claude Code-specific notes → `CLAUDE.md` (imports this file; add Claude-only guidance there)
+- Claude Code skills (e.g. PR review criteria) → `.claude/skills/<skill-name>/SKILL.md`
 
 ---
 
