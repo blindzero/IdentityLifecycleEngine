@@ -11,7 +11,7 @@ function New-IdleADIdentityProvider {
     and group entitlement management (List, Grant, Revoke).
 
     Identity addressing supports:
-    - GUID (ObjectGuid) - pattern: `^[0-9a-fA-F-]{36}$` or N-format
+    - GUID (ObjectGuid) - 36 hex characters with hyphens (D-format) or 32 hex characters (N-format)
     - UPN (UserPrincipalName) - contains @
     - sAMAccountName - default fallback
 

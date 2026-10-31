@@ -28,7 +28,7 @@ function New-IdleEntraIDIdentityProvider {
 
     By default, steps should use:
     - With.AuthSessionName = 'MicrosoftGraph'
-    - `With.AuthSessionOptions = @{ Role = 'Admin' }` (or other routing keys)
+    - With.AuthSessionOptions with routing keys, e.g. Role = 'Admin'
 
     .PARAMETER AllowDelete
     Opt-in flag to enable the IdLE.Identity.Delete capability.
