@@ -266,26 +266,17 @@ jobs:
           Import-Module PowerShellGet -Force
           Get-Module PowerShellGet | Select-Object Name, Version, Path | Format-List
 
-      - name: Build publishable module packages (multi-module for PSGallery)
+      - name: Build publishable module package (bundled IdLE)
         shell: pwsh
         run: |
-          ./tools/New-IdleModulePackage.ps1 -Mode MultiModule -Clean | Format-List FullName
+          ./tools/New-IdleModulePackage.ps1 -Clean | Format-List FullName
 
-      - name: Publish modules to local PSRepository and verify install/import
+      - name: Publish bundle to local PSRepository and verify install/import
         shell: pwsh
         run: |
-          $modulesPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/modules'
-          if (-not (Test-Path -LiteralPath $modulesPath)) {
-            throw "Staged modules path not found: $modulesPath"
-          }
-
-          # Ensure required modules are discoverable during Test-ModuleManifest/Publish-Module.
-          # Save original PSModulePath to restore before install/import verification.
-          $originalPSModulePath = $env:PSModulePath
-          $pathSeparator = [System.IO.Path]::PathSeparator
-          $modulePathEntries = $env:PSModulePath -split [regex]::Escape($pathSeparator)
-          if ($modulePathEntries -notcontains $modulesPath) {
-            $env:PSModulePath = $modulesPath + $pathSeparator + $env:PSModulePath
+          $packagePath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/IdLE'
+          if (-not (Test-Path -LiteralPath $packagePath)) {
+            throw "Staged package path not found: $packagePath"
           }
 
           $repoPath = Join-Path $env:RUNNER_TEMP 'psrepo'
@@ -293,27 +284,9 @@ jobs:
 
           Register-PSRepository -Name 'LocalRepo' -SourceLocation $repoPath -PublishLocation $repoPath -InstallationPolicy Trusted
 
-          # Load publish order from configuration
-          $configPath = Join-Path $env:GITHUB_WORKSPACE 'tools/ModulePublishOrder.psd1'
-          $config = Import-PowerShellDataFile -LiteralPath $configPath
-          $publishOrder = $config.PublishOrder
-
-          Write-Host "Publishing modules in dependency order from configuration..."
-
-          foreach ($moduleName in $publishOrder) {
-            $modulePath = Join-Path $modulesPath $moduleName
-            if (-not (Test-Path -LiteralPath $modulePath)) {
-              throw "Module listed in ModulePublishOrder.psd1 not found: $moduleName at $modulePath. This indicates an incomplete build and must be fixed before release."
-            }
-            
-            Write-Host "Publishing $moduleName..."
-            Publish-Module -Path $modulePath -Repository 'LocalRepo' -ErrorAction Stop
-            Write-Host "  ✓ Published $moduleName"
-          }
-
-          # Restore original PSModulePath before install/import verification
-          # to ensure Import-Module resolves the installed package, not the staged build.
-          $env:PSModulePath = $originalPSModulePath
+          Write-Host "Publishing IdLE..."
+          Publish-Module -Path $packagePath -Repository 'LocalRepo' -ErrorAction Stop
+          Write-Host "  ✓ Published IdLE"
 
           # Test that IdLE can be installed and imports correctly
           Write-Host "`nInstalling IdLE from LocalRepo..."
@@ -322,14 +295,20 @@ jobs:
 
           $m = Get-Module IdLE
           if (-not $m) { throw 'IdLE did not import successfully.' }
-          Write-Host "Imported IdLE: $($m.Name) $($m.Version)"
+          Write-Host "Imported IdLE: $($m.Name) $($m.Version) from $($m.ModuleBase)"
 
-          # Verify dependencies were installed
-          $core = Get-Module IdLE.Core
-          $steps = Get-Module IdLE.Steps.Common
-          if (-not $core) { throw 'IdLE.Core was not loaded as dependency.' }
-          if (-not $steps) { throw 'IdLE.Steps.Common was not loaded as dependency.' }
-          Write-Host "Dependencies loaded: IdLE.Core $($core.Version), IdLE.Steps.Common $($steps.Version)"
+          # Verify all bundled modules were loaded from the installed package
+          $expected = @((Import-PowerShellDataFile -LiteralPath (Join-Path $m.ModuleBase 'IdLE.psd1')).NestedModules |
+            ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_) })
+          foreach ($name in $expected) {
+            $nested = Get-Module -All -Name $name | Select-Object -First 1
+            if (-not $nested) { throw "$name was not loaded as nested module." }
+            if (-not $nested.ModuleBase.StartsWith($m.ModuleBase)) { throw "$name was loaded from '$($nested.ModuleBase)', not from the bundle." }
+            Write-Host "  ✓ $name $($nested.Version)"
+          }
+
+          $factory = Get-Command -Module IdLE -Name 'New-IdleMockIdentityProvider' -ErrorAction SilentlyContinue
+          if (-not $factory) { throw 'IdLE does not export the provider factory functions.' }
 
           Unregister-PSRepository -Name 'LocalRepo' -ErrorAction SilentlyContinue
 
@@ -369,12 +348,12 @@ jobs:
           Import-Module PowerShellGet -Force
           Get-Module PowerShellGet | Select-Object Name, Version, Path | Format-List
 
-      - name: Build publishable module packages (multi-module for PSGallery)
+      - name: Build publishable module package (bundled IdLE)
         shell: pwsh
         run: |
-          ./tools/New-IdleModulePackage.ps1 -Mode MultiModule -Clean | Format-List FullName
+          ./tools/New-IdleModulePackage.ps1 -Clean | Format-List FullName
 
-      - name: Publish modules to PSGallery
+      - name: Publish IdLE to PSGallery
         shell: pwsh
         env:
           PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
@@ -383,52 +362,14 @@ jobs:
             throw "Missing secret PSGALLERY_API_KEY."
           }
 
-          $modulesPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/modules'
-          if (-not (Test-Path -LiteralPath $modulesPath)) {
-            throw "Staged modules path not found: $modulesPath"
+          $packagePath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/IdLE'
+          $manifest = Join-Path $packagePath 'IdLE.psd1'
+          if (-not (Test-Path -LiteralPath $manifest)) {
+            throw "Staged package manifest not found: $manifest"
           }
 
-          # Ensure required modules are discoverable during Test-ModuleManifest/Publish-Module.
-          $pathSeparator = [System.IO.Path]::PathSeparator
-          $modulePathEntries = $env:PSModulePath -split [regex]::Escape($pathSeparator)
-          if ($modulePathEntries -notcontains $modulesPath) {
-            $env:PSModulePath = $modulesPath + $pathSeparator + $env:PSModulePath
-          }
+          $data = Import-PowerShellDataFile -LiteralPath $manifest
+          Write-Host "Publishing: IdLE Version: $($data.ModuleVersion)"
 
-          # Load publish order from configuration
-          $configPath = Join-Path $env:GITHUB_WORKSPACE 'tools/ModulePublishOrder.psd1'
-          $config = Import-PowerShellDataFile -LiteralPath $configPath
-          $publishOrder = $config.PublishOrder
-
-          Write-Host "Publishing modules to PowerShell Gallery in dependency order..."
-          Write-Host "==================================================================`n"
-
-          foreach ($moduleName in $publishOrder) {
-            $modulePath = Join-Path $modulesPath $moduleName
-            if (-not (Test-Path -LiteralPath $modulePath)) {
-              throw "Module listed in ModulePublishOrder.psd1 not found: $moduleName at $modulePath. This indicates an incomplete build and must be fixed before publishing to PSGallery."
-            }
-
-            $manifest = Join-Path $modulePath "$moduleName.psd1"
-            if (-not (Test-Path -LiteralPath $manifest)) {
-              throw "Module manifest not found: $manifest"
-            }
-
-            $data = Import-PowerShellDataFile -LiteralPath $manifest
-            Write-Host "Publishing: $moduleName Version: $($data.ModuleVersion)"
-            
-            try {
-              Publish-Module -Path $modulePath -NuGetApiKey $env:PSGALLERY_API_KEY -Repository PSGallery -ErrorAction Stop
-              Write-Host "  ✓ Successfully published $moduleName`n"
-              
-              # Brief delay to allow PSGallery to process the module before publishing dependents
-              Start-Sleep -Seconds 30
-            }
-            catch {
-              Write-Error "Failed to publish $moduleName : $_"
-              throw
-            }
-          }
-
-          Write-Host "==================================================================`n"
-          Write-Host "All modules published successfully!"
+          Publish-Module -Path $packagePath -NuGetApiKey $env:PSGALLERY_API_KEY -Repository PSGallery -ErrorAction Stop
+          Write-Host "  ✓ Successfully published IdLE"

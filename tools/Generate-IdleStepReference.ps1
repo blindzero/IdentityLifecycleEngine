@@ -829,7 +829,7 @@ if (-not $StepModules -or $StepModules.Count -eq 0) {
     }
 }
 
-# Ensure step modules are loaded (Import-Module IdLE.psd1 does NOT load nested step modules automatically).
+# Ensure step modules are loaded globally (IdLE.psd1 loads them as nested modules, which are not visible via Get-Module without -All).
 # Always prefer repo-local modules to avoid importing different versions from PSModulePath.
 foreach ($m in $StepModules) {
     if (Get-Module -Name $m) {
