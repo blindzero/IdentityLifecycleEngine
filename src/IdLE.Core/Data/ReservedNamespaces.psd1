@@ -13,7 +13,6 @@
     ReservedPrefix = 'IdLE.'
 
     StepType       = @{
-        # First-party step types: 'IdLE.Step.<Name>' or 'IdLE.Step.<Area>.<Name>'.
         FirstPartyPattern = '^IdLE\.Step(\.[A-Za-z][A-Za-z0-9]*)+$'
         ExtensionPattern = '^(?!IdLE\.)[A-Za-z][A-Za-z0-9]*\.IdLE\.Step(\.[A-Za-z][A-Za-z0-9]*)+$'
         Example          = 'Contoso.IdLE.Step.Hr.SyncManager'
