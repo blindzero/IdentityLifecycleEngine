@@ -34,7 +34,7 @@ IdLE expects a hashtable of providers keyed by **alias**. Steps reference the al
 Example host mapping (mock provider):
 
 ```powershell
-Import-Module -Name IdLE.Provider.Mock
+Import-Module -Name IdLE
 
 $providers = @{
   Identity = New-IdleMockIdentityProvider

@@ -23,7 +23,7 @@ Example workflows that require real providers and external systems (Active Direc
 
 **Prerequisites:**
 - Real AD/Entra ID environment
-- Provider modules: `IdLE.Provider.ActiveDirectory`, `IdLE.Provider.EntraID`, `IdLE.Provider.DirectorySync.EntraConnect`
+- The providers (`IdLE.Provider.AD`, `IdLE.Provider.EntraID`, `IdLE.Provider.DirectorySync.EntraConnect`) are part of the `IdLE` package; their external modules (e.g. `ActiveDirectory`, `ADSync`) must be installed
 - Appropriate authentication/credentials
 
 **Workflows:**

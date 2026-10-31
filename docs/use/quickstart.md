@@ -27,11 +27,8 @@ IdLE does not ship a “live system host”.
 ## 1) Install and import modules
 
 ```powershell
-# IdLE meta module (incl. IdLE.Core + IdLE.Steps.Common)
+# IdLE (engine, built-in steps and providers, incl. the safe Mock provider)
 Import-Module -Name IdLE
-
-# Mock provider (safe, no real systems touched)
-Import-Module -Name IdLE.Provider.Mock
 ```
 
 :::tip

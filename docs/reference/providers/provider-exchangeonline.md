@@ -51,20 +51,12 @@ import ExoLeaverMailboxOffboarding from '@site/../examples/workflows/templates/e
 
 ### Install (PowerShell Gallery)
 
-```powershell
-Install-Module IdLE.Provider.ExchangeOnline -Scope CurrentUser
-```
-
-### Import & basic check
+The provider is part of the `IdLE` package.
 
 ```powershell
-Import-Module IdLE.Provider.ExchangeOnline
-
-# Create provider instance
-$provider = New-IdleExchangeOnlineProvider
+Install-Module IdLE -Scope CurrentUser
+Import-Module IdLE
 ```
-
-The provider runs a one-time prerequisites check at construction and emits `Write-Warning` if the Exchange Online session is not established. See [Troubleshooting](#troubleshooting) if this fails.
 
 ---
 
