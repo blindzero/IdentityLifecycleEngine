@@ -116,6 +116,43 @@ Pull Requests must:
 - reference related issues (if applicable)
 - pass all tests
 - follow STYLEGUIDE.md
+- pass the AI review gate (see below)
+
+---
+
+### AI review gate (Claude)
+
+Every non-draft pull request from a branch in this repository is reviewed automatically by Claude
+(workflow `.github/workflows/claude-review.yml`, required status check **"Claude review"**).
+
+- Findings are posted as inline comments plus one summary comment by `claude[bot]`.
+- Findings are classified as `CRITICAL`, `MAJOR`, `MINOR` or `NIT`. The verdict is `BLOCK` only if there is at least
+  one `CRITICAL` finding (critical bug or security issue). `BLOCK` fails the check; everything else passes.
+- If the review itself fails (authentication, turn limit, timeout), the check **passes** with a warning in the job
+  summary ("Claude review did not complete"). A technical outage never blocks a merge.
+- Draft PRs, Dependabot PRs and PRs from forks are skipped. Fork PRs are reviewed manually by a maintainer.
+- The review criteria live in `.claude/skills/idle-pr-review/SKILL.md`. On pull requests, CI uses the version from
+  the **base branch**, so changes to the skill only take effect after they are merged.
+
+#### Running the review locally
+
+With [Claude Code](https://code.claude.com/) (CLI or VS Code extension), open the repository root and ask for a review,
+or invoke the skill directly:
+
+```text
+/idle-pr-review
+```
+
+Claude loads `CLAUDE.md` (which imports `AGENTS.md`) and applies the same criteria as CI to your local changes.
+
+### Using `@claude`
+
+Maintainers and collaborators can mention `@claude` in issue comments, PR comments, PR review comments, and issue
+titles/bodies (workflow `.github/workflows/claude.yml`). Claude can answer questions and, on pull requests, commit
+requested changes to the PR branch. Those commits trigger the review gate again.
+
+Mentions by users without write access (author association other than `OWNER`, `MEMBER` or `COLLABORATOR`) do not
+run Claude.
 
 ---
 
