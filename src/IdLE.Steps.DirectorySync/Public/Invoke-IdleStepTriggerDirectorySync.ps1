@@ -104,7 +104,7 @@ function Invoke-IdleStepTriggerDirectorySync {
             "Triggering $policyTypeText sync cycle"
         }
 
-        $Context.EventSink.WriteEvent('DirectorySyncTriggered', $triggerMessage, $stepName, @{
+        $Context.EventSink.WriteEvent('IdLE.Step.DirectorySync.Triggered', $triggerMessage, $stepName, @{
                 PolicyType = $policyType
                 ComputerName = $computerName
             })
@@ -123,7 +123,7 @@ function Invoke-IdleStepTriggerDirectorySync {
 
         # If wait is requested, poll until complete or timeout
         if ($wait) {
-            $Context.EventSink.WriteEvent('DirectorySyncWaiting', "Waiting for sync cycle to complete (timeout: ${timeoutSeconds}s)", $stepName, @{
+            $Context.EventSink.WriteEvent('IdLE.Step.DirectorySync.Waiting', "Waiting for sync cycle to complete (timeout: ${timeoutSeconds}s)", $stepName, @{
                     TimeoutSeconds = $timeoutSeconds
                     PollIntervalSeconds = $pollIntervalSeconds
                 })
@@ -146,11 +146,11 @@ function Invoke-IdleStepTriggerDirectorySync {
 
                     $lastState = if ($null -ne $stateResult) { $stateResult.State } else { 'Unknown' }
 
-                    $Context.EventSink.WriteEvent('DirectorySyncFailed', "Sync cycle wait timeout after ${timeoutSeconds}s", $stepName, @{
+                    $Context.EventSink.WriteEvent('IdLE.Step.DirectorySync.Failed', "Sync cycle wait timeout after ${timeoutSeconds}s", $stepName, @{
                             TimeoutSeconds = $timeoutSeconds
                             ElapsedSeconds = [int]$elapsed
                             LastKnownState = $lastState
-                        })
+                        }, 'Error')
 
                     throw "TriggerDirectorySync: Timeout waiting for sync cycle to complete after ${timeoutSeconds}s. Last known state: $lastState"
                 }
@@ -170,7 +170,7 @@ function Invoke-IdleStepTriggerDirectorySync {
 
                 $currentState = if ($null -ne $stateResult) { $stateResult.State } else { 'Unknown' }
 
-                $Context.EventSink.WriteEvent('DirectorySyncPoll', "Poll attempt $attempt - State: $currentState", $stepName, @{
+                $Context.EventSink.WriteEvent('IdLE.Step.DirectorySync.Polled', "Poll attempt $attempt - State: $currentState", $stepName, @{
                         Attempt = $attempt
                         State = $currentState
                         InProgress = $inProgress
@@ -179,7 +179,7 @@ function Invoke-IdleStepTriggerDirectorySync {
 
                 if (-not $inProgress) {
                     # Sync cycle completed
-                    $Context.EventSink.WriteEvent('DirectorySyncCompleted', "Sync cycle completed", $stepName, @{
+                    $Context.EventSink.WriteEvent('IdLE.Step.DirectorySync.Completed', "Sync cycle completed", $stepName, @{
                             Attempts = $attempt
                             ElapsedSeconds = [int]$elapsed
                         })
@@ -192,7 +192,7 @@ function Invoke-IdleStepTriggerDirectorySync {
         }
         else {
             # Not waiting - sync triggered successfully
-            $Context.EventSink.WriteEvent('DirectorySyncCompleted', "Sync cycle triggered (not waiting)", $stepName, @{
+            $Context.EventSink.WriteEvent('IdLE.Step.DirectorySync.Completed', "Sync cycle triggered (not waiting)", $stepName, @{
                     PolicyType = $policyType
                 })
         }
@@ -207,9 +207,9 @@ function Invoke-IdleStepTriggerDirectorySync {
         }
     }
     catch {
-        $Context.EventSink.WriteEvent('DirectorySyncFailed', "Failed to trigger or wait for sync cycle: $_", $stepName, @{
+        $Context.EventSink.WriteEvent('IdLE.Step.DirectorySync.Failed', "Failed to trigger or wait for sync cycle: $_", $stepName, @{
                 Error = $_.Exception.Message
-            })
+            }, 'Error')
         throw
     }
 }
