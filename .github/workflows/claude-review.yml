@@ -90,6 +90,7 @@ jobs:
           # Passed via env, never interpolated into the script: the content is model-generated.
           REVIEW_OUTCOME: ${{ steps.review.outcome }}
           STRUCTURED_OUTPUT: ${{ steps.review.outputs.structured_output }}
+          EXECUTION_FILE: ${{ steps.review.outputs.execution_file }}
         run: |
           verdict=""
           reason=""
@@ -119,13 +120,29 @@ jobs:
               ;;
             *)
               # Fail-open: a technical failure of the review must not block merges, but must stay visible.
+              # The action hides Claude's output (show_full_output: false), so an API/auth error never reaches
+              # the log. Surface only the final result message, not the tool results that could carry secrets.
+              error_detail=""
+              if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
+                error_detail=$(jq -r '[.[] | select(.type == "result")] | last
+                  | select(.is_error == true)
+                  | "subtype=\(.subtype), turns=\(.num_turns): \(.result // (.errors // [] | join("; ")) // "")"' \
+                  "$EXECUTION_FILE" 2>/dev/null | tr '\r\n' '  ' | head -c 1000 || true)
+              fi
               {
                 echo "### :warning: Claude review did not complete"
                 echo
                 echo "Review step outcome: \`$REVIEW_OUTCOME\`. No valid verdict was produced, so the gate passes (fail-open)."
                 echo "Check the \"Run Claude review\" step log (authentication, turn limit, timeout, or the action skipped"
                 echo "itself because this PR changes the review workflow)."
+                if [ -n "$error_detail" ]; then
+                  echo
+                  echo "Claude Code error: \`$error_detail\`"
+                fi
               } >> "$GITHUB_STEP_SUMMARY"
+              if [ -n "$error_detail" ]; then
+                echo "::warning title=Claude review error::$error_detail"
+              fi
               echo "::warning title=Claude review::Claude review did not complete: no verdict produced (step outcome: $REVIEW_OUTCOME). Gate passes (fail-open)."
               ;;
           esac
