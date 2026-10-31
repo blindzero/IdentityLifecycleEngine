@@ -123,8 +123,9 @@ jobs:
                 echo "### :warning: Claude review did not complete"
                 echo
                 echo "Review step outcome: \`$REVIEW_OUTCOME\`. No valid verdict was produced, so the gate passes (fail-open)."
-                echo "Check the \"Run Claude review\" step log (authentication, turn limit, timeout)."
+                echo "Check the \"Run Claude review\" step log (authentication, turn limit, timeout, or the action skipped"
+                echo "itself because this PR changes the review workflow)."
               } >> "$GITHUB_STEP_SUMMARY"
-              echo "::warning title=Claude review::Claude review did not complete (outcome: $REVIEW_OUTCOME). Gate passes (fail-open)."
+              echo "::warning title=Claude review::Claude review did not complete: no verdict produced (step outcome: $REVIEW_OUTCOME). Gate passes (fail-open)."
               ;;
           esac
