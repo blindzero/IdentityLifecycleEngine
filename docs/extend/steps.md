@@ -158,6 +158,7 @@ Step type identifiers follow the namespace rules (owner first, then product):
 
 - `IdLE.*` is reserved. Only modules shipped in the loaded `IdLE` bundle (and loaded from its folders) may
   define `IdLE.*` step types; anywhere else they are rejected with `ReservedNamespace`.
+- First-party step types that do not match `IdLE.Step.<Name>` or `IdLE.Step.<Area>.<Name>` are rejected with `InvalidFirstPartyStepType`.
 - Extension step types that do not match `<Owner>.IdLE.Step.<...>` are rejected with `InvalidExtensionNamespace`.
 - The rules apply to step pack catalogs, `Providers.StepMetadata` and `Providers.StepRegistry`.
 - Name extension modules `<Owner>.IdLE.<Area>` (e.g. `Contoso.IdLE.Hr`); `IdLE.*` module names are reserved for the

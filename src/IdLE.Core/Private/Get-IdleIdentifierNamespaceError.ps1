@@ -8,7 +8,7 @@ function Get-IdleIdentifierNamespaceError {
     - StepType: 'IdLE.*' only from first-party modules; extensions use '<Owner>.IdLE.Step.<...>'.
     - Capability: 'IdLE.*' only if defined by IdLE (or a deprecated alias); extensions use '<Owner>.IdLE.<Domain>.<Verb>'.
 
-    Messages start with a stable error code (ReservedNamespace, InvalidExtensionNamespace, UnknownCapability).
+    Messages start with a stable error code (ReservedNamespace, InvalidExtensionNamespace, InvalidFirstPartyStepType, UnknownCapability).
 
     .PARAMETER Kind
     Identifier kind: StepType or Capability.
@@ -51,6 +51,10 @@ function Get-IdleIdentifierNamespaceError {
         }
 
         if ($FirstParty) {
+            if ($Identifier -notmatch $kindRules.FirstPartyPattern) {
+                return "InvalidFirstPartyStepType: Step type '$Identifier' must follow 'IdLE.Step.<Name>' or 'IdLE.Step.<Area>.<Name>'."
+            }
+
             return $null
         }
 

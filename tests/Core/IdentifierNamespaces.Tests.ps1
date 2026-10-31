@@ -40,6 +40,7 @@ Describe 'Identifier namespaces' {
     Context 'Rules (Get-IdleIdentifierNamespaceError)' {
         It '<Kind> <Identifier> (FirstParty: <FirstParty>) -> <Expected>' -ForEach @(
             @{ Kind = 'StepType'; Identifier = 'IdLE.Step.EmitEvent'; FirstParty = $true; Expected = $null }
+            @{ Kind = 'StepType'; Identifier = 'IdLE.Foo.Bar'; FirstParty = $true; Expected = 'InvalidFirstPartyStepType' }
             @{ Kind = 'StepType'; Identifier = 'IdLE.Step.Foo'; FirstParty = $false; Expected = 'ReservedNamespace' }
             @{ Kind = 'StepType'; Identifier = 'idle.step.foo'; FirstParty = $false; Expected = 'ReservedNamespace' }
             @{ Kind = 'StepType'; Identifier = 'Contoso.IdLE.Step.Hr.SyncManager'; FirstParty = $false; Expected = $null }
