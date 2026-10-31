@@ -152,11 +152,12 @@ function New-IdleEntraConnectDirectorySyncProvider {
         try {
             $remoteSession = $this.NewRemoteSession($ComputerName, $AuthSession)
 
-            $this.InvokeRemoteCommand($remoteSession, {
+            $syncScript = {
                 param([string] $RemotePolicyType)
                 Import-Module -Name ADSync -ErrorAction Stop
                 Start-ADSyncSyncCycle -PolicyType $RemotePolicyType -ErrorAction Stop
-            }, @($PolicyType)) | Out-Null
+            }
+            $this.InvokeRemoteCommand($remoteSession, $syncScript, @($PolicyType)) | Out-Null
 
             return [pscustomobject]@{
                 Started = $true
@@ -220,10 +221,11 @@ function New-IdleEntraConnectDirectorySyncProvider {
         try {
             $remoteSession = $this.NewRemoteSession($ComputerName, $AuthSession)
 
-            $scheduler = $this.InvokeRemoteCommand($remoteSession, {
+            $schedulerScript = {
                 Import-Module -Name ADSync -ErrorAction Stop
                 Get-ADSyncScheduler -ErrorAction Stop
-            }, @())
+            }
+            $scheduler = $this.InvokeRemoteCommand($remoteSession, $schedulerScript, @())
 
             # Determine if sync is in progress
             # Get-ADSyncScheduler returns an object with SyncCycleInProgress property
