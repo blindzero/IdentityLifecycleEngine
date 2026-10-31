@@ -71,7 +71,7 @@ Describe 'IdLE Module Bootstrap for Repo/Zip Layouts' {
             # IdLE nests all sibling modules, so the layout must contain the complete bundle.
             $modules = @('IdLE') + @(
                 (Import-PowerShellDataFile -Path $script:IdleManifest).NestedModules |
-                    ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_) }
+                    ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension(($_ -replace '\\', '/')) }
             )
             $layout = New-IdleTestModuleLayout -DestinationRoot $moduleRoot -Modules $modules
 

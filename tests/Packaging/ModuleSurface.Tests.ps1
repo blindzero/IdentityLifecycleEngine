@@ -205,8 +205,10 @@ Describe 'Module manifests and public surface' {
             $bundled.Count | Should -Be 9
 
             foreach ($entry in $bundled) {
-                $name = [System.IO.Path]::GetFileNameWithoutExtension($entry)
-                $expectedBase = Split-Path -Path ([System.IO.Path]::GetFullPath((Join-Path -Path $idleBase -ChildPath $entry))) -Parent
+                # Manifest entries use '\'; normalize so the path also resolves on Linux/macOS.
+                $relative = $entry -replace '\\', '/'
+                $name = [System.IO.Path]::GetFileNameWithoutExtension($relative)
+                $expectedBase = Split-Path -Path ([System.IO.Path]::GetFullPath((Join-Path -Path $idleBase -ChildPath $relative))) -Parent
 
                 $module = Get-Module -All -Name $name | Select-Object -First 1
                 $module | Should -Not -BeNullOrEmpty -Because "$name is part of the IdLE bundle"

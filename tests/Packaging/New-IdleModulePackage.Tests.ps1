@@ -9,7 +9,7 @@ BeforeAll {
 
     $script:BundledNames = @(
         (Import-PowerShellDataFile -Path $script:SourceManifest).NestedModules |
-            ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_) }
+            ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension(($_ -replace '\\', '/')) }
     )
 
     $script:PackageRoot = Join-Path -Path $TestDrive -ChildPath 'IdLE'
