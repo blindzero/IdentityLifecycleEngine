@@ -64,17 +64,26 @@ function Format-EventRow {
     param([Parameter(Mandatory)][object]$EventRecord)
 
     $icons = @{
-        RunStarted    = '🚀'
-        RunCompleted  = '🏁'
-        StepStarted   = '▶️'
-        StepCompleted = '✅'
-        StepSkipped   = '⏭️'
-        StepFailed    = '❌'
-        Custom        = '📝'
-        Debug         = '🔎'
+        'IdLE.Run.Started'            = '🚀'
+        'IdLE.Run.Completed'          = '🏁'
+        'IdLE.Step.Started'           = '▶️'
+        'IdLE.Step.Completed'         = '✅'
+        'IdLE.Step.NotApplicable'     = '⏭️'
+        'IdLE.Step.EmitEvent.Emitted' = '📝'
     }
 
-    $icon = if ($icons.ContainsKey($EventRecord.Type)) { $icons[$EventRecord.Type] } else { '•' }
+    $icon = if ($icons.ContainsKey($EventRecord.Type)) {
+        $icons[$EventRecord.Type]
+    }
+    elseif ($EventRecord.Level -eq 'Error') {
+        '❌'
+    }
+    elseif ($EventRecord.Level -eq 'Warning') {
+        '⚠️'
+    }
+    else {
+        '•'
+    }
 
     $time = ([DateTime]$EventRecord.TimestampUtc).ToLocalTime().ToString('HH:mm:ss.fff')
     $step = if ([string]::IsNullOrWhiteSpace($EventRecord.StepName)) { '-' } else { [string]$EventRecord.StepName }
