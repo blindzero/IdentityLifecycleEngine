@@ -78,8 +78,8 @@ function New-IdleEntraIDAdapter {
                     # HttpResponseHeaders (PowerShell 7 / HttpClient) does not support
                     # indexer-style access. Use GetValues() with a safety catch for the
                     # case where the header is absent (GetValues throws in that case).
-                    try { $requestId  = $_.Exception.Response.Headers.GetValues('request-id')   | Select-Object -First 1 } catch { }
-                    try { $retryAfter = $_.Exception.Response.Headers.GetValues('Retry-After')  | Select-Object -First 1 } catch { }
+                    try { $requestId = $_.Exception.Response.Headers.GetValues('request-id') | Select-Object -First 1 } catch { $requestId = $null }
+                    try { $retryAfter = $_.Exception.Response.Headers.GetValues('Retry-After') | Select-Object -First 1 } catch { $retryAfter = $null }
                 }
             }
 
