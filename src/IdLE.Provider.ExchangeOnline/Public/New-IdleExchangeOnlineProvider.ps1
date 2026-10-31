@@ -41,7 +41,6 @@ function New-IdleExchangeOnlineProvider {
     # Basic usage with delegated auth
     # Host establishes connection first
     Connect-ExchangeOnline -UserPrincipalName admin@contoso.com
-
     $provider = New-IdleExchangeOnlineProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         ExchangeOnline = $provider
@@ -51,7 +50,6 @@ function New-IdleExchangeOnlineProvider {
     # Certificate-based app-only auth (Windows only)
     # Host establishes connection first
     Connect-ExchangeOnline -CertificateThumbprint $thumbprint -AppId $appId -Organization $tenantId
-
     $provider = New-IdleExchangeOnlineProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         ExchangeOnline = $provider

@@ -33,7 +33,7 @@ string when writing a file.
 
 ### EXAMPLE 1
 ```
-$plan = New-IdlePlan -Request $request -Workflow $workflow -StepRegistry $registry
+$plan = New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $request -Providers $providers
 $plan | Export-IdlePlan
 ```
 
@@ -41,7 +41,7 @@ Exports the plan and returns the JSON string.
 
 ### EXAMPLE 2
 ```
-New-IdlePlan -Request $request -Workflow $workflow -StepRegistry $registry |
+New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $request -Providers $providers |
     Export-IdlePlan -Path ./artifacts/plan.json
 ```
 
@@ -49,7 +49,7 @@ Exports the plan and writes the JSON to a file.
 
 ### EXAMPLE 3
 ```
-New-IdlePlan -Request $request -Workflow $workflow -StepRegistry $registry |
+New-IdlePlan -WorkflowPath ./joiner.psd1 -Request $request -Providers $providers |
     Export-IdlePlan -Path ./artifacts/plan.json -PassThru
 ```
 

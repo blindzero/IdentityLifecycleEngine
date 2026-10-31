@@ -69,18 +69,15 @@ function New-IdleADIdentityProvider {
     # Multi-role scenario with New-IdleAuthSessionBroker (recommended)
     $tier0Credential = Get-Credential -Message "Enter Tier0 admin credentials"
     $adminCredential = Get-Credential -Message "Enter regular admin credentials"
-
     $authSessionBroker = New-IdleAuthSessionBroker -SessionMap @{
         @{ Role = 'Tier0' } = $tier0Credential
         @{ Role = 'Admin' } = $adminCredential
     } -DefaultCredential $adminCredential
-
     $provider = New-IdleADIdentityProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = $provider
         AuthSessionBroker = $authSessionBroker
     }
-
     # Workflow steps can specify different auth contexts:
     # With.AuthSessionName = 'ActiveDirectory'
     # With.AuthSessionOptions = @{ Role = 'Tier0' }
@@ -95,7 +92,6 @@ function New-IdleADIdentityProvider {
         }
         return Get-SecretFromVault -Name 'AD-Admin'
     }
-
     $provider = New-IdleADIdentityProvider
     $plan = New-IdlePlan -WorkflowPath './workflow.psd1' -Request $request -Providers @{
         Identity = $provider
