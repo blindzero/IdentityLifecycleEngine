@@ -70,6 +70,38 @@ If the precondition evaluates to false:
 For the complete DSL reference, see: [Conditions → Condition DSL](./conditions.md)
 :::
 
+Preconditions resolve paths against `Request.*`, `Plan.*` and `State.*`.
+
+---
+
+## State of earlier steps
+
+Steps such as `IdLE.Step.Mailbox.GetInfo` publish values for later steps (see the **Outputs (State.\*)** table
+on the step's reference page). A precondition reads them as `State.<StepName>.<Key>`:
+
+```powershell
+@{
+  Name = 'GetMailbox'
+  Type = 'IdLE.Step.Mailbox.GetInfo'
+  With = @{ IdentityKey = '{{Request.Intent.UserPrincipalName}}' }
+}
+@{
+  Name                = 'ConvertToShared'
+  Type                = 'IdLE.Step.Mailbox.EnsureType'
+  Precondition        = @{ Equals = @{ Path = 'State.GetMailbox.Mailbox.Type'; Value = 'User' } }
+  OnPreconditionFalse = 'Continue'
+  With                = @{ IdentityKey = '{{Request.Intent.UserPrincipalName}}'; MailboxType = 'Shared' }
+}
+```
+
+- The producing step must run before the step (planning fails otherwise), and its `Name` must be an identifier
+  (`GetMailbox`, not `Get mailbox`).
+- If the producing step did not run (e.g. `NotApplicable`), its State paths resolve to `$null`. Use `Exists` to
+  check that the producer ran: `@{ Exists = 'State.GetMailbox.Mailbox' }`.
+- `Condition` cannot use `State.*`: conditions are evaluated at planning time, before any step has run.
+
+Details: [Steps → Step State](../../extend/steps.md#step-state).
+
 ---
 
 ## Schema

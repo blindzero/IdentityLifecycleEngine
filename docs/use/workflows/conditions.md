@@ -290,6 +290,8 @@ This follows PowerShell's native member-access enumeration behavior.
 - Each node may contain exactly one operator or group
 - Unknown keys cause planning-time errors
 - Missing or empty `Path` causes validation errors
+- `State.*` paths are rejected (`StateReferenceNotAllowed`): no step has run at planning time. Use a
+  [Precondition](./preconditions.md#state-of-earlier-steps) to act on values of earlier steps
 
 ---
 

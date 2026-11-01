@@ -79,6 +79,10 @@ IdLE applies **secure defaults** to reduce accidental code execution:
 - Step registry handlers must be function names (strings); ScriptBlock handlers are rejected.
 - Event streaming uses an object-based contract (`WriteEvent(event)`); ScriptBlock event sinks are rejected.
 - AuthSessionBroker objects should not contain ScriptBlock properties; use ScriptMethods or direct function calls instead.
+- Step `State` (values later steps can read) must match the step's `StateSchema` and is rejected if it contains
+  ScriptBlocks, `PSCredential` or `SecureString`. `With` templates that read `State` come from the workflow
+  definition only; resolved request values are never scanned for templates again
+  (see [Step State](../extend/steps.md#step-state)).
 
 ## Redaction at output boundaries
 

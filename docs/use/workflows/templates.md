@@ -5,7 +5,7 @@ sidebar_label: Template Substitution
 
 # Template Substitution
 
-Template substitution allows you to reference values from the **planning context** inside step configuration (`With`) values during planning. Conditions and Preconditions use the condition DSL and path resolution and do **not** support `{{...}}` templates.
+Template substitution allows you to reference values from the **planning context** inside step configuration (`With`) values during planning, and values published by earlier steps (`State.*`) right before a step runs. Conditions and Preconditions use the condition DSL and path resolution and do **not** support `{{...}}` templates.
 
 Templates are **data-only** and safe.  
 No ScriptBlocks or dynamic PowerShell expressions are supported.
@@ -14,7 +14,7 @@ No ScriptBlocks or dynamic PowerShell expressions are supported.
 
 ## What is Template Substitution?
 
-Template substitution resolves values from: `Request.*`
+Template substitution resolves values from: `Request.*` and `State.<StepName>.*`
 
 It replaces template placeholders with actual values before execution.
 
@@ -46,6 +46,32 @@ Templates can reference:
 | `Request.LifecycleEvent` | Lifecycle event type (e.g. `Joiner`) |
 | `Request.CorrelationId` | Stable correlation identifier |
 | `Request.Actor` | Originator of the request |
+| `State.<StepName>.*` | State published by an earlier step (step `With` only, see below) |
+
+---
+
+## State of earlier steps
+
+`{{State.<StepName>.<Key>}}` reads a value that an earlier step published (see the **Outputs (State.\*)** table on
+the step's reference page):
+
+```powershell
+@{
+  Name = 'NotifyServiceDesk'
+  Type = 'IdLE.Step.EmitEvent'
+  With = @{
+    Message = 'Offboarded {{Request.Intent.UserPrincipalName}} ({{State.GetMailbox.Mailbox.PrimarySmtpAddress}}).'
+  }
+}
+```
+
+- A string with a `State` placeholder is resolved **right before the step runs**, not during planning. The plan
+  (and the plan export) shows the template as written. All other strings are resolved during planning.
+- Planning checks that the producing step runs earlier and declares the key, and that the `Request` placeholders of
+  the string resolve. The `With` type check of the value runs after the resolution.
+- If the producing step did not run or did not return the value, the step fails (`StateReferenceUnresolved`).
+  Guard it with a [Precondition](./preconditions.md#state-of-earlier-steps) if the producer is optional.
+- `State` is not available in `Provider`, `AuthSessionName`, `AuthSessionOptions` and in Context Resolvers.
 
 ---
 
