@@ -652,7 +652,7 @@ function New-IdleStepDetailPageContent {
     if ($Model.StateKeys.Count -gt 0) {
         [void]$sb.AppendLine('## Outputs (State.*)')
         [void]$sb.AppendLine()
-        [void]$sb.AppendLine('Published under ``State.<StepName>.<Key>`` for later steps (``Precondition`` and ``With`` templates); validated against the step''s ``StateSchema`` (see [Step State](../../extend/steps.md#step-state)).')
+        [void]$sb.AppendLine('Published under `State.<StepName>.<Key>` for later steps (`Precondition` and `With` templates); validated against the step''s `StateSchema` (see [Step State](../../extend/steps.md#step-state)).')
         [void]$sb.AppendLine()
         [void]$sb.AppendLine('| Key | Type | Always set | Notes |')
         [void]$sb.AppendLine('| --- | --- | --- | --- |')

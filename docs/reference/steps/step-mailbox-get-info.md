@@ -39,7 +39,7 @@ Validated at plan time against the step's ``WithSchema`` (see [Step metadata con
 
 ## Outputs (State.*)
 
-Published under ``State.<StepName>.<Key>`` for later steps (``Precondition`` and ``With`` templates); validated against the step's ``StateSchema`` (see [Step State](../../extend/steps.md#step-state)).
+Published under `State.<StepName>.<Key>` for later steps (`Precondition` and `With` templates); validated against the step's `StateSchema` (see [Step State](../../extend/steps.md#step-state)).
 
 | Key | Type | Always set | Notes |
 | --- | --- | --- | --- |

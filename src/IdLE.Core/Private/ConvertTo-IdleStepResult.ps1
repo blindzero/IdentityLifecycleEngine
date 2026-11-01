@@ -114,7 +114,8 @@ function ConvertTo-IdleStepResult {
         catch {
             throw [System.InvalidOperationException]::new("$prefix returned State that does not match its StateSchema: $($_.Exception.Message)")
         }
-        if ($null -ne $state) { $state = $validated }
+        # Defaults of optional keys are published even if the handler returned no State.
+        if ($null -ne $state -or $validated.Count -gt 0) { $state = $validated }
     }
 
     return [pscustomobject]@{

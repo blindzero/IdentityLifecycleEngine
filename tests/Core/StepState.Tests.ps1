@@ -334,6 +334,17 @@ Describe 'Step State' {
             $global:IdleStateTestConsumed['Cleanup'].Value | Should -Be 'a@contoso.com'
         }
 
+        It 'publishes StateSchema defaults when the handler returns no State' {
+            $providers = New-StateTestProviders -ProducerStateSchema @{ Keys = @{ Mailbox = @{ Type = 'String'; Default = 'none' } } }
+            $steps = "@( @{ Name = 'Produce'; Type = 'Test.IdLE.Step.Produce' }, @{ Name = 'C'; Type = 'Test.IdLE.Step.Consume'; With = @{ Value = '{{State.Produce.Mailbox}}' } } )"
+            $plan = New-StateTestPlan -Steps $steps -Providers $providers
+            $result = Invoke-IdlePlan -Plan $plan -Providers $providers
+
+            $result.Status | Should -Be 'Completed'
+            $result.Steps[0].State.Mailbox | Should -Be 'none'
+            $global:IdleStateTestConsumed['C'].Value | Should -Be 'none'
+        }
+
         It 'publishes no State for a failed producer' {
             # Undeclared key 'Other': the producer fails with InvalidStepHandlerResult.
             $steps = "@( @{ Name = 'Produce'; Type = 'Test.IdLE.Step.Produce'; With = @{ Publish = @{ Mailbox = 'x'; Other = 1 } } } )"
