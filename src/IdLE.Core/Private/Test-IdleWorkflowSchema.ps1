@@ -286,6 +286,16 @@ function Test-IdleWorkflowSchema {
                         if ($with.ContainsKey('AuthSessionOptions') -and $null -ne $with.AuthSessionOptions -and $with.AuthSessionOptions -isnot [hashtable]) {
                             $errors.Add("'$resolverPath.With.AuthSessionOptions' must be a hashtable.")
                         }
+
+                        # 'With.Kind' filters entitlement listings only and must be a non-empty string if present.
+                        if ($with.ContainsKey('Kind') -and $null -ne $with.Kind) {
+                            if ([string]$resolver.Capability -ne 'IdLE.Entitlement.List') {
+                                $errors.Add("'$resolverPath.With.Kind' is only supported for capability 'IdLE.Entitlement.List'.")
+                            }
+                            elseif ($with.Kind -isnot [string] -or [string]::IsNullOrWhiteSpace($with.Kind)) {
+                                $errors.Add("'$resolverPath.With.Kind' must be a non-empty string.")
+                            }
+                        }
                     }
                 }
 

@@ -1236,6 +1236,34 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $wfPath = New-KindResolverWorkflow -ResolverWith @(@{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = 5 })
 
             { New-IdlePlan -WorkflowPath $wfPath -Request (New-IdleTestRequest -LifecycleEvent 'Joiner') -Providers @{ Identity = $provider } } |
+                Should -Throw -ExpectedMessage "*'ContextResolvers``[0``].With.Kind' must be a non-empty string*"
+        }
+
+        It 'rejects With.Kind for capabilities other than IdLE.Entitlement.List' {
+            $wfPath = Join-Path $TestDrive 'kind-identity-read.psd1'
+            Set-Content -Path $wfPath -Encoding utf8 -Value @'
+@{
+    Name             = 'Kind on Identity.Read'
+    LifecycleEvent   = 'Joiner'
+    ContextResolvers = @(
+        @{ Capability = 'IdLE.Identity.Read'; With = @{ IdentityKey = 'user1'; Kind = 'Group' } }
+    )
+    Steps            = @(
+        @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
+    )
+}
+'@
+
+            { Test-IdleWorkflow -WorkflowPath $wfPath } |
+                Should -Throw -ExpectedMessage "*'ContextResolvers``[0``].With.Kind' is only supported for capability 'IdLE.Entitlement.List'*"
+        }
+
+        It 'rejects a template-resolved With.Kind that is not a string at planning time' {
+            $provider = New-KindListProvider -WithKindParameter
+            $wfPath = New-KindResolverWorkflow -ResolverWith @(@{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = '{{Request.Intent.KindNumber}}' })
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ KindNumber = 5 }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ Identity = $provider } } |
                 Should -Throw -ExpectedMessage '*With.Kind must be a non-empty string*'
         }
 
