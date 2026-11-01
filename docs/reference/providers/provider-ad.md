@@ -166,7 +166,7 @@ $provider = New-IdleADIdentityProvider -AllowDelete
 
 - **Identity addressing:** GUID (ObjectGuid), UPN, or sAMAccountName (fallback)
 - **Safety defaults:** deletion is disabled unless you pass `-AllowDelete`
-- **Entitlements:** groups only (`Kind='Group'`)
+- **Entitlements:** groups only (`Kind='Group'`); entitlement operations with any other Kind (e.g. `AdministrativeUnit`) fail instead of being treated as a group
 
 ## Attribute handling
 

@@ -160,10 +160,12 @@ Each resolver writes to a **provider/auth-scoped source-of-truth path** under `R
 Request.Context.Providers.<ProviderAlias>.<AuthSessionKey>.<CapabilitySubPath>
 ```
 
-| Capability | CapabilitySubPath | Required `With` keys |
-|---|---|---|
-| `IdLE.Entitlement.List` | `Identity.Entitlements` | `IdentityKey` (string) |
-| `IdLE.Identity.Read` | `Identity.Profile` | `IdentityKey` (string) |
+| Capability | CapabilitySubPath | Required `With` keys | Optional `With` keys |
+|---|---|---|---|
+| `IdLE.Entitlement.List` | `Identity.Entitlements` | `IdentityKey` (string) | `Kind` (string): list only this entitlement Kind |
+| `IdLE.Identity.Read` | `Identity.Profile` | `IdentityKey` (string) | |
+
+Only one resolver per capability, provider and auth session is allowed.
 
 Where `<AuthSessionKey>` is `Default` when `With.AuthSessionName` is not specified.
 

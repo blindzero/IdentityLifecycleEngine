@@ -94,7 +94,7 @@ Each element is normalized via `ConvertToEntitlement`:
 | Property | Type | Notes |
 | --- | --- | --- |
 | `PSTypeName` | `string` | Always `IdLE.Entitlement`. |
-| `Kind` | `string` | Required; non-empty. |
+| `Kind` | `string` | Required; non-empty. Any Kind is accepted (test provider). |
 | `Id` | `string` | Required; non-empty. |
 
 Notes:

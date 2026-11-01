@@ -28,9 +28,15 @@ Use IdLE.Step.PruneEntitlementsEnsureKeep instead when you also need to guarante
 explicit Keep entries are present after the prune (e.g., a leaver-retention group must be granted
 if it is missing).
 
+With.Kind is the prune scope: only current entitlements of this Kind are considered for removal.
+The provider rejects a Kind it does not support (e.g., 'AdministrativeUnit' on AD) before anything
+is removed. To prune several Kinds, use one step per Kind.
+
 How the keep-set is built:
 
-- With.Keep      — explicit entitlement references (kept AND matched case-insensitively by Id)
+- With.Keep      — explicit entitlement references (kept AND matched case-insensitively by Id).
+                   Entries inherit With.Kind; an entry may repeat Kind, but a different Kind fails
+                   the step before anything is removed.
 
 - With.KeepPattern — wildcard strings (-like semantics); any current entitlement whose Id matches
                     is kept. Patterns are NEVER granted, only protected from removal.
@@ -109,7 +115,7 @@ Validated at plan time against the step's ``WithSchema`` (see [Step metadata con
         Kind            = 'Group'
         Keep            = @(
             # Kept if currently a member — but NOT granted if missing.
-            @{ Kind = 'Group'; Id = 'CN=All-Users,OU=Groups,DC=contoso,DC=com' }
+            @{ Id = 'CN=All-Users,OU=Groups,DC=contoso,DC=com' }
         )
         KeepPattern     = @('CN=LEAVER-*,OU=Groups,DC=contoso,DC=com')
         AuthSessionName = 'Directory'

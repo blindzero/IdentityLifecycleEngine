@@ -26,6 +26,7 @@ It requires the ActiveDirectory PowerShell module (RSAT) and runs on Windows onl
 
 The provider supports common identity operations (Create, Read, Disable, Enable, Move, Delete)
 and group entitlement management (List, Grant, Revoke).
+The only supported entitlement Kind is 'Group'; any other Kind is rejected.
 
 Identity addressing supports:
 - GUID (ObjectGuid) - 36 hex characters with hyphens (D-format) or 32 hex characters (N-format)
