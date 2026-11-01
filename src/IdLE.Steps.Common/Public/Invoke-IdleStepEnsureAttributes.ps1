@@ -5,7 +5,7 @@ function Invoke-IdleStepEnsureAttributes {
 
     .DESCRIPTION
     This is a provider-agnostic step that can ensure multiple attributes in a single step.
-    The host must supply a provider instance via Context.Providers[<ProviderAlias>].
+    The engine passes the provider resolved from With.Provider (default 'Identity') as -Provider.
 
     Provider interaction strategy:
     1. If the provider implements EnsureAttributes(IdentityKey, AttributesHashtable), it is called once (fast path).
@@ -13,165 +13,86 @@ function Invoke-IdleStepEnsureAttributes {
 
     The step is idempotent by design: it converges state to the desired values.
 
-    Authentication:
-    - If With.AuthSessionName is present, the step acquires an auth session via
-      Context.AcquireAuthSession(Name, Options) and passes it to the provider method
-      if the provider supports an AuthSession parameter.
-    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-      session selection (e.g., @{ Role = 'Tier0' }).
-    - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+    Authentication is handled by the engine (With.AuthSessionName, With.AuthSessionOptions).
 
-    .PARAMETER Context
-    Execution context created by IdLE.Core.
+    .PARAMETER With
+    Validated With hashtable: IdentityKey, Attributes (non-empty hashtable of attribute name -> value).
 
-    .PARAMETER Step
-    Normalized step object from the plan. Must contain a 'With' hashtable.
+    .PARAMETER Provider
+    Provider handle created by the engine (see docs/extend/steps.md).
 
     .OUTPUTS
-    PSCustomObject (PSTypeName: IdLE.StepResult)
+    System.Collections.Hashtable (Changed, Data.Attributes)
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Context,
+        [hashtable] $With,
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Step
+        [object] $Provider
     )
 
-    $with = $null
-    if ($Step.PSObject.Properties.Name -contains 'With') {
-        $with = $Step.With
-    }
-    
-    if ($null -eq $with -or -not ($with -is [hashtable])) {
-        throw "EnsureAttributes requires 'With' to be a hashtable."
-    }
-
-    if (-not $with.ContainsKey('IdentityKey')) {
-        throw "EnsureAttributes requires With.IdentityKey."
-    }
-
-    if (-not $with.ContainsKey('Attributes')) {
-        throw "EnsureAttributes requires With.Attributes."
-    }
-
-    $attributes = $with.Attributes
-    if ($null -eq $attributes -or -not ($attributes -is [hashtable])) {
-        throw "EnsureAttributes requires With.Attributes to be a hashtable."
-    }
-
+    $identityKey = [string]$With.IdentityKey
+    $attributes = $With.Attributes
     if ($attributes.Count -eq 0) {
         throw "EnsureAttributes requires With.Attributes to contain at least one attribute."
     }
 
-    $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'Identity' }
-
-    if (-not ($Context.PSObject.Properties.Name -contains 'Providers')) {
-        throw "Context does not contain a Providers hashtable."
-    }
-    if ($null -eq $Context.Providers -or -not ($Context.Providers -is [hashtable])) {
-        throw "Context.Providers must be a hashtable."
-    }
-    if (-not $Context.Providers.ContainsKey($providerAlias)) {
-        throw "Provider '$providerAlias' was not supplied by the host."
-    }
-
-    $provider = $Context.Providers[$providerAlias]
-    
-    # Check if provider has EnsureAttributes method (fast path)
-    $hasEnsureAttributes = $null -ne $provider.PSObject.Methods['EnsureAttributes']
-    
     $anyChanged = $false
     $attributeResults = @()
-    
-    if ($hasEnsureAttributes) {
-        # Fast path: call EnsureAttributes once
-        $result = Invoke-IdleProviderMethod `
-            -Context $Context `
-            -With $with `
-            -ProviderAlias $providerAlias `
-            -MethodName 'EnsureAttributes' `
-            -MethodArguments @([string]$with.IdentityKey, $attributes)
-        
+
+    if ($Provider.HasMethod('EnsureAttributes')) {
+        # Fast path: one provider call for all attributes.
+        $result = $Provider.Invoke('EnsureAttributes', @($identityKey, $attributes))
+
         if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
             $anyChanged = [bool]$result.Changed
         }
-        
-        # If provider returns per-attribute details, use them
+
         if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Attributes')) {
             $attributeResults = $result.Attributes
-        } else {
-            # Provider doesn't return per-attribute details, so we can't determine individual attribute changes
-            # Report overall status but mark individual attribute change status as unknown
+        }
+        else {
+            # Without per-attribute details from the provider, report the overall result per attribute.
             foreach ($key in $attributes.Keys) {
                 $attributeResults += @{
                     Name    = $key
-                    Changed = $anyChanged  # Overall result - individual changes unknown without provider details
+                    Changed = $anyChanged
                     Error   = $null
                 }
             }
         }
     }
     else {
-        # Fallback: call EnsureAttribute for each attribute
         foreach ($key in $attributes.Keys) {
             $attrName = [string]$key
-            $attrValue = $attributes[$key]
-            
-            try {
-                # Explicitly construct the arguments array to preserve $null values.
-                # Using @() with a $null element can drop the null in some PowerShell contexts;
-                # a typed object array guarantees the null is included as a positional argument.
-                $callArgs = [object[]]::new(2)
-                $callArgs[0] = [string]$with.IdentityKey
-                $callArgs[1] = $attrName
-                # Append value as third element preserving $null
-                $callArgsWithValue = [object[]]::new(3)
-                $callArgsWithValue[0] = $callArgs[0]
-                $callArgsWithValue[1] = $callArgs[1]
-                $callArgsWithValue[2] = $attrValue
 
-                $result = Invoke-IdleProviderMethod `
-                    -Context $Context `
-                    -With $with `
-                    -ProviderAlias $providerAlias `
-                    -MethodName 'EnsureAttribute' `
-                    -MethodArguments $callArgsWithValue
-                
-                $changed = $false
-                if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
-                    $changed = [bool]$result.Changed
-                }
-                
-                if ($changed) {
-                    $anyChanged = $true
-                }
-                
-                $attributeResults += @{
-                    Name    = $attrName
-                    Changed = $changed
-                    Error   = $null
-                }
+            # A typed object array keeps a $null value as positional argument ("clear attribute").
+            $callArguments = [object[]]::new(3)
+            $callArguments[0] = $identityKey
+            $callArguments[1] = $attrName
+            $callArguments[2] = $attributes[$key]
+
+            $result = $Provider.Invoke('EnsureAttribute', $callArguments)
+
+            $changed = $null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed') -and [bool]$result.Changed
+            if ($changed) {
+                $anyChanged = $true
             }
-            catch {
 
-                throw
+            $attributeResults += @{
+                Name    = $attrName
+                Changed = $changed
+                Error   = $null
             }
         }
     }
 
-    return [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = [string]$Step.Name
-        Type       = [string]$Step.Type
-        Status     = 'Completed'
-        Changed    = $anyChanged
-        Error      = $null
-        Data       = @{
-            Attributes = $attributeResults
-        }
+    return @{
+        Changed = $anyChanged
+        Data    = @{ Attributes = $attributeResults }
     }
 }

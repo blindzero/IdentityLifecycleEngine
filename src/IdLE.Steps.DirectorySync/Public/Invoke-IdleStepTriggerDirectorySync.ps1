@@ -4,37 +4,37 @@ function Invoke-IdleStepTriggerDirectorySync {
     Triggers a directory sync cycle and optionally waits for completion.
 
     .DESCRIPTION
-    This is a provider-agnostic step. The host must supply a provider instance via
-    Context.Providers[<ProviderAlias>] that implements:
+    This is a provider-agnostic step. The engine passes the provider resolved from With.Provider
+    (default 'DirectorySync') as -Provider. The provider implements:
     - StartSyncCycle(PolicyType, ComputerName, AuthSession)
     - GetSyncCycleState(ComputerName, AuthSession)
 
     The step is designed for remote execution and requires an elevated auth session
     provided by the host's AuthSessionBroker.
 
-    Authentication:
-    - With.AuthSessionName (optional): routing key for AuthSessionBroker
-    - With.AuthSessionOptions (optional, hashtable): forwarded to broker for session selection
-    - If AuthSessionName is omitted, the broker is asked for a default session
-    - ComputerName and PolicyType are provider-specific inputs and are validated by the selected provider
-    - ScriptBlocks in AuthSessionOptions are rejected (security boundary)
+    Authentication is handled by the engine: With.AuthSessionName (optional) and With.AuthSessionOptions
+    select the session; without AuthSessionName the broker is asked for a default session.
+    ComputerName and PolicyType are provider-specific inputs and are validated by the selected provider.
 
     .PARAMETER Context
     Execution context created by IdLE.Core.
 
-    .PARAMETER Step
-    Normalized step object from the plan. Must contain a 'With' hashtable with keys:
-    - AuthSessionName (optional, string): auth session name for broker (default session is used when omitted)
+    .PARAMETER With
+    Validated With hashtable:
     - ComputerName (optional, string): provider-specific target server input
     - PolicyType (optional, string): provider-specific policy input
-    - Provider (optional, string): provider alias, defaults to 'DirectorySync'
     - Wait (optional, bool): wait for cycle completion, defaults to $false
     - TimeoutSeconds (optional, int): wait timeout, defaults to 600
     - PollIntervalSeconds (optional, int): poll interval, defaults to 10
-    - AuthSessionOptions (optional, hashtable): forwarded to broker
+
+    .PARAMETER Provider
+    Provider handle created by the engine (see docs/extend/steps.md).
+
+    .PARAMETER Step
+    Step metadata (Name, Type); the name is used for events.
 
     .OUTPUTS
-    PSCustomObject (PSTypeName: IdLE.StepResult)
+    System.Collections.Hashtable (Changed)
 
     .EXAMPLE
     $step = @{
@@ -56,22 +56,24 @@ function Invoke-IdleStepTriggerDirectorySync {
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
+        [hashtable] $With,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [object] $Provider,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
         [object] $Step
     )
 
-    $with = $Step.With
-    if ($null -eq $with -or -not ($with -is [hashtable])) {
-        throw "TriggerDirectorySync requires 'With' to be a hashtable."
-    }
+    $policyType = if ($With.ContainsKey('PolicyType')) { [string]$With.PolicyType } else { $null }
+    $computerName = if ($With.ContainsKey('ComputerName')) { [string]$With.ComputerName } else { $null }
 
-    $policyType = if ($with.ContainsKey('PolicyType')) { [string]$with.PolicyType } else { $null }
-    $computerName = if ($with.ContainsKey('ComputerName')) { [string]$with.ComputerName } else { $null }
-
-    # Optional inputs with defaults
-    $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'DirectorySync' }
-    $wait = if ($with.ContainsKey('Wait')) { [bool]$with.Wait } else { $false }
-    $timeoutSeconds = if ($with.ContainsKey('TimeoutSeconds')) { [int]$with.TimeoutSeconds } else { 600 }
-    $pollIntervalSeconds = if ($with.ContainsKey('PollIntervalSeconds')) { [int]$with.PollIntervalSeconds } else { 10 }
+    # Defaults come from the step metadata (Wait = $false, TimeoutSeconds = 600, PollIntervalSeconds = 10).
+    $wait = [bool]$With.Wait
+    $timeoutSeconds = [int]$With.TimeoutSeconds
+    $pollIntervalSeconds = [int]$With.PollIntervalSeconds
 
     # Validate timeout and poll interval
     if ($timeoutSeconds -le 0) {
@@ -81,18 +83,7 @@ function Invoke-IdleStepTriggerDirectorySync {
         throw "TriggerDirectorySync: With.PollIntervalSeconds must be greater than 0. Got: $pollIntervalSeconds"
     }
 
-    # Validate provider exists
-    if (-not ($Context.PSObject.Properties.Name -contains 'Providers')) {
-        throw "Context does not contain a Providers hashtable."
-    }
-    if ($null -eq $Context.Providers -or -not ($Context.Providers -is [hashtable])) {
-        throw "Context.Providers must be a hashtable."
-    }
-    if (-not $Context.Providers.ContainsKey($providerAlias)) {
-        throw "Provider '$providerAlias' was not supplied by the host."
-    }
-
-    $stepName = if ($Step.PSObject.Properties.Name -contains 'Name') { [string]$Step.Name } else { 'TriggerDirectorySync' }
+    $stepName = [string]$Step.Name
 
     try {
         # Trigger sync cycle
@@ -109,12 +100,7 @@ function Invoke-IdleStepTriggerDirectorySync {
                 ComputerName = $computerName
             })
 
-        $startResult = Invoke-IdleProviderMethod `
-            -Context $Context `
-            -With $with `
-            -ProviderAlias $providerAlias `
-            -MethodName 'StartSyncCycle' `
-            -MethodArguments @($policyType, $computerName)
+        $startResult = $Provider.Invoke('StartSyncCycle', @($policyType, $computerName))
 
         $changed = $false
         if ($null -ne $startResult -and ($startResult.PSObject.Properties.Name -contains 'Started')) {
@@ -137,12 +123,7 @@ function Invoke-IdleStepTriggerDirectorySync {
 
                 if ($elapsed -ge $timeoutSeconds) {
                     # Timeout reached - fail
-                    $stateResult = Invoke-IdleProviderMethod `
-                        -Context $Context `
-                        -With $with `
-                        -ProviderAlias $providerAlias `
-                        -MethodName 'GetSyncCycleState' `
-                        -MethodArguments @($computerName)
+                    $stateResult = $Provider.Invoke('GetSyncCycleState', @($computerName))
 
                     $lastState = if ($null -ne $stateResult) { $stateResult.State } else { 'Unknown' }
 
@@ -156,12 +137,7 @@ function Invoke-IdleStepTriggerDirectorySync {
                 }
 
                 # Poll state
-                $stateResult = Invoke-IdleProviderMethod `
-                    -Context $Context `
-                    -With $with `
-                    -ProviderAlias $providerAlias `
-                    -MethodName 'GetSyncCycleState' `
-                    -MethodArguments @($computerName)
+                $stateResult = $Provider.Invoke('GetSyncCycleState', @($computerName))
 
                 $inProgress = $true
                 if ($null -ne $stateResult -and ($stateResult.PSObject.Properties.Name -contains 'InProgress')) {
@@ -197,14 +173,7 @@ function Invoke-IdleStepTriggerDirectorySync {
                 })
         }
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = $stepName
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Changed    = $changed
-            Error      = $null
-        }
+        return @{ Changed = $changed }
     }
     catch {
         $Context.EventSink.WriteEvent('IdLE.Step.DirectorySync.Failed', "Failed to trigger or wait for sync cycle: $_", $stepName, @{

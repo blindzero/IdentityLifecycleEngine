@@ -12,7 +12,7 @@ Describe 'Invoke-IdleStepEnsureEntitlement (built-in step)' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ Identity = $script:Provider }
-            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            EventSink  = (New-IdleTestEventSink)
         }
 
         $script:StepTemplate = [pscustomobject]@{
@@ -34,7 +34,7 @@ Describe 'Invoke-IdleStepEnsureEntitlement (built-in step)' {
             $step = $script:StepTemplate
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureEntitlement'
 
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -48,7 +48,7 @@ Describe 'Invoke-IdleStepEnsureEntitlement (built-in step)' {
             $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Group'; Id = 'DEMO-GROUP' })
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureEntitlement'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeFalse
@@ -62,7 +62,7 @@ Describe 'Invoke-IdleStepEnsureEntitlement (built-in step)' {
             $step.With.State = 'Absent'
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureEntitlement'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -76,12 +76,12 @@ Describe 'Invoke-IdleStepEnsureEntitlement (built-in step)' {
             $script:Context.Providers.Clear()
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureEntitlement'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
         }
 
         It 'bubbles up provider errors when the identity is unknown' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureEntitlement'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
         }
     }
 }

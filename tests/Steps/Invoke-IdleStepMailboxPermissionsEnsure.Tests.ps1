@@ -94,7 +94,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ ExchangeOnline = $script:Provider }
-            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            EventSink  = (New-IdleTestEventSink)
         }
 
         $script:Context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
@@ -118,7 +118,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
     Context 'Behavior' {
         It 'grants FullAccess and reports Changed = true' {
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -131,7 +131,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             $script:Provider.Store.FullAccess['shared@contoso.com'] = @{ 'user1@contoso.com' = $true }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $false
@@ -153,7 +153,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -174,7 +174,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $false
@@ -194,7 +194,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -215,7 +215,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -238,7 +238,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -260,7 +260,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.Permissions*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*WithKeyMissing*With.Permissions*"
         }
 
         It 'throws when IdentityKey is missing' {
@@ -276,7 +276,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*WithKeyMissing*With.IdentityKey*"
         }
 
         It 'throws when a Permissions entry is missing AssignedUser' {
@@ -293,7 +293,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires 'AssignedUser'*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*WithKeyMissing*With.Permissions[[]0[]].AssignedUser*"
         }
 
         It 'throws when a Permissions entry has an invalid Right' {
@@ -310,7 +310,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*Right must be one of*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*Right must be one of*"
         }
 
         It 'throws when a Permissions entry has an invalid Ensure value' {
@@ -327,7 +327,7 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*Ensure must be one of*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*Ensure must be one of*"
         }
 
         It 'rejects ScriptBlocks in Permissions (security boundary)' {
@@ -344,14 +344,14 @@ Describe 'Invoke-IdleStepMailboxPermissionsEnsure' {
             }
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*ScriptBlocks are not allowed*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*ScriptBlocks are not allowed*"
         }
 
         It 'throws when provider is missing' {
             $script:Context.Providers.Clear()
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxPermissionsEnsure'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
         }
     }
 }

@@ -7,20 +7,22 @@
 # Each entry maps a Step.Type to a metadata hashtable containing:
 #   Handler              - handler function exported by this module (bound to this module by the engine)
 #   RequiredCapabilities - capability identifiers the step requires from providers
-#   WithSchema           - declares the With key contract for plan-time validation:
-#     RequiredKeys         - keys that MUST be present in With
-#     OptionalKeys         - keys that MAY be present in With
+#   Provider             - (optional) the step uses one provider: @{ DefaultAlias = '<alias>' }.
+#                          The engine resolves it and adds the With keys Provider, AuthSessionName, AuthSessionOptions.
+#   WithSchema           - typed With contract validated at plan time (see docs/extend/steps.md):
+#     Keys                 - key name -> @{ Type; Required; Default; AllowedValues; AllowEmpty; Keys; Items; ... }
 #
 @{
-    # IdLE.Step.EmitEvent - writes a structured event to the event sink; no provider capabilities required.
-    # Provider/AuthSessionName/AuthSessionOptions are accepted as optional routing hints:
-    # the execution engine reads these from any step's With to resolve Request.Context.Current.*.
+    # IdLE.Step.EmitEvent - writes a structured event to the event sink; uses no provider.
     'IdLE.Step.EmitEvent'                   = @{
         Handler              = 'Invoke-IdleStepEmitEvent'
         RequiredCapabilities = @()
         WithSchema           = @{
-            RequiredKeys = @()
-            OptionalKeys = @('Message', 'Type', 'Level', 'Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                Message = @{ Type = 'String' }
+                Type    = @{ Type = 'String' }
+                Level   = @{ Type = 'String'; AllowedValues = @('Information', 'Warning', 'Error'); Default = 'Information' }
+            }
         }
     }
 
@@ -28,9 +30,12 @@
     'IdLE.Step.CreateIdentity'              = @{
         Handler              = 'Invoke-IdleStepCreateIdentity'
         RequiredCapabilities = @('IdLE.Identity.Create')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey', 'Attributes')
-            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey = @{ Type = 'String'; Required = $true }
+                Attributes  = @{ Type = 'Hashtable'; Required = $true }
+            }
         }
     }
 
@@ -38,69 +43,98 @@
     'IdLE.Step.DisableIdentity'             = @{
         Handler              = 'Invoke-IdleStepDisableIdentity'
         RequiredCapabilities = @('IdLE.Identity.Disable')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey')
-            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey = @{ Type = 'String'; Required = $true }
+            }
         }
     }
 
-    # IdLE.Step.EnableIdentity - re-enables a disabled identity via the identity provider
+    # IdLE.Step.EnableIdentity - enables a disabled identity via the identity provider
     'IdLE.Step.EnableIdentity'              = @{
         Handler              = 'Invoke-IdleStepEnableIdentity'
         RequiredCapabilities = @('IdLE.Identity.Enable')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey')
-            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey = @{ Type = 'String'; Required = $true }
+            }
         }
     }
 
-    # IdLE.Step.DeleteIdentity - permanently removes an identity via the identity provider
+    # IdLE.Step.DeleteIdentity - deletes an identity via the identity provider
     'IdLE.Step.DeleteIdentity'              = @{
         Handler              = 'Invoke-IdleStepDeleteIdentity'
         RequiredCapabilities = @('IdLE.Identity.Delete')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey')
-            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey = @{ Type = 'String'; Required = $true }
+            }
         }
     }
 
-    # IdLE.Step.MoveIdentity - moves an identity to a target container/OU
+    # IdLE.Step.MoveIdentity - moves an identity to a different container/OU
     'IdLE.Step.MoveIdentity'                = @{
         Handler              = 'Invoke-IdleStepMoveIdentity'
         RequiredCapabilities = @('IdLE.Identity.Move')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey', 'TargetContainer')
-            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey     = @{ Type = 'String'; Required = $true }
+                TargetContainer = @{ Type = 'String'; Required = $true }
+            }
         }
     }
 
-    # IdLE.Step.EnsureAttributes - idempotently sets attributes on an identity
+    # IdLE.Step.EnsureAttributes - ensures multiple identity attributes match desired values.
+    # Attributes is free-form (attribute name -> value; $null clears an attribute).
     'IdLE.Step.EnsureAttributes'            = @{
         Handler              = 'Invoke-IdleStepEnsureAttributes'
         RequiredCapabilities = @('IdLE.Identity.Attribute.Ensure')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey', 'Attributes')
-            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey = @{ Type = 'String'; Required = $true }
+                Attributes  = @{ Type = 'Hashtable'; Required = $true }
+            }
         }
     }
 
-    # IdLE.Step.EnsureEntitlement - idempotently grants or revokes a single entitlement
+    # IdLE.Step.EnsureEntitlement - ensures an entitlement assignment is present or absent
     'IdLE.Step.EnsureEntitlement'           = @{
         Handler              = 'Invoke-IdleStepEnsureEntitlement'
         RequiredCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant', 'IdLE.Entitlement.Revoke')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey', 'Entitlement', 'State')
-            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey = @{ Type = 'String'; Required = $true }
+                Entitlement = @{
+                    Type                = 'Hashtable'
+                    Required            = $true
+                    # Provider-specific entitlement properties are passed through.
+                    AllowAdditionalKeys = $true
+                    Keys                = @{
+                        Kind        = @{ Type = 'String'; Required = $true }
+                        Id          = @{ Type = 'String'; Required = $true }
+                        DisplayName = @{ Type = 'String' }
+                    }
+                }
+                State       = @{ Type = 'String'; AllowedValues = @('Present', 'Absent'); Default = 'Present' }
+            }
         }
     }
 
-    # IdLE.Step.RevokeIdentitySessions - revokes all active sessions for an identity
+    # IdLE.Step.RevokeIdentitySessions - revokes all active sign-in sessions for an identity
     'IdLE.Step.RevokeIdentitySessions'      = @{
         Handler              = 'Invoke-IdleStepRevokeIdentitySessions'
         RequiredCapabilities = @('IdLE.Identity.RevokeSessions')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey')
-            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey = @{ Type = 'String'; Required = $true }
+            }
         }
     }
 
@@ -109,20 +143,53 @@
     'IdLE.Step.PruneEntitlements'           = @{
         Handler              = 'Invoke-IdleStepPruneEntitlements'
         RequiredCapabilities = @('IdLE.Entitlement.Prune', 'IdLE.Entitlement.List', 'IdLE.Entitlement.Revoke')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey', 'Kind')
-            OptionalKeys = @('Provider', 'Keep', 'KeepPattern', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey = @{ Type = 'String'; Required = $true }
+                Kind        = @{ Type = 'String'; Required = $true }
+                Keep        = @{
+                    Type       = 'Array'
+                    AllowEmpty = $true
+                    Items      = @{
+                        Type                = 'Hashtable'
+                        AllowAdditionalKeys = $true
+                        Keys                = @{
+                            Kind        = @{ Type = 'String' }
+                            Id          = @{ Type = 'String'; Required = $true }
+                            DisplayName = @{ Type = 'String' }
+                        }
+                    }
+                }
+                KeepPattern = @{ Type = 'Array'; AllowEmpty = $true; Items = @{ Type = 'String' } }
+            }
         }
     }
 
     # IdLE.Step.PruneEntitlementsEnsureKeep - remove + ensure keep present: prune + grant-back
-    # KeepPattern is NOT in OptionalKeys because patterns cannot be granted (they are filter-only).
+    # KeepPattern is not supported because patterns cannot be granted (they are filter-only).
     'IdLE.Step.PruneEntitlementsEnsureKeep' = @{
         Handler              = 'Invoke-IdleStepPruneEntitlementsEnsureKeep'
         RequiredCapabilities = @('IdLE.Entitlement.Prune', 'IdLE.Entitlement.List', 'IdLE.Entitlement.Revoke', 'IdLE.Entitlement.Grant')
+        Provider             = @{ DefaultAlias = 'Identity' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey', 'Kind')
-            OptionalKeys = @('Provider', 'Keep', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{
+                IdentityKey = @{ Type = 'String'; Required = $true }
+                Kind        = @{ Type = 'String'; Required = $true }
+                Keep        = @{
+                    Type       = 'Array'
+                    AllowEmpty = $true
+                    Items      = @{
+                        Type                = 'Hashtable'
+                        AllowAdditionalKeys = $true
+                        Keys                = @{
+                            Kind        = @{ Type = 'String' }
+                            Id          = @{ Type = 'String'; Required = $true }
+                            DisplayName = @{ Type = 'String' }
+                        }
+                    }
+                }
+            }
         }
     }
 }

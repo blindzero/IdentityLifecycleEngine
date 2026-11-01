@@ -69,7 +69,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (auth session routing)' {
 
     Context 'Auth session acquisition' {
         It 'acquires auth session when AuthSessionName is present' {
-            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result | Should -Not -BeNullOrEmpty
             $result.PSTypeNames | Should -Contain 'IdLE.StepResult'
@@ -93,14 +93,14 @@ Describe 'Invoke-IdleStepEnsureAttributes (auth session routing)' {
             $step.With.Remove('AuthSessionName')
             $step.With.Remove('AuthSessionOptions')
 
-            $result = & $script:Handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $script:State.SessionAcquired | Should -Be $false
         }
 
         It 'passes auth session to provider when provider supports AuthSession parameter' {
-            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result | Should -Not -BeNullOrEmpty
             $result.Status | Should -Be 'Completed'
@@ -119,7 +119,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (auth session routing)' {
                 }
             } -Force
 
-            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result | Should -Not -BeNullOrEmpty
             $result.Status | Should -Be 'Completed'
@@ -130,7 +130,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (auth session routing)' {
             $step = $script:StepTemplate
             $step.With.AuthSessionOptions = 'invalid-string'
 
-            { & $script:Handler -Context $script:Context -Step $step } |
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } |
                 Should -Throw '*AuthSessionOptions*hashtable*'
         }
 
@@ -139,7 +139,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (auth session routing)' {
             $step.With.Remove('AuthSessionName')
             $step.With.Remove('AuthSessionOptions')
 
-            $result = & $script:Handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result | Should -Not -BeNullOrEmpty
             $result.Status | Should -Be 'Completed'
@@ -154,8 +154,8 @@ Describe 'Invoke-IdleStepEnsureAttributes (auth session routing)' {
                 Providers  = @{ Identity = $script:Provider }
             }
 
-            { & $script:Handler -Context $context -Step $script:StepTemplate } |
-                Should -Throw '*AuthSessionName*AcquireAuthSession*'
+            { Invoke-IdleTestStepHandler -Context $context -Step $script:StepTemplate } |
+                Should -Throw '*AuthSessionName*cannot acquire auth sessions*'
         }
     }
 }

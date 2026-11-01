@@ -18,11 +18,14 @@ function Invoke-IdleStepEmitEvent {
     .PARAMETER Context
     Execution context created by IdLE.Core.
 
+    .PARAMETER With
+    Validated With hashtable (Message, Type, Level).
+
     .PARAMETER Step
-    The plan step object (Name, Type, With, When).
+    Step metadata (Name, Type).
 
     .OUTPUTS
-    PSCustomObject (PSTypeName: IdLE.StepResult)
+    None.
     #>
     [CmdletBinding()]
     param(
@@ -32,24 +35,18 @@ function Invoke-IdleStepEmitEvent {
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
+        [hashtable] $With,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
         [object] $Step
     )
 
-    $with = $Step.With
-    if ($null -eq $with -or -not ($with -is [hashtable])) {
-        $with = @{}
-    }
-
-    $message = if ($with.ContainsKey('Message') -and -not [string]::IsNullOrWhiteSpace([string]$with.Message)) {
-        [string]$with.Message
-    }
-    else {
-        "Event emitted by step '$([string]$Step.Name)'."
-    }
+    $message = if ($With.ContainsKey('Message')) { [string]$With.Message } else { "Event emitted by step '$([string]$Step.Name)'." }
 
     $eventType = 'IdLE.Step.EmitEvent.Emitted'
-    if ($with.ContainsKey('Type') -and -not [string]::IsNullOrWhiteSpace([string]$with.Type)) {
-        $eventType = [string]$with.Type
+    if ($With.ContainsKey('Type')) {
+        $eventType = [string]$With.Type
         # 'IdLE.*' event types are reserved for events emitted by IdLE itself.
         if ($eventType.StartsWith('IdLE.', [System.StringComparison]::OrdinalIgnoreCase)) {
             throw [System.ArgumentException]::new(
@@ -59,27 +56,5 @@ function Invoke-IdleStepEmitEvent {
         }
     }
 
-    $level = if ($with.ContainsKey('Level') -and -not [string]::IsNullOrWhiteSpace([string]$with.Level)) {
-        [string]$with.Level
-    }
-    else {
-        'Information'
-    }
-
-    # The engine provides an EventSink contract with a WriteEvent(...) method.
-    # If the host is not interested in streaming events, the sink will still buffer events
-    # for the execution result. This keeps the step deterministic and host-agnostic.
-    if ($Context.PSObject.Properties.Name -contains 'EventSink' -and $null -ne $Context.EventSink) {
-        if ($Context.EventSink.PSObject.Methods.Name -contains 'WriteEvent') {
-            $Context.EventSink.WriteEvent($eventType, $message, [string]$Step.Name, @{ StepType = [string]$Step.Type }, $level)
-        }
-    }
-
-    return [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = [string]$Step.Name
-        Type       = [string]$Step.Type
-        Status     = 'Completed'
-        Error      = $null
-    }
+    $Context.EventSink.WriteEvent($eventType, $message, [string]$Step.Name, @{ StepType = [string]$Step.Type }, [string]$With.Level)
 }

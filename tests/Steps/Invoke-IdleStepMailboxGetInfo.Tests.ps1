@@ -49,7 +49,7 @@ Describe 'Invoke-IdleStepMailboxGetInfo' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ ExchangeOnline = $script:Provider }
-            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            EventSink  = (New-IdleTestEventSink)
         }
         
         # Add mock AcquireAuthSession method
@@ -71,7 +71,7 @@ Describe 'Invoke-IdleStepMailboxGetInfo' {
     Context 'Behavior' {
         It 'retrieves mailbox and returns data in State' {
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $false
@@ -86,7 +86,7 @@ Describe 'Invoke-IdleStepMailboxGetInfo' {
             $step.With.Remove('AuthSessionName')
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $step.With.ContainsKey('AuthSessionName') | Should -Be $false
@@ -98,7 +98,7 @@ Describe 'Invoke-IdleStepMailboxGetInfo' {
             $script:Context.Providers.Clear()
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
         }
 
         It 'throws when IdentityKey is missing' {
@@ -106,7 +106,7 @@ Describe 'Invoke-IdleStepMailboxGetInfo' {
             $step.With.Remove('IdentityKey')
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxGetInfo'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*WithKeyMissing*With.IdentityKey*"
         }
     }
 }

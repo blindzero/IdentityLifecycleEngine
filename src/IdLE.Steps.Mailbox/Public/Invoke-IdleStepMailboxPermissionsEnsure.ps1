@@ -4,8 +4,8 @@ function Invoke-IdleStepMailboxPermissionsEnsure {
     Ensures that mailbox delegate permissions match the desired state.
 
     .DESCRIPTION
-    This is a provider-agnostic step. The host must supply a provider instance via
-    Context.Providers[<ProviderAlias>]. The provider must implement an EnsureMailboxPermissions
+    This is a provider-agnostic step. The engine passes the provider resolved from With.Provider
+    (default 'ExchangeOnline') as -Provider. The provider implements an EnsureMailboxPermissions
     method with the signature (IdentityKey, Permissions, AuthSession) and return an object
     that contains a boolean property 'Changed'.
 
@@ -24,21 +24,17 @@ function Invoke-IdleStepMailboxPermissionsEnsure {
     - Right: 'FullAccess' | 'SendAs' | 'SendOnBehalf' (required)
     - Ensure: 'Present' | 'Absent' (required)
 
-    Authentication:
-    - If With.AuthSessionName is present, the step acquires an auth session via
-      Context.AcquireAuthSession(Name, Options) and passes it to the provider method.
-    - If With.AuthSessionName is absent, defaults to With.Provider value (e.g., 'ExchangeOnline').
-    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-      session selection (e.g., @{ Role = 'Admin' }).
+    Authentication is handled by the engine: without With.AuthSessionName the session is named after the
+    provider alias (e.g. 'ExchangeOnline'); With.AuthSessionOptions is passed to the broker.
 
-    .PARAMETER Context
-    Execution context created by IdLE.Core.
+    .PARAMETER With
+    Validated With hashtable (see the step metadata catalog).
 
-    .PARAMETER Step
-    Normalized step object from the plan. Must contain a 'With' hashtable.
+    .PARAMETER Provider
+    Provider handle created by the engine (see docs/extend/steps.md).
 
     .OUTPUTS
-    PSCustomObject (PSTypeName: IdLE.StepResult)
+    System.Collections.Hashtable (Changed)
 
     .EXAMPLE
     # In workflow definition (grant FullAccess and SendAs):
@@ -79,7 +75,7 @@ function Invoke-IdleStepMailboxPermissionsEnsure {
             Provider    = 'ExchangeOnline'
             IdentityKey = 'team@contoso.com'
             Permissions = @(
-                @{ AssignedUser = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }; Right = 'FullAccess'; Ensure = 'Present' }
+                @{ AssignedUser = '{{Request.Intent.UserPrincipalName}}'; Right = 'FullAccess'; Ensure = 'Present' }
             )
         }
     }
@@ -88,102 +84,15 @@ function Invoke-IdleStepMailboxPermissionsEnsure {
     param(
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Context,
+        [hashtable] $With,
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Step
+        [object] $Provider
     )
 
-    $with = $Step.With
-    if ($null -eq $with -or -not ($with -is [hashtable])) {
-        throw "Mailbox.Permissions.Ensure requires 'With' to be a hashtable."
-    }
+    $result = $Provider.Invoke('EnsureMailboxPermissions', @($With.IdentityKey, $With.Permissions))
 
-    foreach ($key in @('IdentityKey', 'Permissions')) {
-        if (-not $with.ContainsKey($key)) {
-            throw "Mailbox.Permissions.Ensure requires With.$key."
-        }
-    }
-
-    $permissions = $with.Permissions
-    if ($null -eq $permissions) {
-        throw "Mailbox.Permissions.Ensure requires With.Permissions to be an array."
-    }
-
-    # Accept single hashtable or array of hashtables
-    if ($permissions -is [hashtable]) {
-        $permissions = @($permissions)
-    }
-
-    $validRights = @('FullAccess', 'SendAs', 'SendOnBehalf')
-    $validEnsure = @('Present', 'Absent')
-
-    foreach ($entry in $permissions) {
-        if ($null -eq $entry -or -not ($entry -is [hashtable])) {
-            throw "Mailbox.Permissions.Ensure: each Permissions entry must be a hashtable."
-        }
-        foreach ($key in @('AssignedUser', 'Right', 'Ensure')) {
-            if (-not $entry.ContainsKey($key)) {
-                throw "Mailbox.Permissions.Ensure: each Permissions entry requires '$key'."
-            }
-        }
-        if ($entry.Right -notin $validRights) {
-            throw "Mailbox.Permissions.Ensure: Right must be one of: $($validRights -join ', '). Got: $($entry.Right)"
-        }
-        if ($entry.Ensure -notin $validEnsure) {
-            throw "Mailbox.Permissions.Ensure: Ensure must be one of: $($validEnsure -join ', '). Got: $($entry.Ensure)"
-        }
-    }
-
-    # Security: reject ScriptBlocks in Permissions (data-only constraint)
-    Assert-IdleNoScriptBlock -InputObject $with.Permissions -Path 'With.Permissions'
-
-    $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'ExchangeOnline' }
-
-    if (-not ($Context.PSObject.Properties.Name -contains 'Providers')) {
-        throw "Context does not contain a Providers hashtable."
-    }
-    if ($null -eq $Context.Providers -or -not ($Context.Providers -is [hashtable])) {
-        throw "Context.Providers must be a hashtable."
-    }
-    if (-not $Context.Providers.ContainsKey($providerAlias)) {
-        throw "Provider '$providerAlias' was not supplied by the host."
-    }
-
-    # Create execution-local copy of With to avoid mutating the plan
-    $effectiveWith = $with.Clone()
-
-    # Apply AuthSessionName convention: default to Provider if not specified
-    if (-not $effectiveWith.ContainsKey('AuthSessionName')) {
-        $effectiveWith['AuthSessionName'] = $providerAlias
-    }
-
-    # Inject EventSink into the provider so it can emit diagnostics events
-    $provider = $Context.Providers[$providerAlias]
-    if ($provider.PSObject.Properties.Name -contains 'EventSink' -and
-        $Context.PSObject.Properties.Name -contains 'EventSink') {
-        $provider.EventSink = $Context.EventSink
-    }
-
-    $result = Invoke-IdleProviderMethod `
-        -Context $Context `
-        -With $effectiveWith `
-        -ProviderAlias $providerAlias `
-        -MethodName 'EnsureMailboxPermissions' `
-        -MethodArguments @([string]$effectiveWith.IdentityKey, $permissions)
-
-    $changed = $false
-    if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
-        $changed = [bool]$result.Changed
-    }
-
-    return [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = [string]$Step.Name
-        Type       = [string]$Step.Type
-        Status     = 'Completed'
-        Changed    = $changed
-        Error      = $null
-    }
+    $changed = $null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed') -and [bool]$result.Changed
+    return @{ Changed = $changed }
 }

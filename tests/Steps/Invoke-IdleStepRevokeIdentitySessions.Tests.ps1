@@ -44,7 +44,7 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ Identity = $script:FakeProvider }
-            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            EventSink  = (New-IdleTestEventSink)
         }
 
         $script:Context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
@@ -71,7 +71,7 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
             $step = $script:StepTemplate
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
 
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -81,7 +81,7 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
 
         It 'returns StepResult with correct shape' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result | Should -Not -BeNullOrEmpty
             $result.PSObject.TypeNames[0] | Should -Be 'IdLE.StepResult'
@@ -105,7 +105,7 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
             } -Force
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Changed | Should -Be $false
         }
@@ -118,7 +118,7 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
             $step.With.AuthSessionOptions = @{ Role = 'Admin' }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $script:FakeProvider.CallLog.Count | Should -Be 1
@@ -133,14 +133,14 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
             $step.With.Remove('IdentityKey')
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw '*requires With.IdentityKey*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw '*WithKeyMissing*With.IdentityKey*'
         }
 
         It 'throws when provider is missing' {
             $script:Context.Providers.Clear()
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw '*Provider*was not supplied*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw '*Provider*was not supplied*'
         }
 
         It 'throws when provider does not support RevokeSessions method' {
@@ -154,7 +154,7 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
             $script:Context.Providers['Identity'] = $unsupportedProvider
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
         }
     }
 
@@ -164,7 +164,7 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
             $step.With.Remove('Provider')
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $script:FakeProvider.CallLog.Count | Should -Be 1
@@ -176,7 +176,7 @@ Describe 'Invoke-IdleStepRevokeIdentitySessions (built-in step)' {
             $step.With.Provider = 'CustomEntra'
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepRevokeIdentitySessions'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $script:FakeProvider.CallLog.Count | Should -Be 1

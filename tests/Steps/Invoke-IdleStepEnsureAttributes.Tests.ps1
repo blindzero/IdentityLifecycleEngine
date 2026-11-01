@@ -108,7 +108,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ Identity = $script:FakeProviderLegacy }
-            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            EventSink  = (New-IdleTestEventSink)
         }
 
         $script:Context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
@@ -143,7 +143,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw '*requires*With*to be a hashtable*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw '*WithKeyMissing*'
         }
 
         It 'throws when With is not a hashtable' {
@@ -154,7 +154,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw '*requires*With*to be a hashtable*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw '*WithKeyTypeMismatch*With must be a Hashtable*'
         }
 
         It 'throws when With.IdentityKey is missing' {
@@ -162,7 +162,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             $step.With.Remove('IdentityKey')
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw '*requires With.IdentityKey*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw '*WithKeyMissing*With.IdentityKey*'
         }
 
         It 'throws when With.Attributes is missing' {
@@ -170,7 +170,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             $step.With.Remove('Attributes')
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw '*requires With.Attributes*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw '*WithKeyMissing*With.Attributes*'
         }
 
         It 'throws when With.Attributes is not a hashtable' {
@@ -178,7 +178,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             $step.With.Attributes = 'not-a-hashtable'
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw '*requires With.Attributes to be a hashtable*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw '*WithKeyTypeMismatch*With.Attributes must be a Hashtable*'
         }
 
         It 'throws when With.Attributes is empty' {
@@ -186,14 +186,14 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             $step.With.Attributes = @{}
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw '*requires With.Attributes to contain at least one attribute*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw '*requires With.Attributes to contain at least one attribute*'
         }
 
         It 'throws when provider is missing' {
             $script:Context.Providers.Clear()
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw '*Provider*was not supplied*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw '*Provider*was not supplied*'
         }
     }
 
@@ -204,7 +204,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
 
         It 'calls EnsureAttributes method once when available' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $script:FakeProviderOptimized.CallLog.Count | Should -Be 1
             $script:FakeProviderOptimized.CallLog[0].Method | Should -Be 'EnsureAttributes'
@@ -217,14 +217,14 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
 
         It 'returns Changed=true when provider reports changes' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Changed | Should -Be $true
         }
 
         It 'includes per-attribute results from provider' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Data | Should -Not -BeNullOrEmpty
             $result.Data.Attributes | Should -Not -BeNullOrEmpty
@@ -237,7 +237,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             $step.With.AuthSessionOptions = @{ Role = 'Admin' }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $script:FakeProviderOptimized.CallLog[0].AuthSession | Should -Not -BeNullOrEmpty
             $script:FakeProviderOptimized.CallLog[0].AuthSession.SessionName | Should -Be 'MicrosoftGraph'
@@ -247,7 +247,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
     Context 'Provider fallback (multiple EnsureAttribute calls)' {
         It 'calls EnsureAttribute for each attribute when EnsureAttributes not available' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $script:FakeProviderLegacy.CallLog.Count | Should -Be 3
             $script:FakeProviderLegacy.CallLog[0].Method | Should -Be 'EnsureAttribute'
@@ -257,7 +257,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
 
         It 'passes correct IdentityKey to each EnsureAttribute call' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $script:FakeProviderLegacy.CallLog | ForEach-Object {
                 $_.IdentityKey | Should -Be 'user@contoso.com'
@@ -266,7 +266,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
 
         It 'passes correct attribute name and value to each call' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $callsByName = @{}
             $script:FakeProviderLegacy.CallLog | ForEach-Object {
@@ -280,7 +280,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
 
         It 'returns Changed=true when any attribute changed' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             # Department and Title return Changed=true in our mock
             $result.Changed | Should -Be $true
@@ -304,14 +304,14 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             } -Force
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Changed | Should -Be $false
         }
 
         It 'includes per-attribute results in fallback mode' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Data.Attributes | Should -Not -BeNullOrEmpty
             $result.Data.Attributes.Count | Should -Be 3
@@ -325,9 +325,9 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
 
         It 'passes $null attribute values without error (regression: MethodArguments binding)' {
             # When attributes contain $null values (e.g., to unset/clear an attribute),
-            # Invoke-IdleProviderMethod must not fail with "Cannot bind argument to parameter
-            # 'MethodArguments' because it is null." - caused by PS binding an [object[]]
-            # containing $null elements to a [Mandatory] parameter without [AllowNull()].
+            # the provider call must not fail with "Cannot bind argument to parameter ... because it is null."
+            # Originally caused by PS binding an [object[]] containing $null elements to a [Mandatory]
+            # parameter without [AllowNull()] in the (since removed) Invoke-IdleProviderMethod.
             $step = [pscustomobject]@{
                 Name = 'Unset phone attributes'
                 Type = 'IdLE.Step.EnsureAttributes'
@@ -342,7 +342,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            { & $handler -Context $script:Context -Step $step } | Should -Not -Throw
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Not -Throw
 
             # Both attributes should have been called with $null value
             $callsByName = @{}
@@ -359,7 +359,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
     Context 'StepResult shape' {
         It 'returns StepResult with correct type and properties' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result | Should -Not -BeNullOrEmpty
             $result.PSObject.TypeNames[0] | Should -Be 'IdLE.StepResult'
@@ -379,7 +379,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             $step.With.Remove('Provider')
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $script:FakeProviderLegacy.CallLog.Count | Should -BeGreaterThan 0
@@ -391,7 +391,7 @@ Describe 'Invoke-IdleStepEnsureAttributes (built-in step)' {
             $step.With.Provider = 'CustomAD'
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepEnsureAttributes'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $script:FakeProviderLegacy.CallLog.Count | Should -BeGreaterThan 0

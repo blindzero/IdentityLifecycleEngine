@@ -56,7 +56,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ ExchangeOnline = $script:Provider }
-            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            EventSink  = (New-IdleTestEventSink)
         }
         
         # Add mock AcquireAuthSession method
@@ -67,7 +67,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
         
         $script:StepTemplate = [pscustomobject]@{
             Name = 'Convert to shared mailbox'
-            Type = 'IdLE.Step.Mailbox.Type.Ensure'
+            Type = 'IdLE.Step.Mailbox.EnsureType'
             With = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = 'user@contoso.com'
@@ -79,7 +79,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
     Context 'Behavior' {
         It 'converts mailbox type and reports Changed = true' {
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -91,7 +91,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
             $script:Provider.Store['user@contoso.com']['Type'] = 'Shared'
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $false
@@ -106,7 +106,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
                 $step.With.MailboxType = $type
 
                 $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-                $result = & $handler -Context $script:Context -Step $step
+                $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
                 $result.Changed | Should -Be $true
                 $script:Provider.Store['user@contoso.com']['Type'] | Should -Be $type
@@ -120,15 +120,15 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
             $step.With.MailboxType = 'InvalidType'
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-            { & $handler -Context $script:Context -Step $step } |
-                Should -Throw "*MailboxType to be one of: User, Shared, Room, Equipment*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } |
+                Should -Throw "*WithValueNotAllowed*"
         }
 
         It 'throws when provider is missing' {
             $script:Context.Providers.Clear()
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
         }
 
         It 'throws when IdentityKey is missing' {
@@ -136,7 +136,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
             $step.With.Remove('IdentityKey')
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*WithKeyMissing*With.IdentityKey*"
         }
 
         It 'throws when MailboxType is missing' {
@@ -144,7 +144,7 @@ Describe 'Invoke-IdleStepMailboxTypeEnsure' {
             $step.With.Remove('MailboxType')
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxTypeEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.MailboxType*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*WithKeyMissing*With.MailboxType*"
         }
     }
 }

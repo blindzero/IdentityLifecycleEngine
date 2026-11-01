@@ -38,28 +38,19 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     operation fails, the step emits a structured warning event, records the item as Skipped, and
     continues. The workflow is not failed.
 
-    Authentication:
-    - If With.AuthSessionName is present, the step acquires an auth session via
-      Context.AcquireAuthSession(Name, Options) and passes it to provider methods.
-    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for session selection
-      (e.g., @{ Role = 'Tier0' }). ScriptBlocks in AuthSessionOptions are rejected.
-
-    ### With.* Parameters
-
-    | Key                  | Required | Type         | Description |
-    | -------------------- | -------- | ------------ | ----------- |
-    | IdentityKey          | Yes      | string       | Unique identity reference (e.g. sAMAccountName, UPN, or objectId). |
-    | Kind                 | Yes      | string       | Entitlement kind to prune (provider-defined, e.g. Group, Role, License). |
-    | Keep                 | No       | array        | Explicit entitlement objects to retain AND ensure are present. Each entry must have an Id property; Kind is optional. **These entries are GRANTED if missing after the prune.** If omitted, all entitlements of the given Kind are removed and no grants are made. |
-    | Provider             | No       | string       | Provider alias from Context.Providers (default: Identity). |
-    | AuthSessionName      | No       | string       | Name of the auth session to acquire via Context.AcquireAuthSession. |
-    | AuthSessionOptions   | No       | hashtable    | Options passed to AcquireAuthSession for session selection (e.g. role-scoped sessions). |
+    Authentication is handled by the engine (With.AuthSessionName, With.AuthSessionOptions).
 
     .PARAMETER Context
     Execution context created by IdLE.Core.
 
+    .PARAMETER With
+    Validated With hashtable (see the step metadata catalog).
+
+    .PARAMETER Provider
+    Provider handle created by the engine (see docs/extend/steps.md).
+
     .PARAMETER Step
-    Normalized step object from the plan. Must contain a 'With' hashtable.
+    Step metadata (Name, Type); the name is used for events.
 
     .EXAMPLE
     # Leaver workflow: remove ALL group memberships AND guarantee the identity is in the leaver-retention
@@ -107,7 +98,7 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     }
 
     .OUTPUTS
-    PSCustomObject (PSTypeName: IdLE.StepResult)
+    System.Collections.Hashtable (Changed, Data.Skipped)
     #>
     [CmdletBinding()]
     param(
@@ -117,36 +108,16 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
+        [hashtable] $With,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
+        [object] $Provider,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNull()]
         [object] $Step
     )
 
-    if ($null -eq $Step.With -or -not ($Step.With -is [hashtable])) {
-        throw "PruneEntitlementsEnsureKeep requires 'With' to be a hashtable."
-    }
-
-    $sourceWith = $Step.With
-
-    if ($sourceWith.ContainsKey('KeepPattern')) {
-        throw "PruneEntitlementsEnsureKeep does not support With.KeepPattern. Use With.Keep for explicit entitlements to retain and ensure."
-    }
-
-    # Inject EnsureKeepEntitlements = $true into With, then delegate to Invoke-IdleStepPruneEntitlements.
-    # This ensures the ensure-grant phase always runs for this step type.
-    $ensureWith = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($key in $sourceWith.Keys) {
-        $ensureWith[$key] = $sourceWith[$key]
-    }
-    $ensureWith['EnsureKeepEntitlements'] = $true
-
-    # Shallow clone the step with the updated With
-    $ensureStep = [pscustomobject]@{
-        Name = [string]$Step.Name
-        Type = [string]$Step.Type
-        With = $ensureWith
-    }
-    if ($Step.PSObject.Properties.Name -contains 'Condition') {
-        $ensureStep | Add-Member -MemberType NoteProperty -Name Condition -Value $Step.Condition
-    }
-
-    return Invoke-IdleStepPruneEntitlements -Context $Context -Step $ensureStep
+    return Invoke-IdlePruneEntitlementsOperation -Context $Context -With $With -Provider $Provider -StepName ([string]$Step.Name) -EnsureKeep
 }
