@@ -333,6 +333,27 @@ Describe 'Step State' {
             $result.OnFailure.Status | Should -Be 'Completed'
             $global:IdleStateTestConsumed['Cleanup'].Value | Should -Be 'a@contoso.com'
         }
+
+        It 'publishes no State for a failed producer' {
+            # Undeclared key 'Other': the producer fails with InvalidStepHandlerResult.
+            $steps = "@( @{ Name = 'Produce'; Type = 'Test.IdLE.Step.Produce'; With = @{ Publish = @{ Mailbox = 'x'; Other = 1 } } } )"
+            $onFailure = @"
+@(
+  @{ Name = 'Guarded'; Type = 'Test.IdLE.Step.Consume'; Precondition = @{ Exists = 'State.Produce.Mailbox' }; OnPreconditionFalse = 'Continue' }
+  @{ Name = 'Unguarded'; Type = 'Test.IdLE.Step.Consume'; With = @{ Value = '{{State.Produce.Mailbox}}' } }
+)
+"@
+            $result = Invoke-StateTestWorkflow -Steps $steps -OnFailureSteps $onFailure
+
+            $result.Status | Should -Be 'Failed'
+            $result.Steps[0].Status | Should -Be 'Failed'
+            $result.OnFailure.Status | Should -Be 'PartiallyFailed'
+            ($result.OnFailure.Steps | Where-Object Name -eq 'Guarded').Status | Should -Be 'PreconditionSkipped'
+            $unguarded = $result.OnFailure.Steps | Where-Object Name -eq 'Unguarded'
+            $unguarded.Status | Should -Be 'Failed'
+            $unguarded.Error | Should -Match 'StateReferenceUnresolved'
+            $global:IdleStateTestConsumed.Count | Should -Be 0
+        }
     }
 
     Context 'Handler result validation' {

@@ -37,7 +37,7 @@ function Assert-IdleConditionPathsResolvable {
     # State paths are checked during planning (State reference validation); at execution a State path whose
     # producer published nothing resolves to $null instead of failing.
     $validatedOperators = @('Equals', 'NotEquals', 'Exists', 'In')
-    $paths = foreach ($conditionPath in @(Get-IdleConditionPaths -Condition $Condition)) {
+    $paths = foreach ($conditionPath in @(Get-IdleConditionPath -Condition $Condition)) {
         if ($validatedOperators -notcontains $conditionPath.Operator) { continue }
         if ($ExcludeExistsOperatorPaths -and $conditionPath.Operator -eq 'Exists') { continue }
         if ($conditionPath.Path -eq 'State' -or $conditionPath.Path.StartsWith('State.', [System.StringComparison]::OrdinalIgnoreCase)) { continue }

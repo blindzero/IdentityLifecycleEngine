@@ -1,4 +1,4 @@
-function Get-IdleTemplatePaths {
+function Get-IdleTemplatePath {
     <#
     .SYNOPSIS
     Returns the placeholder paths of a template string.

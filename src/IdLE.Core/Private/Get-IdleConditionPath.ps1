@@ -1,6 +1,6 @@
 Set-StrictMode -Version Latest
 
-function Get-IdleConditionPaths {
+function Get-IdleConditionPath {
     <#
     .SYNOPSIS
     Returns the paths referenced by a condition node, with the operator that uses them.

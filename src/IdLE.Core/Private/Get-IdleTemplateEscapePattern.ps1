@@ -10,7 +10,7 @@ function Get-IdleTemplateEscapePattern {
     The lookahead is restricted to the exact set of allowed roots so that sequences like \{{Request.Foo}}
     (invalid root) or \{{Request..Name}} (double dot) are escaped to literal {{ rather than failing with path/root errors.
 
-    Shared by Resolve-IdleTemplateString and Get-IdleTemplatePaths so that template detection and
+    Shared by Resolve-IdleTemplateString and Get-IdleTemplatePath so that template detection and
     resolution always agree on what is a template.
 
     .PARAMETER IncludeState

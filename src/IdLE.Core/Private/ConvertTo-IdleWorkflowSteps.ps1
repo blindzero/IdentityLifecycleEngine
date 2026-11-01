@@ -111,7 +111,7 @@ function ConvertTo-IdleWorkflowSteps {
                 )
             }
 
-            foreach ($conditionPath in @(Get-IdleConditionPaths -Condition $condition)) {
+            foreach ($conditionPath in @(Get-IdleConditionPath -Condition $condition)) {
                 if (& $isStatePath $conditionPath.Path) {
                     throw [System.ArgumentException]::new(
                         ("StateReferenceNotAllowed: Workflow step '{0}' references '{1}' in Condition. Conditions are evaluated at planning time, before any step has run; use a Precondition instead." -f $stepName, $conditionPath.Path),
@@ -226,7 +226,7 @@ function ConvertTo-IdleWorkflowSteps {
         $preconditionWarnings = @()
 
         if ($null -ne $precondition) {
-            foreach ($preconditionPath in @(Get-IdleConditionPaths -Condition $precondition)) {
+            foreach ($preconditionPath in @(Get-IdleConditionPath -Condition $precondition)) {
                 if (& $isStatePath $preconditionPath.Path) {
                     $stateReferences.Add(@{ Path = $preconditionPath.Path; Source = 'Precondition' })
                 }

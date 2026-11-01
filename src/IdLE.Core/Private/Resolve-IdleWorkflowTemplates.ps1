@@ -73,7 +73,7 @@ function Resolve-IdleWorkflowTemplates {
         }
 
         $resolved = Resolve-IdleTemplateString -Value $Value -Request $Request -StepName $StepName -DeferState
-        $statePaths = @(Get-IdleTemplatePaths -Value $Value | Where-Object { $_ -ceq 'State' -or $_.StartsWith('State.') })
+        $statePaths = @(Get-IdleTemplatePath -Value $Value | Where-Object { $_ -ceq 'State' -or $_.StartsWith('State.') })
         if ($statePaths.Count -gt 0) {
             $DeferredList.Add(@{ Path = $Path; Segments = @($Segments); StatePaths = $statePaths })
         }
