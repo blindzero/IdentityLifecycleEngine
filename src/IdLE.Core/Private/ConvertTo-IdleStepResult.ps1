@@ -8,6 +8,9 @@ function ConvertTo-IdleStepResult {
     State (Hashtable). Failures are reported by throwing, never by the return value.
     Any other output fails with InvalidStepHandlerResult.
 
+    State is validated against the step's StateSchema: a step without StateSchema must not return State,
+    and State must be data-only (no ScriptBlock, PSCredential or SecureString).
+
     .PARAMETER Output
     Handler output (as captured from the pipeline).
 
@@ -22,6 +25,9 @@ function ConvertTo-IdleStepResult {
 
     .PARAMETER Source
     Handler provenance (ConvertTo-IdleSourceInfo).
+
+    .PARAMETER StateSchema
+    Root key schema of the step's State (IdLE.PlanStep.StateSchema), or $null if the step publishes no State.
 
     .OUTPUTS
     PSCustomObject (PSTypeName: IdLE.StepResult)
@@ -44,7 +50,11 @@ function ConvertTo-IdleStepResult {
 
         [Parameter()]
         [AllowNull()]
-        [object] $Source
+        [object] $Source,
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $StateSchema
     )
 
     $prefix = "InvalidStepHandlerResult: Step '$StepName' (type '$StepType')"
@@ -88,6 +98,23 @@ function ConvertTo-IdleStepResult {
 
         if ($Output.Contains('Data')) { $data = $Output['Data'] }
         if ($Output.Contains('State')) { $state = $Output['State'] }
+    }
+
+    if ($null -ne $state -and $null -eq $StateSchema) {
+        throw [System.InvalidOperationException]::new("$prefix returned State, but its step metadata declares no StateSchema. Declare the published keys, e.g. StateSchema = @{ Keys = @{ Mailbox = @{ Type = 'Any' } } }.")
+    }
+
+    if ($null -ne $StateSchema) {
+        # Required keys are checked even if the handler returned no State.
+        try {
+            $validated = ConvertTo-IdleSchemaValue -Schema $StateSchema -Value $(if ($null -eq $state) { @{} } else { $state }) -Path 'State' -ErrorPrefix "Step '$StepName' (type '$StepType'):"
+            Assert-IdleNoScriptBlock -InputObject $state -Path 'State'
+            Assert-IdleNoCredentialObject -InputObject $state -Path 'State'
+        }
+        catch {
+            throw [System.InvalidOperationException]::new("$prefix returned State that does not match its StateSchema: $($_.Exception.Message)")
+        }
+        if ($null -ne $state) { $state = $validated }
     }
 
     return [pscustomobject]@{

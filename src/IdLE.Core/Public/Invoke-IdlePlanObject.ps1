@@ -198,10 +198,15 @@ function Invoke-IdlePlanObject {
     $blocked = $false
     $stepResults = @()
 
-    # Precondition evaluation context: includes Plan and Request for condition DSL path resolution.
+    # State published by completed steps (step name -> State), read via State.<StepName>.* in
+    # Preconditions and deferred With templates. OnFailureSteps see the State of all completed steps.
+    $stepState = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    # Precondition evaluation context: includes Plan, Request and State for condition DSL path resolution.
     $preconditionContext = @{
         Plan    = $Plan
         Request = $request
+        State   = $stepState
     }
 
     $i = 0
@@ -432,9 +437,12 @@ function Invoke-IdlePlanObject {
             $impl = Resolve-IdleStepHandler -StepType ([string]$stepType) -StepRegistry $stepRegistry
             $handlerSource = ConvertTo-IdleSourceInfo -Module $impl.Module
 
+            # With templates that reference State are resolved now that the producing steps have run.
+            $effectiveStep = Resolve-IdleDeferredStepWith -Step $step -Request $request -State $stepState
+
             # Fail before the first attempt if the handler does not follow the step contract
             # or the provider is not supplied.
-            $null = New-IdleStepHandlerArguments -Handler $impl -Step $step -Context $context
+            $null = New-IdleStepHandlerArguments -Handler $impl -Step $effectiveStep -Context $context
 
             # Safe-by-default transient retries:
             # - Only retries if the thrown exception is explicitly marked transient.
@@ -444,7 +452,7 @@ function Invoke-IdlePlanObject {
             $retrySeed = "$corr|$stepType|$stepName|$i"
             $retryParams = Resolve-IdleStepRetryParameters -Step $step -ExecutionOptions $ExecutionOptions
             $operation = {
-                $handlerArguments = New-IdleStepHandlerArguments -Handler $impl -Step $step -Context $context
+                $handlerArguments = New-IdleStepHandlerArguments -Handler $impl -Step $effectiveStep -Context $context
                 & $impl @handlerArguments
             }
             $retry = Invoke-IdleWithRetry `
@@ -460,12 +468,19 @@ function Invoke-IdlePlanObject {
                 -DeterministicSeed $retrySeed
 
             # The engine owns the result shape; handlers report failures by throwing.
-            $stepResults += ConvertTo-IdleStepResult `
+            $stepResult = ConvertTo-IdleStepResult `
                 -Output $retry.Value `
                 -StepName $stepName `
                 -StepType ([string]$stepType) `
                 -Attempts ([int]$retry.Attempts) `
-                -Source $handlerSource
+                -Source $handlerSource `
+                -StateSchema (Get-IdlePropertyValue -Object $step -Name 'StateSchema')
+            $stepResults += $stepResult
+
+            # Snapshot, so that later changes to the handler's objects do not leak into later steps.
+            if ($null -ne $stepResult.State) {
+                $stepState[$stepName] = Copy-IdleDataObject -Value $stepResult.State
+            }
 
             $context.EventSink.WriteEvent(
                 'IdLE.Step.Completed',
@@ -687,14 +702,16 @@ function Invoke-IdlePlanObject {
                 $impl = Resolve-IdleStepHandler -StepType ([string]$ofType) -StepRegistry $stepRegistry
                 $handlerSource = ConvertTo-IdleSourceInfo -Module $impl.Module
 
-                $null = New-IdleStepHandlerArguments -Handler $impl -Step $ofStep -Context $context
+                $effectiveOfStep = Resolve-IdleDeferredStepWith -Step $ofStep -Request $request -State $stepState
+
+                $null = New-IdleStepHandlerArguments -Handler $impl -Step $effectiveOfStep -Context $context
 
                 # Reuse safe-by-default transient retries for OnFailure steps.
                 # - Retry parameters resolved from ExecutionOptions if provided.
                 $retrySeed = "$corr|OnFailure|$ofType|$ofName|$j"
                 $retryParams = Resolve-IdleStepRetryParameters -Step $ofStep -ExecutionOptions $ExecutionOptions
                 $operation = {
-                    $handlerArguments = New-IdleStepHandlerArguments -Handler $impl -Step $ofStep -Context $context
+                    $handlerArguments = New-IdleStepHandlerArguments -Handler $impl -Step $effectiveOfStep -Context $context
                     & $impl @handlerArguments
                 }
                 $retry = Invoke-IdleWithRetry `
@@ -709,12 +726,18 @@ function Invoke-IdlePlanObject {
                     -OperationName 'OnFailureStepExecution' `
                     -DeterministicSeed $retrySeed
 
-                $onFailureStepResults += ConvertTo-IdleStepResult `
+                $ofStepResult = ConvertTo-IdleStepResult `
                     -Output $retry.Value `
                     -StepName $ofName `
                     -StepType ([string]$ofType) `
                     -Attempts ([int]$retry.Attempts) `
-                    -Source $handlerSource
+                    -Source $handlerSource `
+                    -StateSchema (Get-IdlePropertyValue -Object $ofStep -Name 'StateSchema')
+                $onFailureStepResults += $ofStepResult
+
+                if ($null -ne $ofStepResult.State) {
+                    $stepState[$ofName] = Copy-IdleDataObject -Value $ofStepResult.State
+                }
 
                 $context.EventSink.WriteEvent(
                     'IdLE.OnFailure.StepCompleted',

@@ -19,6 +19,12 @@ function Resolve-IdleTemplateString {
     - Request.LifecycleEvent
     - Request.CorrelationId
     - Request.Actor
+    - State.<StepName>.* (only with -State or -DeferState; values published by earlier steps during execution)
+
+    State placeholders (see docs/extend/steps.md):
+    - Planning (-DeferState): a string that contains a State placeholder is validated and returned unchanged;
+      its Request placeholders must resolve. The caller records the string for execution-time resolution.
+    - Execution (-State): the original string is resolved against Request and State in one pass.
 
     Escaping:
     - \{{ → literal {{ (backslash escapes the opening braces when not followed by a valid allowed-root template path+}})
@@ -35,11 +41,18 @@ function Resolve-IdleTemplateString {
     .PARAMETER StepName
     The name of the step being processed (for error messages).
 
+    .PARAMETER State
+    State published by earlier steps (step name -> State hashtable). Enables the State root.
+
+    .PARAMETER DeferState
+    Planning mode: return strings that contain State placeholders unchanged (after validation).
+
     .OUTPUTS
     For pure placeholders (single placeholder with no surrounding text), returns the resolved value with its original type preserved (string, bool, int, datetime, guid, etc.).
     For mixed strings (string interpolation with multiple placeholders or surrounding text), returns a string with placeholders replaced.
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Request', Justification = 'Used inside nested scriptblock $resolvePath; PSSA does not track parameter usage across nested scriptblock boundaries.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'State', Justification = 'Used inside nested scriptblock $resolvePath; PSSA does not track parameter usage across nested scriptblock boundaries.')]
     [CmdletBinding()]
     param(
         [Parameter()]
@@ -52,7 +65,14 @@ function Resolve-IdleTemplateString {
 
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string] $StepName
+        [string] $StepName,
+
+        [Parameter()]
+        [AllowNull()]
+        [System.Collections.IDictionary] $State,
+
+        [Parameter()]
+        [switch] $DeferState
     )
 
     if ($null -eq $Value) {
@@ -73,6 +93,9 @@ function Resolve-IdleTemplateString {
     # Define validation constants used in multiple paths
     $pathValidationPattern = '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$'
     $allowedRoots = @('Request.Intent', 'Request.Context', 'Request.IdentityKeys', 'Request.LifecycleEvent', 'Request.CorrelationId', 'Request.Actor')
+    if ($DeferState -or $PSBoundParameters.ContainsKey('State')) {
+        $allowedRoots += 'State'
+    }
 
     # Helper function to validate path pattern
     $validatePath = {
@@ -108,10 +131,16 @@ function Resolve-IdleTemplateString {
         param([string]$Path)
 
         # Resolve the value (shared path resolver handles hashtables and objects)
-        $contextWrapper = [pscustomobject]@{ Request = $Request }
+        $contextWrapper = [pscustomobject]@{ Request = $Request; State = $State }
         $resolvedValue = Get-IdleValueByPath -Object $contextWrapper -Path $Path
 
         # Fail fast on null/missing values
+        if ($null -eq $resolvedValue -and $Path.StartsWith('State.')) {
+            throw [System.ArgumentException]::new(
+                ("StateReferenceUnresolved: Step '{0}': Path '{1}' resolved to null or does not exist. The producing step did not run, did not complete or did not return this value; guard the step with a Precondition (Exists) if the producer is optional." -f $StepName, $Path),
+                'Workflow'
+            )
+        }
         if ($null -eq $resolvedValue) {
             throw [System.ArgumentException]::new(
                 ("Template resolution error in step '{0}': Path '{1}' resolved to null or does not exist. Ensure the request contains all required values." -f $StepName, $Path),
@@ -184,11 +213,8 @@ function Resolve-IdleTemplateString {
     # Escape sequence normalization: \{{ (not followed by a valid allowed-root template path+}}) → literal {{.
     # Use a Unicode Private Use Area character as placeholder so template matching does not see the
     # escaped braces. This character is extremely unlikely to appear in real workflow configuration.
-    # The lookahead is intentionally restricted to the exact set of allowed roots so that sequences
-    # like \{{Request.Foo}} (invalid root) or \{{Request..Name}} (double dot) are still escaped to
-    # literal {{, rather than flowing into template parsing and failing with path/root errors.
     $litOpenPlaceholder = [string][char]0xE001
-    $backslashEscapePattern = '\\{{(?!Request\.(?:(?:Intent|Context|IdentityKeys)(?:\.[A-Za-z0-9_]+)*|LifecycleEvent|CorrelationId|Actor)}})'
+    $backslashEscapePattern = Get-IdleTemplateEscapePattern -IncludeState:($allowedRoots -contains 'State')
     $normalizedValue = if ($stringValue -match '\\{{') {
         [regex]::Replace($stringValue, $backslashEscapePattern, $litOpenPlaceholder)
     } else {
@@ -230,6 +256,22 @@ function Resolve-IdleTemplateString {
     $result = $stringValue
     $pattern = '\{\{([^}]+)\}\}'
     $matches = [regex]::Matches($stringValue, $pattern)
+
+    # Planning: a string with State placeholders is resolved at execution time. Validate it now
+    # (paths, roots, Request values present) and return the original string unchanged.
+    if ($DeferState) {
+        $paths = @($matches | ForEach-Object { $_.Groups[1].Value.Trim() })
+        if (@($paths | Where-Object { $_ -ceq 'State' -or $_.StartsWith('State.') }).Count -gt 0) {
+            foreach ($path in $paths) {
+                & $validatePath $path
+                & $validateAllowedRoot $path
+                if (-not ($path -ceq 'State' -or $path.StartsWith('State.'))) {
+                    $null = & $resolvePath $path
+                }
+            }
+            return $Value
+        }
+    }
 
     # For pure placeholders, we'll return the typed value directly
     if ($isPurePlaceholder) {
