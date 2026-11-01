@@ -78,6 +78,10 @@ BeforeAll {
             param($IdentityKey, $AuthSession, $Kind)
             return "$IdentityKey|$AuthSession|$Kind"
         }
+        $provider | Add-Member -MemberType ScriptMethod -Name ListWithKindLowerCase -Value {
+            param($IdentityKey, $authsession, $Kind)
+            return "$IdentityKey|$authsession|$Kind"
+        }
         $provider | Add-Member -MemberType ScriptMethod -Name NoAuth -Value {
             param($Value)
             return "$Value"
@@ -362,6 +366,14 @@ Describe 'Step contract' {
                 param($Context)
                 $handle = New-IdleProviderHandle -Context $Context -Alias 'Echo' -AuthSessionName 'Admin'
                 $handle.Invoke('ListWithKind', @('user1', 'Group')) | Should -Be 'user1|session-Admin|Group'
+            }
+        }
+
+        It 'matches the AuthSession parameter name case-insensitively (regression)' {
+            InModuleScope 'IdLE.Core' -Parameters @{ Context = $script:Context } {
+                param($Context)
+                $handle = New-IdleProviderHandle -Context $Context -Alias 'Echo' -AuthSessionName 'Admin'
+                $handle.Invoke('ListWithKindLowerCase', @('user1', 'Group')) | Should -Be 'user1|session-Admin|Group'
             }
         }
 

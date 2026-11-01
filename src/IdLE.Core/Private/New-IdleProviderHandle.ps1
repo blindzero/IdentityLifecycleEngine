@@ -134,9 +134,11 @@ function New-IdleProviderHandle {
             # parameter order, so the session is appended for them.
             $position = $callArguments.Count
             if ($method.MemberType -eq 'ScriptMethod' -and $null -ne $method.Script.Ast.ParamBlock) {
+                # PowerShell parameter names are case-insensitive, matching Test-IdleProviderMethodParameter.
                 $names = @($method.Script.Ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
-                $declared = [array]::IndexOf($names, 'AuthSession')
-                if ($declared -ge 0 -and $declared -lt $position) { $position = $declared }
+                for ($index = 0; $index -lt $names.Count -and $index -lt $position; $index++) {
+                    if ($names[$index] -eq 'AuthSession') { $position = $index; break }
+                }
             }
 
             if ($null -ne $sessionState.Session -or $position -lt $callArguments.Count) {
