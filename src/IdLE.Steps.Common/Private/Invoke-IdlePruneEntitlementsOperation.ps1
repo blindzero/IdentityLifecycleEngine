@@ -46,7 +46,7 @@ function Invoke-IdlePruneEntitlementsOperation {
     $keepItems = @()
     if ($With.ContainsKey('Keep')) {
         foreach ($item in @($With.Keep)) {
-            $keepItems += ConvertTo-IdlePruneEntitlement -Value $item -DefaultKind $kind
+            $keepItems += ConvertTo-IdlePruneEntitlement -Value $item -Kind $kind
         }
     }
 

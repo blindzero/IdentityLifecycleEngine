@@ -15,6 +15,9 @@ function Invoke-IdleStepEnsureEntitlement {
     The step is idempotent and only calls Grant/Revoke when the assignment needs
     to change.
 
+    With.Entitlement.Kind selects the entitlement type (e.g., 'Group', 'AdministrativeUnit').
+    The provider rejects a Kind it does not support (e.g., 'AdministrativeUnit' on AD).
+
     Authentication is handled by the engine (With.AuthSessionName, With.AuthSessionOptions).
 
     .PARAMETER With

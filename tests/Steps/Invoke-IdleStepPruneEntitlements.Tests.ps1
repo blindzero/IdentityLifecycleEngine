@@ -416,7 +416,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
                     Provider    = 'Identity'
                     Keep        = @(
                         @{ Kind = 'Group'; Id = 'G-Keep' },   # short/non-canonical ID
-                        @{ Kind = 'Group'; Id = 'G-All' }     # short/non-canonical ID
+                        @{ Id = 'G-All' }                     # short/non-canonical ID, Kind from With.Kind
                     )
                 }
             }
@@ -430,6 +430,106 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $mockProvider.RevokedIds | Should -Contain 'CN=G-Remove,OU=Groups,DC=contoso,DC=com'
             $mockProvider.RevokedIds | Should -Not -Contain 'CN=G-Keep,OU=Groups,DC=contoso,DC=com'
             $mockProvider.RevokedIds | Should -Not -Contain 'CN=G-All,OU=Groups,DC=contoso,DC=com'
+        }
+
+        It 'passes only the Keep entitlement (with the scope Kind) to ResolveEntitlement' {
+            $mockProvider = [pscustomobject]@{ PSTypeName = 'MockResolveProvider'; ResolveCalls = @() }
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                param($IdentityKey)
+                return @()
+            } -Force
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name ResolveEntitlement -Value {
+                param($Entitlement, $AuthSession)
+                $this.ResolveCalls += $Entitlement
+                return $Entitlement
+            } -Force
+            $mockProvider | Add-Member -MemberType ScriptMethod -Name RevokeEntitlement -Value {
+                param($IdentityKey, $Entitlement)
+                return [pscustomobject]@{ Changed = $true }
+            } -Force
+            $script:Context.Providers['Identity'] = $mockProvider
+
+            $step = [pscustomobject]@{
+                Name = 'Prune'
+                Type = 'IdLE.Step.PruneEntitlements'
+                With = @{ IdentityKey = 'user1'; Kind = 'Group'; Keep = @(@{ Id = 'G-Keep' }) }
+            }
+
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+            @($mockProvider.ResolveCalls).Count | Should -Be 1
+            $mockProvider.ResolveCalls[0].Kind | Should -Be 'Group'
+            $mockProvider.ResolveCalls[0].Id | Should -Be 'G-Keep'
+        }
+    }
+
+    Context 'Behavior: Keep entry Kind' {
+        It 'applies With.Kind to Keep entries without Kind' {
+            $step = $script:StepTemplate
+            $step.With.Keep = @(@{ Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' })
+
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+            $remaining = @($script:Provider.ListEntitlements('user1'))
+            $remaining.Count | Should -Be 1
+            $remaining[0].Id | Should -Be 'CN=LEAVER-RETAIN,DC=contoso,DC=com'
+        }
+
+        It 'accepts a Keep entry that repeats With.Kind in a different casing' {
+            $step = $script:StepTemplate
+            $step.With.Keep = @(@{ Kind = 'group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' })
+
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+            @($script:Provider.ListEntitlements('user1')).Count | Should -Be 1
+        }
+
+        It 'fails without changes when a Keep entry has a different Kind (<Type>)' -ForEach @(
+            @{ Type = 'IdLE.Step.PruneEntitlements' }
+            @{ Type = 'IdLE.Step.PruneEntitlementsEnsureKeep' }
+        ) {
+            # Regression: the entry was matched by Id only and EnsureKeep granted it with the foreign Kind.
+            $step = [pscustomobject]@{
+                Name = 'Prune with mixed Keep'
+                Type = $Type
+                With = @{
+                    IdentityKey = 'user1'
+                    Provider    = 'Identity'
+                    Kind        = 'Group'
+                    Keep        = @(@{ Kind = 'Role'; Id = 'admin-role' })
+                }
+            }
+
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } |
+                Should -Throw -ExpectedMessage "*Keep entry 'admin-role' has Kind 'Role', but the step prunes Kind 'Group'*"
+
+            $remaining = @($script:Provider.ListEntitlements('user1'))
+            $remaining.Count | Should -Be 4
+            @($remaining | Where-Object { $_.Kind -eq 'Role' }).Count | Should -Be 0
+        }
+
+        It 'grants a missing Keep entry without Kind using With.Kind (EnsureKeep)' {
+            $step = [pscustomobject]@{
+                Name = 'Prune and ensure'
+                Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+                With = @{
+                    IdentityKey = 'user1'
+                    Provider    = 'Identity'
+                    Kind        = 'Group'
+                    Keep        = @(@{ Id = 'CN=NEW-RETAIN,DC=contoso,DC=com' })
+                }
+            }
+
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
+
+            $result.Status | Should -Be 'Completed'
+            $remaining = @($script:Provider.ListEntitlements('user1'))
+            $remaining.Count | Should -Be 1
+            $remaining[0].Kind | Should -Be 'Group'
+            $remaining[0].Id | Should -Be 'CN=NEW-RETAIN,DC=contoso,DC=com'
         }
     }
 
