@@ -30,6 +30,9 @@
         # Provider alias that supports IdLE.Entitlement.List.
         # If omitted, the provider is auto-selected when exactly one match exists.
         Provider    = 'Identity'
+        # Optional: list only this entitlement Kind (omit to list all Kinds).
+        # Only one resolver per capability, provider and auth session is allowed.
+        Kind        = 'Group'
       }
     }
   )
