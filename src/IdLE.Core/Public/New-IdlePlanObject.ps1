@@ -126,8 +126,13 @@ function New-IdlePlanObject {
     # Normalize primary and OnFailure steps.
     # IMPORTANT:
     # ConvertTo-IdleWorkflowSteps may return an empty array that would otherwise collapse to $null on assignment.
-    $plan.Steps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflow.Steps -PlanningContext $planningContext -StepMetadataCatalog $stepMetadataCatalog)
-    $plan.OnFailureSteps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflowOnFailureSteps -PlanningContext $planningContext -StepMetadataCatalog $stepMetadataCatalog)
+    # State references: Steps see earlier Steps; OnFailureSteps see all Steps and earlier OnFailureSteps.
+    $stateProducers = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $plan.Steps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflow.Steps -PlanningContext $planningContext -StepMetadataCatalog $stepMetadataCatalog -StateProducers $stateProducers)
+
+    $onFailureStepNames = @(@($workflowOnFailureSteps) | Where-Object { $null -ne $_ } | ForEach-Object { [string](Get-IdlePropertyValue -Object $_ -Name 'Name') })
+    $ambiguousStateNames = @($plan.Steps | ForEach-Object { $_.Name } | Where-Object { $onFailureStepNames -contains $_ })
+    $plan.OnFailureSteps = @(ConvertTo-IdleWorkflowSteps -WorkflowSteps $workflowOnFailureSteps -PlanningContext $planningContext -StepMetadataCatalog $stepMetadataCatalog -StateProducers $stateProducers -AmbiguousStateNames $ambiguousStateNames)
 
     # Fail-fast capability validation (includes OnFailureSteps).
     $allStepsForCapabilities = @()

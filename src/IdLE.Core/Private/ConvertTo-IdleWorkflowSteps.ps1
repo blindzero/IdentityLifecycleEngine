@@ -18,6 +18,12 @@ function ConvertTo-IdleWorkflowSteps {
     operator to guard optional context attributes are not rejected at plan time merely because
     the attribute is absent — that is the intended use of the Exists operator.
 
+    Step State (see docs/extend/steps.md):
+    - Condition must not reference State.* (StateReferenceNotAllowed).
+    - With strings with State placeholders are kept for execution-time resolution (DeferredWith).
+    - State references in Precondition and DeferredWith are validated against StateProducers
+      (steps that run before), which is extended with every normalized step.
+
     IMPORTANT:
     WorkflowSteps is optional and may be null or empty. A workflow is allowed to omit
     OnFailureSteps entirely. Therefore we must not mark this parameter as Mandatory.
@@ -34,8 +40,23 @@ function ConvertTo-IdleWorkflowSteps {
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [hashtable] $StepMetadataCatalog
+        [hashtable] $StepMetadataCatalog,
+
+        # Step name -> StateSchema of the steps that run before this collection (extended in place).
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $StateProducers,
+
+        # Step names that exist in both Steps and OnFailureSteps (passed for OnFailureSteps only).
+        [Parameter()]
+        [string[]] $AmbiguousStateNames = @()
     )
+
+    if ($null -eq $StateProducers) {
+        $StateProducers = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
+    }
+
+    $isStatePath = { param([string] $Path) $Path -eq 'State' -or $Path.StartsWith('State.', [System.StringComparison]::OrdinalIgnoreCase) }
 
     if ($null -eq $WorkflowSteps -or @($WorkflowSteps).Count -eq 0) {
         return @()
@@ -90,6 +111,15 @@ function ConvertTo-IdleWorkflowSteps {
                 )
             }
 
+            foreach ($conditionPath in @(Get-IdleConditionPath -Condition $condition)) {
+                if (& $isStatePath $conditionPath.Path) {
+                    throw [System.ArgumentException]::new(
+                        ("StateReferenceNotAllowed: Workflow step '{0}' references '{1}' in Condition. Conditions are evaluated at planning time, before any step has run; use a Precondition instead." -f $stepName, $conditionPath.Path),
+                        'Workflow'
+                    )
+                }
+            }
+
             Assert-IdleConditionPathsResolvable -Condition $condition -Context $PlanningContext -StepName $stepName -Source 'Condition' -ExcludeExistsOperatorPaths
 
             $isApplicable = Test-IdleCondition -Condition $condition -Context $PlanningContext
@@ -131,13 +161,42 @@ function ConvertTo-IdleWorkflowSteps {
         # Skip With template resolution and WithSchema validation for NotApplicable steps.
         # A step whose Condition evaluated to false will never be executed, so further plan-time
         # validation that assumes the step is eligible would produce false-positive failures.
+        $deferredWith = @()
+        $stateReferences = [System.Collections.Generic.List[object]]::new()
         if ($status -ne 'NotApplicable') {
-            # Resolve template placeholders in With (planning-time resolution)
-            $with = Resolve-IdleWorkflowTemplates -Value $with -Request $PlanningContext.Request -StepName $stepName
+            # Resolve template placeholders in With (planning-time resolution).
+            # Strings with State placeholders stay unresolved until the step runs.
+            $deferredList = [System.Collections.Generic.List[object]]::new()
+            $with = Resolve-IdleWorkflowTemplates -Value $with -Request $PlanningContext.Request -StepName $stepName -DeferredList $deferredList
+
+            foreach ($deferred in $deferredList) {
+                $rootKey = [string]@($deferred.Segments)[0]
+                if (@('Provider', 'AuthSessionName', 'AuthSessionOptions') -contains $rootKey) {
+                    throw [System.ArgumentException]::new(
+                        ("StateReferenceNotAllowed: Workflow step '{0}' references State in {1}. Provider routing and authentication are resolved at planning time." -f $stepName, $deferred.Path),
+                        'Workflow'
+                    )
+                }
+                foreach ($statePath in $deferred.StatePaths) {
+                    $stateReferences.Add(@{ Path = $statePath; Source = $deferred.Path })
+                }
+            }
 
             # Validate With against the typed WithSchema (fail-fast plan-time check) and apply defaults,
             # so the plan carries the effective With (including the resolved Provider alias).
-            $with = ConvertTo-IdleStepWith -Metadata $StepMetadataCatalog[$stepType] -With $with -StepName $stepName -StepType $stepType
+            # Deferred values are validated against their key schema after execution-time resolution.
+            $deferredSchemas = @{}
+            $with = ConvertTo-IdleStepWith -Metadata $StepMetadataCatalog[$stepType] -With $with -StepName $stepName -StepType $stepType `
+                -DeferredPaths @($deferredList | ForEach-Object { $_.Path }) -DeferredSchemas $deferredSchemas
+
+            # Sorted by path: With is a hashtable, and plans must not depend on its enumeration order.
+            $deferredWith = @(foreach ($deferred in @($deferredList | Sort-Object -Property { $_.Path })) {
+                    @{
+                        Path     = $deferred.Path
+                        Segments = @($deferred.Segments)
+                        Schema   = if ($deferredSchemas.ContainsKey($deferred.Path)) { Copy-IdleDataObject -Value $deferredSchemas[$deferred.Path] } else { $null }
+                    }
+                })
         }
 
         $retryProfile = if (Test-IdleWorkflowStepKey -Step $s -Key 'RetryProfile') {
@@ -166,6 +225,24 @@ function ConvertTo-IdleWorkflowSteps {
         $preconditionEvent = $preconditionSettings.PreconditionEvent
         $preconditionWarnings = @()
 
+        if ($null -ne $precondition) {
+            foreach ($preconditionPath in @(Get-IdleConditionPath -Condition $precondition)) {
+                if (& $isStatePath $preconditionPath.Path) {
+                    $stateReferences.Add(@{ Path = $preconditionPath.Path; Source = 'Precondition' })
+                }
+            }
+        }
+
+        foreach ($reference in $stateReferences) {
+            # Normalize the root casing so that 'state.X' and 'State.X' are validated alike.
+            $referencePath = 'State' + $reference.Path.Substring(5)
+            Assert-IdleStateReference -Path $referencePath -StepName $stepName -Source $reference.Source -Producers $StateProducers -AmbiguousNames $AmbiguousStateNames
+        }
+
+        # The step's published State (if any) is visible to the steps that follow it.
+        $stateSchema = Get-IdleStepStateSchema -Metadata $StepMetadataCatalog[$stepType]
+        $StateProducers[$stepName] = $stateSchema
+
         if ($planWarningsCanTrackCount) {
             $warningCountAfter = [int]$planWarnings.Count
             if ($warningCountAfter -gt $warningCountBefore) {
@@ -191,6 +268,8 @@ function ConvertTo-IdleWorkflowSteps {
             PreconditionEvent    = $preconditionEvent
             Warnings             = $preconditionWarnings
             With                 = $with
+            DeferredWith         = $deferredWith
+            StateSchema          = $stateSchema
             RequiresCapabilities = $requiresCaps
             Status               = $status
             RetryProfile         = $retryProfile

@@ -37,6 +37,14 @@ Validated at plan time against the step's ``WithSchema`` (see [Step metadata con
 | `AuthSessionOptions` | Hashtable | No |  | Data-only options passed to the AuthSessionBroker. |
 | `Provider` | String | No | `ExchangeOnline` | Provider alias in `Providers`. |
 
+## Outputs (State.*)
+
+Published under `State.<StepName>.<Key>` for later steps (`Precondition` and `With` templates); validated against the step's `StateSchema` (see [Step State](../../extend/steps.md#step-state)).
+
+| Key | Type | Always set | Notes |
+| --- | --- | --- | --- |
+| `Mailbox` | Any | Yes |  |
+
 ## Example
 
 ```powershell

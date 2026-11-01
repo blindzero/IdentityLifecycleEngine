@@ -196,3 +196,79 @@ Describe 'Mailbox OutOfOffice step - template resolution' {
         }
     }
 }
+
+Describe 'Mailbox GetInfo step - State for later steps' {
+    BeforeAll {
+        $script:ExoLeaverPath = Join-Path (Get-RepoRootPath) 'examples/workflows/templates/exo-leaver.psd1'
+
+        function New-StateMailboxProvider {
+            param([string] $MailboxType)
+
+            $provider = [pscustomobject]@{
+                PSTypeName  = 'Mock.ExchangeOnlineProvider'
+                MailboxType = $MailboxType
+                TypeCalls   = [System.Collections.Generic.List[string]]::new()
+            }
+            $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value {
+                return @('IdLE.Mailbox.Info.Read', 'IdLE.Mailbox.Type.Ensure', 'IdLE.Mailbox.OutOfOffice.Ensure')
+            }
+            $provider | Add-Member -MemberType ScriptMethod -Name GetMailbox -Value {
+                param($IdentityKey, $AuthSession)
+                return [pscustomobject]@{
+                    PSTypeName         = 'IdLE.Mailbox'
+                    IdentityKey        = 'max.power@contoso.com'
+                    PrimarySmtpAddress = 'max.power@contoso.com'
+                    Type               = $this.MailboxType
+                }
+            }
+            $provider | Add-Member -MemberType ScriptMethod -Name EnsureMailboxType -Value {
+                param($IdentityKey, $DesiredType, $AuthSession)
+                $this.TypeCalls.Add("$IdentityKey|$DesiredType")
+                return [pscustomobject]@{ IdentityKey = $IdentityKey; Changed = $true }
+            }
+            $provider | Add-Member -MemberType ScriptMethod -Name EnsureOutOfOffice -Value {
+                param($IdentityKey, $Config, $AuthSession)
+                return [pscustomobject]@{ IdentityKey = $IdentityKey; Changed = $true }
+            }
+            return $provider
+        }
+
+        function Invoke-ExoLeaver {
+            param([object] $Provider)
+
+            $providers = @{
+                ExchangeOnline    = $Provider
+                AuthSessionBroker = New-IdleAuthSessionBroker -AuthSessionType 'OAuth' -DefaultAuthSession 'mock-token-string'
+            }
+            $request = New-IdleTestRequest -LifecycleEvent 'Leaver' -Intent @{
+                UserPrincipalName = 'max.power@contoso.com'
+                Manager           = @{ DisplayName = 'Manager'; Mail = 'manager@contoso.com' }
+                ServiceDesk       = @{ DisplayName = 'Service Desk'; Mail = 'servicedesk@contoso.com' }
+            }
+            $plan = New-IdlePlan -WorkflowPath $script:ExoLeaverPath -Request $request -Providers $providers
+            return Invoke-IdlePlan -Plan $plan -Providers $providers
+        }
+    }
+
+    It 'uses the mailbox State in a Precondition and a With template (example workflow)' {
+        $provider = New-StateMailboxProvider -MailboxType 'User'
+        $result = Invoke-ExoLeaver -Provider $provider
+
+        $result.Status | Should -Be 'Completed'
+        $result.Steps[0].State.Mailbox.PrimarySmtpAddress | Should -Be 'max.power@contoso.com'
+        @($provider.TypeCalls) | Should -Be @('max.power@contoso.com|Shared')
+
+        $completion = @($result.Events | Where-Object { $_.Type -eq 'IdLE.Step.EmitEvent.Emitted' })
+        $completion.Count | Should -Be 1
+        $completion[0].Message | Should -Be 'Mailbox offboarding completed for max.power@contoso.com (max.power@contoso.com).'
+    }
+
+    It 'skips the conversion for a room mailbox via the State Precondition' {
+        $provider = New-StateMailboxProvider -MailboxType 'Room'
+        $result = Invoke-ExoLeaver -Provider $provider
+
+        $result.Status | Should -Be 'Completed'
+        ($result.Steps | Where-Object Name -eq 'ConvertToSharedMailbox').Status | Should -Be 'PreconditionSkipped'
+        @($provider.TypeCalls).Count | Should -Be 0
+    }
+}

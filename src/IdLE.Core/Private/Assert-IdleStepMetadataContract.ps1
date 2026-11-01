@@ -38,9 +38,12 @@ function Assert-IdleStepMetadataContract {
     $keySchemaProperties = @('Type', 'Required', 'Default', 'AllowedValues', 'AllowEmpty', 'Keys', 'AllowAdditionalKeys', 'Items')
     $example = "WithSchema = @{ Keys = @{ IdentityKey = @{ Type = 'String'; Required = `$true } } }"
 
+    # StateSchema errors use their own code; the key schema format is shared with WithSchema.
+    $errorCode = 'InvalidWithSchema'
+
     function New-IdleContractError {
         param([string] $Text)
-        return [System.ArgumentException]::new("InvalidWithSchema: $prefix $Text", 'Providers')
+        return [System.ArgumentException]::new("${errorCode}: $prefix $Text", 'Providers')
     }
 
     function Assert-IdleKeySchema {
@@ -163,6 +166,30 @@ function Assert-IdleStepMetadataContract {
         if ($commonKeys -contains [string]$key) {
             throw (New-IdleContractError "WithSchema.Keys must not declare '$key'. Declare Provider = @{ DefaultAlias = '<alias>' } instead; the engine adds Provider, AuthSessionName and AuthSessionOptions.")
         }
+    }
+
+    if ($Metadata.ContainsKey('StateSchema')) {
+        $errorCode = 'InvalidStateSchema'
+        $stateExample = "StateSchema = @{ Keys = @{ Mailbox = @{ Type = 'Any'; Required = `$true } } }"
+
+        $stateSchema = $Metadata['StateSchema']
+        if ($stateSchema -isnot [hashtable]) {
+            throw (New-IdleContractError "has an invalid 'StateSchema'. Expected a hashtable, e.g. $stateExample.")
+        }
+        foreach ($property in $stateSchema.PSBase.Keys) {
+            if (@('Keys', 'AllowAdditionalKeys') -notcontains [string]$property) {
+                throw (New-IdleContractError "StateSchema has unknown property '$property'. Supported: Keys, AllowAdditionalKeys.")
+            }
+        }
+        if (-not $stateSchema.ContainsKey('Keys')) {
+            throw (New-IdleContractError "StateSchema is missing 'Keys', e.g. $stateExample.")
+        }
+        if ($stateSchema.ContainsKey('AllowAdditionalKeys') -and $stateSchema['AllowAdditionalKeys'] -isnot [bool]) {
+            throw (New-IdleContractError 'StateSchema.AllowAdditionalKeys must be a Bool.')
+        }
+
+        Assert-IdleKeysSchema -Keys $stateSchema['Keys'] -Path 'StateSchema.Keys'
+        $errorCode = 'InvalidWithSchema'
     }
 
     if ($Metadata.ContainsKey('Provider')) {

@@ -133,6 +133,14 @@ not set (used by the mailbox steps: `ExchangeOnline`). Steps without `Provider` 
 - Invalid metadata fails when the catalog is loaded.
 - Metadata must be data-only — ScriptBlocks are rejected.
 
+**`StateSchema`** (optional): declares the `State` the step publishes for later steps, with the same key schema
+format as `WithSchema` (`Keys`, `AllowAdditionalKeys`). A step without `StateSchema` must not return `State`.
+See [Step State](#step-state).
+
+```powershell
+StateSchema = @{ Keys = @{ Mailbox = @{ Type = 'Any'; Required = $true } } }
+```
+
 Host-supplied step types may supplement (but not override) the catalog via `Providers.StepMetadata`.
 
 ### Step handler contract
@@ -185,10 +193,54 @@ looks it up in `Providers` and passes a handle. The same alias feeds `Request.Co
 | --- | --- | --- |
 | `Changed` | Bool | The step changed external state. Default `$false`. |
 | `Data` | Hashtable | Structured step output (e.g. per-attribute results, skipped entitlements). |
-| `State` | Hashtable | Values intended for later steps. Reserved: returned in the step result, not yet consumed by the engine. |
+| `State` | Hashtable | Values for later steps of the same run; must match the step's `StateSchema` (see [Step State](#step-state)). |
 
 The engine builds `IdLE.StepResult` (`Name`, `Type`, `Status`, `Changed`, `Data`, `State`, `Error`, `Attempts`,
 `Source`). Failures are reported by throwing; transient failures use the transient marker for retries.
+
+### Step State
+
+A step publishes `State` under its step name. Later steps read it as `State.<StepName>.<Key>[.<Nested>...]`:
+
+```powershell
+Steps = @(
+    @{
+        Name = 'GetMailbox'     # referenced names must be identifiers (letters, digits, underscores)
+        Type = 'IdLE.Step.Mailbox.GetInfo'
+        With = @{ IdentityKey = '{{Request.Intent.UserPrincipalName}}' }
+    }
+    @{
+        Name                = 'ConvertToShared'
+        Type                = 'IdLE.Step.Mailbox.EnsureType'
+        Precondition        = @{ Equals = @{ Path = 'State.GetMailbox.Mailbox.Type'; Value = 'User' } }
+        OnPreconditionFalse = 'Continue'
+        With                = @{ IdentityKey = '{{State.GetMailbox.Mailbox.PrimarySmtpAddress}}'; MailboxType = 'Shared' }
+    }
+)
+```
+
+| Place | State supported |
+| --- | --- |
+| `Condition` | No: conditions are evaluated at planning time, before any step has run (`StateReferenceNotAllowed`). |
+| `Precondition` | Yes: evaluated right before the step. |
+| `With` templates | Yes: a `With` string with a `{{State...}}` placeholder is resolved right before the step (not for `Provider`, `AuthSessionName`, `AuthSessionOptions`). |
+
+**Planning** validates every reference: the producing step must run before the referencing step (`Steps` see earlier
+`Steps`; `OnFailureSteps` see all `Steps` and earlier `OnFailureSteps`) and must declare `<Key>` in its
+`StateSchema`. Paths below `<Key>` are not validated. A `With` string that references State stays unresolved in the
+plan (and in the plan export); its `Request` placeholders must resolve at planning time, and its `WithSchema` check
+runs after the execution-time resolution. Only these strings are resolved again, so request values cannot inject
+`State` placeholders.
+
+**Execution:**
+
+- The engine validates the returned `State` against the `StateSchema` and stores a data-only copy after the step
+  completes. Steps that are `NotApplicable`, `PreconditionSkipped`, `Blocked` or `Failed` publish nothing.
+- In a `Precondition`, a State path whose producer published nothing resolves to `$null`; use `Exists` to check
+  that the producer ran.
+- A `With` placeholder that resolves to `$null` fails the step (`StateReferenceUnresolved`).
+- State must not contain ScriptBlocks, `PSCredential` or `SecureString`; authentication stays with the
+  `AuthSessionBroker`. State is not written to events.
 
 ### Error codes
 
@@ -201,12 +253,19 @@ Error messages start with the code, followed by the step name, the step type and
 | `WithKeyMissing` | Required key absent or `$null`. | Plan |
 | `WithKeyUnknown` | Key not in the schema (and no `AllowAdditionalKeys`). | Plan |
 | `WithKeyTypeMismatch` | Value does not match `Type`. | Plan |
-| `WithValueNotAllowed` | Value not in `AllowedValues`, or empty without `AllowEmpty`. | Plan |
+| `WithValueNotAllowed` | Value not in `AllowedValues`, or empty without `AllowEmpty`. | Plan (State templates: execution) |
+| `InvalidStateSchema` | Invalid `StateSchema` (missing `Keys`, invalid key schema, ...). | Catalog load |
+| `StateReferenceNotAllowed` | `State.*` in `Condition`, or in `With.Provider` / `AuthSessionName` / `AuthSessionOptions`. | Plan |
+| `StateReferenceInvalid` | No step name after `State`, or the step name is not an identifier. | Plan |
+| `StateReferenceUnknownStep` | No step with that name runs before the referencing step. | Plan |
+| `StateReferenceAmbiguous` | Referenced from `OnFailureSteps`, and the name exists in both `Steps` and `OnFailureSteps`. | Plan |
+| `StateReferenceNotDeclared` | The producing step declares no `StateSchema`, or not the referenced key. | Plan |
 | `LegacyStepHandler` | Handler has no `-With` parameter (pre-1.0 contract). | Before the first attempt |
 | `InvalidStepHandlerSignature` | `-Provider` declared without metadata `Provider`, or vice versa. | Before the first attempt |
+| `StateReferenceUnresolved` | A `With` State placeholder resolves to `$null` (producer did not run or did not return the value). | Before the first attempt |
 | `ProviderNotSupplied` | Resolved alias not in `Providers`. | Execution (hosts may pass providers only to `Invoke-IdlePlan`) |
 | `ProviderMethodNotImplemented` | `Invoke` of a method the provider does not implement. | Execution |
-| `InvalidStepHandlerResult` | Result is not `$null` / hashtable, has unknown keys, or the handler leaked pipeline output. | Execution |
+| `InvalidStepHandlerResult` | Result is not `$null` / hashtable, has unknown keys, the handler leaked pipeline output, or `State` does not match the `StateSchema`. | Execution |
 
 ### Migration from earlier versions
 
@@ -425,11 +484,10 @@ Steps must not:
 
 ## Inputs
 
-Steps receive inputs from the workflow under `Inputs` and may reference:
+Steps receive their inputs from the workflow under `With`. `With` templates may reference:
 
-- `Request.*`
-- `State.*`
-- `Policy.*` (optional root, host-defined)
+- `Request.*` (resolved at planning time)
+- `State.<StepName>.*` (resolved right before the step runs, see [Step State](#step-state))
 
 ### Security: Data-only constraint
 
@@ -449,8 +507,8 @@ Assert-IdleNoScriptBlock -InputObject $value -Path 'Request.Context.Something'
 
 ## Outputs
 
-Steps may write to `State.*` only, and only to declared output paths.
-This prevents hidden coupling between steps.
+Steps pass values to later steps only through the `State` result key, and only with the keys declared in their
+`StateSchema` (see [Step State](#step-state)). This prevents hidden coupling between steps.
 
 ### Eventing
 

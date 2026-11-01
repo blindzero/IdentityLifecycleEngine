@@ -248,11 +248,16 @@ function Get-IdleStepWithKeyRows {
 
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [string] $ModuleName
+        [string] $ModuleName,
+
+        # WithSchema (inputs) or StateSchema (outputs, optional in the catalog).
+        [Parameter()]
+        [ValidateSet('WithSchema', 'StateSchema')]
+        [string] $SchemaName = 'WithSchema'
     )
 
-    # Rows are derived from the step's typed WithSchema (StepMetadataCatalog), including the engine-provided
-    # common keys for steps that declare a Provider.
+    # Rows are derived from the step's typed WithSchema / StateSchema (StepMetadataCatalog), including the
+    # engine-provided common keys for steps that declare a Provider (WithSchema only).
     $module = Get-Module -Name $ModuleName -All -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($null -eq $module) {
         return @()
@@ -264,7 +269,10 @@ function Get-IdleStepWithKeyRows {
     }
 
     $metadata = $catalog[$StepType]
-    $keys = $metadata['WithSchema']['Keys']
+    if (-not $metadata.ContainsKey($SchemaName)) {
+        return @()
+    }
+    $keys = $metadata[$SchemaName]['Keys']
 
     function Get-IdleKeyNotes {
         param([hashtable] $KeySchema)
@@ -307,7 +315,7 @@ function Get-IdleStepWithKeyRows {
             })
     }
 
-    if ($metadata.ContainsKey('Provider')) {
+    if ($SchemaName -eq 'WithSchema' -and $metadata.ContainsKey('Provider')) {
         $alias = [string]$metadata['Provider']['DefaultAlias']
         $sessionDefault = if ($metadata['Provider']['AuthSessionNameFromAlias'] -eq $true) { 'provider alias' } else { 'broker default session' }
         $rows.Add([pscustomobject]@{ Name = 'Provider'; Type = 'String'; Required = $false; Default = "``$alias``"; Notes = 'Provider alias in `Providers`.'; Common = $true })
@@ -512,6 +520,7 @@ function New-IdleStepDocModel {
 
     $withKeys = @(Get-IdleStepWithKeyRows -StepType $stepType -ModuleName $moduleName)
     $requiredWithKeys = @($withKeys | Where-Object Required | ForEach-Object Name)
+    $stateKeys = @(Get-IdleStepWithKeyRows -StepType $stepType -ModuleName $moduleName -SchemaName 'StateSchema')
 
     $idempotent = 'Unknown'
     if ($description -match '(?i)\bidempotent\b') {
@@ -572,6 +581,7 @@ function New-IdleStepDocModel {
         Description           = $description
         WithKeys              = $withKeys
         RequiredWithKeys      = $requiredWithKeys
+        StateKeys             = $stateKeys
         Idempotent            = $idempotent
         RequiredCapabilities  = $requiredCapabilities
         Examples              = $examples
@@ -635,6 +645,20 @@ function New-IdleStepDetailPageContent {
         foreach ($row in $Model.WithKeys) {
             $required = if ($row.Required) { 'Yes' } else { 'No' }
             [void]$sb.AppendLine(("| ``{0}`` | {1} | {2} | {3} | {4} |" -f $row.Name, $row.Type, $required, $row.Default, $row.Notes))
+        }
+        [void]$sb.AppendLine()
+    }
+
+    if ($Model.StateKeys.Count -gt 0) {
+        [void]$sb.AppendLine('## Outputs (State.*)')
+        [void]$sb.AppendLine()
+        [void]$sb.AppendLine('Published under `State.<StepName>.<Key>` for later steps (`Precondition` and `With` templates); validated against the step''s `StateSchema` (see [Step State](../../extend/steps.md#step-state)).')
+        [void]$sb.AppendLine()
+        [void]$sb.AppendLine('| Key | Type | Always set | Notes |')
+        [void]$sb.AppendLine('| --- | --- | --- | --- |')
+        foreach ($row in $Model.StateKeys) {
+            $required = if ($row.Required) { 'Yes' } else { 'No' }
+            [void]$sb.AppendLine(("| ``{0}`` | {1} | {2} | {3} |" -f $row.Name, $row.Type, $required, $row.Notes))
         }
         [void]$sb.AppendLine()
     }

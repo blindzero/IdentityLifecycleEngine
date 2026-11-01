@@ -63,4 +63,42 @@ Describe 'Generate-IdleStepReference.ps1' {
             $script:PagesByStepType[$StepType] | Should -Match ([regex]::Escape("- **Required Capabilities**: $expected"))
         }
     }
+
+    Context 'State outputs' {
+
+        BeforeDiscovery {
+            $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '../..')).Path
+            $catalogFiles = Get-ChildItem -Path (Join-Path $repoRoot 'src') -Directory -Filter 'IdLE.Steps.*' |
+                ForEach-Object { Join-Path $_.FullName 'StepMetadataCatalog.psd1' } |
+                Where-Object { Test-Path -LiteralPath $_ }
+
+            $script:StateCases = foreach ($catalogFile in $catalogFiles) {
+                $catalog = Import-PowerShellDataFile -Path $catalogFile
+                foreach ($stepType in $catalog.Keys) {
+                    $metadata = $catalog[$stepType]
+                    @{
+                        StepType  = $stepType
+                        StateKeys = @(if ($metadata.Contains('StateSchema')) { $metadata['StateSchema']['Keys'].Keys })
+                    }
+                }
+            }
+        }
+
+        It 'catalogs declare at least one step with a StateSchema' -ForEach @(@{ CaseCount = @($script:StateCases | Where-Object { $_.StateKeys.Count -gt 0 }).Count }) {
+            $CaseCount | Should -BeGreaterThan 0
+        }
+
+        It 'renders the State outputs of <StepType> only if it declares a StateSchema' -ForEach $script:StateCases {
+            $page = $script:PagesByStepType[$StepType]
+            if ($StateKeys.Count -eq 0) {
+                $page | Should -Not -Match ([regex]::Escape('## Outputs (State.*)'))
+                return
+            }
+
+            $page | Should -Match ([regex]::Escape('## Outputs (State.*)'))
+            foreach ($key in $StateKeys) {
+                $page | Should -Match ([regex]::Escape("| ``$key`` |"))
+            }
+        }
+    }
 }

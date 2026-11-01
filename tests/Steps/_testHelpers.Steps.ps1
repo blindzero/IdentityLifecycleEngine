@@ -103,7 +103,8 @@ function Invoke-IdleTestStepHandler {
     .DESCRIPTION
     Validates Step.With against the step metadata catalog (plan-time contract: types, defaults, Provider
     alias), builds the handler arguments (-Context, -With, -Provider handle, -Step) and converts the handler
-    output into an IdLE.StepResult. Use it in step unit tests instead of calling the handler directly.
+    output into an IdLE.StepResult (State validated against the StateSchema). Use it in step unit tests
+    instead of calling the handler directly.
 
     .PARAMETER Context
     Execution context (Providers, EventSink, optional AcquireAuthSession).
@@ -159,7 +160,7 @@ function Invoke-IdleTestStepHandler {
         $handlerArguments = New-IdleStepHandlerArguments -Handler $handler -Step $planStep -Context $Context
         $output = & $handler @handlerArguments
 
-        ConvertTo-IdleStepResult -Output $output -StepName $stepName -StepType $stepType -Attempts 1 -Source $null
+        ConvertTo-IdleStepResult -Output $output -StepName $stepName -StepType $stepType -Attempts 1 -Source $null -StateSchema (Get-IdleStepStateSchema -Metadata $catalog[$stepType])
     } $Context $Step $StepMetadata $StepRegistry
 }
 

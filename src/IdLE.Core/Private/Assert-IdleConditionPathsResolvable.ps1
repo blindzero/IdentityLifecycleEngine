@@ -33,107 +33,16 @@ function Assert-IdleConditionPathsResolvable {
         [switch] $ExcludeExistsOperatorPaths
     )
 
-    function Add-IdlePathIfPresent {
-        param(
-            [Parameter(Mandatory)]
-            [AllowEmptyCollection()]
-            [System.Collections.Generic.List[string]] $PathList,
-
-            [Parameter(Mandatory)]
-            [AllowNull()]
-            [object] $PathCandidate
-        )
-
-        if ($null -eq $PathCandidate) {
-            return
-        }
-
-        $pathText = [string]$PathCandidate
-        if ([string]::IsNullOrWhiteSpace($pathText)) {
-            return
-        }
-
-        if ($pathText.StartsWith('context.', [System.StringComparison]::OrdinalIgnoreCase)) {
-            $pathText = $pathText.Substring(8)
-        }
-
-        $null = $PathList.Add($pathText)
+    # Contains/NotContains/Like/NotLike paths are not validated here (unchanged behavior).
+    # State paths are checked during planning (State reference validation); at execution a State path whose
+    # producer published nothing resolves to $null instead of failing.
+    $validatedOperators = @('Equals', 'NotEquals', 'Exists', 'In')
+    $paths = foreach ($conditionPath in @(Get-IdleConditionPath -Condition $Condition)) {
+        if ($validatedOperators -notcontains $conditionPath.Operator) { continue }
+        if ($ExcludeExistsOperatorPaths -and $conditionPath.Operator -eq 'Exists') { continue }
+        if ($conditionPath.Path -eq 'State' -or $conditionPath.Path.StartsWith('State.', [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        $conditionPath.Path
     }
-
-    function Get-IdleConditionPaths {
-        param(
-            [Parameter(Mandatory)]
-            [System.Collections.IDictionary] $Node,
-
-            [Parameter(Mandatory)]
-            [AllowEmptyCollection()]
-            [System.Collections.Generic.List[string]] $PathList,
-
-            [Parameter()]
-            [switch] $ExcludeExistsPaths
-        )
-
-        if ($Node.Contains('All')) {
-            foreach ($child in @($Node.All)) {
-                if ($child -is [System.Collections.IDictionary]) {
-                    Get-IdleConditionPaths -Node $child -PathList $PathList -ExcludeExistsPaths:$ExcludeExistsPaths
-                }
-            }
-            return
-        }
-
-        if ($Node.Contains('Any')) {
-            foreach ($child in @($Node.Any)) {
-                if ($child -is [System.Collections.IDictionary]) {
-                    Get-IdleConditionPaths -Node $child -PathList $PathList -ExcludeExistsPaths:$ExcludeExistsPaths
-                }
-            }
-            return
-        }
-
-        if ($Node.Contains('None')) {
-            foreach ($child in @($Node.None)) {
-                if ($child -is [System.Collections.IDictionary]) {
-                    Get-IdleConditionPaths -Node $child -PathList $PathList -ExcludeExistsPaths:$ExcludeExistsPaths
-                }
-            }
-            return
-        }
-
-        if ($Node.Contains('Equals')) {
-            Add-IdlePathIfPresent -PathList $PathList -PathCandidate $Node.Equals.Path
-            return
-        }
-
-        if ($Node.Contains('NotEquals')) {
-            Add-IdlePathIfPresent -PathList $PathList -PathCandidate $Node.NotEquals.Path
-            return
-        }
-
-        if ($Node.Contains('Exists')) {
-            # Exists operator semantics: checking for the presence of a path is intentional.
-            # When -ExcludeExistsPaths is set (e.g. strict execution-time validation), skip these
-            # so that Exists can still return $false without causing a path-not-found error.
-            if (-not $ExcludeExistsPaths) {
-                $existsVal = $Node.Exists
-                if ($existsVal -is [string]) {
-                    Add-IdlePathIfPresent -PathList $PathList -PathCandidate $existsVal
-                }
-                elseif ($existsVal -is [System.Collections.IDictionary]) {
-                    Add-IdlePathIfPresent -PathList $PathList -PathCandidate $existsVal.Path
-                }
-            }
-            return
-        }
-
-        if ($Node.Contains('In')) {
-            Add-IdlePathIfPresent -PathList $PathList -PathCandidate $Node.In.Path
-            return
-        }
-    }
-
-    $paths = [System.Collections.Generic.List[string]]::new()
-    Get-IdleConditionPaths -Node $Condition -PathList $paths -ExcludeExistsPaths:$ExcludeExistsOperatorPaths
 
     $uniquePaths = @($paths | Select-Object -Unique)
     if ($uniquePaths.Count -eq 0) {

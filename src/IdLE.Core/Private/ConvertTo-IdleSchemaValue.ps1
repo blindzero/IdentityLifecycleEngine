@@ -30,6 +30,13 @@ function ConvertTo-IdleSchemaValue {
     .PARAMETER ExcludedKeys
     Hashtable keys that are never accepted as additional keys (common keys of steps without a Provider).
 
+    .PARAMETER DeferredPaths
+    Paths whose values are resolved at execution time (With templates referencing State). They are returned
+    unchanged; their key schema (if declared) is stored in DeferredSchemas for execution-time validation.
+
+    .PARAMETER DeferredSchemas
+    Receives path -> key schema for every visited deferred path.
+
     .OUTPUTS
     The normalized value.
     #>
@@ -50,12 +57,24 @@ function ConvertTo-IdleSchemaValue {
         [string] $ErrorPrefix,
 
         [Parameter()]
-        [string[]] $ExcludedKeys = @()
+        [string[]] $ExcludedKeys = @(),
+
+        [Parameter()]
+        [string[]] $DeferredPaths = @(),
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $DeferredSchemas
     )
 
     function New-IdleSchemaError {
         param([string] $Code, [string] $Text)
         return [System.ArgumentException]::new("${Code}: $ErrorPrefix $Text", 'Workflow')
+    }
+
+    if ($DeferredPaths -contains $Path) {
+        if ($null -ne $DeferredSchemas) { $DeferredSchemas[$Path] = $Schema }
+        return $Value
     }
 
     $type = [string]$Schema['Type']
@@ -120,7 +139,7 @@ function ConvertTo-IdleSchemaValue {
                 if ($null -eq $items[$index]) {
                     throw (New-IdleSchemaError 'WithKeyTypeMismatch' "$itemPath must not be null.")
                 }
-                $result.Add((ConvertTo-IdleSchemaValue -Schema $Schema['Items'] -Value $items[$index] -Path $itemPath -ErrorPrefix $ErrorPrefix))
+                $result.Add((ConvertTo-IdleSchemaValue -Schema $Schema['Items'] -Value $items[$index] -Path $itemPath -ErrorPrefix $ErrorPrefix -DeferredPaths $DeferredPaths -DeferredSchemas $DeferredSchemas))
             }
             return , $result.ToArray()
         }
@@ -156,7 +175,7 @@ function ConvertTo-IdleSchemaValue {
                     continue
                 }
 
-                $result[[string]$declaredKey] = ConvertTo-IdleSchemaValue -Schema $declared[$declaredKey] -Value $inputValue -Path "$Path.$declaredKey" -ErrorPrefix $ErrorPrefix
+                $result[[string]$declaredKey] = ConvertTo-IdleSchemaValue -Schema $declared[$declaredKey] -Value $inputValue -Path "$Path.$declaredKey" -ErrorPrefix $ErrorPrefix -DeferredPaths $DeferredPaths -DeferredSchemas $DeferredSchemas
             }
 
             foreach ($declaredKey in @($declared.PSBase.Keys | Sort-Object)) {

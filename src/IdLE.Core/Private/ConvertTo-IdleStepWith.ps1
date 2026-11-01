@@ -22,6 +22,12 @@ function ConvertTo-IdleStepWith {
     .PARAMETER StepType
     Step type (error messages).
 
+    .PARAMETER DeferredPaths
+    With paths resolved at execution time (State templates); skipped here, see ConvertTo-IdleSchemaValue.
+
+    .PARAMETER DeferredSchemas
+    Receives path -> key schema of the deferred paths.
+
     .OUTPUTS
     System.Collections.Hashtable
     #>
@@ -40,7 +46,14 @@ function ConvertTo-IdleStepWith {
         [string] $StepName,
 
         [Parameter(Mandatory)]
-        [string] $StepType
+        [string] $StepType,
+
+        [Parameter()]
+        [string[]] $DeferredPaths = @(),
+
+        [Parameter()]
+        [AllowNull()]
+        [hashtable] $DeferredSchemas
     )
 
     if ($null -eq $With) { $With = @{} }
@@ -50,7 +63,9 @@ function ConvertTo-IdleStepWith {
         -Value $With `
         -Path 'With' `
         -ErrorPrefix ("Step '{0}' (type '{1}'):" -f $StepName, $StepType) `
-        -ExcludedKeys @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+        -ExcludedKeys @('Provider', 'AuthSessionName', 'AuthSessionOptions') `
+        -DeferredPaths $DeferredPaths `
+        -DeferredSchemas $DeferredSchemas
 
     # Steps whose auth sessions are named after the provider alias (e.g. 'ExchangeOnline').
     if ($Metadata.ContainsKey('Provider') -and $Metadata['Provider']['AuthSessionNameFromAlias'] -eq $true -and -not $effective.ContainsKey('AuthSessionName')) {

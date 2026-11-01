@@ -1,7 +1,7 @@
 @{
     Name           = 'ExchangeOnline Leaver - Mailbox Offboarding'
     LifecycleEvent = 'Leaver'
-    Description    = 'Converts mailbox to shared and enables Out of Office with dynamic manager/service-desk contact information.'
+    Description    = 'Converts a user mailbox to shared and enables Out of Office with dynamic manager/service-desk contact information.'
 
     Steps          = @(
         @{
@@ -12,10 +12,16 @@
                 IdentityKey = '{{Request.Intent.UserPrincipalName}}'
             }
         }
+        # GetMailboxInfo publishes State.GetMailboxInfo.Mailbox for the following steps.
+        # Room and equipment mailboxes are left as they are.
         @{
-            Name = 'ConvertToSharedMailbox'
-            Type = 'IdLE.Step.Mailbox.EnsureType'
-            With = @{
+            Name                = 'ConvertToSharedMailbox'
+            Type                = 'IdLE.Step.Mailbox.EnsureType'
+            Precondition        = @{
+                In = @{ Path = 'State.GetMailboxInfo.Mailbox.Type'; Values = @('User', 'Shared') }
+            }
+            OnPreconditionFalse = 'Continue'
+            With                = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = '{{Request.Intent.UserPrincipalName}}'
                 MailboxType = 'Shared'
@@ -53,7 +59,8 @@
             Name = 'EmitCompletionEvent'
             Type = 'IdLE.Step.EmitEvent'
             With = @{
-                Message = 'Mailbox offboarding completed for {{Request.Intent.UserPrincipalName}}.'
+                # Resolved when the step runs, after GetMailboxInfo has published its State.
+                Message = 'Mailbox offboarding completed for {{Request.Intent.UserPrincipalName}} ({{State.GetMailboxInfo.Mailbox.PrimarySmtpAddress}}).'
             }
         }
     )
