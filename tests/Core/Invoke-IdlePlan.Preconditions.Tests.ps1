@@ -13,17 +13,14 @@ BeforeAll {
             [object] $Context,
 
             [Parameter(Mandatory)]
+            [hashtable] $With,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Step
         )
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 
     function global:Invoke-IdlePreconditionTestSecondStep {
@@ -34,19 +31,16 @@ BeforeAll {
             [object] $Context,
 
             [Parameter(Mandatory)]
+            [hashtable] $With,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Step
         )
 
         $Context.EventSink.WriteEvent('SecondStepRan', 'Second step executed', $Step.Name, @{ StepType = $Step.Type })
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 
     function global:Invoke-IdlePreconditionTestOnFailureStep {
@@ -57,19 +51,16 @@ BeforeAll {
             [object] $Context,
 
             [Parameter(Mandatory)]
+            [hashtable] $With,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Step
         )
 
         $Context.EventSink.WriteEvent('OnFailureRan', 'OnFailure step executed', $Step.Name, @{ StepType = $Step.Type })
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 }
 
@@ -412,7 +403,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 $providers = @{
                     Identity     = $provider
                     StepRegistry = @{ 'Test.IdLE.Step.CurrentCleanupTest' = 'Invoke-IdlePreconditionTestNoopStep' }
-                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.CurrentCleanupTest')
+                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.CurrentCleanupTest') -Providers @{ 'Test.IdLE.Step.CurrentCleanupTest' = 'Identity' }
                 }
 
                 $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers
@@ -441,7 +432,7 @@ Describe 'Invoke-IdlePlan - Runtime Preconditions' {
                 $providers = @{
                     Identity     = $provider
                     StepRegistry = @{ 'Test.IdLE.Step.CurrentCleanupTest' = 'Invoke-IdlePreconditionTestNoopStep' }
-                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.CurrentCleanupTest')
+                    StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.CurrentCleanupTest') -Providers @{ 'Test.IdLE.Step.CurrentCleanupTest' = 'Identity' }
                 }
 
                 $plan = New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers $providers

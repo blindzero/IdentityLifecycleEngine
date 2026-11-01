@@ -16,8 +16,8 @@ Triggers a directory sync cycle and optionally waits for completion.
 
 ## Description
 
-The host must supply a provider instance via
-Context.Providers[&lt;ProviderAlias&gt;] that implements:
+The engine passes the provider resolved from With.Provider
+(default 'DirectorySync') as -Provider. The provider implements:
 
 - StartSyncCycle(PolicyType, ComputerName, AuthSession)
 
@@ -26,22 +26,24 @@ Context.Providers[&lt;ProviderAlias&gt;] that implements:
 The step is designed for remote execution and requires an elevated auth session
 provided by the host's AuthSessionBroker.
 
-Authentication:
-
-- With.AuthSessionName (optional): routing key for AuthSessionBroker
-
-- With.AuthSessionOptions (optional, hashtable): forwarded to broker for session selection
-
-- If AuthSessionName is omitted, the broker is asked for a default session
-
-- ComputerName and PolicyType are provider-specific inputs and are validated by the selected provider
-
-- ScriptBlocks in AuthSessionOptions are rejected (security boundary)
+Authentication is handled by the engine: With.AuthSessionName (optional) and With.AuthSessionOptions
+select the session; without AuthSessionName the broker is asked for a default session.
+ComputerName and PolicyType are provider-specific inputs and are validated by the selected provider.
 
 ## Inputs (With.*)
 
-This step has no required ``With.*`` keys at step schema level.
-Inputs may still be provider-specific; refer to the step description and examples for usage details.
+Validated at plan time against the step's ``WithSchema`` (see [Step metadata contract](../../extend/steps.md#step-metadata-contract)).
+
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `ComputerName` | String | No |  |  |
+| `PolicyType` | String | No |  |  |
+| `PollIntervalSeconds` | Int | No | `10` |  |
+| `TimeoutSeconds` | Int | No | `600` |  |
+| `Wait` | Bool | No | `$false` |  |
+| `AuthSessionName` | String | No | broker default session | Auth session routing key for the AuthSessionBroker. |
+| `AuthSessionOptions` | Hashtable | No |  | Data-only options passed to the AuthSessionBroker. |
+| `Provider` | String | No | `DirectorySync` | Provider alias in `Providers`. |
 
 ## Example
 

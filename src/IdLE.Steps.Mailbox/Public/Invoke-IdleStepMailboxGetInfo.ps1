@@ -4,27 +4,23 @@ function Invoke-IdleStepMailboxGetInfo {
     Retrieves mailbox details and returns a structured report.
 
     .DESCRIPTION
-    This is a provider-agnostic step. The host must supply a provider instance via
-    Context.Providers[<ProviderAlias>]. The provider must implement a GetMailbox
+    This is a provider-agnostic step. The engine passes the provider resolved from With.Provider
+    (default 'ExchangeOnline') as -Provider. The provider implements a GetMailbox
     method with the signature (IdentityKey, AuthSession) and return a mailbox object.
 
     The step is read-only and returns Changed = $false.
 
-    Authentication:
-    - If With.AuthSessionName is present, the step acquires an auth session via
-      Context.AcquireAuthSession(Name, Options) and passes it to the provider method.
-    - If With.AuthSessionName is absent, defaults to With.Provider value (e.g., 'ExchangeOnline').
-    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-      session selection (e.g., @{ Role = 'Admin' }).
+    Authentication is handled by the engine: without With.AuthSessionName the session is named after the
+    provider alias (e.g. 'ExchangeOnline'); With.AuthSessionOptions is passed to the broker.
 
-    .PARAMETER Context
-    Execution context created by IdLE.Core.
+    .PARAMETER With
+    Validated With hashtable (see the step metadata catalog).
 
-    .PARAMETER Step
-    Normalized step object from the plan. Must contain a 'With' hashtable.
+    .PARAMETER Provider
+    Provider handle created by the engine (see docs/extend/steps.md).
 
     .OUTPUTS
-    PSCustomObject (PSTypeName: IdLE.StepResult)
+    System.Collections.Hashtable (State.Mailbox)
 
     .EXAMPLE
     # In workflow definition:
@@ -41,61 +37,15 @@ function Invoke-IdleStepMailboxGetInfo {
     param(
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Context,
+        [hashtable] $With,
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Step
+        [object] $Provider
     )
 
-    $with = $Step.With
-    if ($null -eq $with -or -not ($with -is [hashtable])) {
-        throw "Mailbox.GetInfo requires 'With' to be a hashtable."
-    }
+    $result = $Provider.Invoke('GetMailbox', @($With.IdentityKey))
 
-    if (-not $with.ContainsKey('IdentityKey')) {
-        throw "Mailbox.GetInfo requires With.IdentityKey."
-    }
-
-    $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'ExchangeOnline' }
-
-    if (-not ($Context.PSObject.Properties.Name -contains 'Providers')) {
-        throw "Context does not contain a Providers hashtable."
-    }
-    if ($null -eq $Context.Providers -or -not ($Context.Providers -is [hashtable])) {
-        throw "Context.Providers must be a hashtable."
-    }
-    if (-not $Context.Providers.ContainsKey($providerAlias)) {
-        throw "Provider '$providerAlias' was not supplied by the host."
-    }
-
-    # Create execution-local copy of With to avoid mutating the plan
-    $effectiveWith = if ($with -is [hashtable]) { $with.Clone() } else { @{} + $with }
-
-    # Apply AuthSessionName convention: default to Provider if not specified
-    if (-not $effectiveWith.ContainsKey('AuthSessionName')) {
-        $effectiveWith['AuthSessionName'] = $providerAlias
-    }
-
-    $result = Invoke-IdleProviderMethod `
-        -Context $Context `
-        -With $effectiveWith `
-        -ProviderAlias $providerAlias `
-        -MethodName 'GetMailbox' `
-        -MethodArguments @([string]$effectiveWith.IdentityKey)
-
-    # Store mailbox data in State for downstream steps
-    $state = @{
-        Mailbox = $result
-    }
-
-    return [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = [string]$Step.Name
-        Type       = [string]$Step.Type
-        Status     = 'Completed'
-        Changed    = $false
-        Error      = $null
-        State      = $state
-    }
+    # Mailbox data for downstream steps.
+    return @{ State = @{ Mailbox = $result } }
 }

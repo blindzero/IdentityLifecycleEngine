@@ -5,8 +5,8 @@ function Invoke-IdleStepRevokeIdentitySessions {
 
     .DESCRIPTION
     This is a provider-agnostic step that revokes active sign-in sessions (refresh tokens)
-    for a given identity. The host must supply a provider instance via
-    Context.Providers[<ProviderAlias>] that implements RevokeSessions(identityKey)
+    for a given identity. The engine passes the provider resolved from With.Provider (default 'Identity') as -Provider.
+    The provider implements RevokeSessions(identityKey)
     and returns an object with properties 'IdentityKey' and 'Changed'.
 
     This step is typically used in Leaver workflows after disabling an identity to ensure
@@ -15,26 +15,20 @@ function Invoke-IdleStepRevokeIdentitySessions {
     The step does not modify the identity itself (e.g., does not disable the account).
     Use IdLE.Step.DisableIdentity separately if account disabling is also required.
 
-    Authentication:
-    - If With.AuthSessionName is present, the step acquires an auth session via
-      Context.AcquireAuthSession(Name, Options) and passes it to the provider method
-      if the provider supports an AuthSession parameter.
-    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-      session selection (e.g., @{ Role = 'Tier0' }).
-    - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+    Authentication is handled by the engine: With.AuthSessionName and With.AuthSessionOptions select the
+    auth session passed to provider methods that declare an AuthSession parameter.
 
-    .PARAMETER Context
-    Execution context created by IdLE.Core.
-
-    .PARAMETER Step
-    Normalized step object from the plan. Must contain a 'With' hashtable with keys:
+    .PARAMETER With
+    Validated With hashtable (see the step metadata catalog):
     - IdentityKey (required): the identity identifier
-    - Provider (optional): provider alias, defaults to 'Identity'
+
+    .PARAMETER Provider
+    Provider handle created by the engine (see docs/extend/steps.md).
     - AuthSessionName (optional): name for auth session acquisition
     - AuthSessionOptions (optional): routing options for auth session broker
 
     .OUTPUTS
-    PSCustomObject (PSTypeName: IdLE.StepResult)
+    System.Collections.Hashtable (Changed)
 
     .EXAMPLE
     # In a workflow definition (PSD1):
@@ -64,52 +58,15 @@ function Invoke-IdleStepRevokeIdentitySessions {
     param(
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Context,
+        [hashtable] $With,
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Step
+        [object] $Provider
     )
 
-    $with = $Step.With
-    if ($null -eq $with -or -not ($with -is [hashtable])) {
-        throw "RevokeIdentitySessions requires 'With' to be a hashtable."
-    }
+    $result = $Provider.Invoke('RevokeSessions', @($With.IdentityKey))
 
-    if (-not $with.ContainsKey('IdentityKey')) {
-        throw "RevokeIdentitySessions requires With.IdentityKey."
-    }
-
-    $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'Identity' }
-
-    if (-not ($Context.PSObject.Properties.Name -contains 'Providers')) {
-        throw "Context does not contain a Providers hashtable."
-    }
-    if ($null -eq $Context.Providers -or -not ($Context.Providers -is [hashtable])) {
-        throw "Context.Providers must be a hashtable."
-    }
-    if (-not $Context.Providers.ContainsKey($providerAlias)) {
-        throw "Provider '$providerAlias' was not supplied by the host."
-    }
-
-    $result = Invoke-IdleProviderMethod `
-        -Context $Context `
-        -With $with `
-        -ProviderAlias $providerAlias `
-        -MethodName 'RevokeSessions' `
-        -MethodArguments @([string]$with.IdentityKey)
-
-    $changed = $false
-    if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
-        $changed = [bool]$result.Changed
-    }
-
-    return [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = [string]$Step.Name
-        Type       = [string]$Step.Type
-        Status     = 'Completed'
-        Changed    = $changed
-        Error      = $null
-    }
+    $changed = $null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed') -and [bool]$result.Changed
+    return @{ Changed = $changed }
 }

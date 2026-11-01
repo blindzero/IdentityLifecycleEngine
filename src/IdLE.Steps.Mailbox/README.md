@@ -11,7 +11,7 @@ Provider-agnostic mailbox step pack for IdLE.
     Type = 'IdLE.Step.Mailbox.EnsureType'
     With = @{
         Provider    = 'ExchangeOnline'
-        IdentityKey = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }
+        IdentityKey = '{{Request.Intent.UserPrincipalName}}'
         MailboxType = 'Shared'
     }
 }

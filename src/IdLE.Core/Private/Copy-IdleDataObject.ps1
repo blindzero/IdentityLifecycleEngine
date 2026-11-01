@@ -44,7 +44,8 @@ function Copy-IdleDataObject {
         foreach ($item in $Value) {
             $arr += Copy-IdleDataObject -Value $item
         }
-        return $arr
+        # Comma operator: keep single-element and empty arrays as arrays (no pipeline unrolling).
+        return , $arr
     }
 
     $props = @($Value.PSObject.Properties | Where-Object MemberType -in @('NoteProperty', 'Property'))

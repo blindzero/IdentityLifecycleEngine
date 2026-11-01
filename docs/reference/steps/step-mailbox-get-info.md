@@ -16,29 +16,25 @@ Retrieves mailbox details and returns a structured report.
 
 ## Description
 
-The host must supply a provider instance via
-Context.Providers[&lt;ProviderAlias&gt;]. The provider must implement a GetMailbox
+The engine passes the provider resolved from With.Provider
+(default 'ExchangeOnline') as -Provider. The provider implements a GetMailbox
 method with the signature (IdentityKey, AuthSession) and return a mailbox object.
 
 The step is read-only and returns Changed = $false.
 
-Authentication:
-
-- If With.AuthSessionName is present, the step acquires an auth session via
-  Context.AcquireAuthSession(Name, Options) and passes it to the provider method.
-
-- If With.AuthSessionName is absent, defaults to With.Provider value (e.g., 'ExchangeOnline').
-
-- With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @\{ Role = 'Admin' \}).
+Authentication is handled by the engine: without With.AuthSessionName the session is named after the
+provider alias (e.g. 'ExchangeOnline'); With.AuthSessionOptions is passed to the broker.
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+Validated at plan time against the step's ``WithSchema`` (see [Step metadata contract](../../extend/steps.md#step-metadata-contract)).
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `IdentityKey` | Yes | Unique identifier for the identity |
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | String | Yes |  |  |
+| `AuthSessionName` | String | No | provider alias | Auth session routing key for the AuthSessionBroker. |
+| `AuthSessionOptions` | Hashtable | No |  | Data-only options passed to the AuthSessionBroker. |
+| `Provider` | String | No | `ExchangeOnline` | Provider alias in `Providers`. |
 
 ## Example
 

@@ -17,8 +17,8 @@ Ensures that an entitlement assignment is present or absent for an identity.
 ## Description
 
 This provider-agnostic step uses entitlement provider contracts to converge
-an assignment to the desired state. The host must supply a provider instance
-via `Context.Providers[&lt;ProviderAlias&gt;]` that implements:
+an assignment to the desired state. The engine passes the provider resolved from With.Provider (default 'Identity')
+as -Provider. The provider implements:
 
 - ListEntitlements(identityKey)
 
@@ -29,38 +29,32 @@ via `Context.Providers[&lt;ProviderAlias&gt;]` that implements:
 The step is idempotent and only calls Grant/Revoke when the assignment needs
 to change.
 
-Authentication:
-
-- If With.AuthSessionName is present, the step acquires an auth session via
-  Context.AcquireAuthSession(Name, Options) and passes it to the provider methods
-  if the provider supports an AuthSession parameter.
-
-- With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @\{ Role = 'Tier0' \}).
-
-- ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+Authentication is handled by the engine (With.AuthSessionName, With.AuthSessionOptions).
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+Validated at plan time against the step's ``WithSchema`` (see [Step metadata contract](../../extend/steps.md#step-metadata-contract)).
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `Entitlement` | Yes | Entitlement identifier or object |
-| `IdentityKey` | Yes | Unique identifier for the identity |
-| `State` | Yes | Desired state for the entitlement |
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `Entitlement` | Hashtable | Yes |  | Keys: `DisplayName`, `Id` (required), `Kind` (required) |
+| `IdentityKey` | String | Yes |  |  |
+| `State` | String | No | `Present` | One of: `Present`, `Absent` |
+| `AuthSessionName` | String | No | broker default session | Auth session routing key for the AuthSessionBroker. |
+| `AuthSessionOptions` | Hashtable | No |  | Data-only options passed to the AuthSessionBroker. |
+| `Provider` | String | No | `Identity` | Provider alias in `Providers`. |
 
 ## Example
 
 ```powershell
 @{
-  Name = 'IdLE.Step.EnsureEntitlement Example'
-  Type = 'IdLE.Step.EnsureEntitlement'
-  With = @{
-    Entitlement          = @{ Kind = 'Group'; Id = 'GroupId' }
-    IdentityKey          = 'user.name'
-    State                = 'Present'
-  }
+    Name = 'Ensure group access'
+    Type = 'IdLE.Step.EnsureEntitlement'
+    With = @{
+        IdentityKey = 'user1'
+        Entitlement = @{ Kind = 'Group'; Id = 'example-group' }
+        State       = 'Present'
+    }
 }
 ```
 

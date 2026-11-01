@@ -5,8 +5,8 @@ function Invoke-IdleStepEnsureEntitlement {
 
     .DESCRIPTION
     This provider-agnostic step uses entitlement provider contracts to converge
-    an assignment to the desired state. The host must supply a provider instance
-    via `Context.Providers[<ProviderAlias>]` that implements:
+    an assignment to the desired state. The engine passes the provider resolved from With.Provider (default 'Identity')
+    as -Provider. The provider implements:
 
     - ListEntitlements(identityKey)
     - GrantEntitlement(identityKey, entitlement)
@@ -15,228 +15,75 @@ function Invoke-IdleStepEnsureEntitlement {
     The step is idempotent and only calls Grant/Revoke when the assignment needs
     to change.
 
-    Authentication:
-    - If With.AuthSessionName is present, the step acquires an auth session via
-      Context.AcquireAuthSession(Name, Options) and passes it to the provider methods
-      if the provider supports an AuthSession parameter.
-    - With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-      session selection (e.g., @{ Role = 'Tier0' }).
-    - ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+    Authentication is handled by the engine (With.AuthSessionName, With.AuthSessionOptions).
 
-    .PARAMETER Context
-    Execution context created by IdLE.Core.
+    .PARAMETER With
+    Validated With hashtable: IdentityKey, Entitlement (@{ Kind; Id; DisplayName }), State ('Present' or 'Absent').
 
-    .PARAMETER Step
-    Normalized step object from the plan. Must contain a 'With' hashtable.
+    .PARAMETER Provider
+    Provider handle created by the engine (see docs/extend/steps.md).
 
     .EXAMPLE
-    Invoke-IdleStepEnsureEntitlement -Context $context -Step [pscustomobject]@{
+    @{
         Name = 'Ensure group access'
         Type = 'IdLE.Step.EnsureEntitlement'
         With = @{
             IdentityKey = 'user1'
             Entitlement = @{ Kind = 'Group'; Id = 'example-group' }
             State       = 'Present'
-            Provider    = 'Identity'
         }
     }
 
     .OUTPUTS
-    PSCustomObject (PSTypeName: IdLE.StepResult)
+    System.Collections.Hashtable (Changed)
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Context,
+        [hashtable] $With,
 
         [Parameter(Mandatory)]
         [ValidateNotNull()]
-        [object] $Step
+        [object] $Provider
     )
 
-    function ConvertTo-IdleStepEntitlement {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $Value
-        )
-
-        $kind = $null
-        $id = $null
-
-        if ($Value -is [System.Collections.IDictionary]) {
-            $kind = $Value['Kind']
-            $id = $Value['Id']
-        }
-        else {
-            $props = $Value.PSObject.Properties
-            if ($props.Name -contains 'Kind') { $kind = $Value.Kind }
-            if ($props.Name -contains 'Id') { $id = $Value.Id }
-        }
-
-        if ([string]::IsNullOrWhiteSpace([string]$kind)) {
-            throw "EnsureEntitlement requires Entitlement.Kind."
-        }
-        if ([string]::IsNullOrWhiteSpace([string]$id)) {
-            throw "EnsureEntitlement requires Entitlement.Id."
-        }
-
-        return [pscustomobject]@{
-            Kind = [string]$kind
-            Id   = [string]$id
-        }
-    }
-
     function Test-IdleStepEntitlementEquals {
-        [CmdletBinding()]
-        param(
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $A,
+        param([object] $A, [object] $B)
 
-            [Parameter(Mandatory)]
-            [ValidateNotNull()]
-            [object] $B
-        )
+        $kindA = if ($A -is [System.Collections.IDictionary]) { $A['Kind'] } else { $A.Kind }
+        $idA = if ($A -is [System.Collections.IDictionary]) { $A['Id'] } else { $A.Id }
 
-        $ea = ConvertTo-IdleStepEntitlement -Value $A
-        $eb = ConvertTo-IdleStepEntitlement -Value $B
-
-        if ($ea.Kind -ne $eb.Kind) {
+        if (-not [string]::Equals([string]$kindA, [string]$B.Kind, [System.StringComparison]::OrdinalIgnoreCase)) {
             return $false
         }
 
-        return [string]::Equals($ea.Id, $eb.Id, [System.StringComparison]::OrdinalIgnoreCase)
+        return [string]::Equals([string]$idA, [string]$B.Id, [System.StringComparison]::OrdinalIgnoreCase)
     }
 
-    $with = $Step.With
-    if ($null -eq $with -or -not ($with -is [hashtable])) {
-        throw "EnsureEntitlement requires 'With' to be a hashtable."
+    $identityKey = [string]$With.IdentityKey
+    $entitlement = [pscustomobject]@{
+        Kind = [string]$With.Entitlement.Kind
+        Id   = [string]$With.Entitlement.Id
     }
-
-    foreach ($key in @('IdentityKey', 'Entitlement', 'State')) {
-        if (-not $with.ContainsKey($key)) {
-            throw "EnsureEntitlement requires With.$key."
-        }
-    }
-
-    $stateRaw = [string]$with.State
-    if ([string]::IsNullOrWhiteSpace($stateRaw)) {
-        throw "EnsureEntitlement requires With.State to be 'Present' or 'Absent'."
-    }
-
-    $state = $stateRaw.Trim().ToLowerInvariant()
-    if ($state -notin @('present', 'absent')) {
-        throw "EnsureEntitlement With.State must be 'Present' or 'Absent'."
-    }
-
-    $entitlement = ConvertTo-IdleStepEntitlement -Value $with.Entitlement
-    $identityKey = [string]$with.IdentityKey
-
-    $providerAlias = if ($with.ContainsKey('Provider')) { [string]$with.Provider } else { 'Identity' }
-
-    if (-not ($Context.PSObject.Properties.Name -contains 'Providers')) {
-        throw "Context does not contain a Providers hashtable."
-    }
-    if ($null -eq $Context.Providers -or -not ($Context.Providers -is [hashtable])) {
-        throw "Context.Providers must be a hashtable."
-    }
-    if (-not $Context.Providers.ContainsKey($providerAlias)) {
-        throw "Provider '$providerAlias' was not supplied by the host."
-    }
-
-    # Auth session acquisition (optional, data-only)
-    $authSession = $null
-    if ($with.ContainsKey('AuthSessionName')) {
-        $sessionName = [string]$with.AuthSessionName
-        $sessionOptions = if ($with.ContainsKey('AuthSessionOptions')) { $with.AuthSessionOptions } else { $null }
-
-        if ($null -ne $sessionOptions -and -not ($sessionOptions -is [hashtable])) {
-            throw "With.AuthSessionOptions must be a hashtable or null."
-        }
-
-        $authSession = $Context.AcquireAuthSession($sessionName, $sessionOptions)
-    }
-
-    $provider = $Context.Providers[$providerAlias]
-
-    $requiredMethods = @('ListEntitlements')
-    if ($state -eq 'present') {
-        $requiredMethods += 'GrantEntitlement'
-    }
-    else {
-        $requiredMethods += 'RevokeEntitlement'
-    }
-
-    foreach ($m in $requiredMethods) {
-        if (-not ($provider.PSObject.Methods.Name -contains $m)) {
-            throw "Provider '$providerAlias' must implement method '$m' for EnsureEntitlement."
-        }
-    }
-
-    # Check AuthSession support for each method
-    $listSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'AuthSession'
-    $listSupportsKind = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['ListEntitlements'] -ParameterName 'Kind'
-    $grantSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['GrantEntitlement'] -ParameterName 'AuthSession'
-    $revokeSupportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $provider.PSObject.Methods['RevokeEntitlement'] -ParameterName 'AuthSession'
 
     # Pass Kind to the provider when supported, so it can skip fetching unrelated objects
     # (e.g. avoid AU Graph calls for a Group entitlement check).
-    $entitlementKind = [string]$entitlement.Kind
-    if ($listSupportsKind -and $listSupportsAuthSession -and $null -ne $authSession) {
-        $current = @($provider.ListEntitlements($identityKey, $authSession, $entitlementKind))
-    } elseif ($listSupportsKind) {
-        $current = @($provider.ListEntitlements($identityKey, $null, $entitlementKind))
-    } elseif ($listSupportsAuthSession -and $null -ne $authSession) {
-        $current = @($provider.ListEntitlements($identityKey, $authSession))
-    } else {
-        $current = @($provider.ListEntitlements($identityKey))
-    }
-    $matches = @($current | Where-Object { Test-IdleStepEntitlementEquals -A $_ -B $entitlement })
+    $listArguments = if ($Provider.HasParameter('ListEntitlements', 'Kind')) { @($identityKey, $entitlement.Kind) } else { @($identityKey) }
+    $current = @($Provider.Invoke('ListEntitlements', $listArguments))
+    $isAssigned = @($current | Where-Object { Test-IdleStepEntitlementEquals -A $_ -B $entitlement }).Count -gt 0
 
-    $changed = $false
+    $method = $null
+    if ($With.State -eq 'Present' -and -not $isAssigned) { $method = 'GrantEntitlement' }
+    if ($With.State -eq 'Absent' -and $isAssigned) { $method = 'RevokeEntitlement' }
 
-    if ($state -eq 'present') {
-        if (@($matches).Count -eq 0) {
-            if ($grantSupportsAuthSession -and $null -ne $authSession) {
-                $result = $provider.GrantEntitlement($identityKey, $entitlement, $authSession)
-            }
-            else {
-                $result = $provider.GrantEntitlement($identityKey, $entitlement)
-            }
-            if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
-                $changed = [bool]$result.Changed
-            }
-            else {
-                $changed = $true
-            }
-        }
-    }
-    else {
-        if (@($matches).Count -gt 0) {
-            if ($revokeSupportsAuthSession -and $null -ne $authSession) {
-                $result = $provider.RevokeEntitlement($identityKey, $entitlement, $authSession)
-            }
-            else {
-                $result = $provider.RevokeEntitlement($identityKey, $entitlement)
-            }
-            if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) {
-                $changed = [bool]$result.Changed
-            }
-            else {
-                $changed = $true
-            }
-        }
+    if ($null -eq $method) {
+        return @{ Changed = $false }
     }
 
-    return [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = [string]$Step.Name
-        Type       = [string]$Step.Type
-        Status     = 'Completed'
-        Changed    = $changed
-        Error      = $null
-    }
+    $result = $Provider.Invoke($method, @($identityKey, $entitlement))
+
+    # Providers without a result object are assumed to have changed the assignment.
+    $changed = if ($null -ne $result -and ($result.PSObject.Properties.Name -contains 'Changed')) { [bool]$result.Changed } else { $true }
+    return @{ Changed = $changed }
 }

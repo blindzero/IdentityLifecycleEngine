@@ -13,17 +13,14 @@ BeforeAll {
             [object] $Context,
 
             [Parameter(Mandatory)]
+            [hashtable] $With,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Step
         )
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 }
 
@@ -220,7 +217,7 @@ Describe 'New-IdlePlan' {
             $providers = @{
                 StepRegistry = @{ 'Test.IdLE.Step.StrictSchemaTest' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.StrictSchemaTest') -WithSchemas @{
-                    'Test.IdLE.Step.StrictSchemaTest' = @{ RequiredKeys = @('IdentityKey'); OptionalKeys = @() }
+                    'Test.IdLE.Step.StrictSchemaTest' = @{ Keys = @{ IdentityKey = @{ Type = 'String'; Required = $true } } }
                 }
             }
 
@@ -239,7 +236,7 @@ Describe 'New-IdlePlan' {
             $providers = @{
                 StepRegistry = @{ 'Test.IdLE.Step.StrictApplicableTest' = 'Invoke-IdleTestNoopStep' }
                 StepMetadata = New-IdleTestStepMetadata -StepTypes @('Test.IdLE.Step.StrictApplicableTest') -WithSchemas @{
-                    'Test.IdLE.Step.StrictApplicableTest' = @{ RequiredKeys = @('IdentityKey'); OptionalKeys = @() }
+                    'Test.IdLE.Step.StrictApplicableTest' = @{ Keys = @{ IdentityKey = @{ Type = 'String'; Required = $true } } }
                 }
             }
 
@@ -289,7 +286,7 @@ Describe 'New-IdlePlan' {
             { New-IdlePlan -WorkflowPath $wfPath -Request $req } | Should -Throw -ExpectedMessage '*does not match request LifecycleEvent*'
         }
 
-        It 'fails plan building when PruneEntitlementsEnsureKeep step contains unsupported With.KeepPattern key (not in WithSchema.OptionalKeys)' {
+        It 'fails plan building when PruneEntitlementsEnsureKeep step contains unsupported With.KeepPattern key (not in WithSchema.Keys)' {
             $wfPath = New-IdleTestWorkflowFile -FileName 'leaver-bad.psd1' -Content @'
 @{
   Name           = 'Leaver - Bad KeepPattern'

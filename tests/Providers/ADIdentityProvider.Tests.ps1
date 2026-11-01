@@ -2108,6 +2108,11 @@ Describe 'AD identity provider' {
     }
 
     Context 'PruneEntitlementsEnsureKeep step integration with AD provider' {
+        BeforeAll {
+            # Engine-like step invocation (Invoke-IdleTestStepHandler, New-IdleTestEventSink).
+            . (Join-Path -Path $PSScriptRoot -ChildPath '..\_testHelpers.ps1')
+        }
+
         BeforeEach {
             $adapter = New-FakeADAdapter
             $adapter.PrimaryGroupDN = 'CN=Domain Users,CN=Users,DC=domain,DC=local'
@@ -2126,7 +2131,7 @@ Describe 'AD identity provider' {
                 PSTypeName = 'IdLE.ExecutionContext'
                 Plan       = $null
                 Providers  = @{ AD = $script:ADProvider }
-                EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+                EventSink  = New-IdleTestEventSink
             }
         }
 
@@ -2144,7 +2149,7 @@ Describe 'AD identity provider' {
                 }
             }
 
-            $result = Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:StepContext -Step $step
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -2168,7 +2173,7 @@ Describe 'AD identity provider' {
                 }
             }
 
-            $result = Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:StepContext -Step $step
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -2189,11 +2194,11 @@ Describe 'AD identity provider' {
                 }
             }
 
-            $result = Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:StepContext -Step $step
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
-            @($result.Skipped).Count | Should -Be 0
+            @($result.Data.Skipped).Count | Should -Be 0
 
             # All non-primary groups removed; primary group (Domain Users) is never in the remove-set
             $remaining = @($script:ADProvider.ListEntitlements($script:PruneUserId))
@@ -2218,7 +2223,7 @@ Describe 'AD identity provider' {
                 }
             }
 
-            $result = Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:StepContext -Step $step
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeFalse
@@ -2236,7 +2241,7 @@ Describe 'AD identity provider' {
                 }
             }
 
-            { Invoke-IdleStepPruneEntitlementsEnsureKeep -Context $script:StepContext -Step $step } |
+            { Invoke-IdleTestStepHandler -Context $script:StepContext -Step $step } |
                 Should -Throw -ExpectedMessage '*KeepPattern*'
         }
     }

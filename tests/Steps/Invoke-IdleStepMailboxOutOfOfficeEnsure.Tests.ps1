@@ -60,7 +60,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ ExchangeOnline = $script:Provider }
-            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            EventSink  = (New-IdleTestEventSink)
         }
         
         # Add mock AcquireAuthSession method
@@ -71,7 +71,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
         
         $script:StepTemplate = [pscustomobject]@{
             Name = 'Enable Out of Office'
-            Type = 'IdLE.Step.Mailbox.OutOfOffice.Ensure'
+            Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
             With = @{
                 Provider    = 'ExchangeOnline'
                 IdentityKey = 'user@contoso.com'
@@ -87,7 +87,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
     Context 'Behavior' {
         It 'enables Out of Office and reports Changed = true' {
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
             
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -100,7 +100,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $script:Provider.Store['user@contoso.com']['OOFMode'] = 'Enabled'
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
             
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $false
@@ -113,7 +113,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $step.With.Config = @{ Mode = 'Disabled' }
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
             
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -133,7 +133,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             }
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
             
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -Be $true
@@ -147,7 +147,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $step.With.Remove('Config')
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.Config*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*WithKeyMissing*With.Config*"
         }
         
         It 'throws when Config.Mode is missing' {
@@ -155,7 +155,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $step.With.Config = @{ InternalMessage = 'Test' }
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.Config.Mode*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*WithKeyMissing*With.Config.Mode*"
         }
         
         It 'throws when Config.Mode is invalid' {
@@ -163,8 +163,8 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $step.With.Config.Mode = 'InvalidMode'
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            { & $handler -Context $script:Context -Step $step } |
-                Should -Throw "*Mode to be one of: Disabled, Enabled, Scheduled*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } |
+                Should -Throw "*WithValueNotAllowed*"
         }
         
         It 'throws when Scheduled mode is missing Start' {
@@ -175,8 +175,8 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             }
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            { & $handler -Context $script:Context -Step $step } |
-                Should -Throw "*Mode 'Scheduled' requires With.Config.Start*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } |
+                Should -Throw "*Scheduled*requires With.Config.Start and With.Config.End*"
         }
         
         It 'throws when Scheduled mode is missing End' {
@@ -187,8 +187,8 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             }
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            { & $handler -Context $script:Context -Step $step } |
-                Should -Throw "*Mode 'Scheduled' requires With.Config.End*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } |
+                Should -Throw "*Scheduled*requires With.Config.Start and With.Config.End*"
         }
         
         It 'rejects ScriptBlocks in Config (security boundary)' {
@@ -196,7 +196,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $step.With.Config.InternalMessage = { Write-Host "malicious" }
             
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            { & $handler -Context $script:Context -Step $step } |
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } |
                 Should -Throw "*ScriptBlocks are not allowed*"
         }
 
@@ -204,7 +204,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $script:Context.Providers.Clear()
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw -ErrorId *
         }
 
         It 'throws when IdentityKey is missing' {
@@ -212,7 +212,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $step.With.Remove('IdentityKey')
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw "*requires With.IdentityKey*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw "*WithKeyMissing*With.IdentityKey*"
         }
     }
 
@@ -222,7 +222,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $step.With.Config.MessageFormat = 'Text'
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
         }
@@ -232,7 +232,7 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $step.With.Config.MessageFormat = 'Html'
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
         }
@@ -242,8 +242,8 @@ Describe 'Invoke-IdleStepMailboxOutOfOfficeEnsure' {
             $step.With.Config.MessageFormat = 'InvalidFormat'
 
             $handler = 'IdLE.Steps.Mailbox\Invoke-IdleStepMailboxOutOfOfficeEnsure'
-            { & $handler -Context $script:Context -Step $step } |
-                Should -Throw "*MessageFormat to be one of: Text, Html*"
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } |
+                Should -Throw "*WithValueNotAllowed*"
         }
     }
 }

@@ -17,8 +17,8 @@ Revokes all active sign-in sessions for an identity in the target system.
 ## Description
 
 This is a provider-agnostic step that revokes active sign-in sessions (refresh tokens)
-for a given identity. The host must supply a provider instance via
-Context.Providers[&lt;ProviderAlias&gt;] that implements RevokeSessions(identityKey)
+for a given identity. The engine passes the provider resolved from With.Provider (default 'Identity') as -Provider.
+The provider implements RevokeSessions(identityKey)
 and returns an object with properties 'IdentityKey' and 'Changed'.
 
 This step is typically used in Leaver workflows after disabling an identity to ensure
@@ -27,24 +27,19 @@ that existing sessions are terminated immediately, rather than waiting for token
 The step does not modify the identity itself (e.g., does not disable the account).
 Use IdLE.Step.DisableIdentity separately if account disabling is also required.
 
-Authentication:
-
-- If With.AuthSessionName is present, the step acquires an auth session via
-  Context.AcquireAuthSession(Name, Options) and passes it to the provider method
-  if the provider supports an AuthSession parameter.
-
-- With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @\{ Role = 'Tier0' \}).
-
-- ScriptBlocks in AuthSessionOptions are rejected (security boundary).
+Authentication is handled by the engine: With.AuthSessionName and With.AuthSessionOptions select the
+auth session passed to provider methods that declare an AuthSession parameter.
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+Validated at plan time against the step's ``WithSchema`` (see [Step metadata contract](../../extend/steps.md#step-metadata-contract)).
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `IdentityKey` | Yes | Unique identifier for the identity |
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | String | Yes |  |  |
+| `AuthSessionName` | String | No | broker default session | Auth session routing key for the AuthSessionBroker. |
+| `AuthSessionOptions` | Hashtable | No |  | Data-only options passed to the AuthSessionBroker. |
+| `Provider` | String | No | `Identity` | Provider alias in `Providers`. |
 
 ## Example
 

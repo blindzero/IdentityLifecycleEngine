@@ -32,8 +32,13 @@ Inputs (all optional):
 
 ## Inputs (With.*)
 
-This step has no required ``With.*`` keys at step schema level.
-Inputs may still be provider-specific; refer to the step description and examples for usage details.
+Validated at plan time against the step's ``WithSchema`` (see [Step metadata contract](../../extend/steps.md#step-metadata-contract)).
+
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `Level` | String | No | `Information` | One of: `Information`, `Warning`, `Error` |
+| `Message` | String | No |  |  |
+| `Type` | String | No |  |  |
 
 ## Example
 

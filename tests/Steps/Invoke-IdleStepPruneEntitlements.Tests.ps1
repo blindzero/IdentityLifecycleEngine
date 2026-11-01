@@ -12,7 +12,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ Identity = $script:Provider }
-            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            EventSink  = (New-IdleTestEventSink)
         }
 
         # Seed the identity with some entitlements
@@ -39,7 +39,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
     Context 'Behavior: Keep only' {
         It 'removes entitlements not in the keep set' {
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -56,7 +56,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             )
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
 
@@ -71,7 +71,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $null = $script:Provider.RevokeEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-EXTRA,DC=contoso,DC=com' })
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeFalse
@@ -87,7 +87,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -104,7 +104,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -120,7 +120,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $step.With.KeepPattern = @('CN=LEAVER-*,DC=contoso,DC=com')
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -142,7 +142,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $step.With.KeepPattern = @('CN=LEAVER-*,DC=contoso,DC=com')
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -169,7 +169,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
 
@@ -179,18 +179,18 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
         }
     }
 
-    Context 'Behavior: EnsureKeepEntitlements' {
-        It 'grants missing explicit Keep entitlements when EnsureKeepEntitlements is $true' {
+    Context 'Behavior: EnsureKeep (IdLE.Step.PruneEntitlementsEnsureKeep)' {
+        It 'grants missing explicit Keep entitlements' {
             $step = $script:StepTemplate
             # Add a Keep item that does NOT exist in current entitlements
             $step.With.Keep = @(
                 @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,DC=contoso,DC=com' }
                 @{ Kind = 'Group'; Id = 'CN=LEAVER-NEW,DC=contoso,DC=com' }
             )
-            $step.With.EnsureKeepEntitlements = $true
+            $step.Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -203,7 +203,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
 
         It 'does not re-grant already present Keep entitlements' {
             $step = $script:StepTemplate
-            $step.With.EnsureKeepEntitlements = $true
+            $step.Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
 
             # Replace GrantEntitlement with a counter to verify it is never called
             # (CN=LEAVER-RETAIN is already present in the seeded entitlements)
@@ -215,7 +215,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             } -Force
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status | Should -Be 'Completed'
             $script:grantCount | Should -Be 0 -Because 'CN=LEAVER-RETAIN is already present; GrantEntitlement must not be called'
@@ -225,22 +225,6 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $remainingIds | Should -Contain 'CN=LEAVER-RETAIN,DC=contoso,DC=com'
         }
 
-        It 'does not grant pattern-matched entitlements (only explicit Keep items)' {
-            $step = $script:StepTemplate
-            $step.With.KeepPattern = @('CN=LEAVER-*,DC=contoso,DC=com')
-            $step.With.EnsureKeepEntitlements = $true
-
-            $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
-
-            $result.Status | Should -Be 'Completed'
-
-            $remaining = $script:Provider.ListEntitlements('user1')
-            $remainingIds = $remaining | Select-Object -ExpandProperty Id
-            # Only explicit Keep items from Keep array are granted if missing; patterns are not granted
-            $remainingIds | Should -Contain 'CN=LEAVER-RETAIN,DC=contoso,DC=com'
-            $remainingIds | Should -Contain 'CN=LEAVER-EXTRA,DC=contoso,DC=com'
-        }
     }
 
     Context 'Behavior: Non-removable entitlement handling' {
@@ -248,22 +232,14 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             # Mark CN=G-All as protected (non-removable, like AD primary group)
             $script:Provider.ProtectedEntitlementIds = @('CN=G-All,DC=contoso,DC=com')
 
-            $warningEvents = @()
-            $script:Context.EventSink = [pscustomobject]@{
-                WriteEvent = {
-                    param($Type, $Message, $StepName, $Data)
-                    if ($Type -eq 'IdLE.Step.PruneEntitlements.EntitlementSkipped') {
-                        $script:warningEvents += $Message
-                    }
-                }.GetNewClosure()
-            }
+            $script:Context.EventSink = New-IdleTestEventSink
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
-            $result.Skipped | Should -Not -BeNullOrEmpty
-            $result.Skipped[0].EntitlementId | Should -Be 'CN=G-All,DC=contoso,DC=com'
+            $result.Data.Skipped | Should -Not -BeNullOrEmpty
+            $result.Data.Skipped[0].EntitlementId | Should -Be 'CN=G-All,DC=contoso,DC=com'
 
             # Non-protected entitlements should still be removed
             $remaining = $script:Provider.ListEntitlements('user1')
@@ -277,10 +253,10 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $script:Provider.ProtectedEntitlementIds = @('CN=G-All,DC=contoso,DC=com')
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
-            $result.Skipped | Should -Not -BeNullOrEmpty
-            $result.Skipped[0].Reason | Should -Not -BeNullOrEmpty
+            $result.Data.Skipped | Should -Not -BeNullOrEmpty
+            $result.Data.Skipped[0].Reason | Should -Not -BeNullOrEmpty
         }
     }
 
@@ -290,7 +266,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             $null = $script:Provider.GrantEntitlement('user1', @{ Kind = 'Role'; Id = 'admin-role' })
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
 
@@ -311,7 +287,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw
         }
 
         It 'throws when With.IdentityKey is missing' {
@@ -322,7 +298,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw
         }
 
         It 'throws when With.Kind is missing' {
@@ -333,7 +309,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw
         }
 
         It 'throws when Keep item is missing an Id' {
@@ -349,7 +325,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw
         }
 
         It 'throws when KeepPattern contains a ScriptBlock' {
@@ -365,14 +341,14 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw
         }
 
         It 'throws when the provider is missing' {
             $script:Context.Providers.Clear()
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            { & $handler -Context $script:Context -Step $script:StepTemplate } | Should -Throw
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate } | Should -Throw
         }
 
         It 'throws when AuthSessionOptions is not a hashtable' {
@@ -385,7 +361,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             } -Force
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            { & $handler -Context $script:Context -Step $step } | Should -Throw
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw
         }
     }
 
@@ -446,7 +422,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -508,7 +484,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             }
 
             $handler = 'IdLE.Steps.Common\Invoke-IdleStepPruneEntitlements'
-            $result = & $handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status              | Should -Be 'Completed'
             $result.Changed             | Should -BeTrue
@@ -516,8 +492,8 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             # G-Remove1 bulk-revoked, G-Protected returned as error → Skipped
             $mockProvider.BulkInputIds  | Should -Contain 'CN=G-Remove1,DC=contoso,DC=com'
             $mockProvider.BulkInputIds  | Should -Contain 'CN=G-Protected,DC=contoso,DC=com'
-            $result.Skipped             | Should -Not -BeNullOrEmpty
-            $result.Skipped[0].EntitlementId | Should -Match 'Protected'
+            $result.Data.Skipped             | Should -Not -BeNullOrEmpty
+            $result.Data.Skipped[0].EntitlementId | Should -Match 'Protected'
         }
     }
 }
@@ -529,7 +505,7 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
             PSTypeName = 'IdLE.ExecutionContext'
             Plan       = $null
             Providers  = @{ Identity = $script:Provider }
-            EventSink  = [pscustomobject]@{ WriteEvent = { param($Type, $Message, $StepName, $Data) } }
+            EventSink  = (New-IdleTestEventSink)
         }
 
         # Seed the identity with some entitlements
@@ -573,7 +549,7 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
 
     Context 'Behavior: Keep only (prune + ensure)' {
         It 'removes non-kept entitlements and reports Changed' {
-            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -590,7 +566,7 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
                 @{ Kind = 'Group'; Id = 'CN=LEAVER-NEW,DC=contoso,DC=com' }
             )
 
-            $result = & $script:Handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -604,7 +580,7 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
             $null = $script:Provider.RevokeEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=G-HR,DC=contoso,DC=com' })
             $null = $script:Provider.RevokeEntitlement('user1', @{ Kind = 'Group'; Id = 'CN=LEAVER-EXTRA,DC=contoso,DC=com' })
 
-            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeFalse
@@ -616,14 +592,14 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
             $step = $script:StepTemplate
             $step.With.KeepPattern = @('CN=LEAVER-*,DC=contoso,DC=com')
 
-            { & $script:Handler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*KeepPattern*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*KeepPattern*'
         }
 
         It 'throws when KeepPattern is provided even if empty' {
             $step = $script:StepTemplate
             $step.With.KeepPattern = @()
 
-            { & $script:Handler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*KeepPattern*'
+            { Invoke-IdleTestStepHandler -Context $script:Context -Step $step } | Should -Throw -ExpectedMessage '*KeepPattern*'
         }
     }
 
@@ -635,7 +611,7 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
                 With = @{ IdentityKey = 'user1'; Kind = 'Group'; Provider = 'Identity' }
             }
 
-            $result = & $script:Handler -Context $script:Context -Step $step
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $step
 
             $result.Status  | Should -Be 'Completed'
             $result.Changed | Should -BeTrue
@@ -649,11 +625,11 @@ Describe 'Invoke-IdleStepPruneEntitlementsEnsureKeep (built-in step)' {
         It 'skips non-removable entitlements with a structured warning and continues' {
             $script:Provider.ProtectedEntitlementIds = @('CN=G-All,DC=contoso,DC=com')
 
-            $result = & $script:Handler -Context $script:Context -Step $script:StepTemplate
+            $result = Invoke-IdleTestStepHandler -Context $script:Context -Step $script:StepTemplate
 
             $result.Status  | Should -Be 'Completed'
-            $result.Skipped | Should -Not -BeNullOrEmpty
-            $result.Skipped[0].EntitlementId | Should -Be 'CN=G-All,DC=contoso,DC=com'
+            $result.Data.Skipped | Should -Not -BeNullOrEmpty
+            $result.Data.Skipped[0].EntitlementId | Should -Be 'CN=G-All,DC=contoso,DC=com'
 
             # Non-protected items should still have been removed
             $remaining = $script:Provider.ListEntitlements('user1')

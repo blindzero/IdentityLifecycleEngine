@@ -36,18 +36,13 @@ function Invoke-ContosoStepHello {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [object] $Context,
+        [Parameter(Mandatory)] [hashtable] $With,
         [Parameter(Mandatory)] [object] $Step
     )
 
     $Context.EventSink.WriteEvent('Test.IdLE.StepPack.Hello', 'Hello from step pack', $Step.Name, @{})
 
-    return [pscustomobject]@{
-        PSTypeName = 'IdLE.StepResult'
-        Name       = [string]$Step.Name
-        Type       = [string]$Step.Type
-        Status     = 'Completed'
-        Error      = $null
-    }
+    return $null
 }
 
 function Get-IdleStepMetadataCatalog {
@@ -87,8 +82,7 @@ Export-ModuleMember -Function 'Invoke-ContosoStepHello', 'Get-IdleStepMetadataCa
         Handler              = $HandlerLiteral
         RequiredCapabilities = @()
         WithSchema           = @{
-            RequiredKeys = @()
-            OptionalKeys = @()
+            Keys = @{}
         }
     }
 }
@@ -188,7 +182,7 @@ Describe 'Step pack handler registration (StepMetadataCatalog Handler)' {
                     'Test.IdLE.Step.Hello' = @{
                         Handler              = 'Invoke-HostHello'
                         RequiredCapabilities = @()
-                        WithSchema           = @{ RequiredKeys = @(); OptionalKeys = @() }
+                        WithSchema           = @{ Keys = @{} }
                     }
                 }
             }
@@ -227,7 +221,7 @@ Describe 'Step pack handler registration (StepMetadataCatalog Handler)' {
 
             InModuleScope 'IdLE.Core' -Parameters @{ StepType = $script:StepType } {
                 param($StepType)
-                $providers = @{ StepMetadata = @{ $StepType = @{ WithSchema = @{ RequiredKeys = @(); OptionalKeys = @() } } } }
+                $providers = @{ StepMetadata = @{ $StepType = @{ WithSchema = @{ Keys = @{} } } } }
                 { Resolve-IdleStepMetadataCatalog -Providers $providers } | Should -Throw "*DuplicateStepTypeMetadata*Contoso.IdLE.Steps.Hr*"
             }
         }
@@ -238,12 +232,12 @@ Describe 'Step pack handler registration (StepMetadataCatalog Handler)' {
     '$($script:StepType)' = @{
         Handler              = 'Invoke-ContosoStepHello'
         RequiredCapabilities = @('IdLE.Identity.Read', 'Contoso.IdLE.Hr.Manager.Read')
-        WithSchema           = @{ RequiredKeys = @(); OptionalKeys = @() }
+        WithSchema           = @{ Keys = @{} }
     }
     'Contoso.IdLE.Step.Hr.Unknown' = @{
         Handler              = 'Invoke-ContosoStepHello'
         RequiredCapabilities = @('IdLE.Hr.Manager.Read')
-        WithSchema           = @{ RequiredKeys = @(); OptionalKeys = @() }
+        WithSchema           = @{ Keys = @{} }
     }
 }
 "@
