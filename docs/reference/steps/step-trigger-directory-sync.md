@@ -9,6 +9,7 @@
 - **Module**: `IdLE.Steps.DirectorySync`
 - **Implementation**: `Invoke-IdleStepTriggerDirectorySync`
 - **Idempotent**: `Unknown`
+- **Required Capabilities**: `IdLE.DirectorySync.Trigger`, `IdLE.DirectorySync.Status`
 
 ## Synopsis
 
@@ -62,5 +63,5 @@ $step = @{
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
 - [Providers](../providers.md) - Available provider implementations

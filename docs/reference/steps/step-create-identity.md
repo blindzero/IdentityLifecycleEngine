@@ -9,6 +9,7 @@
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepCreateIdentity`
 - **Idempotent**: `Yes`
+- **Required Capabilities**: `IdLE.Identity.Create`
 
 ## Synopsis
 
@@ -53,5 +54,5 @@ Validated at plan time against the step's ``WithSchema`` (see [Step metadata con
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
 - [Providers](../providers.md) - Available provider implementations

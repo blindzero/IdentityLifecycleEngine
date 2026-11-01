@@ -9,6 +9,7 @@
 - **Module**: `IdLE.Steps.Mailbox`
 - **Implementation**: `Invoke-IdleStepMailboxOutOfOfficeEnsure`
 - **Idempotent**: `Yes`
+- **Required Capabilities**: `IdLE.Mailbox.Info.Read`, `IdLE.Mailbox.OutOfOffice.Ensure`
 
 ## Synopsis
 
@@ -200,5 +201,5 @@ Validated at plan time against the step's ``WithSchema`` (see [Step metadata con
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
 - [Providers](../providers.md) - Available provider implementations
