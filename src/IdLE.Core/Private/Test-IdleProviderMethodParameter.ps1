@@ -14,7 +14,7 @@ function Test-IdleProviderMethodParameter {
     - ScriptMethod (AST inspection via PowerShell parser)
     - Compiled methods (reflection-based inspection)
 
-    Used by Invoke-IdleProviderMethod to detect backwards-compatible method signatures.
+    Used by the provider handle (New-IdleProviderHandle) to detect optional method parameters such as AuthSession.
 
     .PARAMETER ProviderMethod
     PSMethodInfo object representing the provider method to inspect.

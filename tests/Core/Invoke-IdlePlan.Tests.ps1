@@ -15,17 +15,14 @@ BeforeAll {
             [object] $Context,
 
             [Parameter(Mandatory)]
+            [hashtable] $With,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Step
         )
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 
     function global:Invoke-IdleTestEmitStep {
@@ -36,19 +33,16 @@ BeforeAll {
             [object] $Context,
 
             [Parameter(Mandatory)]
+            [hashtable] $With,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Step
         )
 
         $Context.EventSink.WriteEvent('Test.IdLE.Emit.Emitted', 'Hello from test step', $Step.Name, @{ StepType = $Step.Type })
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 
     function global:Invoke-IdleTestFailStep {
@@ -59,17 +53,14 @@ BeforeAll {
             [object] $Context,
 
             [Parameter(Mandatory)]
+            [hashtable] $With,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Step
         )
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Failed'
-            Error      = 'Boom'
-        }
+        throw 'Boom'
     }
 
     function global:Invoke-IdleTestAcquireAuthSessionStep {
@@ -80,11 +71,14 @@ BeforeAll {
             [object] $Context,
 
             [Parameter(Mandatory)]
+            [hashtable] $With,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Step
         )
 
-        $with = $Step.With
+        $with = $With
         $name = $null
         $options = $null
 
@@ -113,13 +107,7 @@ BeforeAll {
             throw [System.InvalidOperationException]::new('AcquireAuthSession returned null.')
         }
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 
     # Legacy step handler without Context parameter for backwards compatibility testing
@@ -131,13 +119,7 @@ BeforeAll {
             [object] $Step
         )
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 }
 
@@ -675,7 +657,7 @@ Describe 'Invoke-IdlePlan' {
     }
 
     Context 'Legacy step handlers' {
-        It 'supports step handlers without Context parameter (backwards compatibility)' {
+        It 'fails steps whose handler uses the pre-1.0 contract (LegacyStepHandler)' {
             $wfPath = New-IdleTestWorkflowFile -FileName 'legacy.psd1' -Content @'
 @{
   Name           = 'Legacy'
@@ -699,9 +681,9 @@ Describe 'Invoke-IdlePlan' {
 
             $result = Invoke-IdlePlan -Plan $plan -Providers $providers
 
-            $result.Status | Should -Be 'Completed'
-            $result.Steps[0].Status | Should -Be 'Completed'
-            $result.Steps[0].Name | Should -Be 'LegacyStep'
+            $result.Status | Should -Be 'Failed'
+            $result.Steps[0].Status | Should -Be 'Failed'
+            $result.Steps[0].Error | Should -BeLike 'LegacyStepHandler:*Invoke-IdleTestLegacyStep*'
         }
     }
 }

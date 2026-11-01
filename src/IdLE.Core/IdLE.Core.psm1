@@ -43,11 +43,9 @@ Export-ModuleMember -Function @(
     'Assert-IdleNoScriptBlock',
     'Export-IdlePlanObject',
     'Invoke-IdlePlanObject',
-    'Invoke-IdleProviderMethod',
     'New-IdleAuthSessionBroker',
     'New-IdleRequestObject',
     'New-IdlePlanObject',
-    'Test-IdleProviderMethodParameter',
     'Test-IdleWorkflowDefinitionObject'
 ) -Alias @()
 

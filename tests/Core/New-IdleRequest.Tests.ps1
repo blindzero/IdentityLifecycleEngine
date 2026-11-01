@@ -113,13 +113,7 @@ Describe 'New-IdlePlan - Request.Identity rejection' {
                 [Parameter(Mandatory)][ValidateNotNull()][object] $Context,
                 [Parameter(Mandatory)][ValidateNotNull()][object] $Step
             )
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.StepResult'
-                Name       = [string]$Step.Name
-                Type       = [string]$Step.Type
-                Status     = 'Completed'
-                Error      = $null
-            }
+            return $null
         }
     }
 

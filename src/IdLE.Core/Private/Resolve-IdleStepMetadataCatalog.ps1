@@ -19,122 +19,6 @@ function Resolve-IdleStepMetadataCatalog {
 
     $catalog = [hashtable]::new([System.StringComparer]::OrdinalIgnoreCase)
 
-    # Helper: Validate WithSchema structure.
-    # Every step type must declare WithSchema with RequiredKeys and OptionalKeys string arrays.
-    # A key name of '*' in OptionalKeys is allowed as a permissive wildcard for test/internal use.
-    function Test-IdleWithSchema {
-        [CmdletBinding()]
-        param(
-            [Parameter()]
-            [AllowNull()]
-            [object] $Value,
-
-            [Parameter(Mandatory)]
-            [string] $StepType,
-
-            [Parameter(Mandatory)]
-            [string] $SourceName
-        )
-
-        if ($null -eq $Value) {
-            throw [System.ArgumentException]::new(
-                "$SourceName entry for step type '$StepType' is missing 'WithSchema'. Every step type must declare its With key contract as WithSchema = @{ RequiredKeys = @(...); OptionalKeys = @(...) }.",
-                'Providers'
-            )
-        }
-
-        if ($Value -isnot [hashtable]) {
-            $valueType = $Value.GetType().FullName
-            throw [System.ArgumentException]::new(
-                "$SourceName entry for step type '$StepType' has an invalid 'WithSchema' type '$valueType'. WithSchema must be a hashtable: @{ RequiredKeys = @(...); OptionalKeys = @(...) }.",
-                'Providers'
-            )
-        }
-
-        foreach ($schemaKey in @('RequiredKeys', 'OptionalKeys')) {
-            if (-not $Value.ContainsKey($schemaKey)) {
-                throw [System.ArgumentException]::new(
-                    "$SourceName entry for step type '$StepType' WithSchema is missing '$schemaKey'. Expected a string array (may be empty: @()).",
-                    'Providers'
-                )
-            }
-
-            $keyList = $Value[$schemaKey]
-            if ($null -eq $keyList) {
-                throw [System.ArgumentException]::new(
-                    "$SourceName entry for step type '$StepType' WithSchema.$schemaKey must be a string array (got null).",
-                    'Providers'
-                )
-            }
-
-            # Scalar string is valid as a single-element array
-            if ($keyList -is [string]) {
-                if ([string]::IsNullOrWhiteSpace($keyList)) {
-                    throw [System.ArgumentException]::new(
-                        "$SourceName entry for step type '$StepType' WithSchema.$schemaKey contains an empty or whitespace-only key name.",
-                        'Providers'
-                    )
-                }
-                continue
-            }
-
-            if ($keyList -is [System.Collections.IDictionary]) {
-                throw [System.ArgumentException]::new(
-                    "$SourceName entry for step type '$StepType' WithSchema.$schemaKey must be a string array, not a hashtable.",
-                    'Providers'
-                )
-            }
-
-            if ($keyList -is [System.Collections.IEnumerable]) {
-                foreach ($k in $keyList) {
-                    if ($null -eq $k -or $k -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$k)) {
-                        throw [System.ArgumentException]::new(
-                            "$SourceName entry for step type '$StepType' WithSchema.$schemaKey contains a null, non-string, or empty key name.",
-                            'Providers'
-                        )
-                    }
-                }
-                continue
-            }
-
-            # If it's not IEnumerable and not a string, it's invalid
-            if ($keyList -isnot [System.Collections.IEnumerable]) {
-                throw [System.ArgumentException]::new(
-                    "$SourceName entry for step type '$StepType' WithSchema.$schemaKey must be a string array.",
-                    'Providers'
-                )
-            }
-        }
-
-        # Check for duplicates across RequiredKeys and OptionalKeys (case-insensitive)
-        $requiredSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-        $reqKeys = $Value['RequiredKeys']
-        if ($reqKeys -is [string]) { $null = $requiredSet.Add($reqKeys) }
-        elseif ($reqKeys -is [System.Collections.IEnumerable]) {
-            foreach ($k in $reqKeys) { if ($null -ne $k) { $null = $requiredSet.Add([string]$k) } }
-        }
-
-        $optKeys = $Value['OptionalKeys']
-        if ($optKeys -is [string]) {
-            if ($requiredSet.Contains($optKeys)) {
-                throw [System.ArgumentException]::new(
-                    "$SourceName entry for step type '$StepType' WithSchema has key '$optKeys' in both RequiredKeys and OptionalKeys. Keys must be unique across both sets.",
-                    'Providers'
-                )
-            }
-        }
-        elseif ($optKeys -is [System.Collections.IEnumerable]) {
-            foreach ($k in $optKeys) {
-                if ($null -ne $k -and $requiredSet.Contains([string]$k)) {
-                    throw [System.ArgumentException]::new(
-                        "$SourceName entry for step type '$StepType' WithSchema has key '$k' in both RequiredKeys and OptionalKeys. Keys must be unique across both sets.",
-                        'Providers'
-                    )
-                }
-            }
-        }
-    }
-
     # Helper: Validate RequiredCapabilities value.
     function Test-IdleRequiredCapabilities {
         [CmdletBinding()]
@@ -458,9 +342,8 @@ function Resolve-IdleStepMetadataCatalog {
                 }
             }
 
-            # Validate WithSchema is present and structurally valid
-            $withSchemaValue = if ($value.ContainsKey('WithSchema')) { $value['WithSchema'] } else { $null }
-            Test-IdleWithSchema -Value $withSchemaValue -StepType $key -SourceName $SourceModuleName
+            # Validate WithSchema and Provider (typed With contract).
+            Assert-IdleStepMetadataContract -Metadata $value -StepType $key -SourceName $SourceModuleName
 
             # Check for duplicates across step packs
             if ($StepTypeOwners.ContainsKey([string]$key)) {
@@ -542,9 +425,8 @@ function Resolve-IdleStepMetadataCatalog {
                 }
             }
 
-            # Validate WithSchema is present and structurally valid
-            $withSchemaValue = if ($value.ContainsKey('WithSchema')) { $value['WithSchema'] } else { $null }
-            Test-IdleWithSchema -Value $withSchemaValue -StepType $key -SourceName 'Providers.StepMetadata'
+            # Validate WithSchema and Provider (typed With contract).
+            Assert-IdleStepMetadataContract -Metadata $value -StepType $key -SourceName 'Providers.StepMetadata'
 
             # Host handlers are registered via Providers.StepRegistry only, so that execution does not depend on
             # the metadata passed at plan time.

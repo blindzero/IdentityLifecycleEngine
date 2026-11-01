@@ -12,6 +12,9 @@ BeforeAll {
             [object] $Context,
 
             [Parameter(Mandatory)]
+            [hashtable] $With,
+
+            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Step
         )
@@ -20,13 +23,7 @@ BeforeAll {
             throw 'Context.Providers must be a hashtable.'
         }
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 }
 

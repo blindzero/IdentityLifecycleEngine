@@ -135,66 +135,9 @@ function ConvertTo-IdleWorkflowSteps {
             # Resolve template placeholders in With (planning-time resolution)
             $with = Resolve-IdleWorkflowTemplates -Value $with -Request $PlanningContext.Request -StepName $stepName
 
-            # Validate WithSchema declared by step metadata (fail-fast plan-time schema check).
-            # Every step type must declare WithSchema. Required keys must be present; unknown keys are rejected.
-            # If OptionalKeys contains '*', any additional key is accepted (permissive schema for test/internal use).
-            if ($StepMetadataCatalog.ContainsKey($stepType)) {
-                $md = $StepMetadataCatalog[$stepType]
-                if ($null -ne $md -and $md -is [hashtable] -and $md.ContainsKey('WithSchema')) {
-                    $schema = $md['WithSchema']
-                    if ($null -ne $schema -and $schema -is [hashtable]) {
-                        $requiredKeys = @()
-                        if ($schema.ContainsKey('RequiredKeys') -and $null -ne $schema['RequiredKeys']) {
-                            $requiredKeys = @($schema['RequiredKeys'])
-                        }
-                        $optionalKeys = @()
-                        if ($schema.ContainsKey('OptionalKeys') -and $null -ne $schema['OptionalKeys']) {
-                            $optionalKeys = @($schema['OptionalKeys'])
-                        }
-
-                        # Build allowed set from all keys (required and optional combined)
-                        $allAllowedKeysList = [System.Collections.Generic.List[string]]::new()
-                        foreach ($keyList in @($requiredKeys, $optionalKeys)) {
-                            foreach ($k in $keyList) {
-                                if ($null -ne $k -and -not [string]::IsNullOrWhiteSpace([string]$k)) {
-                                    $null = $allAllowedKeysList.Add([string]$k)
-                                }
-                            }
-                        }
-                        $allowedSet = [System.Collections.Generic.HashSet[string]]::new(
-                            $allAllowedKeysList,
-                            [System.StringComparer]::OrdinalIgnoreCase
-                        )
-                        $permissive = $allowedSet.Contains('*')
-
-                        # Validate required keys are present
-                        foreach ($rk in $requiredKeys) {
-                            if ([string]::IsNullOrWhiteSpace([string]$rk) -or [string]$rk -eq '*') { continue }
-
-                            if (-not $with.ContainsKey($rk)) {
-                                $requiredList = [string]::Join(', ', ($requiredKeys | Where-Object { $_ -ne '*' -and -not [string]::IsNullOrWhiteSpace([string]$_) } | Sort-Object))
-                                throw [System.ArgumentException]::new(
-                                    ("Step '{0}' (type '{1}') is missing required With.{2}. Required With keys: {3}." -f $stepName, $stepType, $rk, $requiredList),
-                                    'Workflow'
-                                )
-                            }
-                        }
-
-                        # Validate no unknown keys (skip if permissive wildcard)
-                        if (-not $permissive) {
-                            foreach ($wk in @($with.Keys)) {
-                                if (-not $allowedSet.Contains([string]$wk)) {
-                                    $supportedList = [string]::Join(', ', ($allAllowedKeysList | Sort-Object))
-                                    throw [System.ArgumentException]::new(
-                                        ("Step '{0}' (type '{1}') does not support With.{2}. Supported With keys: {3}." -f $stepName, $stepType, [string]$wk, $supportedList),
-                                        'Workflow'
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            # Validate With against the typed WithSchema (fail-fast plan-time check) and apply defaults,
+            # so the plan carries the effective With (including the resolved Provider alias).
+            $with = ConvertTo-IdleStepWith -Metadata $StepMetadataCatalog[$stepType] -With $with -StepName $stepName -StepType $stepType
         }
 
         $retryProfile = if (Test-IdleWorkflowStepKey -Step $s -Key 'RetryProfile') {

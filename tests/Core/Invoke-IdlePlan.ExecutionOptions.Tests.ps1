@@ -18,6 +18,9 @@ BeforeAll {
                 [object] $Context,
 
                 [Parameter(Mandatory)]
+                [hashtable] $With,
+
+                [Parameter(Mandatory)]
                 [ValidateNotNull()]
                 [object] $Step
             )
@@ -27,13 +30,7 @@ BeforeAll {
                 Timestamp = [DateTimeOffset]::UtcNow
             })
 
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.StepResult'
-                Name       = [string]$Step.Name
-                Type       = [string]$Step.Type
-                Status     = 'Completed'
-                Error      = $null
-            }
+            return $null
         }
 
         function Invoke-IdleRetryProfileTransientStep {
@@ -42,6 +39,9 @@ BeforeAll {
                 [Parameter(Mandatory)]
                 [ValidateNotNull()]
                 [object] $Context,
+
+                [Parameter(Mandatory)]
+                [hashtable] $With,
 
                 [Parameter(Mandatory)]
                 [ValidateNotNull()]
@@ -63,13 +63,7 @@ BeforeAll {
                 throw $ex
             }
 
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.StepResult'
-                Name       = $stepName
-                Type       = [string]$Step.Type
-                Status     = 'Completed'
-                Error      = $null
-            }
+            return $null
         }
 
         function Reset-IdleRetryProfileTestState {
@@ -368,6 +362,9 @@ Describe 'Invoke-IdlePlan - ExecutionOptions' {
                         [Parameter(Mandatory)]
                         [ValidateNotNull()]
                         [object] $Context,
+
+                        [Parameter(Mandatory)]
+                        [hashtable] $With,
 
                         [Parameter(Mandatory)]
                         [ValidateNotNull()]

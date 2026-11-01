@@ -102,7 +102,7 @@ Describe 'Identifier namespaces' {
         It 'rejects host step types that do not follow Owner.IdLE.Step.* (InvalidExtensionNamespace)' {
             $providers = @{
                 StepMetadata = @{
-                    'Contoso.Step.Hr.Sync' = @{ WithSchema = @{ RequiredKeys = @(); OptionalKeys = @() } }
+                    'Contoso.Step.Hr.Sync' = @{ WithSchema = @{ Keys = @{} } }
                 }
             }
 

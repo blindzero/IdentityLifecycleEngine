@@ -13,9 +13,10 @@
   Steps = @(
     @{
       Name         = 'CurrentPreconditionStep'
-      Type         = 'IdLE.Step.EmitEvent'
+      Type         = 'IdLE.Step.DisableIdentity'
+      # No explicit With.Provider: Current resolves via the step's default provider alias ('Identity').
       With         = @{
-        Provider = 'Identity'
+        IdentityKey = 'user1'
       }
       # Precondition uses Current alias: resolves to Providers.Identity.Default at execution time
       Precondition = @{ Exists = 'Request.Context.Current.Identity.Entitlements' }

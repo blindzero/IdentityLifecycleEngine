@@ -73,8 +73,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
                     'Custom.IdLE.Step.Unknown' = @{
                         RequiredCapabilities = @('Custom.IdLE.Capability.Test')
                         WithSchema           = @{
-                            RequiredKeys = @()
-                            OptionalKeys = @()
+                            Keys = @{}
                         }
                     }
                 }
@@ -164,7 +163,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
             }
         }
 
-        It 'rejects host metadata WithSchema missing RequiredKeys' {
+        It 'rejects host metadata in the legacy RequiredKeys/OptionalKeys format (LegacyWithSchema)' {
             $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'joiner-no-metadata.psd1'
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
@@ -187,12 +186,12 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
                 throw 'Expected an exception but none was thrown.'
             }
             catch {
-                $_.Exception.Message | Should -Match 'RequiredKeys'
+                $_.Exception.Message | Should -Match 'LegacyWithSchema'
                 $_.Exception.Message | Should -Match 'Custom.IdLE.Step.BadSchema'
             }
         }
 
-        It 'rejects host metadata WithSchema with duplicate key across RequiredKeys and OptionalKeys' {
+        It 'rejects host metadata WithSchema with an unknown key type (InvalidWithSchema)' {
             $wfPath = Join-Path -Path $script:FixturesPath -ChildPath 'joiner-no-metadata.psd1'
             $req = New-IdleTestRequest -LifecycleEvent 'Joiner'
 
@@ -204,8 +203,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
                     'Custom.IdLE.Step.DupSchema' = @{
                         RequiredCapabilities = @()
                         WithSchema           = @{
-                            RequiredKeys = @('IdentityKey')
-                            OptionalKeys = @('IdentityKey', 'Provider')
+                            Keys = @{ IdentityKey = @{ Type = 'Guid' } }
                         }
                     }
                 }
@@ -217,7 +215,7 @@ Describe 'Resolve-IdleStepMetadataCatalog - step pack catalog ownership' {
             }
             catch {
                 $_.Exception.Message | Should -Match 'IdentityKey'
-                $_.Exception.Message | Should -Match 'RequiredKeys.*OptionalKeys|OptionalKeys.*RequiredKeys'
+                $_.Exception.Message | Should -Match 'InvalidWithSchema'
             }
         }
     }

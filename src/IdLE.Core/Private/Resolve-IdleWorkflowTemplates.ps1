@@ -67,7 +67,8 @@ function Resolve-IdleWorkflowTemplates {
         foreach ($item in $Value) {
             $resolved += Resolve-IdleWorkflowTemplates -Value $item -Request $Request -StepName $StepName
         }
-        return $resolved
+        # Comma operator: keep single-element and empty arrays as arrays (no pipeline unrolling).
+        return , $resolved
     }
 
     # PSCustomObject: recurse on properties

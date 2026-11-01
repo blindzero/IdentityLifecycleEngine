@@ -135,8 +135,9 @@ function Invoke-IdlePlanObject {
     $null = $context | Add-Member -MemberType ScriptMethod -Name AcquireAuthSession -Value {
         [CmdletBinding()]
         param(
+            # An empty name requests the broker's default session (DefaultAuthSession).
             [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
+            [AllowEmptyString()]
             [string] $Name,
 
             [Parameter()]
@@ -431,31 +432,23 @@ function Invoke-IdlePlanObject {
             $impl = Resolve-IdleStepHandler -StepType ([string]$stepType) -StepRegistry $stepRegistry
             $handlerSource = ConvertTo-IdleSourceInfo -Module $impl.Module
 
-            $supportedParams = Get-IdleCommandParameterNames -Handler $impl
-
-            $invokeParams = @{}
-
-            # Backwards compatibility: pass -Context only when the handler supports it.
-            if ($supportedParams.Contains('Context')) {
-                $invokeParams.Context = $context
-            }
-
-            if ($null -ne $stepWith -and $supportedParams.Contains('With')) {
-                $invokeParams.With = $stepWith
-            }
-
-            if ($supportedParams.Contains('Step')) {
-                $invokeParams.Step = $step
-            }
+            # Fail before the first attempt if the handler does not follow the step contract
+            # or the provider is not supplied.
+            $null = New-IdleStepHandlerArguments -Handler $impl -Step $step -Context $context
 
             # Safe-by-default transient retries:
             # - Only retries if the thrown exception is explicitly marked transient.
-            # - Emits 'StepRetrying' events and uses deterministic jitter/backoff.
+            # - Emits 'IdLE.Step.Retrying' events and uses deterministic jitter/backoff.
             # - Retry parameters resolved from ExecutionOptions if provided.
+            # - Arguments are built per attempt so that each attempt gets a fresh provider handle (auth session cache).
             $retrySeed = "$corr|$stepType|$stepName|$i"
             $retryParams = Resolve-IdleStepRetryParameters -Step $step -ExecutionOptions $ExecutionOptions
+            $operation = {
+                $handlerArguments = New-IdleStepHandlerArguments -Handler $impl -Step $step -Context $context
+                & $impl @handlerArguments
+            }
             $retry = Invoke-IdleWithRetry `
-                -Operation { & $impl @invokeParams } `
+                -Operation $operation `
                 -MaxAttempts $retryParams.MaxAttempts `
                 -InitialDelayMilliseconds $retryParams.InitialDelayMilliseconds `
                 -BackoffFactor $retryParams.BackoffFactor `
@@ -466,46 +459,13 @@ function Invoke-IdlePlanObject {
                 -OperationName 'StepExecution' `
                 -DeterministicSeed $retrySeed
 
-            $result = $retry.Value
-            $attempts = [int]$retry.Attempts
-
-            if ($null -eq $result) {
-                $result = [pscustomobject]@{
-                    PSTypeName = 'IdLE.StepResult'
-                    Name       = $stepName
-                    Type       = $stepType
-                    Status     = 'Completed'
-                    Attempts   = $attempts
-                }
-            }
-            else {
-                # Normalize result to include Attempts for observability (non-breaking).
-                if ($result.PSObject.Properties.Name -notcontains 'Attempts') {
-                    $null = $result | Add-Member -MemberType NoteProperty -Name Attempts -Value $attempts -Force
-                }
-            }
-
-            $null = $result | Add-Member -MemberType NoteProperty -Name Source -Value $handlerSource -Force
-
-            $stepResults += $result
-
-            if ($result.Status -eq 'Failed') {
-                $failed = $true
-
-                $context.EventSink.WriteEvent(
-                    'IdLE.Step.Failed',
-                    "Step '$stepName' failed.",
-                    $stepName,
-                    @{
-                        StepType = $stepType
-                        Index    = $i
-                        Error    = $result.Error
-                    },
-                    'Error'
-                )
-
-                break
-            }
+            # The engine owns the result shape; handlers report failures by throwing.
+            $stepResults += ConvertTo-IdleStepResult `
+                -Output $retry.Value `
+                -StepName $stepName `
+                -StepType ([string]$stepType) `
+                -Attempts ([int]$retry.Attempts) `
+                -Source $handlerSource
 
             $context.EventSink.WriteEvent(
                 'IdLE.Step.Completed',
@@ -589,7 +549,6 @@ function Invoke-IdlePlanObject {
             $ofPropNames = @($ofStep.PSObject.Properties.Name)
             $ofName = if ($ofPropNames -contains 'Name') { [string]$ofStep.Name } else { '' }
             $ofType = if ($ofPropNames -contains 'Type') { $ofStep.Type } else { $null }
-            $ofWith = if ($ofPropNames -contains 'With') { $ofStep.With } else { $null }
             $ofStatus = if ($ofPropNames -contains 'Status') { [string]$ofStep.Status } else { '' }
 
             # Conditions for OnFailure steps are evaluated during planning as well.
@@ -728,29 +687,18 @@ function Invoke-IdlePlanObject {
                 $impl = Resolve-IdleStepHandler -StepType ([string]$ofType) -StepRegistry $stepRegistry
                 $handlerSource = ConvertTo-IdleSourceInfo -Module $impl.Module
 
-                $supportedParams = Get-IdleCommandParameterNames -Handler $impl
-
-                $invokeParams = @{}
-
-                # Backwards compatibility: pass -Context only when the handler supports it.
-                if ($supportedParams.Contains('Context')) {
-                    $invokeParams.Context = $context
-                }
-
-                if ($null -ne $ofWith -and $supportedParams.Contains('With')) {
-                    $invokeParams.With = $ofWith
-                }
-
-                if ($supportedParams.Contains('Step')) {
-                    $invokeParams.Step = $ofStep
-                }
+                $null = New-IdleStepHandlerArguments -Handler $impl -Step $ofStep -Context $context
 
                 # Reuse safe-by-default transient retries for OnFailure steps.
                 # - Retry parameters resolved from ExecutionOptions if provided.
                 $retrySeed = "$corr|OnFailure|$ofType|$ofName|$j"
                 $retryParams = Resolve-IdleStepRetryParameters -Step $ofStep -ExecutionOptions $ExecutionOptions
+                $operation = {
+                    $handlerArguments = New-IdleStepHandlerArguments -Handler $impl -Step $ofStep -Context $context
+                    & $impl @handlerArguments
+                }
                 $retry = Invoke-IdleWithRetry `
-                    -Operation { & $impl @invokeParams } `
+                    -Operation $operation `
                     -MaxAttempts $retryParams.MaxAttempts `
                     -InitialDelayMilliseconds $retryParams.InitialDelayMilliseconds `
                     -BackoffFactor $retryParams.BackoffFactor `
@@ -761,55 +709,22 @@ function Invoke-IdlePlanObject {
                     -OperationName 'OnFailureStepExecution' `
                     -DeterministicSeed $retrySeed
 
-                $result = $retry.Value
-                $attempts = [int]$retry.Attempts
+                $onFailureStepResults += ConvertTo-IdleStepResult `
+                    -Output $retry.Value `
+                    -StepName $ofName `
+                    -StepType ([string]$ofType) `
+                    -Attempts ([int]$retry.Attempts) `
+                    -Source $handlerSource
 
-                if ($null -eq $result) {
-                    $result = [pscustomobject]@{
-                        PSTypeName = 'IdLE.StepResult'
-                        Name       = $ofName
-                        Type       = $ofType
-                        Status     = 'Completed'
-                        Attempts   = $attempts
+                $context.EventSink.WriteEvent(
+                    'IdLE.OnFailure.StepCompleted',
+                    "OnFailure step '$ofName' completed.",
+                    $ofName,
+                    @{
+                        StepType = $ofType
+                        Index    = $j
                     }
-                }
-                else {
-                    # Normalize result to include Attempts for observability (non-breaking).
-                    if ($result.PSObject.Properties.Name -notcontains 'Attempts') {
-                        $null = $result | Add-Member -MemberType NoteProperty -Name Attempts -Value $attempts -Force
-                    }
-                }
-
-                $null = $result | Add-Member -MemberType NoteProperty -Name Source -Value $handlerSource -Force
-
-                $onFailureStepResults += $result
-
-                if ($result.Status -eq 'Failed') {
-                    $onFailureHadFailures = $true
-
-                    $context.EventSink.WriteEvent(
-                        'IdLE.OnFailure.StepFailed',
-                        "OnFailure step '$ofName' failed.",
-                        $ofName,
-                        @{
-                            StepType = $ofType
-                            Index    = $j
-                            Error    = $result.Error
-                        },
-                        'Error'
-                    )
-                }
-                else {
-                    $context.EventSink.WriteEvent(
-                        'IdLE.OnFailure.StepCompleted',
-                        "OnFailure step '$ofName' completed.",
-                        $ofName,
-                        @{
-                            StepType = $ofType
-                            Index    = $j
-                        }
-                    )
-                }
+                )
             }
             catch {
                 $onFailureHadFailures = $true

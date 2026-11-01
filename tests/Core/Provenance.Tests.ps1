@@ -8,22 +8,18 @@ BeforeAll {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)] [object] $Context,
+            [Parameter(Mandatory)] [hashtable] $With,
             [Parameter(Mandatory)] [object] $Step
         )
 
-        return [pscustomobject]@{
-            PSTypeName = 'IdLE.StepResult'
-            Name       = [string]$Step.Name
-            Type       = [string]$Step.Type
-            Status     = 'Completed'
-            Error      = $null
-        }
+        return $null
     }
 
     function global:Invoke-IdleProvenanceTestFailingStep {
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)] [object] $Context,
+            [Parameter(Mandatory)] [hashtable] $With,
             [Parameter(Mandatory)] [object] $Step
         )
 
