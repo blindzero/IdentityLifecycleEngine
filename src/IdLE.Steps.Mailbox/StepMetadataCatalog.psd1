@@ -26,6 +26,12 @@
                 IdentityKey = @{ Type = 'String'; Required = $true }
             }
         }
+        # Mailbox: the provider's mailbox object (e.g. PrimarySmtpAddress, RecipientTypeDetails).
+        StateSchema          = @{
+            Keys = @{
+                Mailbox = @{ Type = 'Any'; Required = $true }
+            }
+        }
     }
 
     # IdLE.Step.Mailbox.EnsureType - idempotently converts a mailbox to the specified type
