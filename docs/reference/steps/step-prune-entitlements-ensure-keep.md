@@ -9,6 +9,7 @@
 - **Module**: `IdLE.Steps.Common`
 - **Implementation**: `Invoke-IdleStepPruneEntitlementsEnsureKeep`
 - **Idempotent**: `Unknown`
+- **Required Capabilities**: `IdLE.Entitlement.Prune`, `IdLE.Entitlement.List`, `IdLE.Entitlement.Revoke`, `IdLE.Entitlement.Grant`
 
 ## Synopsis
 
@@ -126,5 +127,5 @@ Validated at plan time against the step's ``WithSchema`` (see [Step metadata con
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
 - [Providers](../providers.md) - Available provider implementations

@@ -9,6 +9,7 @@
 - **Module**: `IdLE.Steps.Mailbox`
 - **Implementation**: `Invoke-IdleStepMailboxPermissionsEnsure`
 - **Idempotent**: `Yes`
+- **Required Capabilities**: `IdLE.Mailbox.Info.Read`, `IdLE.Mailbox.Permissions.Ensure`
 
 ## Synopsis
 
@@ -114,5 +115,5 @@ Validated at plan time against the step's ``WithSchema`` (see [Step metadata con
 
 ## See Also
 
-- [Capabilities Reference](../capabilities.md) - Overview of IdLE capabilities
+- [Capabilities Reference](../capabilities.md) - Details on required capabilities
 - [Providers](../providers.md) - Available provider implementations

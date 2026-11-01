@@ -440,9 +440,9 @@ function Get-IdleStepRequiredCapabilities {
             # Call Get-IdleStepMetadataCatalog in the context of the specific module
             $catalog = & $module { Get-IdleStepMetadataCatalog -ErrorAction SilentlyContinue }
             if ($catalog -is [System.Collections.IDictionary]) {
-                $fullStepTypeName = "IdLE.Step.$StepType"
-                if ($catalog.Contains($fullStepTypeName)) {
-                    $metadata = $catalog[$fullStepTypeName]
+                # StepType is already the full catalog key (e.g. 'IdLE.Step.DisableIdentity').
+                if ($catalog.Contains($StepType)) {
+                    $metadata = $catalog[$StepType]
                     if ($metadata) {
                         $requiredCapabilities = $null
                         if ($metadata -is [System.Collections.IDictionary] -and $metadata.Contains('RequiredCapabilities')) {
