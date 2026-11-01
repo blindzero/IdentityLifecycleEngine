@@ -13,12 +13,13 @@ IdLE is designed for change through modules instead of forks.
 
 A new step typically involves:
 
-1. A metadata definition declaring required capabilities and `WithSchema` (allowed `With.*` keys)
-2. A planning function (test) that produces data-only actions
-3. An execution function (invoke) that performs actions via providers
-4. Unit tests (Pester)
+1. A metadata definition declaring required capabilities, the provider it uses and a typed `WithSchema`
+2. A handler function that receives the validated `With` and a provider handle and returns `@{ Changed; Data }`
+3. Unit tests (Pester)
 
-See [Steps and Metadata](steps.md#step-metadata-contract) for the required metadata shape.
+The engine validates `With`, resolves the provider, handles authentication and builds the step result, so the
+handler contains only the step's domain logic. See [Step metadata contract](steps.md#step-metadata-contract) and
+[Step handler contract](steps.md#step-handler-contract).
 
 Extension step types and capabilities use your own owner prefix: `<Owner>.IdLE.Step.<Area>.<Name>` and
 `<Owner>.IdLE.<Domain>.<Verb>` (e.g. `Contoso.IdLE.Step.Hr.SyncManager`, `Contoso.IdLE.Hr.Manager.Read`).
@@ -121,9 +122,9 @@ Steps are executed via the step registry.
 
 ScriptBlock handlers are intentionally not supported as a secure default.
 
-Step handlers may optionally declare a `Context` parameter.
-For backwards compatibility, the engine passes `-Context` only when the handler
-supports it.
+Handlers follow the [step handler contract](steps.md#step-handler-contract): they declare `-With` (and `-Provider`
+if the metadata declares a provider; `-Context` and `-Step` as needed) and return `$null` or `@{ Changed; Data; State }`.
+Handlers written for the pre-1.0 contract (`-Context`/`-Step` only) fail with `LegacyStepHandler`.
 
 ---
 

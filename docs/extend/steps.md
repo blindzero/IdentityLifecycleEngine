@@ -69,33 +69,111 @@ Typical conceptual metadata includes:
 
 ### Step metadata contract
 
-Every step type registered with the engine **must** declare a data-only metadata entry containing:
-
-- `RequiredCapabilities` — capability identifiers the step requires from providers
-- `WithSchema` — declares the `With.*` key contract used for plan-time validation
+Every step type registered with the engine **must** declare a data-only metadata entry:
 
 ```powershell
-'IdLE.Step.Example' = @{
-    RequiredCapabilities = @('Some.Capability')
+'IdLE.Step.EnsureEntitlement' = @{
+    Handler              = 'Invoke-IdleStepEnsureEntitlement'   # step packs only
+    RequiredCapabilities = @('IdLE.Entitlement.List', 'IdLE.Entitlement.Grant', 'IdLE.Entitlement.Revoke')
+    Provider             = @{ DefaultAlias = 'Identity' }       # optional: the step uses one provider
     WithSchema           = @{
-        RequiredKeys = @('IdentityKey')
-        OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+        Keys = @{
+            IdentityKey = @{ Type = 'String'; Required = $true }
+            Entitlement = @{
+                Type     = 'Hashtable'
+                Required = $true
+                Keys     = @{
+                    Kind = @{ Type = 'String'; Required = $true }
+                    Id   = @{ Type = 'String'; Required = $true }
+                }
+            }
+            State       = @{ Type = 'String'; AllowedValues = @('Present', 'Absent'); Default = 'Present' }
+        }
     }
 }
 ```
 
-**`WithSchema`** (mandatory):
+**`Provider`** (optional): `@{ DefaultAlias = '<alias>' }` declares that the step uses exactly one provider.
+The engine then accepts these `With` keys for the step (they must not be declared in `Keys`):
 
-- `RequiredKeys` — keys that **must** be present in `With` (plan creation fails if any are missing).
-- `OptionalKeys` — keys that **may** be present in `With`. Any key not in `RequiredKeys` or `OptionalKeys` causes a plan-creation error (fail-fast, with step name, type, and offending key in the message).
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `Provider` | String | Provider alias in `Providers`; defaults to `DefaultAlias`. |
+| `AuthSessionName` | String | Auth session routing key passed to the `AuthSessionBroker`. |
+| `AuthSessionOptions` | Hashtable | Data-only broker options. |
+
+`AuthSessionNameFromAlias = $true` names the auth session after the provider alias when `With.AuthSessionName` is
+not set (used by the mailbox steps: `ExchangeOnline`). Steps without `Provider` reject the three keys.
+
+**`WithSchema`** (mandatory): `Keys` maps each `With` key to a key schema:
+
+| Property | Applies to | Meaning |
+| --- | --- | --- |
+| `Type` | all (required) | `String`, `Int`, `Bool`, `Hashtable`, `Array`, `Any` |
+| `Required` | all | Key must be present and not `$null`. |
+| `Default` | all | Applied when the key is absent; must match `Type`; not combined with `Required`. |
+| `AllowedValues` | `String`, `Int` | Strings match case-insensitively and are normalized to the listed casing. |
+| `AllowEmpty` | `String`, `Array` | Allow `''` / `@()` (default: not allowed). |
+| `Keys` | `Hashtable` | Nested key schemas; unknown nested keys fail. Without `Keys`, any content is accepted. |
+| `AllowAdditionalKeys` | `Hashtable`, `WithSchema` | Accept keys not listed in `Keys`. |
+| `Items` | `Array` | Key schema for every element. |
 
 **Rules:**
 
-- Both `RequiredKeys` and `OptionalKeys` must be non-null string arrays (may be empty: `@()`).
-- A key must not appear in both sets.
+- `With` is validated at plan time, after template resolution. Defaults are applied, so the plan (and the plan
+  export) contains the effective `With`, including the resolved `Provider`.
+- No implicit type conversion: `'600'` is not an `Int`. Pure template placeholders keep the type of the request value.
+- Optional keys set to `$null` are treated as absent.
+- Errors name the step, the step type and the full path, e.g.
+  `WithKeyMissing: Step 'Grant' (type 'IdLE.Step.EnsureEntitlement'): With.Entitlement.Kind is required.`
+  Codes: `WithKeyMissing`, `WithKeyUnknown`, `WithKeyTypeMismatch`, `WithValueNotAllowed`.
+- Invalid metadata fails when the catalog is loaded: `LegacyWithSchema` (old `RequiredKeys`/`OptionalKeys` format),
+  `InvalidWithSchema` (any other shape error).
 - Metadata must be data-only — ScriptBlocks are rejected.
 
 Host-supplied step types may supplement (but not override) the catalog via `Providers.StepMetadata`.
+
+### Step handler contract
+
+The engine validates inputs, resolves the provider, handles authentication and builds the step result.
+A handler contains only the step's domain logic:
+
+```powershell
+function Invoke-ContosoStepSyncManager {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [hashtable] $With,
+        [Parameter(Mandatory)] [object] $Provider
+    )
+
+    $result = $Provider.Invoke('SyncManager', @($With.IdentityKey))
+    return @{ Changed = [bool]$result.Changed }
+}
+```
+
+| Parameter | Passed | Content |
+| --- | --- | --- |
+| `With` | always (required) | Validated `With` without `Provider`, `AuthSessionName`, `AuthSessionOptions`. |
+| `Provider` | if and only if the metadata declares `Provider` | Provider handle (see below). |
+| `Context` | if declared | Execution context (`EventSink`, `Plan`, `Request`, `CorrelationId`, `Actor`). |
+| `Step` | if declared | Step metadata (`Name`, `Type`), e.g. for events. |
+
+**Provider handle** (`IdLE.ProviderHandle`):
+
+- `Invoke(MethodName, Arguments)` calls a provider method. `Arguments` are the method's parameters **without**
+  `AuthSession`; the engine acquires the session (once per step attempt) and inserts it at the position the method
+  declares (`ListEntitlements(IdentityKey, AuthSession, Kind)` is called as `Invoke('ListEntitlements', @($id, $kind))`).
+- `HasMethod(MethodName)` / `HasParameter(MethodName, ParameterName)` check optional provider features.
+- `Alias` is the resolved provider alias. The raw provider object is not exposed.
+- Providers that expose an `EventSink` property receive the run's event sink.
+
+**Result:** return `$null` or a hashtable with the optional keys `Changed` (Bool), `Data` (Hashtable) and `State`
+(Hashtable). The engine builds `IdLE.StepResult` (`Name`, `Type`, `Status`, `Changed`, `Data`, `State`, `Error`,
+`Attempts`, `Source`). Failures are reported by throwing; transient failures use the transient marker for retries.
+
+**Errors:** `LegacyStepHandler` (no `-With` parameter, pre-1.0 contract), `InvalidStepHandlerSignature`
+(`-Provider` does not match the metadata), `InvalidStepHandlerResult` (other return values, including output leaked
+to the pipeline), `ProviderNotSupplied`, `ProviderMethodNotImplemented`.
 
 ### Step packs
 
@@ -125,9 +203,9 @@ so hosts do not need `Providers.StepRegistry` for step pack steps:
     'Contoso.IdLE.Step.Hr.SyncManager' = @{
         Handler              = 'Invoke-ContosoStepSyncManager'
         RequiredCapabilities = @('Contoso.IdLE.Hr.Manager.Read')
+        Provider             = @{ DefaultAlias = 'Hr' }
         WithSchema           = @{
-            RequiredKeys = @('IdentityKey')
-            OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+            Keys = @{ IdentityKey = @{ Type = 'String'; Required = $true } }
         }
     }
 }
@@ -265,15 +343,15 @@ Steps receive inputs from the workflow under `Inputs` and may reference:
 
 **All step inputs must be data-only and must not contain ScriptBlocks.**
 
-Step implementations MUST validate their inputs using the centralized helper:
+The engine enforces this before a handler runs: workflow definitions and plans are scanned with
+`Assert-IdleNoScriptBlock`, and `With` is validated against the step's `WithSchema`. Handlers do not repeat these checks.
+
+If a step processes other untrusted data (for example values read from a request at execution time), validate it
+with the centralized helper instead of custom ScriptBlock checks:
 
 ```powershell
-Assert-IdleNoScriptBlock -InputObject $config -Path 'With.Config'
+Assert-IdleNoScriptBlock -InputObject $value -Path 'Request.Context.Something'
 ```
-
-The `Assert-IdleNoScriptBlock` function is exported from `IdLE.Core` and recursively validates hashtables, arrays, and PSCustomObjects.
-
-**Do not implement custom ScriptBlock validation.** Use the centralized helper to ensure consistent enforcement across all steps.
 
 ---
 

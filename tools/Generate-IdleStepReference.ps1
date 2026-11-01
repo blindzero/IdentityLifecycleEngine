@@ -239,69 +239,83 @@ function Get-IdleHelpSafe {
     }
 }
 
-function Get-IdleRequiredWithKeysFromSource {
+function Get-IdleStepWithKeyRows {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [ValidateNotNull()]
-        [System.Management.Automation.CommandInfo] $CommandInfo
+        [ValidateNotNullOrEmpty()]
+        [string] $StepType,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $ModuleName
     )
 
-    # Best-effort heuristic: detect patterns like:
-    # foreach ($key in @('IdentityKey','Name','Value')) { ... }
-    # OR throw messages like: "StepName requires With.KeyName."
-    $filePath = $null
-    if ($CommandInfo.ScriptBlock -and $CommandInfo.ScriptBlock.File) {
-        $filePath = $CommandInfo.ScriptBlock.File
-    }
-
-    if ([string]::IsNullOrWhiteSpace($filePath) -or -not (Test-Path -Path $filePath)) {
+    # Rows are derived from the step's typed WithSchema (StepMetadataCatalog), including the engine-provided
+    # common keys for steps that declare a Provider.
+    $module = Get-Module -Name $ModuleName -All -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -eq $module) {
         return @()
     }
 
-    $content = Get-Content -Path $filePath -Raw -ErrorAction Stop
-    $keys = @()
-
-    # Pattern 1: foreach loop with key array
-    $m = [regex]::Match(
-        $content,
-        'foreach\s*\(\s*\$key\s+in\s+@\((?<List>[^)]*)\)\s*\)',
-        'IgnoreCase'
-    )
-
-    if ($m.Success) {
-        $listText = $m.Groups['List'].Value
-        $foreachKeys = [regex]::Matches($listText, "'(?<Key>[^']+)'") | ForEach-Object { $_.Groups['Key'].Value }
-        $keys += $foreachKeys
+    $catalog = & $module { Get-IdleStepMetadataCatalog -ErrorAction SilentlyContinue }
+    if ($catalog -isnot [System.Collections.IDictionary] -or -not $catalog.Contains($StepType)) {
+        return @()
     }
 
-    # Pattern 2: throw messages like "requires With.KeyName"
-    $throwMatches = [regex]::Matches(
-        $content,
-        'throw\s+[^"]*"[^"]*requires\s+With\.(?<Key>[A-Za-z][A-Za-z0-9]*)',
-        'IgnoreCase'
-    )
-    foreach ($match in $throwMatches) {
-        $keys += $match.Groups['Key'].Value
-    }
+    $metadata = $catalog[$StepType]
+    $keys = $metadata['WithSchema']['Keys']
 
-    # Pattern 3: ContainsKey checks followed by throw
-    $containsMatches = [regex]::Matches(
-        $content,
-        '\$with\.ContainsKey\(''(?<Key>[^'']+)''\)',
-        'IgnoreCase'
-    )
-    foreach ($match in $containsMatches) {
-        $keyName = $match.Groups['Key'].Value
-        # Only include if there's a throw statement nearby (within next 100 chars)
-        $matchPos = $match.Index
-        $nextChunk = $content.Substring($matchPos, [Math]::Min(150, $content.Length - $matchPos))
-        if ($nextChunk -match 'throw') {
-            $keys += $keyName
+    function Get-IdleKeyNotes {
+        param([hashtable] $KeySchema)
+
+        $notes = @()
+        if ($KeySchema.ContainsKey('AllowedValues')) {
+            $notes += 'One of: ' + ((@($KeySchema['AllowedValues']) | ForEach-Object { "``$_``" }) -join ', ')
         }
+        $nested = if ($KeySchema['Type'] -eq 'Array' -and $KeySchema.ContainsKey('Items')) { $KeySchema['Items'] } else { $KeySchema }
+        if ($nested -is [hashtable] -and $nested.ContainsKey('Keys')) {
+            $nestedKeys = foreach ($name in @($nested['Keys'].PSBase.Keys | Sort-Object)) {
+                $required = if ($nested['Keys'][$name]['Required'] -eq $true) { ' (required)' } else { '' }
+                "``$name``$required"
+            }
+            $prefix = if ($KeySchema['Type'] -eq 'Array') { 'Items: ' } else { 'Keys: ' }
+            $notes += $prefix + ($nestedKeys -join ', ')
+        }
+        elseif ($KeySchema['Type'] -eq 'Array' -and $KeySchema.ContainsKey('Items')) {
+            $notes += "Items: $($KeySchema['Items']['Type'])"
+        }
+        return ($notes -join '. ')
     }
 
-    return @($keys | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique | Sort-Object)
+    $rows = [System.Collections.Generic.List[object]]::new()
+    foreach ($name in @($keys.PSBase.Keys)) {
+        $keySchema = $keys[$name]
+        $default = ''
+        if ($keySchema.ContainsKey('Default')) {
+            $value = $keySchema['Default']
+            $default = if ($value -is [bool]) { "``$('$' + $value.ToString().ToLowerInvariant())``" } else { "``$value``" }
+        }
+
+        $rows.Add([pscustomobject]@{
+                Name     = [string]$name
+                Type     = [string]$keySchema['Type']
+                Required = ($keySchema['Required'] -eq $true)
+                Default  = $default
+                Notes    = Get-IdleKeyNotes -KeySchema $keySchema
+                Common   = $false
+            })
+    }
+
+    if ($metadata.ContainsKey('Provider')) {
+        $alias = [string]$metadata['Provider']['DefaultAlias']
+        $sessionDefault = if ($metadata['Provider']['AuthSessionNameFromAlias'] -eq $true) { 'provider alias' } else { 'broker default session' }
+        $rows.Add([pscustomobject]@{ Name = 'Provider'; Type = 'String'; Required = $false; Default = "``$alias``"; Notes = 'Provider alias in `Providers`.'; Common = $true })
+        $rows.Add([pscustomobject]@{ Name = 'AuthSessionName'; Type = 'String'; Required = $false; Default = $sessionDefault; Notes = 'Auth session routing key for the AuthSessionBroker.'; Common = $true })
+        $rows.Add([pscustomobject]@{ Name = 'AuthSessionOptions'; Type = 'Hashtable'; Required = $false; Default = ''; Notes = 'Data-only options passed to the AuthSessionBroker.'; Common = $true })
+    }
+
+    return @($rows | Sort-Object -Property @{ Expression = 'Common' }, @{ Expression = 'Required'; Descending = $true }, @{ Expression = 'Name' })
 }
 
 function Get-IdleProviderMethodHintFromDescription {
@@ -496,7 +510,8 @@ function New-IdleStepDocModel {
     # Remove redundant "This is a provider-agnostic step." sentence
     $description = $description -replace '(?i)This\s+is\s+a\s+provider-agnostic\s+step\.\s*', ''
 
-    $requiredWithKeys = @(Get-IdleRequiredWithKeysFromSource -CommandInfo $CommandInfo)
+    $withKeys = @(Get-IdleStepWithKeyRows -StepType $stepType -ModuleName $moduleName)
+    $requiredWithKeys = @($withKeys | Where-Object Required | ForEach-Object Name)
 
     $idempotent = 'Unknown'
     if ($description -match '(?i)\bidempotent\b') {
@@ -555,6 +570,7 @@ function New-IdleStepDocModel {
         CommandName           = $commandName
         Synopsis              = $synopsis
         Description           = $description
+        WithKeys              = $withKeys
         RequiredWithKeys      = $requiredWithKeys
         Idempotent            = $idempotent
         RequiredCapabilities  = $requiredCapabilities
@@ -607,37 +623,18 @@ function New-IdleStepDetailPageContent {
     [void]$sb.AppendLine('## Inputs (With.*)')
     [void]$sb.AppendLine()
 
-    if ($Model.RequiredWithKeys.Count -eq 0) {
-        [void]$sb.AppendLine('This step has no required ``With.*`` keys at step schema level.')
-        [void]$sb.AppendLine('Inputs may still be provider-specific; refer to the step description and examples for usage details.')
+    if ($Model.WithKeys.Count -eq 0) {
+        [void]$sb.AppendLine('This step accepts no ``With.*`` keys.')
         [void]$sb.AppendLine()
     }
     else {
-        [void]$sb.AppendLine('The following keys are required in the step''s ``With`` configuration:')
+        [void]$sb.AppendLine('Validated at plan time against the step''s ``WithSchema`` (see [Step metadata contract](../../extend/steps.md#step-metadata-contract)).')
         [void]$sb.AppendLine()
-        [void]$sb.AppendLine('| Key | Required | Description |')
-        [void]$sb.AppendLine('| --- | --- | --- |')
-        foreach ($k in $Model.RequiredWithKeys) {
-            # Add basic description based on common key patterns
-            $keyDescription = switch ($k) {
-                'IdentityKey' { 'Unique identifier for the identity' }
-                'Name' { 'Name of the attribute or property' }
-                'Value' { 'Desired value to set' }
-                'Attributes' { 'Hashtable of attributes to set' }
-                'DestinationPath' { 'Target location or path' }
-                'Message' { 'Message text to emit (optional for EmitEvent step)' }
-                'EntitlementType' { 'Type of entitlement (e.g., Group, License)' }
-                'EntitlementValue' { 'Specific entitlement identifier' }
-                'Entitlement' { 'Entitlement identifier or object' }
-                'State' { 'Desired state for the entitlement' }
-                'Ensure' { 'Desired state (Present or Absent)' }
-                'Provider' { 'Provider alias (optional, defaults vary by step)' }
-                'AuthSessionName' { 'Name of auth session to use (optional)' }
-                'PolicyType' { 'Type of policy (e.g., Delta, Initial)' }
-                'Wait' { 'Whether to wait for completion' }
-                default { 'See step description for details' }
-            }
-            [void]$sb.AppendLine("| ``$k`` | Yes | $keyDescription |")
+        [void]$sb.AppendLine('| Key | Type | Required | Default | Notes |')
+        [void]$sb.AppendLine('| --- | --- | --- | --- | --- |')
+        foreach ($row in $Model.WithKeys) {
+            $required = if ($row.Required) { 'Yes' } else { 'No' }
+            [void]$sb.AppendLine(("| ``{0}`` | {1} | {2} | {3} | {4} |" -f $row.Name, $row.Type, $required, $row.Default, $row.Notes))
         }
         [void]$sb.AppendLine()
     }

@@ -16,8 +16,8 @@ Ensures that mailbox delegate permissions match the desired state.
 
 ## Description
 
-The host must supply a provider instance via
-Context.Providers[&lt;ProviderAlias&gt;]. The provider must implement an EnsureMailboxPermissions
+The engine passes the provider resolved from With.Provider
+(default 'ExchangeOnline') as -Provider. The provider implements an EnsureMailboxPermissions
 method with the signature (IdentityKey, Permissions, AuthSession) and return an object
 that contains a boolean property 'Changed'.
 
@@ -42,24 +42,20 @@ Each entry must be a hashtable with:
 
 - Ensure: 'Present' | 'Absent' (required)
 
-Authentication:
-
-- If With.AuthSessionName is present, the step acquires an auth session via
-  Context.AcquireAuthSession(Name, Options) and passes it to the provider method.
-
-- If With.AuthSessionName is absent, defaults to With.Provider value (e.g., 'ExchangeOnline').
-
-- With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @\{ Role = 'Admin' \}).
+Authentication is handled by the engine: without With.AuthSessionName the session is named after the
+provider alias (e.g. 'ExchangeOnline'); With.AuthSessionOptions is passed to the broker.
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+Validated at plan time against the step's ``WithSchema`` (see [Step metadata contract](../../extend/steps.md#step-metadata-contract)).
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `IdentityKey` | Yes | Unique identifier for the identity |
-| `Permissions` | Yes | See step description for details |
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `IdentityKey` | String | Yes |  |  |
+| `Permissions` | Array | Yes |  | Items: `AssignedUser` (required), `Ensure` (required), `Right` (required) |
+| `AuthSessionName` | String | No | provider alias | Auth session routing key for the AuthSessionBroker. |
+| `AuthSessionOptions` | Hashtable | No |  | Data-only options passed to the AuthSessionBroker. |
+| `Provider` | String | No | `ExchangeOnline` | Provider alias in `Providers`. |
 
 ## Example
 
@@ -110,7 +106,7 @@ The following keys are required in the step's ``With`` configuration:
         Provider    = 'ExchangeOnline'
         IdentityKey = 'team@contoso.com'
         Permissions = @(
-            @{ AssignedUser = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }; Right = 'FullAccess'; Ensure = 'Present' }
+            @{ AssignedUser = '{{Request.Intent.UserPrincipalName}}'; Right = 'FullAccess'; Ensure = 'Present' }
         )
     }
 }

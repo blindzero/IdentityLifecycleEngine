@@ -16,8 +16,8 @@ Ensures that a mailbox Out of Office (OOF) configuration matches the desired sta
 
 ## Description
 
-The host must supply a provider instance via
-Context.Providers[&lt;ProviderAlias&gt;]. The provider must implement an EnsureOutOfOffice
+The engine passes the provider resolved from With.Provider
+(default 'ExchangeOnline') as -Provider. The provider implements an EnsureOutOfOffice
 method with the signature (IdentityKey, Config, AuthSession) and return an object
 that contains a boolean property 'Changed'.
 
@@ -42,24 +42,20 @@ Out of Office Config shape (data-only hashtable):
   When set to 'Text', messages are treated as plain text.
   Providers may normalize HTML to ensure stable idempotency (e.g., handling server-side wrapping).
 
-Authentication:
-
-- If With.AuthSessionName is present, the step acquires an auth session via
-  Context.AcquireAuthSession(Name, Options) and passes it to the provider method.
-
-- If With.AuthSessionName is absent, defaults to With.Provider value (e.g., 'ExchangeOnline').
-
-- With.AuthSessionOptions (optional, hashtable) is passed to the broker for
-  session selection (e.g., @\{ Role = 'Admin' \}).
+Authentication is handled by the engine: without With.AuthSessionName the session is named after the
+provider alias (e.g. 'ExchangeOnline'); With.AuthSessionOptions is passed to the broker.
 
 ## Inputs (With.*)
 
-The following keys are required in the step's ``With`` configuration:
+Validated at plan time against the step's ``WithSchema`` (see [Step metadata contract](../../extend/steps.md#step-metadata-contract)).
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `Config` | Yes | See step description for details |
-| `IdentityKey` | Yes | Unique identifier for the identity |
+| Key | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `Config` | Hashtable | Yes |  | Keys: `End`, `ExternalAudience`, `ExternalMessage`, `InternalMessage`, `MessageFormat`, `Mode` (required), `Start` |
+| `IdentityKey` | String | Yes |  |  |
+| `AuthSessionName` | String | No | provider alias | Auth session routing key for the AuthSessionBroker. |
+| `AuthSessionOptions` | Hashtable | No |  | Data-only options passed to the AuthSessionBroker. |
+| `Provider` | String | No | `ExchangeOnline` | Provider alias in `Providers`. |
 
 ## Example
 
@@ -87,13 +83,13 @@ The following keys are required in the step's ``With`` configuration:
 ### Example 2
 
 ```powershell
-# In workflow definition (with ValueFrom for dynamic values):
+# In workflow definition (with a template for dynamic values):
 @{
     Name = 'Enable Out of Office for Leaver'
     Type = 'IdLE.Step.Mailbox.EnsureOutOfOffice'
     With = @{
         Provider        = 'ExchangeOnline'
-        IdentityKey     = @{ ValueFrom = 'Request.Intent.UserPrincipalName' }
+        IdentityKey     = '{{Request.Intent.UserPrincipalName}}'
         Config          = @{
             Mode            = 'Enabled'
             InternalMessage = 'This person is no longer with the organization. For assistance, please contact their manager or the main office.'
