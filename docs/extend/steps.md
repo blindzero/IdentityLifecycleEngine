@@ -122,13 +122,15 @@ not set (used by the mailbox steps: `ExchangeOnline`). Steps without `Provider` 
 
 - `With` is validated at plan time, after template resolution. Defaults are applied, so the plan (and the plan
   export) contains the effective `With`, including the resolved `Provider`.
-- No implicit type conversion: `'600'` is not an `Int`. Pure template placeholders keep the type of the request value.
-- Optional keys set to `$null` are treated as absent.
+- No implicit type conversion: `'600'` is not an `Int`, `'true'` is not a `Bool`. Pure template placeholders
+  (`'{{Request.Intent.TimeoutSeconds}}'`) keep the type of the request value.
+- `Int` accepts `[int]` and `[long]`; `Array` accepts any non-string enumerable except dictionaries.
+- Optional keys set to `$null` are treated as absent (defaults apply). `$null` values inside a `Hashtable` without
+  `Keys` (e.g. "clear attribute" values in `EnsureAttributes.Attributes`) are passed through.
 - Errors name the step, the step type and the full path, e.g.
   `WithKeyMissing: Step 'Grant' (type 'IdLE.Step.EnsureEntitlement'): With.Entitlement.Kind is required.`
-  Codes: `WithKeyMissing`, `WithKeyUnknown`, `WithKeyTypeMismatch`, `WithValueNotAllowed`.
-- Invalid metadata fails when the catalog is loaded: `LegacyWithSchema` (old `RequiredKeys`/`OptionalKeys` format),
-  `InvalidWithSchema` (any other shape error).
+  See [Error codes](#error-codes).
+- Invalid metadata fails when the catalog is loaded.
 - Metadata must be data-only — ScriptBlocks are rejected.
 
 Host-supplied step types may supplement (but not override) the catalog via `Providers.StepMetadata`.
@@ -158,22 +160,112 @@ function Invoke-ContosoStepSyncManager {
 | `Context` | if declared | Execution context (`EventSink`, `Plan`, `Request`, `CorrelationId`, `Actor`). |
 | `Step` | if declared | Step metadata (`Name`, `Type`), e.g. for events. |
 
-**Provider handle** (`IdLE.ProviderHandle`):
+The engine checks the handler's parameters before the first attempt: `-With` is mandatory, and `-Provider` must be
+declared if and only if the metadata declares `Provider`.
 
-- `Invoke(MethodName, Arguments)` calls a provider method. `Arguments` are the method's parameters **without**
-  `AuthSession`; the engine acquires the session (once per step attempt) and inserts it at the position the method
-  declares (`ListEntitlements(IdentityKey, AuthSession, Kind)` is called as `Invoke('ListEntitlements', @($id, $kind))`).
-- `HasMethod(MethodName)` / `HasParameter(MethodName, ParameterName)` check optional provider features.
-- `Alias` is the resolved provider alias. The raw provider object is not exposed.
+**Provider handle** (`IdLE.ProviderHandle`): the engine resolves the alias (`With.Provider` or `DefaultAlias`),
+looks it up in `Providers` and passes a handle. The same alias feeds `Request.Context.Current` for preconditions.
+
+| Member | Meaning |
+| --- | --- |
+| `Alias` | Resolved provider alias. |
+| `Invoke(MethodName, Arguments)` | Calls a provider method. `Arguments` exclude `AuthSession`; the session is inserted at the position the method declares it: `ListEntitlements(IdentityKey, AuthSession, Kind)` is called as `Invoke('ListEntitlements', @($id, $kind))`. |
+| `HasMethod(MethodName)` | `$true` if the provider implements the method (optional features such as bulk operations). |
+| `HasParameter(MethodName, ParameterName)` | `$true` if the method declares the parameter (e.g. `Kind` on `ListEntitlements`). |
+
+- The auth session is acquired on the first `Invoke` that needs it (the method declares `AuthSession`, or
+  `With.AuthSessionName` is set) and reused for the rest of the step attempt. Without `AuthSessionName` the broker is
+  asked for its default session.
+- The raw provider object is not exposed, so steps cannot bypass the authentication handling.
 - Providers that expose an `EventSink` property receive the run's event sink.
 
-**Result:** return `$null` or a hashtable with the optional keys `Changed` (Bool), `Data` (Hashtable) and `State`
-(Hashtable). The engine builds `IdLE.StepResult` (`Name`, `Type`, `Status`, `Changed`, `Data`, `State`, `Error`,
-`Attempts`, `Source`). Failures are reported by throwing; transient failures use the transient marker for retries.
+**Result:** return `$null` or a hashtable with the optional keys:
 
-**Errors:** `LegacyStepHandler` (no `-With` parameter, pre-1.0 contract), `InvalidStepHandlerSignature`
-(`-Provider` does not match the metadata), `InvalidStepHandlerResult` (other return values, including output leaked
-to the pipeline), `ProviderNotSupplied`, `ProviderMethodNotImplemented`.
+| Key | Type | Meaning |
+| --- | --- | --- |
+| `Changed` | Bool | The step changed external state. Default `$false`. |
+| `Data` | Hashtable | Structured step output (e.g. per-attribute results, skipped entitlements). |
+| `State` | Hashtable | Values intended for later steps. Reserved: returned in the step result, not yet consumed by the engine. |
+
+The engine builds `IdLE.StepResult` (`Name`, `Type`, `Status`, `Changed`, `Data`, `State`, `Error`, `Attempts`,
+`Source`). Failures are reported by throwing; transient failures use the transient marker for retries.
+
+### Error codes
+
+Error messages start with the code, followed by the step name, the step type and, for `With` errors, the path.
+
+| Code | When | Raised at |
+| --- | --- | --- |
+| `LegacyWithSchema` | Catalog uses `RequiredKeys` / `OptionalKeys`. | Catalog load |
+| `InvalidWithSchema` | Invalid schema: unknown `Type`, `Default` not matching `Type`, `Keys` on a non-hashtable, common key declared in `Keys`, ... | Catalog load |
+| `WithKeyMissing` | Required key absent or `$null`. | Plan |
+| `WithKeyUnknown` | Key not in the schema (and no `AllowAdditionalKeys`). | Plan |
+| `WithKeyTypeMismatch` | Value does not match `Type`. | Plan |
+| `WithValueNotAllowed` | Value not in `AllowedValues`, or empty without `AllowEmpty`. | Plan |
+| `LegacyStepHandler` | Handler has no `-With` parameter (pre-1.0 contract). | Before the first attempt |
+| `InvalidStepHandlerSignature` | `-Provider` declared without metadata `Provider`, or vice versa. | Before the first attempt |
+| `ProviderNotSupplied` | Resolved alias not in `Providers`. | Execution (hosts may pass providers only to `Invoke-IdlePlan`) |
+| `ProviderMethodNotImplemented` | `Invoke` of a method the provider does not implement. | Execution |
+| `InvalidStepHandlerResult` | Result is not `$null` / hashtable, has unknown keys, or the handler leaked pipeline output. | Execution |
+
+### Migration from earlier versions
+
+Catalogs and handlers changed in one step without a compatibility layer.
+
+**Catalog:** move provider handling into `Provider` and give every key a type.
+
+```powershell
+# Before
+'IdLE.Step.DisableIdentity' = @{
+    Handler              = 'Invoke-IdleStepDisableIdentity'
+    RequiredCapabilities = @('IdLE.Identity.Disable')
+    WithSchema           = @{
+        RequiredKeys = @('IdentityKey')
+        OptionalKeys = @('Provider', 'AuthSessionName', 'AuthSessionOptions')
+    }
+}
+
+# After
+'IdLE.Step.DisableIdentity' = @{
+    Handler              = 'Invoke-IdleStepDisableIdentity'
+    RequiredCapabilities = @('IdLE.Identity.Disable')
+    Provider             = @{ DefaultAlias = 'Identity' }
+    WithSchema           = @{
+        Keys = @{ IdentityKey = @{ Type = 'String'; Required = $true } }
+    }
+}
+```
+
+**Handler:** replace `-Context`/`-Step` input checks, provider lookup, `Invoke-IdleProviderMethod` and the
+hand-built `IdLE.StepResult` with `-With`, `-Provider` and a result hashtable.
+
+```powershell
+# Before: checks With, Context.Providers and the alias, calls Invoke-IdleProviderMethod, builds IdLE.StepResult
+function Invoke-IdleStepDisableIdentity {
+    param([object] $Context, [object] $Step)
+    # ...
+}
+
+# After
+function Invoke-IdleStepDisableIdentity {
+    param(
+        [Parameter(Mandatory)] [hashtable] $With,
+        [Parameter(Mandatory)] [object] $Provider
+    )
+
+    $result = $Provider.Invoke('DisableIdentity', @($With.IdentityKey))
+    return @{ Changed = [bool]$result.Changed }
+}
+```
+
+Other changes:
+
+- `Invoke-IdleProviderMethod` was removed and `Test-IdleProviderMethodParameter` is no longer exported; use the
+  provider handle (`Invoke`, `HasParameter`).
+- Step-specific result properties moved under `Data`: `PruneEntitlements*` `Skipped` -> `Data.Skipped`,
+  `EnsureAttributes` -> `Data.Attributes`.
+- Workflows with wrongly typed `With` values (e.g. a number where a string is expected) now fail at plan time.
+- `IdLE.Step.EmitEvent` no longer accepts `Provider`, `AuthSessionName` or `AuthSessionOptions`.
 
 ### Step packs
 
