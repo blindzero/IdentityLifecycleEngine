@@ -386,7 +386,7 @@ Describe 'Invoke-IdleStepPruneEntitlements (built-in step)' {
             } -Force
 
             $mockProvider | Add-Member -MemberType ScriptMethod -Name ResolveEntitlement -Value {
-                param($Kind, $Entitlement, $AuthSession)
+                param($Entitlement, $AuthSession)
                 # Map short sAMAccountName-style IDs to canonical DNs
                 $idMap = @{
                     'G-Keep' = 'CN=G-Keep,OU=Groups,DC=contoso,DC=com'

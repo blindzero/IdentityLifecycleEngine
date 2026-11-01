@@ -9,6 +9,7 @@ function New-IdleADIdentityProvider {
 
     The provider supports common identity operations (Create, Read, Disable, Enable, Move, Delete)
     and group entitlement management (List, Grant, Revoke).
+    The only supported entitlement Kind is 'Group'; any other Kind is rejected.
 
     Identity addressing supports:
     - GUID (ObjectGuid) - 36 hex characters with hyphens (D-format) or 32 hex characters (N-format)
@@ -760,8 +761,18 @@ function New-IdleADIdentityProvider {
 
             [Parameter()]
             [AllowNull()]
-            [object] $AuthSession
+            [object] $AuthSession,
+
+            [Parameter()]
+            [AllowNull()]
+            [string] $Kind = $null
         )
+
+        # Groups are the only Kind; validating here makes a prune with an unsupported Kind fail
+        # instead of silently finding nothing to remove.
+        if (-not [string]::IsNullOrEmpty($Kind)) {
+            $null = Get-IdleADEntitlementKind -Kind $Kind
+        }
 
         $adapter = $this.GetEffectiveAdapter($AuthSession)
 
@@ -857,11 +868,6 @@ function New-IdleADIdentityProvider {
     $provider | Add-Member -MemberType ScriptMethod -Name ResolveEntitlement -Value {
         param(
             [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Kind', Justification = 'Contract parameter; Kind is validated against the entitlement object and reserved for future multi-Kind support.')]
-            [string] $Kind,
-
-            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Entitlement,
 
@@ -870,18 +876,13 @@ function New-IdleADIdentityProvider {
             [object] $AuthSession
         )
 
+        # ConvertToEntitlement rejects every Kind except 'Group'.
         $converted = $this.ConvertToEntitlement($Entitlement)
-        $null = $Kind  # Contract parameter — reserved for future multi-Kind dispatch
-        if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
-            $canonicalId = $this.ResolveGroup($converted.Id, $AuthSession)
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.Entitlement'
-                Kind       = $converted.Kind
-                Id         = $canonicalId
-            }
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.Entitlement'
+            Kind       = $converted.Kind
+            Id         = $this.ResolveGroup($converted.Id, $AuthSession)
         }
-
-        return $converted
     } -Force
 
     return $provider

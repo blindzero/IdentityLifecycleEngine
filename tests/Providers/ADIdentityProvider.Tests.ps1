@@ -2094,16 +2094,61 @@ Describe 'AD identity provider' {
 
         It 'Normalizes a Group entitlement with a DN Id to canonical DN' {
             $ent = @{ Kind = 'Group'; Id = 'CN=TestGroup,OU=Groups,DC=domain,DC=local' }
-            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, $null)
+            $result = $script:NormProvider.ResolveEntitlement($ent, $null)
             $result.Kind | Should -Be 'Group'
             $result.Id   | Should -Be 'CN=TestGroup,OU=Groups,DC=domain,DC=local'
         }
 
-        It 'Returns entitlement unchanged when Kind is not Group' {
+        It 'Returns the canonical Kind casing' {
+            $ent = @{ Kind = 'group'; Id = 'CN=TestGroup,OU=Groups,DC=domain,DC=local' }
+            $result = $script:NormProvider.ResolveEntitlement($ent, $null)
+            $result.Kind | Should -BeExactly 'Group'
+        }
+
+        It 'Throws for a Kind other than Group' {
             $ent = [pscustomobject]@{ Kind = 'License'; Id = 'Some-License-Id' }
-            $result = $script:NormProvider.ResolveEntitlement('License', $ent, $null)
-            $result.Kind | Should -Be 'License'
-            $result.Id   | Should -Be 'Some-License-Id'
+            { $script:NormProvider.ResolveEntitlement($ent, $null) } |
+                Should -Throw -ExpectedMessage "*Kind 'License' is not supported by the AD provider*"
+        }
+    }
+
+    Context 'Entitlement Kind validation' {
+        BeforeEach {
+            $script:KindAdapter = New-FakeADAdapter
+            $script:KindProvider = New-IdleADIdentityProvider -Adapter $script:KindAdapter
+            $testUser = $script:KindAdapter.NewUser('KindUser', @{ SamAccountName = 'kinduser' }, $true)
+            $script:KindUserId = $testUser.ObjectGuid.ToString()
+        }
+
+        It 'GrantEntitlement rejects an AdministrativeUnit instead of resolving a group with the same name' {
+            # Regression: Kind was ignored and the Id was resolved as a group.
+            $script:KindProvider.GrantEntitlement($script:KindUserId, @{ Kind = 'Group'; Id = 'CN=Sales,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            $script:KindProvider.RevokeEntitlement($script:KindUserId, @{ Kind = 'Group'; Id = 'CN=Sales,OU=Groups,DC=domain,DC=local' }) | Out-Null
+
+            { $script:KindProvider.GrantEntitlement($script:KindUserId, @{ Kind = 'AdministrativeUnit'; Id = 'CN=Sales,OU=Groups,DC=domain,DC=local' }) } |
+                Should -Throw -ExpectedMessage "*Kind 'AdministrativeUnit' is not supported by the AD provider. Supported Kinds: Group.*"
+
+            @($script:KindProvider.ListEntitlements($script:KindUserId)).Count | Should -Be 0
+        }
+
+        It 'RevokeEntitlement rejects an unsupported Kind' {
+            { $script:KindProvider.RevokeEntitlement($script:KindUserId, @{ Kind = 'Groups'; Id = 'CN=Sales,OU=Groups,DC=domain,DC=local' }) } |
+                Should -Throw -ExpectedMessage "*Kind 'Groups' is not supported by the AD provider*"
+        }
+
+        It 'Accepts Group case-insensitively and returns the canonical casing' {
+            $result = $script:KindProvider.GrantEntitlement($script:KindUserId, @{ Kind = 'GROUP'; Id = 'CN=Sales,OU=Groups,DC=domain,DC=local' })
+            $result.Entitlement.Kind | Should -BeExactly 'Group'
+        }
+
+        It 'ListEntitlements accepts Kind = Group' {
+            $script:KindProvider.GrantEntitlement($script:KindUserId, @{ Kind = 'Group'; Id = 'CN=Sales,OU=Groups,DC=domain,DC=local' }) | Out-Null
+            @($script:KindProvider.ListEntitlements($script:KindUserId, $null, 'Group')).Count | Should -Be 1
+        }
+
+        It 'ListEntitlements rejects an unsupported Kind' {
+            { $script:KindProvider.ListEntitlements($script:KindUserId, $null, 'AdministrativeUnit') } |
+                Should -Throw -ExpectedMessage "*Kind 'AdministrativeUnit' is not supported by the AD provider*"
         }
     }
 
@@ -2181,6 +2226,25 @@ Describe 'AD identity provider' {
             $remaining = @($script:ADProvider.ListEntitlements($script:PruneUserId))
             @($remaining | Where-Object { $_.Kind -eq 'Group' }).Count | Should -Be 1
             $remaining[0].Id | Should -Be 'CN=New-Leaver-Group,OU=Groups,DC=domain,DC=local'
+        }
+
+        It 'fails without changes when pruning a Kind the AD provider does not support' {
+            # Regression: the prune silently found nothing to remove and reported success.
+            $step = [pscustomobject]@{
+                Name = 'Prune AUs on AD'
+                Type = 'IdLE.Step.PruneEntitlementsEnsureKeep'
+                With = @{
+                    IdentityKey = $script:PruneUserId
+                    Provider    = 'AD'
+                    Kind        = 'AdministrativeUnit'
+                    Keep        = @(@{ Id = 'CN=Keep-Group,OU=Groups,DC=domain,DC=local' })
+                }
+            }
+
+            { Invoke-IdleTestStepHandler -Context $script:StepContext -Step $step } |
+                Should -Throw -ExpectedMessage "*Kind 'AdministrativeUnit' is not supported by the AD provider*"
+
+            @($script:ADProvider.ListEntitlements($script:PruneUserId)).Count | Should -Be 3
         }
 
         It 'does NOT remove the primary group even when no Keep is specified (prune all)' {

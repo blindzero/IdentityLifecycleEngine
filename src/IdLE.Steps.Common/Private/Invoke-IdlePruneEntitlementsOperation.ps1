@@ -58,7 +58,7 @@ function Invoke-IdlePruneEntitlementsOperation {
     # correctly with the canonical IDs returned by ListEntitlements. Each provider handles its own
     # ID-type detection (e.g., GUID/DN/sAMAccountName for AD; objectId/displayName for Entra ID).
     if ($keepItems.Count -gt 0 -and $Provider.HasMethod('ResolveEntitlement')) {
-        $keepItems = @($keepItems | ForEach-Object { $Provider.Invoke('ResolveEntitlement', @($kind, $_)) })
+        $keepItems = @($keepItems | ForEach-Object { $Provider.Invoke('ResolveEntitlement', @($_)) })
     }
 
     # 1. List current entitlements, filter by Kind.

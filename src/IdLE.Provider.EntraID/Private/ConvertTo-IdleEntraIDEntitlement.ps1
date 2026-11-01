@@ -9,8 +9,9 @@ function ConvertTo-IdleEntraIDEntitlement {
     Normalizes and validates entitlement values from various input formats
     (hashtable, PSCustomObject) into a standard IdLE.Entitlement object.
 
-    The function validates that required fields (Kind, Id) are present and not empty.
-    Supports optional field: Mail.
+    The function validates that required fields (Kind, Id) are present and not empty and that
+    Kind is supported by the Entra ID provider ('Group', 'AdministrativeUnit'). Kind is returned
+    in its canonical casing. Supports optional field: Mail.
 
     .PARAMETER Value
     The input value to convert. Can be a hashtable or PSCustomObject with
@@ -58,7 +59,7 @@ function ConvertTo-IdleEntraIDEntitlement {
 
     return [pscustomobject]@{
         PSTypeName = 'IdLE.Entitlement'
-        Kind       = [string]$kind
+        Kind       = Get-IdleEntraIDEntitlementKind -Kind ([string]$kind)
         Id         = [string]$id
         Mail       = if ($null -eq $mail -or [string]::IsNullOrWhiteSpace([string]$mail)) {
             $null
