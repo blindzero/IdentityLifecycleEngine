@@ -172,6 +172,10 @@ Resolved from `Step.With.Provider` + `Step.With.AuthSessionName` (or `Default`).
   | `Provider` | `string` | No | Provider alias. If omitted, IdLE auto-selects a provider advertising the capability. Ambiguity (multiple providers matching) is a fail-fast error. Also used to determine `<ProviderAlias>` in the scoped path. |
   | `AuthSessionName` | `string` | No | Named auth session key. Becomes `<AuthSessionKey>` in the scoped path. If omitted, `Default` is used. Requires an `AuthSessionBroker` entry in `Providers`. Must be a valid path segment (no dots). |
   | `AuthSessionOptions` | `hashtable` | No | Options passed to `AuthSessionBroker.AcquireAuthSession`. Must be a hashtable. ScriptBlocks are rejected. |
+  | `Kind` | `string` | No | `IdLE.Entitlement.List` only: list only entitlements of this Kind (e.g. `Group`). Passed to the provider, which may then skip other directory objects and their permissions (Entra ID: no Administrative Unit calls for `Group`). The result is always filtered to this Kind. The provider rejects a Kind it does not support. |
+
+Each resolver owns its scoped path, so only **one resolver per capability, provider and auth session** is allowed;
+a second one fails planning. To get several entitlement Kinds from one provider and session, omit `Kind`.
 
 ---
 
@@ -216,6 +220,16 @@ ContextResolvers = @(
 # Result: Providers.Entra.Default.Identity.Entitlements (Entra-specific)
 #         Providers.AD.Default.Identity.Entitlements     (AD-specific)
 #         Views.Identity.Entitlements                     (merged, both providers)
+```
+
+### Group entitlements only
+
+List only groups, e.g. to avoid the Administrative Unit Graph permissions on Entra ID:
+
+```powershell
+ContextResolvers = @(
+  @{ Capability = 'IdLE.Entitlement.List'; With = @{ IdentityKey = 'user1'; Provider = 'Entra'; Kind = 'Group' } }
+)
 ```
 
 ### Step-relative precondition using Current

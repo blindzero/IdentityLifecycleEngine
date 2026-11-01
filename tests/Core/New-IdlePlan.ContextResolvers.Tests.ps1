@@ -1143,4 +1143,140 @@ Describe 'New-IdlePlan - ContextResolvers' {
             $stepResult.Status | Should -Be 'Completed'
         }
     }
+
+    Context 'IdLE.Entitlement.List With.Kind' {
+        BeforeAll {
+            function script:New-KindResolverWorkflow {
+                param([object[]] $ResolverWith)
+
+                $resolvers = foreach ($with in $ResolverWith) {
+                    $pairs = foreach ($key in $with.Keys) {
+                        $value = $with[$key]
+                        if ($value -is [string]) { "$key = '$value'" } else { "$key = $value" }
+                    }
+                    "@{ Capability = 'IdLE.Entitlement.List'; With = @{ $($pairs -join '; ') } }"
+                }
+
+                $path = Join-Path $TestDrive "kind-resolver-$([guid]::NewGuid().ToString('N')).psd1"
+                Set-Content -Path $path -Encoding utf8 -Value @"
+@{
+    Name             = 'Kind Resolver'
+    LifecycleEvent   = 'Joiner'
+    ContextResolvers = @(
+        $($resolvers -join "`n        ")
+    )
+    Steps            = @(
+        @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
+    )
+}
+"@
+                return $path
+            }
+
+            function script:New-KindListProvider {
+                param([switch] $WithKindParameter)
+
+                $provider = [pscustomobject]@{ CapturedKind = '<not called>' }
+                $provider | Add-Member -MemberType ScriptMethod -Name GetCapabilities -Value { return @('IdLE.Entitlement.List') }
+                if ($WithKindParameter) {
+                    $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                        param([string] $IdentityKey, [object] $AuthSession, [string] $Kind)
+                        $this.CapturedKind = $Kind
+                        # Returns every Kind to verify the engine's own filter.
+                        return @(@{ Kind = 'Group'; Id = 'g1' }, @{ Kind = 'AdministrativeUnit'; Id = 'au1' })
+                    }
+                }
+                else {
+                    $provider | Add-Member -MemberType ScriptMethod -Name ListEntitlements -Value {
+                        param([string] $IdentityKey)
+                        return @([pscustomobject]@{ Kind = 'Group'; Id = 'g1' }, [pscustomobject]@{ Kind = 'Role'; Id = 'r1' })
+                    }
+                }
+
+                return $provider
+            }
+        }
+
+        It 'passes Kind to a provider that declares it and filters the result' {
+            $provider = New-KindListProvider -WithKindParameter
+            $wfPath = New-KindResolverWorkflow -ResolverWith @(@{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = 'Group' })
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request (New-IdleTestRequest -LifecycleEvent 'Joiner') -Providers @{ Identity = $provider }
+
+            $provider.CapturedKind | Should -Be 'Group'
+            $entitlements = @($plan.Request.Context.Providers.Identity.Default.Identity.Entitlements)
+            $entitlements.Count | Should -Be 1
+            $entitlements[0].Id | Should -Be 'g1'
+            @($plan.Request.Context.Views.Identity.Entitlements).Count | Should -Be 1
+        }
+
+        It 'filters the result for a provider without a Kind parameter' {
+            $provider = New-KindListProvider
+            $wfPath = New-KindResolverWorkflow -ResolverWith @(@{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = 'role' })
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request (New-IdleTestRequest -LifecycleEvent 'Joiner') -Providers @{ Identity = $provider }
+
+            $entitlements = @($plan.Request.Context.Providers.Identity.Default.Identity.Entitlements)
+            $entitlements.Count | Should -Be 1
+            $entitlements[0].Id | Should -Be 'r1'
+        }
+
+        It 'lists all Kinds without With.Kind' {
+            $provider = New-KindListProvider -WithKindParameter
+            $wfPath = New-KindResolverWorkflow -ResolverWith @(@{ IdentityKey = 'user1'; Provider = 'Identity' })
+
+            $plan = New-IdlePlan -WorkflowPath $wfPath -Request (New-IdleTestRequest -LifecycleEvent 'Joiner') -Providers @{ Identity = $provider }
+
+            $provider.CapturedKind | Should -BeNullOrEmpty
+            @($plan.Request.Context.Providers.Identity.Default.Identity.Entitlements).Count | Should -Be 2
+        }
+
+        It 'rejects a With.Kind that is not a non-empty string' {
+            $provider = New-KindListProvider -WithKindParameter
+            $wfPath = New-KindResolverWorkflow -ResolverWith @(@{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = 5 })
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request (New-IdleTestRequest -LifecycleEvent 'Joiner') -Providers @{ Identity = $provider } } |
+                Should -Throw -ExpectedMessage "*'ContextResolvers``[0``].With.Kind' must be a non-empty string*"
+        }
+
+        It 'rejects With.Kind for capabilities other than IdLE.Entitlement.List' {
+            $wfPath = Join-Path $TestDrive 'kind-identity-read.psd1'
+            Set-Content -Path $wfPath -Encoding utf8 -Value @'
+@{
+    Name             = 'Kind on Identity.Read'
+    LifecycleEvent   = 'Joiner'
+    ContextResolvers = @(
+        @{ Capability = 'IdLE.Identity.Read'; With = @{ IdentityKey = 'user1'; Kind = 'Group' } }
+    )
+    Steps            = @(
+        @{ Name = 'Step1'; Type = 'IdLE.Step.EmitEvent' }
+    )
+}
+'@
+
+            { Test-IdleWorkflow -WorkflowPath $wfPath } |
+                Should -Throw -ExpectedMessage "*'ContextResolvers``[0``].With.Kind' is only supported for capability 'IdLE.Entitlement.List'*"
+        }
+
+        It 'rejects a template-resolved With.Kind that is not a string at planning time' {
+            $provider = New-KindListProvider -WithKindParameter
+            $wfPath = New-KindResolverWorkflow -ResolverWith @(@{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = '{{Request.Intent.KindNumber}}' })
+            $req = New-IdleTestRequest -LifecycleEvent 'Joiner' -Intent @{ KindNumber = 5 }
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request $req -Providers @{ Identity = $provider } } |
+                Should -Throw -ExpectedMessage '*With.Kind must be a non-empty string*'
+        }
+
+        It 'rejects a second resolver for the same capability, provider and auth session' {
+            # Regression: the second resolver silently replaced the first result (e.g. Group by AdministrativeUnit).
+            $provider = New-KindListProvider -WithKindParameter
+            $wfPath = New-KindResolverWorkflow -ResolverWith @(
+                @{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = 'Group' }
+                @{ IdentityKey = 'user1'; Provider = 'Identity'; Kind = 'AdministrativeUnit' }
+            )
+
+            { New-IdlePlan -WorkflowPath $wfPath -Request (New-IdleTestRequest -LifecycleEvent 'Joiner') -Providers @{ Identity = $provider } } |
+                Should -Throw -ExpectedMessage "*ContextResolvers``[1``] resolves capability 'IdLE.Entitlement.List' for provider 'Identity' and auth session 'Default', which ContextResolvers``[0``] already resolves*"
+        }
+    }
 }

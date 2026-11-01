@@ -25,6 +25,7 @@ via the host-provided AuthSessionBroker pattern.
 
 The provider supports common identity operations (Create, Read, Disable, Enable, Delete)
 and entitlement management for groups and Administrative Units (List, Grant, Revoke).
+Supported entitlement Kinds are 'Group' and 'AdministrativeUnit'; any other Kind is rejected.
 
 Identity addressing supports:
 - objectId (GUID string) - most deterministic

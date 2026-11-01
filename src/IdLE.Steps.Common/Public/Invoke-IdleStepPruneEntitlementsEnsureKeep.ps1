@@ -20,6 +20,11 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
     granting them, run IdLE.Step.PruneEntitlements or another cleanup step before this EnsureKeep
     step.
 
+    With.Kind is the prune scope: only current entitlements of this Kind are removed, and Keep
+    entries are granted with this Kind. Keep entries inherit With.Kind; an entry may repeat Kind, but
+    a different Kind fails the step before anything is changed. The provider rejects a Kind it does
+    not support (e.g., 'AdministrativeUnit' on AD). To prune several Kinds, use one step per Kind.
+
     With.Keep entries -> kept (NOT removed) AND ensured (GRANTED if currently missing). After this
     step completes, every identity referenced by With.Keep is guaranteed to hold that entitlement —
     regardless of whether it was already present.
@@ -70,7 +75,7 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
             Kind            = 'Group'
             # KEPT + GRANTED if missing: after the step, the identity is guaranteed to be a member.
             Keep            = @(
-                @{ Kind = 'Group'; Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=contoso,DC=com' }
+                @{ Id = 'CN=LEAVER-RETAIN,OU=Groups,DC=contoso,DC=com' }
             )
             # Pattern-based retention is not supported by EnsureKeep. Use IdLE.Step.PruneEntitlements
             # earlier in the workflow if you must preserve wildcard-matched entitlements without grants.
@@ -91,7 +96,7 @@ function Invoke-IdleStepPruneEntitlementsEnsureKeep {
             Kind            = 'License'
             # This license is KEPT and GRANTED if missing — always present after this step.
             Keep            = @(
-                @{ Kind = 'License'; Id = 'BASELINE-E1' }
+                @{ Id = 'BASELINE-E1' }
             )
             AuthSessionName = 'Licensing'
         }

@@ -10,6 +10,7 @@ function New-IdleEntraIDIdentityProvider {
 
     The provider supports common identity operations (Create, Read, Disable, Enable, Delete)
     and entitlement management for groups and Administrative Units (List, Grant, Revoke).
+    Supported entitlement Kinds are 'Group' and 'AdministrativeUnit'; any other Kind is rejected.
 
     Identity addressing supports:
     - objectId (GUID string) - most deterministic
@@ -836,14 +837,17 @@ function New-IdleEntraIDIdentityProvider {
             [string] $Kind = $null
         )
 
+        # When Kind is supplied, only fetch the relevant directory objects (and only require the
+        # Graph permissions for that Kind). When Kind is null/empty, fetch both.
+        $kindIsEmpty = [string]::IsNullOrEmpty($Kind)
+        if (-not $kindIsEmpty) {
+            $Kind = Get-IdleEntraIDEntitlementKind -Kind $Kind
+        }
+        $includeGroups = $kindIsEmpty -or $Kind -eq 'Group'
+        $includeAUs = $kindIsEmpty -or $Kind -eq 'AdministrativeUnit'
+
         $accessToken = $this.ExtractAccessToken($AuthSession)
         $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
-
-        # When Kind is supplied, only fetch the relevant directory objects.
-        # When Kind is null/empty, fetch both (backward-compatible, e.g. host-level reports).
-        $kindIsEmpty = [string]::IsNullOrEmpty($Kind)
-        $includeGroups = $kindIsEmpty -or [string]::Equals($Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)
-        $includeAUs = $kindIsEmpty -or [string]::Equals($Kind, 'AdministrativeUnit', [System.StringComparison]::OrdinalIgnoreCase)
 
         $result = @()
 
@@ -904,29 +908,19 @@ function New-IdleEntraIDIdentityProvider {
         )
 
         $accessToken = $this.ExtractAccessToken($AuthSession)
+        # ConvertToEntitlement rejects Kinds other than 'Group' and 'AdministrativeUnit'.
         $normalized = $this.ConvertToEntitlement($Entitlement)
-
-        # Default missing Kind to 'Group' for backward compatibility
-        if (-not $normalized.Kind) {
-            $normalized.Kind = 'Group'
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         if ($normalized.Kind -eq 'AdministrativeUnit') {
-            $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
             $auObjectId = $this.ResolveAdministrativeUnit($normalized.Id, $AuthSession)
             $normalized.Id = $auObjectId
             $changed = [bool]$this.Adapter.AddAdministrativeUnitMember($auObjectId, $user.id, $accessToken)
         }
-        elseif ($normalized.Kind -eq 'Group') {
-            $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+        else {
             $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
             $normalized.Id = $groupObjectId
             $changed = [bool]$this.Adapter.AddGroupMember($groupObjectId, $user.id, $accessToken)
-        }
-        else {
-            throw [System.ArgumentException]::new(
-                "GrantEntitlement only supports entitlements with Kind 'Group' or 'AdministrativeUnit'. Received Kind '$($normalized.Kind)'."
-            )
         }
 
         return [pscustomobject]@{
@@ -954,29 +948,19 @@ function New-IdleEntraIDIdentityProvider {
         )
 
         $accessToken = $this.ExtractAccessToken($AuthSession)
+        # ConvertToEntitlement rejects Kinds other than 'Group' and 'AdministrativeUnit'.
         $normalized = $this.ConvertToEntitlement($Entitlement)
-
-        # Default missing Kind to 'Group' for backward compatibility
-        if (-not $normalized.Kind) {
-            $normalized.Kind = 'Group'
-        }
+        $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
 
         if ($normalized.Kind -eq 'AdministrativeUnit') {
-            $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
             $auObjectId = $this.ResolveAdministrativeUnit($normalized.Id, $AuthSession)
             $normalized.Id = $auObjectId
             $changed = [bool]$this.Adapter.RemoveAdministrativeUnitMember($auObjectId, $user.id, $accessToken)
         }
-        elseif ($normalized.Kind -eq 'Group') {
-            $user = $this.ResolveIdentity($IdentityKey, $AuthSession)
+        else {
             $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
             $normalized.Id = $groupObjectId
             $changed = [bool]$this.Adapter.RemoveGroupMember($groupObjectId, $user.id, $accessToken)
-        }
-        else {
-            throw [System.ArgumentException]::new(
-                "RevokeEntitlement only supports entitlements with Kind 'Group' or 'AdministrativeUnit'. Received Kind '$($normalized.Kind)'."
-            )
         }
 
         return [pscustomobject]@{
@@ -1011,10 +995,10 @@ function New-IdleEntraIDIdentityProvider {
         $groupOperations = @()
         $administrativeUnitResults = @()
 
-        foreach ($ent in $Entitlements) {
-            $normalized = $this.ConvertToEntitlement($ent)
-            if (-not $normalized.Kind) { $normalized.Kind = 'Group' }
+        # Normalize all entries first so that an unsupported Kind fails before any membership changes.
+        $normalizedEntitlements = foreach ($ent in $Entitlements) { $this.ConvertToEntitlement($ent) }
 
+        foreach ($normalized in @($normalizedEntitlements)) {
             if ($normalized.Kind -eq 'Group') {
                 $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
                 $normalized.Id = $groupObjectId
@@ -1026,7 +1010,7 @@ function New-IdleEntraIDIdentityProvider {
                     Entitlement   = $normalized
                 }
             }
-            elseif ($normalized.Kind -eq 'AdministrativeUnit') {
+            else {
                 $auObjectId = $this.ResolveAdministrativeUnit($normalized.Id, $AuthSession)
                 $normalized.Id = $auObjectId
                 try {
@@ -1050,11 +1034,6 @@ function New-IdleEntraIDIdentityProvider {
                         Entitlement = $normalized
                     }
                 }
-            }
-            else {
-                throw [System.ArgumentException]::new(
-                    "BulkRevokeEntitlements only supports entitlements with Kind 'Group' or 'AdministrativeUnit'. Received Kind '$($normalized.Kind)'."
-                )
             }
         }
 
@@ -1109,10 +1088,10 @@ function New-IdleEntraIDIdentityProvider {
         $groupOperations = @()
         $administrativeUnitResults = @()
 
-        foreach ($ent in $Entitlements) {
-            $normalized = $this.ConvertToEntitlement($ent)
-            if (-not $normalized.Kind) { $normalized.Kind = 'Group' }
+        # Normalize all entries first so that an unsupported Kind fails before any membership changes.
+        $normalizedEntitlements = foreach ($ent in $Entitlements) { $this.ConvertToEntitlement($ent) }
 
+        foreach ($normalized in @($normalizedEntitlements)) {
             if ($normalized.Kind -eq 'Group') {
                 $groupObjectId = $this.ResolveGroup($normalized.Id, $AuthSession)
                 $normalized.Id = $groupObjectId
@@ -1124,7 +1103,7 @@ function New-IdleEntraIDIdentityProvider {
                     Entitlement   = $normalized
                 }
             }
-            elseif ($normalized.Kind -eq 'AdministrativeUnit') {
+            else {
                 $auObjectId = $this.ResolveAdministrativeUnit($normalized.Id, $AuthSession)
                 $normalized.Id = $auObjectId
                 try {
@@ -1148,11 +1127,6 @@ function New-IdleEntraIDIdentityProvider {
                         Entitlement = $normalized
                     }
                 }
-            }
-            else {
-                throw [System.ArgumentException]::new(
-                    "BulkGrantEntitlements only supports entitlements with Kind 'Group' or 'AdministrativeUnit'. Received Kind '$($normalized.Kind)'."
-                )
             }
         }
 
@@ -1187,11 +1161,6 @@ function New-IdleEntraIDIdentityProvider {
     $provider | Add-Member -MemberType ScriptMethod -Name ResolveEntitlement -Value {
         param(
             [Parameter(Mandatory)]
-            [ValidateNotNullOrEmpty()]
-            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Kind', Justification = 'Contract parameter; Kind is validated against the entitlement object and reserved for future multi-Kind support.')]
-            [string] $Kind,
-
-            [Parameter(Mandatory)]
             [ValidateNotNull()]
             [object] $Entitlement,
 
@@ -1200,27 +1169,20 @@ function New-IdleEntraIDIdentityProvider {
             [object] $AuthSession
         )
 
+        # ConvertToEntitlement rejects Kinds other than 'Group' and 'AdministrativeUnit'.
         $converted = $this.ConvertToEntitlement($Entitlement)
-        $null = $Kind  # Contract parameter — reserved for future multi-Kind dispatch
-        if ([string]::Equals($converted.Kind, 'Group', [System.StringComparison]::OrdinalIgnoreCase)) {
-            $canonicalId = $this.ResolveGroup($converted.Id, $AuthSession)
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.Entitlement'
-                Kind       = $converted.Kind
-                Id         = $canonicalId
-            }
+        $canonicalId = if ($converted.Kind -eq 'AdministrativeUnit') {
+            $this.ResolveAdministrativeUnit($converted.Id, $AuthSession)
+        }
+        else {
+            $this.ResolveGroup($converted.Id, $AuthSession)
         }
 
-        if ([string]::Equals($converted.Kind, 'AdministrativeUnit', [System.StringComparison]::OrdinalIgnoreCase)) {
-            $canonicalId = $this.ResolveAdministrativeUnit($converted.Id, $AuthSession)
-            return [pscustomobject]@{
-                PSTypeName = 'IdLE.Entitlement'
-                Kind       = $converted.Kind
-                Id         = $canonicalId
-            }
+        return [pscustomobject]@{
+            PSTypeName = 'IdLE.Entitlement'
+            Kind       = $converted.Kind
+            Id         = $canonicalId
         }
-
-        return $converted
     } -Force
 
     return $provider

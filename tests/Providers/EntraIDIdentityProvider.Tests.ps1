@@ -1302,7 +1302,7 @@ Describe 'EntraID identity provider - Entitlement operations' {
             [void]$script:EntProvider.GetIdentity($userId)
 
             { $script:EntProvider.GrantEntitlement($userId, @{ Kind = 'Unknown'; Id = [guid]::NewGuid().ToString() }) } |
-                Should -Throw "*Kind 'Group' or 'AdministrativeUnit'*"
+                Should -Throw "*Kind 'Unknown' is not supported by the Entra ID provider. Supported Kinds: Group, AdministrativeUnit.*"
         }
 
         It 'RevokeEntitlement throws for unsupported Kind' {
@@ -1310,7 +1310,55 @@ Describe 'EntraID identity provider - Entitlement operations' {
             [void]$script:EntProvider.GetIdentity($userId)
 
             { $script:EntProvider.RevokeEntitlement($userId, @{ Kind = 'Unknown'; Id = [guid]::NewGuid().ToString() }) } |
-                Should -Throw "*Kind 'Group' or 'AdministrativeUnit'*"
+                Should -Throw "*Kind 'Unknown' is not supported by the Entra ID provider*"
+        }
+
+        It 'ListEntitlements throws for an unsupported Kind instead of returning nothing' {
+            # Regression: a misspelled Kind ('Groups') silently matched nothing, so a prune removed nothing.
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+
+            { $script:EntProvider.ListEntitlements($userId, $null, 'Groups') } |
+                Should -Throw "*Kind 'Groups' is not supported by the Entra ID provider*"
+        }
+
+        It 'Accepts Kind case-insensitively and returns the canonical casing' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+
+            $result = $script:EntProvider.GrantEntitlement($userId, @{ Kind = 'administrativeunit'; Id = $auId })
+            $result.Entitlement.Kind | Should -BeExactly 'AdministrativeUnit'
+
+            $entitlements = @($script:EntProvider.ListEntitlements($userId, $null, 'ADMINISTRATIVEUNIT'))
+            @($entitlements | Where-Object { $_.Id -eq $auId }).Count | Should -Be 1
+        }
+
+        It 'BulkRevokeEntitlements rejects an unsupported Kind before changing any membership' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GrantEntitlement($userId, @{ Kind = 'AdministrativeUnit'; Id = $auId })
+
+            { $script:EntProvider.BulkRevokeEntitlements($userId, @(
+                        @{ Kind = 'AdministrativeUnit'; Id = $auId },
+                        @{ Kind = 'Unknown'; Id = 'x' }
+                    )) } | Should -Throw "*Kind 'Unknown' is not supported by the Entra ID provider*"
+
+            @($script:EntProvider.ListEntitlements($userId) | Where-Object { $_.Id -eq $auId }).Count | Should -Be 1
+        }
+
+        It 'BulkGrantEntitlements rejects an unsupported Kind before changing any membership' {
+            $userId = [guid]::NewGuid().ToString()
+            [void]$script:EntProvider.GetIdentity($userId)
+            $auId = [guid]::NewGuid().ToString()
+
+            { $script:EntProvider.BulkGrantEntitlements($userId, @(
+                        @{ Kind = 'AdministrativeUnit'; Id = $auId },
+                        @{ Kind = 'Unknown'; Id = 'x' }
+                    )) } | Should -Throw "*Kind 'Unknown' is not supported by the Entra ID provider*"
+
+            @($script:EntProvider.ListEntitlements($userId)).Count | Should -Be 0
         }
     }
 }
@@ -1662,14 +1710,14 @@ Describe 'EntraID identity provider - ResolveEntitlement' {
         It 'Normalizes a Group entitlement with a GUID Id to canonical objectId' {
             $groupGuid = [guid]::NewGuid().ToString()
             $ent = @{ Kind = 'Group'; Id = $groupGuid }
-            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'mock-token')
+            $result = $script:NormProvider.ResolveEntitlement($ent, 'mock-token')
             $result.Kind | Should -Be 'Group'
             $result.Id   | Should -Be $groupGuid
         }
 
         It 'Normalizes a Group entitlement with a displayName to canonical objectId' {
             $ent = @{ Kind = 'Group'; Id = 'HR Team' }
-            $result = $script:NormProvider.ResolveEntitlement('Group', $ent, 'mock-token')
+            $result = $script:NormProvider.ResolveEntitlement($ent, 'mock-token')
             $result.Kind | Should -Be 'Group'
             $result.Id   | Should -Be 'resolved-HR Team'
         }
@@ -1677,23 +1725,22 @@ Describe 'EntraID identity provider - ResolveEntitlement' {
         It 'Normalizes an AdministrativeUnit entitlement with a GUID Id to canonical objectId' {
             $auGuid = [guid]::NewGuid().ToString()
             $ent = @{ Kind = 'AdministrativeUnit'; Id = $auGuid }
-            $result = $script:NormProvider.ResolveEntitlement('AdministrativeUnit', $ent, 'mock-token')
+            $result = $script:NormProvider.ResolveEntitlement($ent, 'mock-token')
             $result.Kind | Should -Be 'AdministrativeUnit'
             $result.Id   | Should -Be $auGuid
         }
 
         It 'Normalizes an AdministrativeUnit entitlement with a displayName to canonical objectId' {
             $ent = @{ Kind = 'AdministrativeUnit'; Id = 'EU Region Admins' }
-            $result = $script:NormProvider.ResolveEntitlement('AdministrativeUnit', $ent, 'mock-token')
+            $result = $script:NormProvider.ResolveEntitlement($ent, 'mock-token')
             $result.Kind | Should -Be 'AdministrativeUnit'
             $result.Id   | Should -Be 'resolved-au-EU Region Admins'
         }
 
-        It 'Returns entitlement unchanged when Kind is not Group' {
+        It 'Throws for an unsupported Kind' {
             $ent = [pscustomobject]@{ Kind = 'License'; Id = 'Some-License-Id' }
-            $result = $script:NormProvider.ResolveEntitlement('License', $ent, 'mock-token')
-            $result.Kind | Should -Be 'License'
-            $result.Id   | Should -Be 'Some-License-Id'
+            { $script:NormProvider.ResolveEntitlement($ent, 'mock-token') } |
+                Should -Throw "*Kind 'License' is not supported by the Entra ID provider*"
         }
     }
 }

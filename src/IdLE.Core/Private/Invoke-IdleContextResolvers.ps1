@@ -32,6 +32,9 @@ function Invoke-IdleContextResolvers {
       capability; zero matches or multiple matches both cause a fail-fast error.
     - Auth sessions are supported via With.AuthSessionName / With.AuthSessionOptions,
       using the AuthSessionBroker in Providers (same pattern as step execution).
+    - At most one resolver per capability, provider alias and AuthSessionKey (each owns its scoped path).
+    - IdLE.Entitlement.List accepts an optional With.Kind: it is passed to ListEntitlements when the
+      provider declares a Kind parameter, and the result is always filtered to that Kind.
 
     This function mutates Request.Context in place so that subsequent condition evaluation
     can reference the resolved data via scoped paths or Views.
@@ -66,6 +69,7 @@ function Invoke-IdleContextResolvers {
     }
 
     $readOnlyCapabilities = @(Get-IdleReadOnlyCapabilities)
+    $resolvedOutputs = @{}
 
     $i = 0
     foreach ($resolver in @($Resolvers)) {
@@ -123,10 +127,22 @@ function Invoke-IdleContextResolvers {
         $authSession = $null
         $authBroker = Get-IdleAuthSessionBroker -Providers $Providers
         $authSessionKey = 'Default'
+        if ($with.Contains('AuthSessionName') -and -not [string]::IsNullOrWhiteSpace([string]$with.AuthSessionName)) {
+            $authSessionKey = [string]$with.AuthSessionName
+        }
+
+        # Each resolver owns its scoped output path; a second resolver for the same capability, provider and
+        # session would silently replace the first result (e.g. a 'Group' listing by an 'AdministrativeUnit' one).
+        $outputKey = "$capability|$resolvedProviderAlias|$authSessionKey"
+        if ($resolvedOutputs.ContainsKey($outputKey)) {
+            $message = "$resolverPath resolves capability '$capability' for provider '$resolvedProviderAlias' and auth session " +
+            "'$authSessionKey', which $($resolvedOutputs[$outputKey]) already resolves. Use one resolver per capability, provider and auth session."
+            throw [System.ArgumentException]::new($message, 'Workflow')
+        }
+        $resolvedOutputs[$outputKey] = $resolverPath
 
         if ($with -is [System.Collections.IDictionary] -and $with.Contains('AuthSessionName') -and -not [string]::IsNullOrWhiteSpace([string]$with.AuthSessionName)) {
             $sessionName = [string]$with.AuthSessionName
-            $authSessionKey = $sessionName
             $sessionOptions = if ($with.Contains('AuthSessionOptions')) { $with.AuthSessionOptions } else { $null }
             if ($null -ne $sessionOptions -and $sessionOptions -isnot [hashtable]) {
                 throw [System.ArgumentException]::new("$resolverPath 'With.AuthSessionOptions' must be a hashtable.", 'Workflow')
@@ -714,6 +730,19 @@ function Invoke-IdleResolverCapabilityDispatch {
 
             $identityKey = [string]$With.IdentityKey
 
+            # Optional Kind narrows the listing (e.g. Entra ID then skips Administrative Unit calls and
+            # does not need their Graph permissions).
+            $kind = $null
+            if ($With.Contains('Kind') -and $null -ne $With.Kind) {
+                if ($With.Kind -isnot [string] -or [string]::IsNullOrWhiteSpace($With.Kind)) {
+                    throw [System.ArgumentException]::new(
+                        "$ResolverPath with capability 'IdLE.Entitlement.List': With.Kind must be a non-empty string.",
+                        'Workflow'
+                    )
+                }
+                $kind = [string]$With.Kind
+            }
+
             $method = $provider.PSObject.Methods['ListEntitlements']
             if ($null -eq $method) {
                 throw [System.InvalidOperationException]::new(
@@ -721,11 +750,27 @@ function Invoke-IdleResolverCapabilityDispatch {
                 )
             }
 
+            # Contract order: ListEntitlements(IdentityKey[, AuthSession][, Kind]).
+            $arguments = [System.Collections.Generic.List[object]]::new()
+            $arguments.Add($identityKey)
             $supportsAuthSession = Test-IdleProviderMethodParameter -ProviderMethod $method -ParameterName 'AuthSession'
-            if ($supportsAuthSession -and $null -ne $AuthSession) {
-                return @($provider.ListEntitlements($identityKey, $AuthSession))
+            $passKind = $null -ne $kind -and (Test-IdleProviderMethodParameter -ProviderMethod $method -ParameterName 'Kind')
+            if ($supportsAuthSession -and ($null -ne $AuthSession -or $passKind)) {
+                $arguments.Add($AuthSession)
             }
-            return @($provider.ListEntitlements($identityKey))
+            if ($passKind) {
+                $arguments.Add($kind)
+            }
+
+            $entitlements = @($method.Invoke($arguments.ToArray()))
+            if ($null -eq $kind) {
+                return $entitlements
+            }
+
+            # Filtered here as well so that providers without a Kind parameter behave the same.
+            return @($entitlements | Where-Object {
+                    [string]::Equals([string](Get-IdlePropertyValue -Object $_ -Name 'Kind'), $kind, [System.StringComparison]::OrdinalIgnoreCase)
+                })
         }
 
         'IdLE.Identity.Read' {

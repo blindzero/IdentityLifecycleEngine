@@ -124,7 +124,9 @@ Writes to scoped path: `Request.Context.Providers.<ProviderAlias>.<AuthSessionKe
 Engine-defined View: `Request.Context.Views.Identity.Entitlements`  
 Type: `object[]` (array of `PSCustomObject`, `PSTypeName = 'IdLE.Entitlement'`)
 
-Each element represents one entitlement (group membership or Administrative Unit membership):
+Each element represents one entitlement (group membership or Administrative Unit membership).
+Supported Kinds are `Group` and `AdministrativeUnit`; entitlement operations with any other Kind fail. With the
+resolver's `With.Kind`, only that Kind is listed.
 
 **Group entitlements (`Kind = 'Group'`):**
 
@@ -165,7 +167,7 @@ This provider has **no provider-specific option bag**. Configuration is done thr
 At minimum, you typically need:
 - **Users:** read/write (create/update/disable/delete if enabled)
 - **Groups:** read/write memberships (if you use group entitlement steps)
-- **Administrative Units:** read/write memberships — only required when using `Kind = 'AdministrativeUnit'` in entitlement steps. Group-only workflows do not need these permissions because `ListEntitlements` skips AU Graph calls when `Kind = 'Group'` is specified.
+- **Administrative Units:** read/write memberships — only required when using `Kind = 'AdministrativeUnit'` in entitlement steps. Group-only workflows do not need these permissions because `ListEntitlements` skips AU Graph calls when `Kind = 'Group'` is specified. The entitlement steps always pass their Kind; an `IdLE.Entitlement.List` context resolver needs `With.Kind = 'Group'`, otherwise it lists both Kinds.
 
 Exact permission names depend on your auth model (delegated vs application) and what operations you enable.
 

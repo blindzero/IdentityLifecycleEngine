@@ -9,7 +9,8 @@ function ConvertTo-IdleADEntitlement {
     Normalizes and validates entitlement values from various input formats
     (hashtable, PSCustomObject) into a standard IdLE.Entitlement object.
 
-    The function validates that required fields (Kind, Id) are present and not empty.
+    The function validates that required fields (Kind, Id) are present and not empty and that
+    Kind is supported by the AD provider ('Group'). Kind is returned in its canonical casing.
 
     .PARAMETER Value
     The input value to convert. Can be a hashtable or PSCustomObject with
@@ -53,7 +54,7 @@ function ConvertTo-IdleADEntitlement {
 
     return [pscustomobject]@{
         PSTypeName = 'IdLE.Entitlement'
-        Kind       = [string]$kind
+        Kind       = Get-IdleADEntitlementKind -Kind ([string]$kind)
         Id         = [string]$id
     }
 }

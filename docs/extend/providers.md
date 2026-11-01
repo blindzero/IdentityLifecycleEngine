@@ -115,6 +115,38 @@ their implementation beyond contract usage.
 
 ---
 
+## Entitlement providers
+
+An entitlement is identified by `Kind` (e.g. `Group`, `AdministrativeUnit`) and `Id`. The entitlement steps
+(`IdLE.Step.EnsureEntitlement`, `IdLE.Step.PruneEntitlements`, `IdLE.Step.PruneEntitlementsEnsureKeep`) and the
+`IdLE.Entitlement.List` context resolver call these methods:
+
+| Method | Contract |
+| --- | --- |
+| `ListEntitlements(IdentityKey[, AuthSession][, Kind])` | Returns entitlement objects with `Kind` and `Id`. The optional `Kind` parameter filters the result; callers pass it when the method declares it. |
+| `GrantEntitlement(IdentityKey, Entitlement[, AuthSession])` | Idempotent; returns a result with `Changed`, `IdentityKey`, `Entitlement`. |
+| `RevokeEntitlement(IdentityKey, Entitlement[, AuthSession])` | Idempotent; same result shape. |
+| `ResolveEntitlement(Entitlement[, AuthSession])` (optional) | Returns the entitlement with its canonical `Id` (e.g. a group DN for a sAMAccountName), so that prune Keep entries match `ListEntitlements` output. The Kind comes from `Entitlement.Kind`. |
+| `BulkGrantEntitlements` / `BulkRevokeEntitlements(IdentityKey, Entitlements[, AuthSession])` (optional) | Per-item results with `Changed`, `Error`, `Entitlement`. |
+
+**Kinds:** a provider supports a fixed set of Kinds and **rejects every other Kind** (including misspellings) with an
+error before changing anything, in `ListEntitlements(Kind)` as well as in Grant, Revoke, Resolve and the bulk methods.
+Kinds compare case-insensitively; providers return the canonical casing.
+
+| Provider | Supported Kinds |
+| --- | --- |
+| AD | `Group` |
+| Entra ID | `Group`, `AdministrativeUnit` |
+| Mock | any non-empty Kind |
+
+This keeps workflow mistakes visible: without the check, an `AdministrativeUnit` entitlement on AD would be resolved as
+a group with the same name, and a prune with an unsupported Kind would silently find nothing to remove.
+
+Migration from earlier versions: `ResolveEntitlement($Kind, $Entitlement, $AuthSession)` is now
+`ResolveEntitlement($Entitlement, $AuthSession)`.
+
+---
+
 ## Auth session acquisition (AuthSessionBroker)
 
 Many providers require authenticated connections (tokens, API clients, remote sessions).
